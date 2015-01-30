@@ -19,6 +19,11 @@ func Hello(s string) {
 	fmt.Printf("hello %s from go\n", s)
 }
 
+// Concat concatenates two strings together and returns the resulting string.
+func Concat(s1, s2 string) string {
+	return s1 + s2
+}
+
 // Add returns the sum of its arguments.
 func Add(i, j int) int {
 	return i + j

@@ -13,33 +13,28 @@ import (
 
 
 //export GoPy_Add
-// GoPy_Add wraps hi.Add
-// github.com/go-python/gopy-gen/_examples/hi.Add
-// func(i int, j int) int
-// (i int, j int)
-// (int)
+// GoPy_Add wraps github.com/go-python/gopy-gen/_examples/hi.Add
 func GoPy_Add(i int, j int) int {
 	return hi.Add(i, j)
 }
 
 
+//export GoPy_Concat
+// GoPy_Concat wraps github.com/go-python/gopy-gen/_examples/hi.Concat
+func GoPy_Concat(s1 string, s2 string) string {
+	return hi.Concat(s1, s2)
+}
+
+
 //export GoPy_Hello
-// GoPy_Hello wraps hi.Hello
-// github.com/go-python/gopy-gen/_examples/hi.Hello
-// func(s string)
-// (s string)
-// ()
+// GoPy_Hello wraps github.com/go-python/gopy-gen/_examples/hi.Hello
 func GoPy_Hello(s string) {
 	hi.Hello(s)
 }
 
 
 //export GoPy_Hi
-// GoPy_Hi wraps hi.Hi
-// github.com/go-python/gopy-gen/_examples/hi.Hi
-// func()
-// ()
-// ()
+// GoPy_Hi wraps github.com/go-python/gopy-gen/_examples/hi.Hi
 func GoPy_Hi() {
 	hi.Hi()
 }

@@ -88,6 +88,29 @@ gopy_Add(PyObject *self, PyObject *args) {
 }
 
 
+/* pythonization of: hi.Concat */
+static PyObject*
+gopy_Concat(PyObject *self, PyObject *args) {
+	const char* cgopy_s1;
+	GoString c_s1;
+	const char* cgopy_s2;
+	GoString c_s2;
+	const char* cgopy_gopy_ret;
+	GoString c_gopy_ret;
+	
+	if (!PyArg_ParseTuple(args, "ss", (GoString*)(&cgopy_s1), (GoString*)(&cgopy_s2))) {
+		return NULL;
+	}
+	
+	c_s1 = _cgopy_makegostring(cgopy_s1);
+	c_s2 = _cgopy_makegostring(cgopy_s2);
+	
+	c_gopy_ret = GoPy_Concat(c_s1, c_s2);
+	
+	return Py_BuildValue("s", c_gopy_ret);
+}
+
+
 /* pythonization of: hi.Hello */
 static PyObject*
 gopy_Hello(PyObject *self, PyObject *args) {
@@ -119,6 +142,7 @@ gopy_Hi(PyObject *self, PyObject *args) {
 
 static PyMethodDef GoPy_hi_Methods[] = {
 	{"Add", gopy_Add, METH_VARARGS, "doc for: hi.Add"},
+	{"Concat", gopy_Concat, METH_VARARGS, "doc for: hi.Concat"},
 	{"Hello", gopy_Hello, METH_VARARGS, "doc for: hi.Hello"},
 	{"Hi", gopy_Hi, METH_VARARGS, "doc for: hi.Hi"},
 	{NULL, NULL, 0, NULL}        /* Sentinel */

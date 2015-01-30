@@ -89,6 +89,8 @@ hi from go
 >>> hi.Hello("you")
 hello you from go
 
+>>> hi.Concat("hello ","gopy-gen")
+'hello gopy-gen'
 ```
 
 ## Limitations
