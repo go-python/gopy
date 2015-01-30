@@ -58,7 +58,7 @@ import (
 	"os"
 
 	"github.com/go-python/gopy-gen/_examples/py_hi"
-	python "github.com/sbinet/go-python"
+	python "github.com/sbinet/go-python" // FIXME(sbinet): migrate to go-python/py
 )
 
 func init() {
@@ -67,7 +67,7 @@ func init() {
 		panic(err.Error())
 	}
 
-	py_hi.Import()
+	py_hi.Register() // make the python "hi" module available
 }
 
 func main() {
@@ -90,3 +90,8 @@ hi from go
 hello you from go
 
 ```
+
+## Limitations
+
+- wrap `go` structs into `python` classes
+- better pythonization: turn `go` `errors` into `python` exceptions

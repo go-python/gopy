@@ -44,7 +44,7 @@ func GoPy_Hi() {
 	hi.Hi()
 }
 
-// Import imports the generated CPython module
-func Import() {
+// Register registers the generated CPython module with the CPython runtime
+func Register() {
 	C.inithi()
 }
