@@ -153,3 +153,4 @@ inithi(void)
 {
 	(void) Py_InitModule3("hi", GoPy_hi_Methods, "FIXME(sbinet): documentation for package hi");
 }
+
