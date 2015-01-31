@@ -151,6 +151,5 @@ static PyMethodDef GoPy_hi_Methods[] = {
 PyMODINIT_FUNC
 inithi(void)
 {
-    (void) Py_InitModule3("hi", GoPy_hi_Methods, "FIXME(sbinet): documentation for package hi");
+	(void) Py_InitModule3("hi", GoPy_hi_Methods, "FIXME(sbinet): documentation for package hi");
 }
-
