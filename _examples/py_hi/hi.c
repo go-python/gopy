@@ -98,7 +98,7 @@ gopy_Concat(PyObject *self, PyObject *args) {
 	const char* cgopy_gopy_ret;
 	GoString c_gopy_ret;
 	
-	if (!PyArg_ParseTuple(args, "ss", (GoString*)(&cgopy_s1), (GoString*)(&cgopy_s2))) {
+	if (!PyArg_ParseTuple(args, "ss", &cgopy_s1, &cgopy_s2)) {
 		return NULL;
 	}
 	
@@ -117,7 +117,7 @@ gopy_Hello(PyObject *self, PyObject *args) {
 	const char* cgopy_s;
 	GoString c_s;
 	
-	if (!PyArg_ParseTuple(args, "s", (GoString*)(&cgopy_s))) {
+	if (!PyArg_ParseTuple(args, "s", &cgopy_s)) {
 		return NULL;
 	}
 	
