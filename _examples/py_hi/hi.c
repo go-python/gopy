@@ -141,16 +141,16 @@ gopy_Hi(PyObject *self, PyObject *args) {
 }
 
 static PyMethodDef GoPy_hi_Methods[] = {
-	{"Add", gopy_Add, METH_VARARGS, "doc for: hi.Add"},
-	{"Concat", gopy_Concat, METH_VARARGS, "doc for: hi.Concat"},
-	{"Hello", gopy_Hello, METH_VARARGS, "doc for: hi.Hello"},
-	{"Hi", gopy_Hi, METH_VARARGS, "doc for: hi.Hi"},
+	{"Add", gopy_Add, METH_VARARGS, "Add returns the sum of its arguments.\n"},
+	{"Concat", gopy_Concat, METH_VARARGS, "Concat concatenates two strings together and returns the resulting string.\n"},
+	{"Hello", gopy_Hello, METH_VARARGS, "Hello prints a greeting from Go\n"},
+	{"Hi", gopy_Hi, METH_VARARGS, "Hi prints hi from Go\n"},
 	{NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
 PyMODINIT_FUNC
 inithi(void)
 {
-	(void) Py_InitModule3("hi", GoPy_hi_Methods, "FIXME(sbinet): documentation for package hi");
+	(void) Py_InitModule3("hi", GoPy_hi_Methods, "package hi exposes a few Go functions to be wrapped and used from Python.\n");
 }
 
