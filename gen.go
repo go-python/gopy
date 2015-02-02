@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/build"
+	"go/doc"
 	"go/parser"
 	"go/scanner"
 	"go/token"
@@ -40,13 +41,11 @@ func genPkg(odir string, pkg *build.Package) error {
 		err = e
 	}
 
-	conf.CreateFromFiles(pkg.ImportPath, files...)
-	program, err := conf.Load()
+	p, err := newPackage(files, &conf, pkg)
 	if err != nil {
 		errorf("%v\n", err)
 		return err
 	}
-	p := program.Created[0].Pkg
 
 	switch *lang {
 	case "python", "py":
@@ -111,4 +110,25 @@ func parseFiles(dir string, fnames []string) ([]*ast.File, error) {
 	}
 
 	return files, err
+}
+
+func newPackage(files []*ast.File, conf *loader.Config, pkg *build.Package) (*bind.Package, error) {
+
+	conf.CreateFromFiles(pkg.ImportPath, files...)
+	program, err := conf.Load()
+	if err != nil {
+		return nil, err
+	}
+	p := program.Created[0].Pkg
+
+	var pkgast *ast.Package
+	pkgs, err := parser.ParseDir(fset, pkg.Dir, nil, parser.ParseComments)
+	if err != nil {
+		return nil, err
+	}
+	pkgast = pkgs[p.Name()]
+
+	pkgdoc := doc.New(pkgast, pkg.ImportPath, 0)
+
+	return bind.NewPackage(p, pkgdoc), err
 }
