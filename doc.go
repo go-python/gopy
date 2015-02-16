@@ -4,7 +4,7 @@
 
 /*
 gopy-gen generates language bindings that make it possible to call Go code
-and pass objects from Java.
+and pass objects from Python.
 
 Using gopy-gen
 
