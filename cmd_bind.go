@@ -114,14 +114,37 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 		return err
 	}
 
+	wbind, err := ioutil.TempDir("", "gopy-")
+	if err != nil {
+		return fmt.Errorf("gopy-bind: could not create temp-workdir (%v)", err)
+	}
+
+	err = os.MkdirAll(wbind, 0644)
+	if err != nil {
+		return fmt.Errorf("gopy-bind: could not create workdir (%v)", err)
+	}
+	defer os.RemoveAll(wbind)
+
 	cmd = exec.Command(
 		"go", "build", "-v", "-buildmode=c-shared",
-		"-o", filepath.Join(odir, pkg.Name)+".so",
+		"-o", filepath.Join(wbind, pkg.Name)+".so",
 		//	pkg.ImportPath,
 		".",
 	)
-	log.Printf("cmd>>> %v\n", cmd.Args)
 	cmd.Dir = work
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	cmd = exec.Command(
+		"/bin/cp",
+		filepath.Join(wbind, pkg.Name)+".so",
+		filepath.Join(odir, pkg.Name)+".so",
+	)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

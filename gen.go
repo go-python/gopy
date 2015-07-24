@@ -12,6 +12,7 @@ import (
 	"go/parser"
 	"go/scanner"
 	"go/token"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -72,12 +73,20 @@ func genPkg(odir string, pkg *build.Package, lang string) error {
 			return err
 		}
 
+		var tmpdir string
+		tmpdir, err = ioutil.TempDir("", "gopy-go-cgo-")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(tmpdir)
+
 		hdr := filepath.Join(odir, p.Name()+".h")
 		cmd := exec.Command(
 			"go", "tool", "cgo",
 			"-exportheader", hdr,
 			o.Name(),
 		)
+		cmd.Dir = tmpdir
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
