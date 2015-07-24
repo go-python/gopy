@@ -12,10 +12,12 @@ import (
 	"go/parser"
 	"go/scanner"
 	"go/token"
+	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 
-	"github.com/go-python/py/bind"
+	"github.com/go-python/gopy/bind"
 	"golang.org/x/tools/go/loader"
 )
 
@@ -23,7 +25,7 @@ var (
 	fset = token.NewFileSet()
 )
 
-func genPkg(odir string, pkg *build.Package) error {
+func genPkg(odir string, pkg *build.Package, lang string) error {
 	var err error
 	var o *os.File
 
@@ -33,44 +35,68 @@ func genPkg(odir string, pkg *build.Package) error {
 	}
 
 	conf := loader.Config{
-		SourceImports: true,
-		Fset:          fset,
+		Fset: fset,
 	}
 	conf.TypeChecker.Error = func(e error) {
-		errorf("%v\n", e)
+		log.Printf("%v\n", e)
 		err = e
 	}
 
 	p, err := newPackage(files, &conf, pkg)
 	if err != nil {
-		errorf("%v\n", err)
+		log.Printf("%v\n", err)
 		return err
 	}
 
-	switch *lang {
+	switch lang {
 	case "python", "py":
 		o, err = os.Create(filepath.Join(odir, p.Name()+".c"))
 		if err != nil {
 			return err
 		}
+		defer o.Close()
 		err = bind.GenCPython(o, fset, p)
+		if err != nil {
+			return err
+		}
+
 	case "go":
 		o, err = os.Create(filepath.Join(odir, p.Name()+".go"))
 		if err != nil {
 			return err
 		}
+		defer o.Close()
+
 		err = bind.GenGo(o, fset, p)
+		if err != nil {
+			return err
+		}
+
+		hdr := filepath.Join(odir, p.Name()+".h")
+		cmd := exec.Command(
+			"go", "tool", "cgo",
+			"-exportheader", hdr,
+			o.Name(),
+		)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+
 	default:
-		return fmt.Errorf("unknown target language: %q\n", *lang)
+		return fmt.Errorf("unknown target language: %q\n", lang)
 	}
 
 	if err != nil {
 		if list, _ := err.(bind.ErrorList); len(list) > 0 {
 			for _, err := range list {
-				errorf("%v\n", err)
+				log.Printf("%v\n", err)
 			}
 		} else {
-			errorf("%v\n", err)
+			log.Printf("%v\n", err)
 		}
 	}
 
@@ -100,10 +126,10 @@ func parseFiles(dir string, fnames []string) ([]*ast.File, error) {
 			if list, _ := err.(scanner.ErrorList); len(list) > 0 {
 				for _, err := range list {
 
-					errorf("%v\n", err)
+					log.Printf("%v\n", err)
 				}
 			} else {
-				errorf("%v\n", err)
+				log.Printf("%v\n", err)
 			}
 		}
 		files = append(files, file)

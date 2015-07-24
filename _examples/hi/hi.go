@@ -28,3 +28,26 @@ func Concat(s1, s2 string) string {
 func Add(i, j int) int {
 	return i + j
 }
+
+// Person is a simple struct
+type Person struct {
+	Name string
+	Age  int
+}
+
+// NewPerson creates a new Person value
+func NewPerson(name string, age int) Person {
+	return Person{
+		Name: name,
+		Age:  age,
+	}
+}
+
+func (p Person) String() string {
+	return fmt.Sprintf("hi.Person{Name=%q, Age=%d}", p.Name, p.Age)
+}
+
+// Greet sends greetings
+func (p *Person) Greet() string {
+	return fmt.Sprintf("Hello, I am %s", p.Name)
+}

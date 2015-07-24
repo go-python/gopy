@@ -3,15 +3,15 @@
 // license that can be found in the LICENSE file.
 
 /*
-gopy-gen generates language bindings that make it possible to call Go code
+gopy generates (and compiles) language bindings that make it possible to call Go code
 and pass objects from Python.
 
-Using gopy-gen
+Using gopy
 
-gopy-gen takes a Go package and generates bindings for all of the exported
+gopy takes a Go package and generates bindings for all of the exported
 symbols. The exported symbols define the cross-language interface.
 
-The gopy-gen tool generates both an API stub in Python, and binding code in
+The gopy tool generates both an API stub in Python, and binding code in
 Go. Start with a Go package:
 
 	package hi

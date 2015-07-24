@@ -5,83 +5,40 @@
 package main
 
 import (
-	"flag"
-	"fmt"
-	"go/build"
 	"log"
 	"os"
-	"path/filepath"
+
+	"github.com/gonuts/commander"
+	"github.com/gonuts/flag"
 )
 
 var (
-	lang = flag.String("lang", "python", "target language for bindings")
-	odir = flag.String("odir", "", "output directory for bindings")
-	//pkg  = flag.String("pkg", "", "package name of the bindings")
-
-	usage = `gopy-gen generates Python language bindings for Go.
-
-Usage:
-
-$ gopy-gen [options] <go-package-name>
-
-
-For usage details, see godoc:
-
-$ godoc github.com/go-python/gopy-gen
-`
+	app *commander.Command
 )
 
-func errorf(format string, args ...interface{}) (int, error) {
-	return fmt.Fprintf(os.Stderr, format, args...)
+func init() {
+	app = &commander.Command{
+		UsageLine: "gopy",
+		Subcommands: []*commander.Command{
+			gopyMakeCmdGen(),
+			gopyMakeCmdBind(),
+		},
+		Flag: *flag.NewFlagSet("gopy", flag.ExitOnError),
+	}
 }
 
 func main() {
-	var err error
-
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, usage)
-		flag.PrintDefaults()
-	}
-
-	flag.Parse()
-
-	if flag.NArg() != 1 {
-		log.Printf("expect a fully qualified go package name as argument\n")
-		flag.Usage()
+	err := app.Flag.Parse(os.Args[1:])
+	if err != nil {
+		log.Printf("error parsing flags: %v\n", err)
 		os.Exit(1)
 	}
 
-	cwd, err := os.Getwd()
+	args := app.Flag.Args()
+	err = app.Dispatch(args)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	if *odir == "" {
-		*odir = cwd
-	} else {
-		err = os.MkdirAll(*odir, 0755)
-		if err != nil {
-			log.Printf("could not create output directory: %v\n", err)
-			os.Exit(1)
-		}
-	}
-
-	*odir, err = filepath.Abs(*odir)
-	if err != nil {
-		log.Printf("could not infer absolute path to output directory: %v\n", err)
+		log.Printf("error dispatching command: %v\n", err)
 		os.Exit(1)
-	}
-
-	path := flag.Arg(0)
-	pkg, err := build.Import(path, cwd, 0)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: %v\n", path, err)
-		os.Exit(1)
-	}
-
-	err = genPkg(*odir, pkg)
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	os.Exit(0)
