@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"golang.org/x/tools/go/types"
+	"go/types"
 )
 
 var (

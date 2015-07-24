@@ -6,8 +6,7 @@ package bind
 
 import (
 	"fmt"
-
-	"golang.org/x/tools/go/types"
+	"go/types"
 )
 
 type Var struct {
