@@ -122,3 +122,4 @@ ok  	github.com/go-python/gopy	2.135s
 
 - wrap `go` structs into `python` classes
 - better pythonization: turn `go` `errors` into `python` exceptions
+- only `python-2` supported for now
