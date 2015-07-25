@@ -86,7 +86,7 @@ func (g *cpyGen) gen() error {
 
 		case *types.Func:
 			funcs = append(funcs, cpyFunc{typ: obj})
-			docs[obj.Name()] = g.pkg.getDoc(obj)
+			docs[obj.Name()] = g.getPyDoc(obj)
 
 		case *types.TypeName:
 			named := obj.Type().(*types.Named)
@@ -322,7 +322,7 @@ func (g *cpyGen) genStruct(cpy cpyStruct) {
 	g.impl.Printf("0,\t/*tp_setattro*/\n")
 	g.impl.Printf("0,\t/*tp_as_buffer*/\n")
 	g.impl.Printf("Py_TPFLAGS_DEFAULT,\t/*tp_flags*/\n")
-	g.impl.Printf("%q,\t/* tp_doc */\n", g.pkg.getDoc(obj))
+	g.impl.Printf("%q,\t/* tp_doc */\n", g.getPyDoc(obj))
 	g.impl.Printf("0,\t/* tp_traverse */\n")
 	g.impl.Printf("0,\t/* tp_clear */\n")
 	g.impl.Printf("0,\t/* tp_richcompare */\n")
@@ -548,4 +548,47 @@ func (g *cpyGen) genStructMethods(cpy cpyStruct) {
 func (g *cpyGen) genPreamble() {
 	n := g.pkg.pkg.Name()
 	g.decl.Printf(cPreamble, n, g.pkg.pkg.Path(), filepath.Base(n))
+}
+
+func (g *cpyGen) getPyDoc(o types.Object) string {
+	doc := g.pkg.getDoc(o)
+
+	switch o.(type) {
+
+	case *types.Func:
+		sig := o.Type().(*types.Signature)
+
+		parseFn := func(tup *types.Tuple) []string {
+			params := []string{}
+			if tup == nil {
+				return params
+			}
+			for i := 0; i < tup.Len(); i++ {
+				paramVar := tup.At(i)
+				paramType := pyTypeName(paramVar.Type())
+				if paramVar.Name() != "" {
+					paramType = fmt.Sprintf("%s %s", paramType, paramVar.Name())
+				}
+				params = append(params, paramType)
+			}
+			return params
+		}
+
+		params := parseFn(sig.Params())
+		results := parseFn(sig.Results())
+
+		paramString := strings.Join(params, ", ")
+		resultString := strings.Join(results, ", ")
+
+		docSig := fmt.Sprintf("%s(%s) %s", o.Name(), paramString, resultString)
+
+		if doc != "" {
+			doc = fmt.Sprintf("%s\n\n%s", docSig, doc)
+		} else {
+			doc = docSig
+		}
+
+	}
+
+	return doc
 }
