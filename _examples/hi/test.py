@@ -1,10 +1,22 @@
 import hi
 
+print "--- doc(hi)..."
+print hi.__doc__
+
+print "--- doc(hi.Hi)..."
+print hi.Hi.__doc__
+
 print "--- hi.Hi()..."
 hi.Hi()
 
+print "--- doc(hi.Hello)..."
+print hi.Hello.__doc__
+
 print "--- hi.Hello('you')..."
 hi.Hello("you")
+
+print "--- doc(hi.Add)..."
+print hi.Add.__doc__
 
 print "--- hi.Add(1, 41)..."
 print hi.Add(1,41)
