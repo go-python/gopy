@@ -165,5 +165,5 @@ func newPackage(files []*ast.File, conf *loader.Config, pkg *build.Package) (*bi
 
 	pkgdoc := doc.New(pkgast, pkg.ImportPath, 0)
 
-	return bind.NewPackage(p, pkgdoc), err
+	return bind.NewPackage(p, pkgdoc)
 }

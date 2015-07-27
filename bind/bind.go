@@ -7,12 +7,9 @@ package bind
 import (
 	"bytes"
 	"fmt"
-	"go/doc"
 	"go/token"
 	"io"
 	"os"
-
-	"golang.org/x/tools/go/types"
 )
 
 // ErrorList is a list of errors
@@ -27,69 +24,6 @@ func (list ErrorList) Error() string {
 		io.WriteString(buf, err.Error())
 	}
 	return buf.String()
-}
-
-// Package ties types.Package and ast.Package together
-type Package struct {
-	pkg *types.Package
-	doc *doc.Package
-}
-
-// NewPackage creates a new Package, tying types.Package and ast.Package together.
-func NewPackage(pkg *types.Package, doc *doc.Package) *Package {
-	return &Package{
-		pkg: pkg,
-		doc: doc,
-	}
-}
-
-// Name returns the package name.
-func (p *Package) Name() string {
-	return p.pkg.Name()
-}
-
-// getDoc returns the doc string associated with types.Object
-func (p *Package) getDoc(o types.Object) string {
-	n := o.Name()
-	switch o.(type) {
-	case *types.Const:
-		for _, c := range p.doc.Consts {
-			for _, cn := range c.Names {
-				if n == cn {
-					return c.Doc
-				}
-			}
-		}
-
-	case *types.Var:
-		for _, v := range p.doc.Vars {
-			for _, vn := range v.Names {
-				if n == vn {
-					return v.Doc
-				}
-			}
-		}
-
-	case *types.Func:
-		for _, f := range p.doc.Funcs {
-			if n == f.Name {
-				return f.Doc
-			}
-		}
-
-	case *types.TypeName:
-		for _, t := range p.doc.Types {
-			if n == t.Name {
-				return t.Doc
-			}
-		}
-
-	default:
-		// TODO(sbinet)
-		panic(fmt.Errorf("not yet supported: %v (%T)", o, o))
-	}
-
-	return ""
 }
 
 // GenCPython generates a (C)Python package from a Go package

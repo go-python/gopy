@@ -61,46 +61,12 @@ func (g *goGen) gen() error {
 
 	g.genPreamble()
 
-	scope := g.pkg.pkg.Scope()
-	names := scope.Names()
-	for _, name := range names {
-		obj := scope.Lookup(name)
-		if !obj.Exported() {
-			debugf("ignore %q (not exported)\n", name)
-			continue
-		}
-		debugf("processing %q...\n", name)
+	for _, s := range g.pkg.structs {
+		g.genStruct(s)
+	}
 
-		switch obj := obj.(type) {
-		case *types.Const:
-			// TODO(sbinet)
-			panic(fmt.Errorf("not yet supported: %v (%T)", obj, obj))
-		case *types.Var:
-			// TODO(sbinet)
-			panic(fmt.Errorf("not yet supported: %v (%T)", obj, obj))
-
-		case *types.Func:
-			g.genFunc(obj)
-
-		case *types.TypeName:
-			named := obj.Type().(*types.Named)
-			switch typ := named.Underlying().(type) {
-			case *types.Struct:
-				g.genStruct(obj, typ)
-
-			case *types.Interface:
-				// TODO(sbinet)
-				panic(fmt.Errorf("not yet supported: %v (%T)", typ, obj))
-			default:
-				// TODO(sbinet)
-				panic(fmt.Errorf("not yet supported: %v (%T)", typ, obj))
-			}
-
-		default:
-			// TODO(sbinet)
-			panic(fmt.Errorf("not yet supported: %v (%T)", obj, obj))
-
-		}
+	for _, f := range g.pkg.funcs {
+		g.genFunc(f)
 	}
 
 	g.Printf("// buildmode=c-shared needs a 'main'\n\nfunc main() {}\n")
@@ -118,7 +84,8 @@ func (g *goGen) gen() error {
 	return nil
 }
 
-func (g *goGen) genFunc(o *types.Func) {
+func (g *goGen) genFunc(f Func) {
+	o := f.typ
 	sig := o.Type().(*types.Signature)
 
 	params := "(" + g.tupleString(sig.Params()) + ")"
@@ -135,19 +102,20 @@ func (g *goGen) genFunc(o *types.Func) {
 // GoPy_%[1]s wraps %[2]s
 func GoPy_%[1]s%[3]v%[4]v{
 `,
-		o.Name(), o.FullName(),
+		f.id,
+		o.FullName(),
 		params,
 		ret,
 	)
 
 	g.Indent()
-	g.genFuncBody(o)
+	g.genFuncBody(f)
 	g.Outdent()
 	g.Printf("}\n\n")
 }
 
-func (g *goGen) genFuncBody(o *types.Func) {
-
+func (g *goGen) genFuncBody(f Func) {
+	o := f.typ
 	sig := o.Type().(*types.Signature)
 	results := newVars(sig.Results())
 	for i := range results {
@@ -196,11 +164,13 @@ func (g *goGen) genFuncBody(o *types.Func) {
 	g.Printf("\n")
 }
 
-func (g *goGen) genStruct(obj *types.TypeName, typ *types.Struct) {
+func (g *goGen) genStruct(s Struct) {
 	//fmt.Printf("obj: %#v\ntyp: %#v\n", obj, typ)
+	obj := s.obj
+	typ := s.typ
 	pkgname := obj.Pkg().Name()
-	g.Printf("//export GoPy_%[1]s\n", obj.Name())
-	g.Printf("type GoPy_%[1]s unsafe.Pointer\n\n", obj.Name())
+	g.Printf("//export GoPy_%[1]s\n", s.id)
+	g.Printf("type GoPy_%[1]s unsafe.Pointer\n\n", s.id)
 
 	for i := 0; i < typ.NumFields(); i++ {
 		f := typ.Field(i)
@@ -211,14 +181,14 @@ func (g *goGen) genStruct(obj *types.TypeName, typ *types.Struct) {
 		ft := f.Type()
 		ftname := g.qualifiedType(ft)
 		if needWrapType(ft) {
-			ftname = fmt.Sprintf("GoPy_%[1]s_field_%d", obj.Name(), i+1)
+			ftname = fmt.Sprintf("GoPy_%[1]s_field_%d", s.id, i+1)
 			g.Printf("//export %s\n", ftname)
 			g.Printf("type %s unsafe.Pointer\n\n", ftname)
 		}
 
-		g.Printf("//export GoPy_%[1]s_getter_%[2]d\n", obj.Name(), i+1)
+		g.Printf("//export GoPy_%[1]s_getter_%[2]d\n", s.id, i+1)
 		g.Printf("func GoPy_%[1]s_getter_%[2]d(self GoPy_%[1]s) %[3]s {\n",
-			obj.Name(), i+1,
+			s.id, i+1,
 			ftname,
 		)
 		g.Indent()
@@ -237,15 +207,101 @@ func (g *goGen) genStruct(obj *types.TypeName, typ *types.Struct) {
 		g.Printf("}\n\n")
 	}
 
-	g.Printf("//export GoPy_%[1]s_new\n", obj.Name())
-	g.Printf("func GoPy_%[1]s_new() GoPy_%[1]s {\n", obj.Name())
+	for _, m := range s.meths {
+		g.genMethod(s, m)
+	}
+
+	g.Printf("//export GoPy_%[1]s_new\n", s.id)
+	g.Printf("func GoPy_%[1]s_new() GoPy_%[1]s {\n", s.id)
 	g.Indent()
-	g.Printf("return (GoPy_%[1]s)(unsafe.Pointer(&%[2]s.%[1]s{}))\n",
-		obj.Name(),
+	g.Printf("return (GoPy_%[1]s)(unsafe.Pointer(&%[2]s.%[3]s{}))\n",
+		s.id,
 		pkgname,
+		obj.Name(),
 	)
 	g.Outdent()
 	g.Printf("}\n\n")
+}
+
+func (g *goGen) genMethod(s Struct, m Method) {
+	sig := m.sel.Type().(*types.Signature)
+	params := "(self GoPy_" + s.id
+	if sig.Params().Len() > 0 {
+		params += ", " + g.tupleString(sig.Params())
+	}
+	params += ")"
+
+	ret := g.tupleString(sig.Results())
+	if sig.Results().Len() > 1 {
+		ret = "(" + ret + ")"
+	} else {
+		ret += " "
+	}
+
+	g.Printf("//export GoPy_%[1]s\n", m.id)
+	g.Printf("func GoPy_%[1]s%[2]s%[3]s{\n",
+		m.id,
+		params,
+		ret,
+	)
+	g.Indent()
+	g.genMethodBody(s, m)
+	g.Outdent()
+	g.Printf("}\n\n")
+}
+
+func (g *goGen) genMethodBody(s Struct, m Method) {
+	o := m.sel.Obj()
+	sig := m.sel.Type().(*types.Signature)
+	results := newVars(sig.Results())
+	for i := range results {
+		if i > 0 {
+			g.Printf(", ")
+		}
+		g.Printf("_gopy_%03d", i)
+	}
+	if len(results) > 0 {
+		g.Printf(" := ")
+	}
+
+	g.Printf("(*%s.%s)(unsafe.Pointer(self)).%s(",
+		g.pkg.Name(), s.obj.Name(),
+		o.Name(),
+	)
+
+	args := sig.Params()
+	for i := 0; i < args.Len(); i++ {
+		arg := args.At(i)
+		tail := ""
+		if i+1 < args.Len() {
+			tail = ", "
+		}
+		g.Printf("%s%s", arg.Name(), tail)
+	}
+	g.Printf(")\n")
+
+	if len(results) <= 0 {
+		return
+	}
+
+	g.Printf("return ")
+	for i, res := range results {
+		if i > 0 {
+			g.Printf(", ")
+		}
+		// if needWrap(res.GoType()) {
+		// 	g.Printf("")
+		// }
+		if res.needWrap() {
+			g.Printf("%s(unsafe.Pointer(&", res.dtype.cgotype)
+		}
+		g.Printf("_gopy_%03d /* %#v %v */", i, res, res.GoType().Underlying())
+		if res.needWrap() {
+			g.Printf("))")
+		}
+	}
+	g.Printf("\n")
+
 }
 
 func (g *goGen) genPreamble() {
