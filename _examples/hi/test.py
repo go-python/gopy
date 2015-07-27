@@ -29,11 +29,13 @@ print hi.Person.__doc__
 
 print "--- p = hi.Person()..."
 p = hi.Person()
-print p
 print dir(p)
 
 print "--- p.Name:", p.Name
 print "--- p.Age:",p.Age
+
+#print "--- p.Greet()..."
+#print p.Greet()
 
 print "--- doc(p):"
 print p.__doc__

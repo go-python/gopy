@@ -49,5 +49,10 @@ func (p Person) String() string {
 
 // Greet sends greetings
 func (p *Person) Greet() string {
+	return p.greet()
+}
+
+// greet sends greetings
+func (p *Person) greet() string {
 	return fmt.Sprintf("Hello, I am %s", p.Name)
 }
