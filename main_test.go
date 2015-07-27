@@ -82,6 +82,13 @@ Person is a simple struct
 ['Age', 'Greet', 'Name', 'String', '__class__', '__delattr__', '__doc__', '__format__', '__getattribute__', '__hash__', '__init__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__']
 --- p.Name: None
 --- p.Age: None
+--- doc(hi.Greet):
+Greet() str
+
+Greet sends greetings
+
+--- p.Greet()...
+None
 --- doc(p):
 Person is a simple struct
 

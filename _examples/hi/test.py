@@ -34,8 +34,10 @@ print dir(p)
 print "--- p.Name:", p.Name
 print "--- p.Age:",p.Age
 
-#print "--- p.Greet()..."
-#print p.Greet()
+print "--- doc(hi.Greet):"
+print p.Greet.__doc__
+print "--- p.Greet()..."
+print p.Greet()
 
 print "--- doc(p):"
 print p.__doc__

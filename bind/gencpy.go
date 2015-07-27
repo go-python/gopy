@@ -526,6 +526,8 @@ func (g *cpyGen) genMethod(cpy Struct, m Method) {
 }
 
 func (g *cpyGen) genMethodBody(cpy Struct, m Method) {
+	//FIXME(sbinet)
+	g.impl.Printf("Py_INCREF(Py_None);\nreturn Py_None;\n")
 }
 
 func (g *cpyGen) genPreamble() {
