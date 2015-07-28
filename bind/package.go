@@ -293,7 +293,7 @@ func (s Struct) Struct() *types.Struct {
 	return s.obj.Type().Underlying().(*types.Struct)
 }
 
-// Signature
+// A Signature represents a (non-builtin) function or method type.
 type Signature struct {
 	ret  []*Var
 	args []*Var
