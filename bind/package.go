@@ -18,6 +18,7 @@ type Package struct {
 	pkg *types.Package
 	doc *doc.Package
 
+	objs    map[string]Object
 	structs []Struct
 	funcs   []Func
 }
@@ -271,7 +272,7 @@ func (s Struct) GoName() string {
 	return s.obj.Name()
 }
 
-func (s Struct) Obj() types.Object {
+func (s Struct) GoObj() types.Object {
 	return s.obj
 }
 
@@ -351,7 +352,7 @@ func (f Func) GoName() string {
 	return f.obj.Name()
 }
 
-func (f Func) Obj() types.Object {
+func (f Func) GoObj() types.Object {
 	return f.obj
 }
 

@@ -224,7 +224,7 @@ func (g *cpyGen) genFuncBody(id string, sig *types.Signature) {
 }
 
 func (g *cpyGen) genStruct(cpy Struct) {
-	pkgname := cpy.Obj().Pkg().Name()
+	pkgname := cpy.GoObj().Pkg().Name()
 
 	//fmt.Printf("obj: %#v\ntyp: %#v\n", obj, typ)
 	g.decl.Printf("/* --- decls for struct %s.%v --- */\n", pkgname, cpy.GoName())
@@ -293,7 +293,7 @@ func (g *cpyGen) genStruct(cpy Struct) {
 }
 
 func (g *cpyGen) genStructDealloc(cpy Struct) {
-	pkgname := cpy.Obj().Pkg().Name()
+	pkgname := cpy.GoObj().Pkg().Name()
 
 	g.decl.Printf("/* tp_dealloc for %s.%v */\n", pkgname, cpy.GoName())
 	g.decl.Printf("static void\n_gopy_%[1]s_dealloc(_gopy_%[1]s *self);\n",
@@ -311,7 +311,7 @@ func (g *cpyGen) genStructDealloc(cpy Struct) {
 }
 
 func (g *cpyGen) genStructNew(cpy Struct) {
-	pkgname := cpy.Obj().Pkg().Name()
+	pkgname := cpy.GoObj().Pkg().Name()
 
 	g.decl.Printf("/* tp_new for %s.%v */\n", pkgname, cpy.GoName())
 	g.decl.Printf(
@@ -334,7 +334,7 @@ func (g *cpyGen) genStructNew(cpy Struct) {
 }
 
 func (g *cpyGen) genStructInit(cpy Struct) {
-	pkgname := cpy.Obj().Pkg().Name()
+	pkgname := cpy.GoObj().Pkg().Name()
 
 	g.decl.Printf("/* tp_init for %s.%v */\n", pkgname, cpy.GoName())
 	g.decl.Printf(
@@ -354,7 +354,7 @@ func (g *cpyGen) genStructInit(cpy Struct) {
 }
 
 func (g *cpyGen) genStructMembers(cpy Struct) {
-	pkgname := cpy.Obj().Pkg().Name()
+	pkgname := cpy.GoObj().Pkg().Name()
 	typ := cpy.Struct()
 
 	g.decl.Printf("/* tp_getset for %s.%v */\n", pkgname, cpy.GoName())
@@ -484,7 +484,7 @@ func (g *cpyGen) genStructMembers(cpy Struct) {
 
 func (g *cpyGen) genStructMethods(cpy Struct) {
 
-	pkgname := cpy.Obj().Pkg().Name()
+	pkgname := cpy.GoObj().Pkg().Name()
 
 	g.decl.Printf("/* methods for %s.%s */\n\n", pkgname, cpy.GoName())
 	for _, m := range cpy.meths {

@@ -102,7 +102,7 @@ func (g *goGen) genFunc(f Func) {
 func GoPy_%[1]s%[3]v%[4]v{
 `,
 		f.ID(),
-		f.Obj().Name(),
+		f.GoObj().Name(),
 		params,
 		ret,
 	)
@@ -165,7 +165,7 @@ func (g *goGen) genFuncBody(f Func) {
 func (g *goGen) genStruct(s Struct) {
 	//fmt.Printf("obj: %#v\ntyp: %#v\n", obj, typ)
 	typ := s.Struct()
-	pkgname := s.Obj().Pkg().Name()
+	pkgname := s.GoObj().Pkg().Name()
 	g.Printf("//export GoPy_%[1]s\n", s.ID())
 	g.Printf("type GoPy_%[1]s unsafe.Pointer\n\n", s.ID())
 
