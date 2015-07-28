@@ -9,8 +9,6 @@ import (
 	"go/token"
 	"path/filepath"
 	"strings"
-
-	"golang.org/x/tools/go/types"
 )
 
 const (
@@ -120,14 +118,14 @@ gopy_%[3]s(PyObject *self, PyObject *args) {
 	g.impl.Printf("}\n\n")
 }
 
-func (g *cpyGen) genFuncBody(id string, sig *types.Signature) {
+func (g *cpyGen) genFuncBody(id string, sig *Signature) {
 	funcArgs := []string{}
 
-	res := newVars(sig.Results())
-	args := newVars(sig.Params())
+	res := sig.Results()
+	args := sig.Params()
 	var recv *Var
 	if sig.Recv() != nil {
-		recv = newVar(sig.Recv())
+		recv = sig.Recv()
 		recv.genRecvDecl(g.impl)
 		funcArgs = append(funcArgs, recv.getFuncArg())
 	}

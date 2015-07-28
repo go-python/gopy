@@ -89,7 +89,7 @@ func (g *goGen) genFunc(f Func) {
 
 	params := "(" + g.tupleString(sig.Params()) + ")"
 	ret := g.tupleString(sig.Results())
-	if sig.Results().Len() > 1 {
+	if len(sig.Results()) > 1 {
 		ret = "(" + ret + ") "
 	} else {
 		ret += " "
@@ -115,7 +115,7 @@ func GoPy_%[1]s%[3]v%[4]v{
 
 func (g *goGen) genFuncBody(f Func) {
 	sig := f.Signature()
-	results := newVars(sig.Results())
+	results := sig.Results()
 	for i := range results {
 		if i > 0 {
 			g.Printf(", ")
@@ -129,10 +129,9 @@ func (g *goGen) genFuncBody(f Func) {
 	g.Printf("%s.%s(", g.pkg.Name(), f.GoName())
 
 	args := sig.Params()
-	for i := 0; i < args.Len(); i++ {
-		arg := args.At(i)
+	for i, arg := range args {
 		tail := ""
-		if i+1 < args.Len() {
+		if i+1 < len(args) {
 			tail = ", "
 		}
 		g.Printf("%s%s", arg.Name(), tail)
@@ -223,13 +222,13 @@ func (g *goGen) genStruct(s Struct) {
 func (g *goGen) genMethod(s Struct, m Func) {
 	sig := m.Signature()
 	params := "(self GoPy_" + s.ID()
-	if sig.Params().Len() > 0 {
+	if len(sig.Params()) > 0 {
 		params += ", " + g.tupleString(sig.Params())
 	}
 	params += ")"
 
 	ret := g.tupleString(sig.Results())
-	if sig.Results().Len() > 1 {
+	if len(sig.Results()) > 1 {
 		ret = "(" + ret + ")"
 	} else {
 		ret += " "
@@ -249,7 +248,7 @@ func (g *goGen) genMethod(s Struct, m Func) {
 
 func (g *goGen) genMethodBody(s Struct, m Func) {
 	sig := m.Signature()
-	results := newVars(sig.Results())
+	results := sig.Results()
 	for i := range results {
 		if i > 0 {
 			g.Printf(", ")
@@ -266,10 +265,9 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 	)
 
 	args := sig.Params()
-	for i := 0; i < args.Len(); i++ {
-		arg := args.At(i)
+	for i, arg := range args {
 		tail := ""
-		if i+1 < args.Len() {
+		if i+1 < len(args) {
 			tail = ", "
 		}
 		g.Printf("%s%s", arg.Name(), tail)
@@ -305,17 +303,16 @@ func (g *goGen) genPreamble() {
 	g.Printf(goPreamble, n, g.pkg.pkg.Path(), filepath.Base(n))
 }
 
-func (g *goGen) tupleString(tuple *types.Tuple) string {
-	n := tuple.Len()
+func (g *goGen) tupleString(tuple []*Var) string {
+	n := len(tuple)
 	if n <= 0 {
 		return ""
 	}
 
 	str := make([]string, 0, n)
-	for i := 0; i < tuple.Len(); i++ {
-		v := tuple.At(i)
+	for _, v := range tuple {
 		n := v.Name()
-		typ := v.Type()
+		typ := v.GoType()
 		str = append(str, n+" "+g.qualifiedType(typ))
 	}
 

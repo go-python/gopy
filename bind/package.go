@@ -159,7 +159,7 @@ func (p *Package) process() error {
 			p.addVar(obj)
 
 		case *types.Func:
-			funcs[name], err = newFunc(p, "", obj, obj.Type().(*types.Signature))
+			funcs[name], err = newFuncFrom(p, "", obj, obj.Type().(*types.Signature))
 			if err != nil {
 				return err
 			}
@@ -206,7 +206,7 @@ func (p *Package) process() error {
 			if !meth.Obj().Exported() {
 				continue
 			}
-			m, err := newFunc(p, sname, meth.Obj(), meth.Type().(*types.Signature))
+			m, err := newFuncFrom(p, sname, meth.Obj(), meth.Type().(*types.Signature))
 			if err != nil {
 				return err
 			}
@@ -297,10 +297,42 @@ func (s Struct) Struct() *types.Struct {
 	return s.obj.Type().Underlying().(*types.Struct)
 }
 
+// Signature
+type Signature struct {
+	ret  []*Var
+	args []*Var
+	recv *Var
+}
+
+func newSignatureFrom(pkg *Package, sig *types.Signature) *Signature {
+	var recv *Var
+	if sig.Recv() != nil {
+		recv = newVarFrom(pkg, sig.Recv())
+	}
+
+	return &Signature{
+		ret:  newVarsFrom(pkg, sig.Results()),
+		args: newVarsFrom(pkg, sig.Params()),
+		recv: recv,
+	}
+}
+
+func (sig *Signature) Results() []*Var {
+	return sig.ret
+}
+
+func (sig *Signature) Params() []*Var {
+	return sig.args
+}
+
+func (sig *Signature) Recv() *Var {
+	return sig.recv
+}
+
 // Func collects informations about a go func/method.
 type Func struct {
 	pkg *Package
-	sig *types.Signature
+	sig *Signature
 	obj types.Object
 
 	id  string
@@ -309,7 +341,7 @@ type Func struct {
 	err bool       // true if original go func has comma-error
 }
 
-func newFunc(p *Package, parent string, obj types.Object, sig *types.Signature) (Func, error) {
+func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signature) (Func, error) {
 	haserr := false
 	res := sig.Results()
 	var ret types.Type
@@ -340,7 +372,7 @@ func newFunc(p *Package, parent string, obj types.Object, sig *types.Signature) 
 
 	return Func{
 		pkg: p,
-		sig: sig,
+		sig: newSignatureFrom(p, sig),
 		obj: obj,
 		id:  obj.Pkg().Name() + "_" + obj.Name(),
 		doc: p.getDoc(parent, obj),
@@ -373,7 +405,7 @@ func (f Func) GoObj() types.Object {
 	return f.obj
 }
 
-func (f Func) Signature() *types.Signature {
+func (f Func) Signature() *Signature {
 	return f.sig
 }
 
