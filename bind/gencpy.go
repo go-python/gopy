@@ -355,7 +355,7 @@ func (g *cpyGen) genStructInit(cpy Struct) {
 
 func (g *cpyGen) genStructMembers(cpy Struct) {
 	pkgname := cpy.Obj().Pkg().Name()
-	typ := cpy.GoType().(*types.Struct)
+	typ := cpy.Struct()
 
 	g.decl.Printf("/* tp_getset for %s.%v */\n", pkgname, cpy.GoName())
 	for i := 0; i < typ.NumFields(); i++ {

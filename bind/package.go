@@ -166,7 +166,7 @@ func (p *Package) process() error {
 			named := obj.Type().(*types.Named)
 			switch typ := named.Underlying().(type) {
 			case *types.Struct:
-				structs[name], err = newStruct(p, obj, typ)
+				structs[name], err = newStruct(p, obj)
 				if err != nil {
 					return err
 				}
@@ -190,14 +190,14 @@ func (p *Package) process() error {
 			if fct.Return() == nil {
 				continue
 			}
-			if fct.Return() == s.Obj().Type() {
+			if fct.Return() == s.GoType() {
 				delete(funcs, name)
 				s.ctors = append(s.ctors, fct)
 				structs[sname] = s
 			}
 		}
 
-		ptyp := types.NewPointer(s.Obj().Type())
+		ptyp := types.NewPointer(s.GoType())
 		mset := types.NewMethodSet(ptyp)
 		for i := 0; i < mset.Len(); i++ {
 			meth := mset.At(i)
@@ -232,8 +232,8 @@ func (p *Package) addVar(obj *types.Var) {
 
 // Struct collects informations about a go struct.
 type Struct struct {
+	pkg *Package
 	obj *types.TypeName
-	typ *types.Struct
 
 	id    string
 	doc   string
@@ -241,14 +241,18 @@ type Struct struct {
 	meths []Func
 }
 
-func newStruct(p *Package, obj *types.TypeName, typ *types.Struct) (Struct, error) {
+func newStruct(p *Package, obj *types.TypeName) (Struct, error) {
 	s := Struct{
+		pkg: p,
 		obj: obj,
-		typ: typ,
 		id:  obj.Pkg().Name() + "_" + obj.Name(),
 		doc: p.getDoc("", obj),
 	}
 	return s, nil
+}
+
+func (s Struct) Package() *Package {
+	return s.pkg
 }
 
 func (s Struct) ID() string {
@@ -260,7 +264,7 @@ func (s Struct) Doc() string {
 }
 
 func (s Struct) GoType() types.Type {
-	return s.typ
+	return s.obj.Type()
 }
 
 func (s Struct) GoName() string {
@@ -271,8 +275,13 @@ func (s Struct) Obj() types.Object {
 	return s.obj
 }
 
+func (s Struct) Struct() *types.Struct {
+	return s.obj.Type().Underlying().(*types.Struct)
+}
+
 // Func collects informations about a go func/method.
 type Func struct {
+	pkg *Package
 	sig *types.Signature
 	obj types.Object
 
@@ -312,6 +321,7 @@ func newFunc(p *Package, parent string, obj types.Object, sig *types.Signature) 
 	}
 
 	return Func{
+		pkg: p,
 		sig: sig,
 		obj: obj,
 		id:  obj.Pkg().Name() + "_" + obj.Name(),
@@ -319,6 +329,10 @@ func newFunc(p *Package, parent string, obj types.Object, sig *types.Signature) 
 		ret: ret,
 		err: haserr,
 	}, nil
+}
+
+func (f Func) Package() *Package {
+	return f.pkg
 }
 
 func (f Func) ID() string {

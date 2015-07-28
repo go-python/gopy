@@ -9,6 +9,7 @@ import (
 )
 
 type Type interface {
+	Package() *Package
 	GoType() types.Type
 	GoName() string
 	ID() string
