@@ -8,13 +8,17 @@ import (
 	"golang.org/x/tools/go/types"
 )
 
-type Type interface {
+type Object interface {
 	Package() *Package
-	GoType() types.Type
-	GoName() string
 	ID() string
 	Doc() string
+	GoName() string
 	Obj() types.Object
+}
+
+type Type interface {
+	Object
+	GoType() types.Type
 }
 
 func needWrapType(typ types.Type) bool {
