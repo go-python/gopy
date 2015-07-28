@@ -289,10 +289,6 @@ func (s Struct) GoName() string {
 	return s.obj.Name()
 }
 
-func (s Struct) GoObj() types.Object {
-	return s.obj
-}
-
 func (s Struct) Struct() *types.Struct {
 	return s.obj.Type().Underlying().(*types.Struct)
 }
@@ -399,10 +395,6 @@ func (f Func) GoType() types.Type {
 
 func (f Func) GoName() string {
 	return f.obj.Name()
-}
-
-func (f Func) GoObj() types.Object {
-	return f.obj
 }
 
 func (f Func) Signature() *Signature {

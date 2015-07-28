@@ -13,7 +13,6 @@ type Object interface {
 	ID() string
 	Doc() string
 	GoName() string
-	GoObj() types.Object
 }
 
 type Type interface {
