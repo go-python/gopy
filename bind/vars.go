@@ -86,6 +86,15 @@ func (v *Var) genDecl(g *printer) {
 	g.Printf("%[1]s c_%[2]s;\n", v.CGoType(), v.Var.Name())
 }
 
+func (v *Var) genRecvDecl(g *printer) {
+	g.Printf("%[1]s c_%[2]s;\n", v.CGoType(), v.Var.Name())
+}
+
+func (v *Var) genRecvImpl(g *printer) {
+	n := string(v.CGoType()[len("GoPy_"):])
+	g.Printf("c_%[1]s = ((_gopy_%[2]s*)self)->cgopy;\n", v.Var.Name(), n)
+}
+
 func (v *Var) genRetDecl(g *printer) {
 	if v.isGoString() {
 		g.Printf("const char* cgopy_gopy_ret;\n")

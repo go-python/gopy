@@ -112,18 +112,23 @@ gopy_%[3]s(PyObject *self, PyObject *args) {
 	)
 
 	g.impl.Indent()
-	g.genFuncBody(o)
+	g.genFuncBody(o.id, o.typ.Type().(*types.Signature))
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }
 
-func (g *cpyGen) genFuncBody(fct Func) {
-	o := fct.typ
+func (g *cpyGen) genFuncBody(id string, sig *types.Signature) {
 	funcArgs := []string{}
 
-	sig := o.Type().(*types.Signature)
 	res := newVars(sig.Results())
 	args := newVars(sig.Params())
+	var recv *Var
+	if sig.Recv() != nil {
+		recv = newVar(sig.Recv())
+		recv.genRecvDecl(g.impl)
+		funcArgs = append(funcArgs, recv.getFuncArg())
+	}
+
 	for _, arg := range args {
 		arg.genDecl(g.impl)
 		funcArgs = append(funcArgs, arg.getFuncArg())
@@ -136,7 +141,7 @@ func (g *cpyGen) genFuncBody(fct Func) {
 			ret := res[0]
 			ret.genRetDecl(g.impl)
 		default:
-			g.impl.Printf("struct %[1]s_return c_gopy_ret;\n", fct.id)
+			g.impl.Printf("struct %[1]s_return c_gopy_ret;\n", id)
 			/*
 					for i := 0; i < res.Len(); i++ {
 						ret := res.At(i)
@@ -151,6 +156,10 @@ func (g *cpyGen) genFuncBody(fct Func) {
 	}
 
 	g.impl.Printf("\n")
+
+	if recv != nil {
+		recv.genRecvImpl(g.impl)
+	}
 
 	if len(args) > 0 {
 		g.impl.Printf("if (!PyArg_ParseTuple(args, ")
@@ -179,7 +188,7 @@ func (g *cpyGen) genFuncBody(fct Func) {
 		g.impl.Printf("c_gopy_ret = ")
 	}
 
-	g.impl.Printf("GoPy_%[1]s(%[2]s);\n", fct.id, strings.Join(funcArgs, ", "))
+	g.impl.Printf("GoPy_%[1]s(%[2]s);\n", id, strings.Join(funcArgs, ", "))
 
 	g.impl.Printf("\n")
 
@@ -526,8 +535,7 @@ func (g *cpyGen) genMethod(cpy Struct, m Method) {
 }
 
 func (g *cpyGen) genMethodBody(cpy Struct, m Method) {
-	//FIXME(sbinet)
-	g.impl.Printf("Py_INCREF(Py_None);\nreturn Py_None;\n")
+	g.genFuncBody(m.id, m.sel.Type().(*types.Signature))
 }
 
 func (g *cpyGen) genPreamble() {
