@@ -88,7 +88,7 @@ Greet() str
 Greet sends greetings
 
 --- p.Greet()...
-None
+Hello, I am 
 --- doc(p):
 Person is a simple struct
 
