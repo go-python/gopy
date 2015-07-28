@@ -11,23 +11,39 @@ import (
 )
 
 type Var struct {
-	Var   *types.Var
+	pkg   *Package
+	id    string
+	doc   string
+	name  string
+	obj   types.Object
 	dtype typedesc
 }
 
-func newVars(tuple *types.Tuple) []*Var {
+func (v *Var) Name() string {
+	return v.name
+}
+
+func newVar(p *Package, obj types.Object, name, doc string) *Var {
+	return &Var{
+		pkg:   p,
+		id:    p.Name() + "_" + obj.Name(),
+		doc:   doc,
+		name:  name,
+		obj:   obj,
+		dtype: getTypedesc(obj.Type()),
+	}
+}
+
+func newVarsFrom(p *Package, tuple *types.Tuple) []*Var {
 	vars := make([]*Var, 0, tuple.Len())
 	for i := 0; i < tuple.Len(); i++ {
-		vars = append(vars, newVar(tuple.At(i)))
+		vars = append(vars, newVarFrom(p, tuple.At(i)))
 	}
 	return vars
 }
 
-func newVar(v *types.Var) *Var {
-	return &Var{
-		Var:   v,
-		dtype: getTypedesc(v.Type()),
-	}
+func newVarFrom(p *Package, v *types.Var) *Var {
+	return newVar(p, v, v.Name(), p.getDoc("", v))
 }
 
 func getTypedesc(t types.Type) typedesc {
@@ -59,7 +75,7 @@ func getTypedesc(t types.Type) typedesc {
 }
 
 func (v *Var) GoType() types.Type {
-	return v.Var.Type()
+	return v.obj.Type()
 }
 
 func (v *Var) CType() string {
@@ -84,18 +100,18 @@ func (v *Var) isGoString() bool {
 
 func (v *Var) genDecl(g *printer) {
 	if v.isGoString() {
-		g.Printf("const char* cgopy_%s;\n", v.Var.Name())
+		g.Printf("const char* cgopy_%s;\n", v.Name())
 	}
-	g.Printf("%[1]s c_%[2]s;\n", v.CGoType(), v.Var.Name())
+	g.Printf("%[1]s c_%[2]s;\n", v.CGoType(), v.Name())
 }
 
 func (v *Var) genRecvDecl(g *printer) {
-	g.Printf("%[1]s c_%[2]s;\n", v.CGoType(), v.Var.Name())
+	g.Printf("%[1]s c_%[2]s;\n", v.CGoType(), v.Name())
 }
 
 func (v *Var) genRecvImpl(g *printer) {
 	n := string(v.CGoType()[len("GoPy_"):])
-	g.Printf("c_%[1]s = ((_gopy_%[2]s*)self)->cgopy;\n", v.Var.Name(), n)
+	g.Printf("c_%[1]s = ((_gopy_%[2]s*)self)->cgopy;\n", v.Name(), n)
 }
 
 func (v *Var) genRetDecl(g *printer) {
@@ -106,21 +122,21 @@ func (v *Var) genRetDecl(g *printer) {
 }
 
 func (v *Var) getArgParse() (string, string) {
-	addr := "&c_" + v.Var.Name()
+	addr := "&c_" + v.Name()
 	if v.isGoString() {
-		addr = "&cgopy_" + v.Var.Name()
+		addr = "&cgopy_" + v.Name()
 	}
 	return v.dtype.pyfmt, addr
 }
 
 func (v *Var) genFuncPreamble(g *printer) {
 	if v.isGoString() {
-		g.Printf("c_%[1]s = CGoPy_GoString((char*)cgopy_%[1]s);\n", v.Var.Name())
+		g.Printf("c_%[1]s = CGoPy_GoString((char*)cgopy_%[1]s);\n", v.Name())
 	}
 }
 
 func (v *Var) getFuncArg() string {
-	return "c_" + v.Var.Name()
+	return "c_" + v.Name()
 }
 
 func (v *Var) needWrap() bool {
