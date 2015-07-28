@@ -40,9 +40,12 @@ func getTypedesc(t types.Type) typedesc {
 	case *types.Named:
 		switch typ.Underlying().(type) {
 		case *types.Struct:
+			obj := typ.Obj()
+			pkgname := obj.Pkg().Name()
+			id := pkgname + "_" + obj.Name()
 			return typedesc{
-				ctype:   "GoPy_" + typ.Obj().Name(),
-				cgotype: "GoPy_" + typ.Obj().Name(),
+				ctype:   "GoPy_" + id,
+				cgotype: "GoPy_" + id,
 				pyfmt:   "N",
 			}
 		}
