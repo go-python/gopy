@@ -157,7 +157,7 @@ func (p *Package) process() error {
 			p.addVar(obj)
 
 		case *types.Func:
-			funcs[name], err = newFunc(p, "", obj, obj)
+			funcs[name], err = newFunc(p, "", obj, obj.Type().(*types.Signature))
 			if err != nil {
 				return err
 			}
@@ -187,24 +187,24 @@ func (p *Package) process() error {
 	// add methods.
 	for sname, s := range structs {
 		for name, fct := range funcs {
-			if fct.ret == nil {
+			if fct.Return() == nil {
 				continue
 			}
-			if fct.ret == s.obj.Type() {
+			if fct.Return() == s.Obj().Type() {
 				delete(funcs, name)
 				s.ctors = append(s.ctors, fct)
 				structs[sname] = s
 			}
 		}
 
-		ptyp := types.NewPointer(s.obj.Type())
+		ptyp := types.NewPointer(s.Obj().Type())
 		mset := types.NewMethodSet(ptyp)
 		for i := 0; i < mset.Len(); i++ {
 			meth := mset.At(i)
 			if !meth.Obj().Exported() {
 				continue
 			}
-			m, err := newFunc(p, sname, meth.Obj(), meth.Obj().(*types.Func))
+			m, err := newFunc(p, sname, meth.Obj(), meth.Type().(*types.Signature))
 			if err != nil {
 				return err
 			}
@@ -263,19 +263,18 @@ func (s Struct) GoType() types.Type {
 	return s.typ
 }
 
-func (s Struct) Obj() types.Object {
-	return s.obj
+func (s Struct) GoName() string {
+	return s.obj.Name()
 }
 
-func (s Struct) Name() string {
-	return s.obj.Name()
+func (s Struct) Obj() types.Object {
+	return s.obj
 }
 
 // Func collects informations about a go func/method.
 type Func struct {
 	sig *types.Signature
 	obj types.Object
-	typ *types.Func
 
 	id  string
 	doc string
@@ -283,9 +282,8 @@ type Func struct {
 	err bool       // true if original go func has comma-error
 }
 
-func newFunc(p *Package, parent string, obj types.Object, typ *types.Func) (Func, error) {
+func newFunc(p *Package, parent string, obj types.Object, sig *types.Signature) (Func, error) {
 	haserr := false
-	sig := typ.Type().(*types.Signature)
 	res := sig.Results()
 	var ret types.Type
 
@@ -316,7 +314,6 @@ func newFunc(p *Package, parent string, obj types.Object, typ *types.Func) (Func
 	return Func{
 		sig: sig,
 		obj: obj,
-		typ: typ,
 		id:  obj.Pkg().Name() + "_" + obj.Name(),
 		doc: p.getDoc(parent, obj),
 		ret: ret,
@@ -336,14 +333,18 @@ func (f Func) GoType() types.Type {
 	return f.obj.Type()
 }
 
+func (f Func) GoName() string {
+	return f.obj.Name()
+}
+
 func (f Func) Obj() types.Object {
 	return f.obj
 }
 
-func (f Func) Name() string {
-	return f.obj.Name()
-}
-
 func (f Func) Signature() *types.Signature {
 	return f.sig
+}
+
+func (f Func) Return() types.Type {
+	return f.ret
 }

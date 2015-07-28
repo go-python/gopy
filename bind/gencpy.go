@@ -59,7 +59,7 @@ func (g *cpyGen) gen() error {
 	g.impl.Printf("static PyMethodDef cpy_%s_methods[] = {\n", g.pkg.pkg.Name())
 	g.impl.Indent()
 	for _, f := range g.pkg.funcs {
-		name := f.Name()
+		name := f.GoName()
 		//obj := scope.Lookup(name)
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
 			name, "gopy_"+f.ID(), f.Doc(),
@@ -88,7 +88,7 @@ func (g *cpyGen) gen() error {
 	for _, s := range g.pkg.structs {
 		g.impl.Printf("Py_INCREF(&_gopy_%sType);\n", s.ID())
 		g.impl.Printf("PyModule_AddObject(module, %q, (PyObject*)&_gopy_%sType);\n\n",
-			s.Name(),
+			s.GoName(),
 			s.ID(),
 		)
 	}
@@ -110,8 +110,8 @@ static PyObject*
 gopy_%[3]s(PyObject *self, PyObject *args) {
 `,
 		g.pkg.pkg.Name(),
-		o.Name(),
-		o.id,
+		o.GoName(),
+		o.ID(),
 	)
 
 	g.impl.Indent()
@@ -224,23 +224,21 @@ func (g *cpyGen) genFuncBody(id string, sig *types.Signature) {
 }
 
 func (g *cpyGen) genStruct(cpy Struct) {
-	obj := cpy.obj
-
-	pkgname := obj.Pkg().Name()
+	pkgname := cpy.Obj().Pkg().Name()
 
 	//fmt.Printf("obj: %#v\ntyp: %#v\n", obj, typ)
-	g.decl.Printf("/* --- decls for struct %s.%v --- */\n", pkgname, obj.Name())
-	g.decl.Printf("typedef void* GoPy_%s;\n\n", cpy.id)
-	g.decl.Printf("/* type for struct %s.%v\n", pkgname, obj.Name())
+	g.decl.Printf("/* --- decls for struct %s.%v --- */\n", pkgname, cpy.GoName())
+	g.decl.Printf("typedef void* GoPy_%s;\n\n", cpy.ID())
+	g.decl.Printf("/* type for struct %s.%v\n", pkgname, cpy.GoName())
 	g.decl.Printf(" */\ntypedef struct {\n")
 	g.decl.Indent()
 	g.decl.Printf("PyObject_HEAD\n")
-	g.decl.Printf("GoPy_%[1]s cgopy; /* unsafe.Pointer to %[1]s */\n", cpy.id)
+	g.decl.Printf("GoPy_%[1]s cgopy; /* unsafe.Pointer to %[1]s */\n", cpy.ID())
 	g.decl.Outdent()
-	g.decl.Printf("} _gopy_%s;\n", cpy.id)
+	g.decl.Printf("} _gopy_%s;\n", cpy.ID())
 	g.decl.Printf("\n\n")
 
-	g.impl.Printf("/* --- impl for %s.%v */\n\n", pkgname, obj.Name())
+	g.impl.Printf("/* --- impl for %s.%v */\n\n", pkgname, cpy.GoName())
 
 	g.genStructNew(cpy)
 	g.genStructDealloc(cpy)
@@ -248,14 +246,14 @@ func (g *cpyGen) genStruct(cpy Struct) {
 	g.genStructMembers(cpy)
 	g.genStructMethods(cpy)
 
-	g.impl.Printf("static PyTypeObject _gopy_%sType = {\n", cpy.id)
+	g.impl.Printf("static PyTypeObject _gopy_%sType = {\n", cpy.ID())
 	g.impl.Indent()
 	g.impl.Printf("PyObject_HEAD_INIT(NULL)\n")
 	g.impl.Printf("0,\t/*ob_size*/\n")
-	g.impl.Printf("\"%s.%s\",\t/*tp_name*/\n", pkgname, obj.Name())
-	g.impl.Printf("sizeof(_gopy_%s),\t/*tp_basicsize*/\n", cpy.id)
+	g.impl.Printf("\"%s.%s\",\t/*tp_name*/\n", pkgname, cpy.GoName())
+	g.impl.Printf("sizeof(_gopy_%s),\t/*tp_basicsize*/\n", cpy.ID())
 	g.impl.Printf("0,\t/*tp_itemsize*/\n")
-	g.impl.Printf("(destructor)_gopy_%s_dealloc,\t/*tp_dealloc*/\n", cpy.id)
+	g.impl.Printf("(destructor)_gopy_%s_dealloc,\t/*tp_dealloc*/\n", cpy.ID())
 	g.impl.Printf("0,\t/*tp_print*/\n")
 	g.impl.Printf("0,\t/*tp_getattr*/\n")
 	g.impl.Printf("0,\t/*tp_setattr*/\n")
@@ -271,38 +269,41 @@ func (g *cpyGen) genStruct(cpy Struct) {
 	g.impl.Printf("0,\t/*tp_setattro*/\n")
 	g.impl.Printf("0,\t/*tp_as_buffer*/\n")
 	g.impl.Printf("Py_TPFLAGS_DEFAULT,\t/*tp_flags*/\n")
-	g.impl.Printf("%q,\t/* tp_doc */\n", cpy.doc)
+	g.impl.Printf("%q,\t/* tp_doc */\n", cpy.Doc())
 	g.impl.Printf("0,\t/* tp_traverse */\n")
 	g.impl.Printf("0,\t/* tp_clear */\n")
 	g.impl.Printf("0,\t/* tp_richcompare */\n")
 	g.impl.Printf("0,\t/* tp_weaklistoffset */\n")
 	g.impl.Printf("0,\t/* tp_iter */\n")
 	g.impl.Printf("0,\t/* tp_iternext */\n")
-	g.impl.Printf("_gopy_%s_methods,             /* tp_methods */\n", cpy.id)
+	g.impl.Printf("_gopy_%s_methods,             /* tp_methods */\n", cpy.ID())
 	g.impl.Printf("0,\t/* tp_members */\n")
-	g.impl.Printf("_gopy_%s_getsets,\t/* tp_getset */\n", cpy.id)
+	g.impl.Printf("_gopy_%s_getsets,\t/* tp_getset */\n", cpy.ID())
 	g.impl.Printf("0,\t/* tp_base */\n")
 	g.impl.Printf("0,\t/* tp_dict */\n")
 	g.impl.Printf("0,\t/* tp_descr_get */\n")
 	g.impl.Printf("0,\t/* tp_descr_set */\n")
 	g.impl.Printf("0,\t/* tp_dictoffset */\n")
-	g.impl.Printf("(initproc)_gopy_%s_init,      /* tp_init */\n", cpy.id)
+	g.impl.Printf("(initproc)_gopy_%s_init,      /* tp_init */\n", cpy.ID())
 	g.impl.Printf("0,                         /* tp_alloc */\n")
-	g.impl.Printf("_gopy_%s_new,\t/* tp_new */\n", cpy.id)
+	g.impl.Printf("_gopy_%s_new,\t/* tp_new */\n", cpy.ID())
 	g.impl.Outdent()
 	g.impl.Printf("};\n\n")
 
 }
 
 func (g *cpyGen) genStructDealloc(cpy Struct) {
-	obj := cpy.obj
-	pkgname := obj.Pkg().Name()
+	pkgname := cpy.Obj().Pkg().Name()
 
-	g.decl.Printf("/* tp_dealloc for %s.%v */\n", pkgname, obj.Name())
-	g.decl.Printf("static void\n_gopy_%[1]s_dealloc(_gopy_%[1]s *self);\n", cpy.id)
+	g.decl.Printf("/* tp_dealloc for %s.%v */\n", pkgname, cpy.GoName())
+	g.decl.Printf("static void\n_gopy_%[1]s_dealloc(_gopy_%[1]s *self);\n",
+		cpy.ID(),
+	)
 
-	g.impl.Printf("/* tp_dealloc for %s.%v */\n", pkgname, obj.Name())
-	g.impl.Printf("static void\n_gopy_%[1]s_dealloc(_gopy_%[1]s *self) {\n", cpy.id)
+	g.impl.Printf("/* tp_dealloc for %s.%v */\n", pkgname, cpy.GoName())
+	g.impl.Printf("static void\n_gopy_%[1]s_dealloc(_gopy_%[1]s *self) {\n",
+		cpy.ID(),
+	)
 	g.impl.Indent()
 	g.impl.Printf("self->ob_type->tp_free((PyObject*)self);\n")
 	g.impl.Outdent()
@@ -310,37 +311,41 @@ func (g *cpyGen) genStructDealloc(cpy Struct) {
 }
 
 func (g *cpyGen) genStructNew(cpy Struct) {
-	obj := cpy.obj
-	pkgname := obj.Pkg().Name()
+	pkgname := cpy.Obj().Pkg().Name()
 
-	g.decl.Printf("/* tp_new for %s.%v */\n", pkgname, obj.Name())
-	g.decl.Printf("static PyObject*\n_gopy_%s_new(PyTypeObject *type, PyObject *args, PyObject *kwds);\n", cpy.id)
+	g.decl.Printf("/* tp_new for %s.%v */\n", pkgname, cpy.GoName())
+	g.decl.Printf(
+		"static PyObject*\n_gopy_%s_new(PyTypeObject *type, PyObject *args, PyObject *kwds);\n",
+		cpy.ID(),
+	)
 
 	g.impl.Printf("/* tp_new */\n")
-	g.impl.Printf("static PyObject*\n_gopy_%s_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {\n", cpy.id)
+	g.impl.Printf(
+		"static PyObject*\n_gopy_%s_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {\n",
+		cpy.ID(),
+	)
 	g.impl.Indent()
-	g.impl.Printf("_gopy_%s *self;\n", cpy.id)
-	g.impl.Printf("self = (_gopy_%s *)type->tp_alloc(type, 0);\n", cpy.id)
-	g.impl.Printf("self->cgopy = GoPy_%s_new();\n", cpy.id)
+	g.impl.Printf("_gopy_%s *self;\n", cpy.ID())
+	g.impl.Printf("self = (_gopy_%s *)type->tp_alloc(type, 0);\n", cpy.ID())
+	g.impl.Printf("self->cgopy = GoPy_%s_new();\n", cpy.ID())
 	g.impl.Printf("return (PyObject*)self;\n")
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }
 
 func (g *cpyGen) genStructInit(cpy Struct) {
-	obj := cpy.obj
-	pkgname := obj.Pkg().Name()
+	pkgname := cpy.Obj().Pkg().Name()
 
-	g.decl.Printf("/* tp_init for %s.%v */\n", pkgname, obj.Name())
+	g.decl.Printf("/* tp_init for %s.%v */\n", pkgname, cpy.GoName())
 	g.decl.Printf(
 		"static int\n_gopy_%[1]s_init(_gopy_%[1]s *self, PyObject *args, PyObject *kwds);\n",
-		cpy.id,
+		cpy.ID(),
 	)
 
 	g.impl.Printf("/* tp_init */\n")
 	g.impl.Printf(
 		"static int\n_gopy_%[1]s_init(_gopy_%[1]s *self, PyObject *args, PyObject *kwds) {\n",
-		cpy.id,
+		cpy.ID(),
 	)
 	g.impl.Indent()
 	g.impl.Printf("return 0;\n")
@@ -349,13 +354,12 @@ func (g *cpyGen) genStructInit(cpy Struct) {
 }
 
 func (g *cpyGen) genStructMembers(cpy Struct) {
+	pkgname := cpy.Obj().Pkg().Name()
+	typ := cpy.GoType().(*types.Struct)
 
-	obj := cpy.obj
-	pkgname := obj.Pkg().Name()
-
-	g.decl.Printf("/* tp_getset for %s.%v */\n", pkgname, obj.Name())
-	for i := 0; i < cpy.typ.NumFields(); i++ {
-		f := cpy.typ.Field(i)
+	g.decl.Printf("/* tp_getset for %s.%v */\n", pkgname, cpy.GoName())
+	for i := 0; i < typ.NumFields(); i++ {
+		f := typ.Field(i)
 		if !f.Exported() {
 			continue
 		}
@@ -363,7 +367,7 @@ func (g *cpyGen) genStructMembers(cpy Struct) {
 		g.decl.Printf("static PyObject*\n")
 		g.decl.Printf(
 			"_gopy_%[1]s_getter_%[2]d(_gopy_%[1]s *self, void *closure); /* %[3]s */\n",
-			cpy.id,
+			cpy.ID(),
 			i+1,
 			f.Name(),
 		)
@@ -371,25 +375,25 @@ func (g *cpyGen) genStructMembers(cpy Struct) {
 		g.impl.Printf("static PyObject*\n")
 		g.impl.Printf(
 			"_gopy_%[1]s_getter_%[2]d(_gopy_%[1]s *self, void *closure) /* %[3]s */ {\n",
-			cpy.id,
+			cpy.ID(),
 			i+1,
 			f.Name(),
 		)
 		g.impl.Indent()
 		ftname := cgoTypeName(ft)
 		if needWrapType(ft) {
-			ftname = fmt.Sprintf("GoPy_%[1]s_field_%d", obj.Name(), i+1)
+			ftname = fmt.Sprintf("GoPy_%[1]s_field_%d", cpy.GoName(), i+1)
 			g.impl.Printf(
 				"%[1]s ret = GoPy_%[2]s_getter_%[3]d(self->cgopy);\n",
 				ftname,
-				cpy.id,
+				cpy.ID(),
 				i+1,
 			)
 		} else {
 			g.impl.Printf(
 				"%[1]s ret = GoPy_%[2]s_getter_%[3]d(self->cgopy);\n",
 				ftname,
-				cpy.id,
+				cpy.ID(),
 				i+1,
 			)
 		}
@@ -400,14 +404,14 @@ func (g *cpyGen) genStructMembers(cpy Struct) {
 		g.decl.Printf("static int\n")
 		g.decl.Printf(
 			"_gopy_%[1]s_setter_%[2]d(_gopy_%[1]s *self, PyObject *value, void *closure);\n",
-			cpy.id,
+			cpy.ID(),
 			i+1,
 		)
 
 		g.impl.Printf("static int\n")
 		g.impl.Printf(
 			"_gopy_%[1]s_setter_%[2]d(_gopy_%[1]s *self, PyObject *value, void *closure) {\n",
-			cpy.id,
+			cpy.ID(),
 			i+1,
 		)
 		g.impl.Indent()
@@ -416,18 +420,18 @@ func (g *cpyGen) genStructMembers(cpy Struct) {
 		g.impl.Printf("}\n\n")
 	}
 
-	g.impl.Printf("/* tp_getset for %s.%v */\n", pkgname, obj.Name())
-	g.impl.Printf("static PyGetSetDef _gopy_%s_getsets[] = {\n", cpy.id)
+	g.impl.Printf("/* tp_getset for %s.%v */\n", pkgname, cpy.GoName())
+	g.impl.Printf("static PyGetSetDef _gopy_%s_getsets[] = {\n", cpy.ID())
 	g.impl.Indent()
-	for i := 0; i < cpy.typ.NumFields(); i++ {
-		f := cpy.typ.Field(i)
+	for i := 0; i < typ.NumFields(); i++ {
+		f := typ.Field(i)
 		if !f.Exported() {
 			continue
 		}
 		doc := "doc for " + f.Name() // FIXME(sbinet) retrieve doc for fields
 		g.impl.Printf("{%q, ", f.Name())
-		g.impl.Printf("(getter)_gopy_%[1]s_getter_%[2]d, ", cpy.id, i+1)
-		g.impl.Printf("(setter)_gopy_%[1]s_setter_%[2]d, ", cpy.id, i+1)
+		g.impl.Printf("(getter)_gopy_%[1]s_getter_%[2]d, ", cpy.ID(), i+1)
+		g.impl.Printf("(setter)_gopy_%[1]s_setter_%[2]d, ", cpy.ID(), i+1)
 		g.impl.Printf("%q, NULL},\n", doc)
 	}
 	g.impl.Printf("{NULL} /* Sentinel */\n")
@@ -482,7 +486,7 @@ func (g *cpyGen) genStructMethods(cpy Struct) {
 
 	pkgname := cpy.Obj().Pkg().Name()
 
-	g.decl.Printf("/* methods for %s.%s */\n\n", pkgname, cpy.Name())
+	g.decl.Printf("/* methods for %s.%s */\n\n", pkgname, cpy.GoName())
 	for _, m := range cpy.meths {
 		g.genMethod(cpy, m)
 	}
@@ -491,12 +495,12 @@ func (g *cpyGen) genStructMethods(cpy Struct) {
 	g.impl.Indent()
 	for _, m := range cpy.meths {
 		margs := "METH_VARARGS"
-		if m.ret == nil {
+		if m.Return() == nil {
 			margs = "METH_NOARGS"
 		}
 		g.impl.Printf(
 			"{%[1]q, (PyCFunction)gopy_%[2]s, %[3]s, %[4]q},\n",
-			m.Name(),
+			m.GoName(),
 			m.ID(),
 			margs,
 			m.Doc(),
@@ -516,14 +520,14 @@ func (g *cpyGen) genMethod(cpy Struct, fct Func) {
 	pkgname := g.pkg.pkg.Name()
 	g.decl.Printf("/* wrapper of %[1]s.%[2]s */\n",
 		pkgname,
-		cpy.Name()+"."+fct.Name(),
+		cpy.GoName()+"."+fct.GoName(),
 	)
 	g.decl.Printf("static PyObject*\n")
 	g.decl.Printf("gopy_%s(PyObject *self, PyObject *args);\n", fct.ID())
 
 	g.impl.Printf("/* wrapper of %[1]s.%[2]s */\n",
 		pkgname,
-		cpy.Name()+"."+fct.Name(),
+		cpy.GoName()+"."+fct.GoName(),
 	)
 	g.impl.Printf("static PyObject*\n")
 	g.impl.Printf("gopy_%s(PyObject *self, PyObject *args) {\n", fct.ID())

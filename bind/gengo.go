@@ -101,7 +101,7 @@ func (g *goGen) genFunc(f Func) {
 // GoPy_%[1]s wraps %[2]s
 func GoPy_%[1]s%[3]v%[4]v{
 `,
-		f.id,
+		f.ID(),
 		f.Obj().Name(),
 		params,
 		ret,
@@ -126,7 +126,7 @@ func (g *goGen) genFuncBody(f Func) {
 		g.Printf(" := ")
 	}
 
-	g.Printf("%s.%s(", g.pkg.Name(), f.Name())
+	g.Printf("%s.%s(", g.pkg.Name(), f.GoName())
 
 	args := sig.Params()
 	for i := 0; i < args.Len(); i++ {
@@ -164,11 +164,10 @@ func (g *goGen) genFuncBody(f Func) {
 
 func (g *goGen) genStruct(s Struct) {
 	//fmt.Printf("obj: %#v\ntyp: %#v\n", obj, typ)
-	obj := s.obj
-	typ := s.typ
-	pkgname := obj.Pkg().Name()
-	g.Printf("//export GoPy_%[1]s\n", s.id)
-	g.Printf("type GoPy_%[1]s unsafe.Pointer\n\n", s.id)
+	typ := s.GoType().(*types.Struct)
+	pkgname := s.Obj().Pkg().Name()
+	g.Printf("//export GoPy_%[1]s\n", s.ID())
+	g.Printf("type GoPy_%[1]s unsafe.Pointer\n\n", s.ID())
 
 	for i := 0; i < typ.NumFields(); i++ {
 		f := typ.Field(i)
@@ -179,20 +178,20 @@ func (g *goGen) genStruct(s Struct) {
 		ft := f.Type()
 		ftname := g.qualifiedType(ft)
 		if needWrapType(ft) {
-			ftname = fmt.Sprintf("GoPy_%[1]s_field_%d", s.id, i+1)
+			ftname = fmt.Sprintf("GoPy_%[1]s_field_%d", s.ID(), i+1)
 			g.Printf("//export %s\n", ftname)
 			g.Printf("type %s unsafe.Pointer\n\n", ftname)
 		}
 
-		g.Printf("//export GoPy_%[1]s_getter_%[2]d\n", s.id, i+1)
+		g.Printf("//export GoPy_%[1]s_getter_%[2]d\n", s.ID(), i+1)
 		g.Printf("func GoPy_%[1]s_getter_%[2]d(self GoPy_%[1]s) %[3]s {\n",
-			s.id, i+1,
+			s.ID(), i+1,
 			ftname,
 		)
 		g.Indent()
 		g.Printf(
 			"ret := (*%[1]s)(unsafe.Pointer(self))\n",
-			pkgname+"."+obj.Name(),
+			pkgname+"."+s.GoName(),
 		)
 
 		if needWrapType(f.Type()) {
@@ -209,13 +208,13 @@ func (g *goGen) genStruct(s Struct) {
 		g.genMethod(s, m)
 	}
 
-	g.Printf("//export GoPy_%[1]s_new\n", s.id)
-	g.Printf("func GoPy_%[1]s_new() GoPy_%[1]s {\n", s.id)
+	g.Printf("//export GoPy_%[1]s_new\n", s.ID())
+	g.Printf("func GoPy_%[1]s_new() GoPy_%[1]s {\n", s.ID())
 	g.Indent()
 	g.Printf("return (GoPy_%[1]s)(unsafe.Pointer(&%[2]s.%[3]s{}))\n",
-		s.id,
+		s.ID(),
 		pkgname,
-		obj.Name(),
+		s.GoName(),
 	)
 	g.Outdent()
 	g.Printf("}\n\n")
@@ -262,8 +261,8 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 	}
 
 	g.Printf("(*%s.%s)(unsafe.Pointer(self)).%s(",
-		g.pkg.Name(), s.Name(),
-		m.Name(),
+		g.pkg.Name(), s.GoName(),
+		m.GoName(),
 	)
 
 	args := sig.Params()
