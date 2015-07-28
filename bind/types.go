@@ -8,6 +8,14 @@ import (
 	"golang.org/x/tools/go/types"
 )
 
+type Type interface {
+	GoType() types.Type
+	GoName() string
+	ID() string
+	Doc() string
+	Obj() types.Object
+}
+
 func needWrapType(typ types.Type) bool {
 	switch typ.(type) {
 	case *types.Struct:
