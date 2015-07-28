@@ -157,7 +157,7 @@ func (p *Package) process() error {
 			p.addVar(obj)
 
 		case *types.Func:
-			funcs[name], err = newFunc(p, obj)
+			funcs[name], err = newFunc(p, "", obj, obj)
 			if err != nil {
 				return err
 			}
@@ -204,7 +204,7 @@ func (p *Package) process() error {
 			if !meth.Obj().Exported() {
 				continue
 			}
-			m, err := newMethod(p, &s, meth)
+			m, err := newFunc(p, sname, meth.Obj(), meth.Obj().(*types.Func))
 			if err != nil {
 				return err
 			}
@@ -238,7 +238,7 @@ type Struct struct {
 	id    string
 	doc   string
 	ctors []Func
-	meths []Method
+	meths []Func
 }
 
 func newStruct(p *Package, obj *types.TypeName, typ *types.Struct) (Struct, error) {
@@ -251,58 +251,30 @@ func newStruct(p *Package, obj *types.TypeName, typ *types.Struct) (Struct, erro
 	return s, nil
 }
 
-// Method collects informations about a go method.
-type Method struct {
-	sel *types.Selection
-
-	id  string
-	doc string
-	ret types.Type // return type, if any
-	err bool       // true if original go method has comma-error
+func (s Struct) ID() string {
+	return s.id
 }
 
-func newMethod(p *Package, typ *Struct, sel *types.Selection) (Method, error) {
-	haserr := false
-	sig := sel.Type().(*types.Signature)
-	res := sig.Results()
-	var ret types.Type
-
-	switch res.Len() {
-	case 2:
-		if !isErrorType(res.At(1).Type()) {
-			return Method{}, fmt.Errorf(
-				"bind: second result value must be of type error: %s",
-				sel,
-			)
-		}
-		haserr = true
-		ret = res.At(0).Type()
-
-	case 1:
-		if isErrorType(res.At(0).Type()) {
-			haserr = true
-			ret = nil
-		} else {
-			ret = res.At(0).Type()
-		}
-	case 0:
-		ret = nil
-	default:
-		return Method{}, fmt.Errorf("bind: too many results to return: %v", sel)
-	}
-
-	return Method{
-		sel: sel,
-		id:  typ.obj.Pkg().Name() + "_" + typ.obj.Name() + "_" + sel.Obj().Name(),
-		doc: p.getDoc(typ.obj.Name(), sel.Obj()),
-		ret: ret,
-		err: haserr,
-	}, nil
-
+func (s Struct) Doc() string {
+	return s.doc
 }
 
-// Func collects informations about a go func.
+func (s Struct) GoType() types.Type {
+	return s.typ
+}
+
+func (s Struct) Obj() types.Object {
+	return s.obj
+}
+
+func (s Struct) Name() string {
+	return s.obj.Name()
+}
+
+// Func collects informations about a go func/method.
 type Func struct {
+	sig *types.Signature
+	obj types.Object
 	typ *types.Func
 
 	id  string
@@ -311,9 +283,9 @@ type Func struct {
 	err bool       // true if original go func has comma-error
 }
 
-func newFunc(p *Package, obj *types.Func) (Func, error) {
+func newFunc(p *Package, parent string, obj types.Object, typ *types.Func) (Func, error) {
 	haserr := false
-	sig := obj.Type().(*types.Signature)
+	sig := typ.Type().(*types.Signature)
 	res := sig.Results()
 	var ret types.Type
 
@@ -342,10 +314,36 @@ func newFunc(p *Package, obj *types.Func) (Func, error) {
 	}
 
 	return Func{
-		typ: obj,
+		sig: sig,
+		obj: obj,
+		typ: typ,
 		id:  obj.Pkg().Name() + "_" + obj.Name(),
-		doc: p.getDoc("", obj),
+		doc: p.getDoc(parent, obj),
 		ret: ret,
 		err: haserr,
 	}, nil
+}
+
+func (f Func) ID() string {
+	return f.id
+}
+
+func (f Func) Doc() string {
+	return f.doc
+}
+
+func (f Func) GoType() types.Type {
+	return f.obj.Type()
+}
+
+func (f Func) Obj() types.Object {
+	return f.obj
+}
+
+func (f Func) Name() string {
+	return f.obj.Name()
+}
+
+func (f Func) Signature() *types.Signature {
+	return f.sig
 }

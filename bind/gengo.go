@@ -85,8 +85,7 @@ func (g *goGen) gen() error {
 }
 
 func (g *goGen) genFunc(f Func) {
-	o := f.typ
-	sig := o.Type().(*types.Signature)
+	sig := f.Signature()
 
 	params := "(" + g.tupleString(sig.Params()) + ")"
 	ret := g.tupleString(sig.Results())
@@ -103,7 +102,7 @@ func (g *goGen) genFunc(f Func) {
 func GoPy_%[1]s%[3]v%[4]v{
 `,
 		f.id,
-		o.FullName(),
+		f.Obj().Name(),
 		params,
 		ret,
 	)
@@ -115,8 +114,7 @@ func GoPy_%[1]s%[3]v%[4]v{
 }
 
 func (g *goGen) genFuncBody(f Func) {
-	o := f.typ
-	sig := o.Type().(*types.Signature)
+	sig := f.Signature()
 	results := newVars(sig.Results())
 	for i := range results {
 		if i > 0 {
@@ -128,7 +126,7 @@ func (g *goGen) genFuncBody(f Func) {
 		g.Printf(" := ")
 	}
 
-	g.Printf("%s.%s(", g.pkg.Name(), o.Name())
+	g.Printf("%s.%s(", g.pkg.Name(), f.Name())
 
 	args := sig.Params()
 	for i := 0; i < args.Len(); i++ {
@@ -223,9 +221,9 @@ func (g *goGen) genStruct(s Struct) {
 	g.Printf("}\n\n")
 }
 
-func (g *goGen) genMethod(s Struct, m Method) {
-	sig := m.sel.Type().(*types.Signature)
-	params := "(self GoPy_" + s.id
+func (g *goGen) genMethod(s Struct, m Func) {
+	sig := m.Signature()
+	params := "(self GoPy_" + s.ID()
 	if sig.Params().Len() > 0 {
 		params += ", " + g.tupleString(sig.Params())
 	}
@@ -238,9 +236,9 @@ func (g *goGen) genMethod(s Struct, m Method) {
 		ret += " "
 	}
 
-	g.Printf("//export GoPy_%[1]s\n", m.id)
+	g.Printf("//export GoPy_%[1]s\n", m.ID())
 	g.Printf("func GoPy_%[1]s%[2]s%[3]s{\n",
-		m.id,
+		m.ID(),
 		params,
 		ret,
 	)
@@ -250,9 +248,8 @@ func (g *goGen) genMethod(s Struct, m Method) {
 	g.Printf("}\n\n")
 }
 
-func (g *goGen) genMethodBody(s Struct, m Method) {
-	o := m.sel.Obj()
-	sig := m.sel.Type().(*types.Signature)
+func (g *goGen) genMethodBody(s Struct, m Func) {
+	sig := m.Signature()
 	results := newVars(sig.Results())
 	for i := range results {
 		if i > 0 {
@@ -265,8 +262,8 @@ func (g *goGen) genMethodBody(s Struct, m Method) {
 	}
 
 	g.Printf("(*%s.%s)(unsafe.Pointer(self)).%s(",
-		g.pkg.Name(), s.obj.Name(),
-		o.Name(),
+		g.pkg.Name(), s.Name(),
+		m.Name(),
 	)
 
 	args := sig.Params()

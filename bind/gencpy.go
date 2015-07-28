@@ -59,10 +59,10 @@ func (g *cpyGen) gen() error {
 	g.impl.Printf("static PyMethodDef cpy_%s_methods[] = {\n", g.pkg.pkg.Name())
 	g.impl.Indent()
 	for _, f := range g.pkg.funcs {
-		name := f.typ.Name()
+		name := f.Name()
 		//obj := scope.Lookup(name)
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
-			name, "gopy_"+f.id, f.doc,
+			name, "gopy_"+f.ID(), f.Doc(),
 		)
 	}
 	g.impl.Printf("{NULL, NULL, 0, NULL}        /* Sentinel */\n")
@@ -74,7 +74,10 @@ func (g *cpyGen) gen() error {
 	g.impl.Printf("PyObject *module = NULL;\n\n")
 
 	for _, s := range g.pkg.structs {
-		g.impl.Printf("if (PyType_Ready(&_gopy_%sType) < 0) { return; }\n", s.id)
+		g.impl.Printf(
+			"if (PyType_Ready(&_gopy_%sType) < 0) { return; }\n",
+			s.ID(),
+		)
 	}
 
 	g.impl.Printf("module = Py_InitModule3(%[1]q, cpy_%[1]s_methods, %[2]q);\n\n",
@@ -83,10 +86,10 @@ func (g *cpyGen) gen() error {
 	)
 
 	for _, s := range g.pkg.structs {
-		g.impl.Printf("Py_INCREF(&_gopy_%sType);\n", s.id)
+		g.impl.Printf("Py_INCREF(&_gopy_%sType);\n", s.ID())
 		g.impl.Printf("PyModule_AddObject(module, %q, (PyObject*)&_gopy_%sType);\n\n",
-			s.obj.Name(),
-			s.id,
+			s.Name(),
+			s.ID(),
 		)
 	}
 	g.impl.Outdent()
@@ -107,12 +110,12 @@ static PyObject*
 gopy_%[3]s(PyObject *self, PyObject *args) {
 `,
 		g.pkg.pkg.Name(),
-		o.typ.Name(),
+		o.Name(),
 		o.id,
 	)
 
 	g.impl.Indent()
-	g.genFuncBody(o.id, o.typ.Type().(*types.Signature))
+	g.genFuncBody(o.ID(), o.Signature())
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }
@@ -477,15 +480,14 @@ func (g *cpyGen) genStructMembers(cpy Struct) {
 
 func (g *cpyGen) genStructMethods(cpy Struct) {
 
-	obj := cpy.obj
-	pkgname := obj.Pkg().Name()
+	pkgname := cpy.Obj().Pkg().Name()
 
-	g.decl.Printf("/* methods for %s.%s */\n\n", pkgname, obj.Name())
+	g.decl.Printf("/* methods for %s.%s */\n\n", pkgname, cpy.Name())
 	for _, m := range cpy.meths {
 		g.genMethod(cpy, m)
 	}
 
-	g.impl.Printf("static PyMethodDef _gopy_%s_methods[] = {\n", cpy.id)
+	g.impl.Printf("static PyMethodDef _gopy_%s_methods[] = {\n", cpy.ID())
 	g.impl.Indent()
 	for _, m := range cpy.meths {
 		margs := "METH_VARARGS"
@@ -494,10 +496,10 @@ func (g *cpyGen) genStructMethods(cpy Struct) {
 		}
 		g.impl.Printf(
 			"{%[1]q, (PyCFunction)gopy_%[2]s, %[3]s, %[4]q},\n",
-			m.sel.Obj().Name(),
-			m.id,
+			m.Name(),
+			m.ID(),
 			margs,
-			m.doc,
+			m.Doc(),
 		)
 		/*
 			{"name", (PyCFunction)Noddy_name, METH_NOARGS,
@@ -510,32 +512,29 @@ func (g *cpyGen) genStructMethods(cpy Struct) {
 	g.impl.Printf("};\n\n")
 }
 
-func (g *cpyGen) genMethod(cpy Struct, m Method) {
+func (g *cpyGen) genMethod(cpy Struct, fct Func) {
 	pkgname := g.pkg.pkg.Name()
-	sobj := cpy.obj
-	mobj := m.sel.Obj()
-
 	g.decl.Printf("/* wrapper of %[1]s.%[2]s */\n",
 		pkgname,
-		sobj.Name()+"."+mobj.Name(),
+		cpy.Name()+"."+fct.Name(),
 	)
 	g.decl.Printf("static PyObject*\n")
-	g.decl.Printf("gopy_%s(PyObject *self, PyObject *args);\n", m.id)
+	g.decl.Printf("gopy_%s(PyObject *self, PyObject *args);\n", fct.ID())
 
 	g.impl.Printf("/* wrapper of %[1]s.%[2]s */\n",
 		pkgname,
-		sobj.Name()+"."+mobj.Name(),
+		cpy.Name()+"."+fct.Name(),
 	)
 	g.impl.Printf("static PyObject*\n")
-	g.impl.Printf("gopy_%s(PyObject *self, PyObject *args) {\n", m.id)
+	g.impl.Printf("gopy_%s(PyObject *self, PyObject *args) {\n", fct.ID())
 	g.impl.Indent()
-	g.genMethodBody(cpy, m)
+	g.genMethodBody(cpy, fct)
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }
 
-func (g *cpyGen) genMethodBody(cpy Struct, m Method) {
-	g.genFuncBody(m.id, m.sel.Type().(*types.Signature))
+func (g *cpyGen) genMethodBody(cpy Struct, fct Func) {
+	g.genFuncBody(fct.ID(), fct.Signature())
 }
 
 func (g *cpyGen) genPreamble() {
