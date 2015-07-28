@@ -89,6 +89,8 @@ Greet sends greetings
 
 --- p.Greet()...
 Hello, I am 
+--- p.String()...
+hi.Person{Name="", Age=0}
 --- doc(p):
 Person is a simple struct
 

@@ -39,6 +39,9 @@ print p.Greet.__doc__
 print "--- p.Greet()..."
 print p.Greet()
 
+print "--- p.String()..."
+print p.String()
+
 print "--- doc(p):"
 print p.__doc__
 
