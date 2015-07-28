@@ -26,8 +26,9 @@ type Package struct {
 // NewPackage creates a new Package, tying types.Package and ast.Package together.
 func NewPackage(pkg *types.Package, doc *doc.Package) (*Package, error) {
 	p := &Package{
-		pkg: pkg,
-		doc: doc,
+		pkg:  pkg,
+		doc:  doc,
+		objs: map[string]Object{},
 	}
 	err := p.process()
 	if err != nil {
@@ -211,11 +212,11 @@ func (p *Package) process() error {
 			}
 			s.meths = append(s.meths, m)
 		}
-		p.structs = append(p.structs, s)
+		p.addStruct(s)
 	}
 
 	for _, fct := range funcs {
-		p.funcs = append(p.funcs, fct)
+		p.addFunc(fct)
 	}
 
 	return err
@@ -229,6 +230,22 @@ func (p *Package) addConst(obj *types.Const) {
 func (p *Package) addVar(obj *types.Var) {
 	//TODO(sbinet)
 	panic(fmt.Errorf("not yet supported: %v (%T)", obj, obj))
+}
+
+func (p *Package) addStruct(s Struct) {
+	p.structs = append(p.structs, s)
+	p.objs[s.GoName()] = s
+}
+
+func (p *Package) addFunc(f Func) {
+	p.funcs = append(p.funcs, f)
+	p.objs[f.GoName()] = f
+}
+
+// Lookup returns the bind.Object corresponding to a types.Object
+func (p *Package) Lookup(o types.Object) (Object, bool) {
+	obj, ok := p.objs[o.Name()]
+	return obj, ok
 }
 
 // Struct collects informations about a go struct.
