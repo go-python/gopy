@@ -140,24 +140,13 @@ func (g *cpyGen) genFuncBody(f Func) {
 		funcArgs = append(funcArgs, arg.getFuncArg())
 	}
 
-	// FIXME(sbinet) pythonize (turn errors into python exceptions)
 	if len(res) > 0 {
 		switch len(res) {
 		case 1:
 			ret := res[0]
 			ret.genRetDecl(g.impl)
 		default:
-			g.impl.Printf("struct %[1]s_return c_gopy_ret;\n", id)
-			/*
-					for i := 0; i < res.Len(); i++ {
-						ret := res.At(i)
-						n := ret.Name()
-						if n == "" {
-							n = "gopy_" + strconv.Itoa(i)
-						}
-						g.impl.Printf("%[1]s c_%[2]s;\n", ctypeName(ret.Type()), n)
-				    }
-			*/
+			g.impl.Printf("struct GoPy_%[1]s_return c_gopy_ret;\n", id)
 		}
 	}
 
@@ -202,6 +191,41 @@ func (g *cpyGen) genFuncBody(f Func) {
 		return
 	}
 
+	if f.err {
+		switch len(res) {
+		case 1:
+			g.impl.Printf("if (!CGoPy_ErrorIsNil(c_gopy_ret)) {\n")
+			g.impl.Indent()
+			g.impl.Printf("const char* c_err_str = CGoPy_ErrorString(c_gopy_ret);\n")
+			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
+			g.impl.Printf("free((void*)c_err_str);\n")
+			g.impl.Printf("return NULL;\n")
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+			g.impl.Printf("Py_INCREF(Py_None);\nreturn Py_None;\n")
+			return
+
+		case 2:
+			g.impl.Printf("if (!CGoPy_ErrorIsNil(c_gopy_ret.r1)) {\n")
+			g.impl.Indent()
+			g.impl.Printf("const char* c_err_str = CGoPy_ErrorString(c_gopy_ret.r1);\n")
+			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
+			g.impl.Printf("free((void*)c_err_str);\n")
+			g.impl.Printf("return NULL;\n")
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+			pyfmt, _ := res[0].getArgParse()
+			g.impl.Printf("return Py_BuildValue(%q, c_gopy_ret.r0);\n", pyfmt)
+			return
+
+		default:
+			panic(fmt.Errorf(
+				"bind: function/method with more than 2 results not supported! (%s)",
+				f.ID(),
+			))
+		}
+	}
+
 	format := []string{}
 	funcArgs = []string{}
 	switch len(res) {
@@ -218,24 +242,10 @@ func (g *cpyGen) genFuncBody(f Func) {
 		}
 	}
 
-	if len(res) == 1 && f.err {
-		g.impl.Printf("if (!CGoPy_ErrorIsNil(c_gopy_ret)) {\n")
-		g.impl.Indent()
-		g.impl.Printf("const char* c_err_str = CGoPy_ErrorString(c_gopy_ret);\n")
-		g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
-		g.impl.Printf("free((void*)c_err_str);\n")
-		g.impl.Printf("return NULL;\n")
-		g.impl.Outdent()
-		g.impl.Printf("}\n\n")
-		g.impl.Printf("Py_INCREF(Py_None);\nreturn Py_None;\n")
-		return
-	}
-
 	g.impl.Printf("return Py_BuildValue(%q, %s);\n",
 		strings.Join(format, ""),
 		strings.Join(funcArgs, ", "),
 	)
-	//g.impl.Printf("return NULL;\n")
 }
 
 func (g *cpyGen) genStruct(cpy Struct) {

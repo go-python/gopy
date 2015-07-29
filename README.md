@@ -120,6 +120,6 @@ ok  	github.com/go-python/gopy	2.135s
 
 ## Limitations
 
-- wrap `go` structs into `python` classes
-- better pythonization: turn `go` `errors` into `python` exceptions
+- wrap `go` structs into `python` classes **[DONE]**
+- better pythonization: turn `go` `errors` into `python` exceptions **[DONE]**
 - only `python-2` supported for now
