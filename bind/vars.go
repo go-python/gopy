@@ -15,7 +15,7 @@ type Var struct {
 	id    string
 	doc   string
 	name  string
-	obj   types.Object
+	typ   types.Type
 	dtype typedesc
 }
 
@@ -23,14 +23,14 @@ func (v *Var) Name() string {
 	return v.name
 }
 
-func newVar(p *Package, obj types.Object, name, doc string) *Var {
+func newVar(p *Package, typ types.Type, objname, name, doc string) *Var {
 	return &Var{
 		pkg:   p,
-		id:    p.Name() + "_" + obj.Name(),
+		id:    p.Name() + "_" + objname,
 		doc:   doc,
 		name:  name,
-		obj:   obj,
-		dtype: getTypedesc(obj.Type()),
+		typ:   typ,
+		dtype: getTypedesc(typ),
 	}
 }
 
@@ -43,7 +43,7 @@ func newVarsFrom(p *Package, tuple *types.Tuple) []*Var {
 }
 
 func newVarFrom(p *Package, v *types.Var) *Var {
-	return newVar(p, v, v.Name(), p.getDoc("", v))
+	return newVar(p, v.Type(), v.Name(), v.Name(), p.getDoc("", v))
 }
 
 func getTypedesc(t types.Type) typedesc {
@@ -75,7 +75,7 @@ func getTypedesc(t types.Type) typedesc {
 }
 
 func (v *Var) GoType() types.Type {
-	return v.obj.Type()
+	return v.typ
 }
 
 func (v *Var) CType() string {
