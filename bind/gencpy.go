@@ -462,7 +462,7 @@ func (g *cpyGen) genStructInit(cpy Struct) {
 	g.impl.Printf("Py_ssize_t nargs = (args != NULL) ? PySequence_Size(args) : 0;\n")
 	g.impl.Printf("if ((nkwds + nargs) > 0) {\n")
 	g.impl.Indent()
-	g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, ")
+	g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
 	g.impl.Printf("\"%s.__init__ takes no argument\");\n", cpy.GoName())
 	g.impl.Printf("return -1;\n")
 	g.impl.Outdent()
