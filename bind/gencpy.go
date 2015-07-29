@@ -387,19 +387,6 @@ func (g *cpyGen) genStructMembers(cpy Struct) {
 	g.impl.Outdent()
 	g.impl.Printf("};\n\n")
 	/*
-		static PyGetSetDef Noddy_getseters[] = {
-		    {"first",
-		     (getter)Noddy_getfirst, (setter)Noddy_setfirst,
-		     "first name",
-		     NULL},
-		    {"last",
-		     (getter)Noddy_getlast, (setter)Noddy_setlast,
-		     "last name",
-		     NULL},
-		    {NULL}
-		};
-	*/
-	/*
 				static PyObject *
 				Noddy_getfirst(Noddy *self, void *closure)
 				{
@@ -633,11 +620,6 @@ func (g *cpyGen) genStructMethods(cpy Struct) {
 			margs,
 			m.Doc(),
 		)
-		/*
-			{"name", (PyCFunction)Noddy_name, METH_NOARGS,
-			     "Return the name, combining the first and last name"
-			    },
-		*/
 	}
 	g.impl.Printf("{NULL} /* sentinel */\n")
 	g.impl.Outdent()
