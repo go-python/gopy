@@ -75,3 +75,15 @@ try:
 except Exception, err:
     print "caught:", err
     pass
+
+## test ctor args. (dispatch is not working yet!)
+try:
+    hi.Person(1)
+    print "*ERROR* no exception raised!"
+except Exception, err:
+    print "caught:", err
+    pass
+
+## test ctor
+#print "--- hi.NewPerson('me', 666):", hi.NewPerson("me", 666)
+

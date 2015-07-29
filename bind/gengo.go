@@ -75,6 +75,15 @@ func (g *goGen) gen() error {
 		g.genStruct(s)
 	}
 
+	// expose ctors at module level
+	// FIXME(sbinet): attach them to structs?
+	// -> problem is if one has 2 or more ctors with exactly the same signature.
+	for _, s := range g.pkg.structs {
+		for _, ctor := range s.ctors {
+			g.genFunc(ctor)
+		}
+	}
+
 	for _, f := range g.pkg.funcs {
 		g.genFunc(f)
 	}
@@ -358,12 +367,9 @@ func (g *goGen) qualifiedType(typ types.Type) string {
 		return typ.Name()
 	case *types.Named:
 		obj := typ.Obj()
-		//return obj.Pkg().Name() + "." + obj.Name()
-		//return "GoPy_" + obj.Name()
-		switch typ := typ.Underlying().(type) {
+		switch typ.Underlying().(type) {
 		case *types.Struct:
-			return "GoPy_" + obj.Name()
-			return typ.String()
+			return "GoPy_" + obj.Pkg().Name() + "_" + obj.Name()
 		case *types.Interface:
 			if obj.Name() == "error" {
 				return "error"

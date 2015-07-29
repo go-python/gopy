@@ -67,14 +67,22 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 
 	case *types.Func:
 		doc := func() string {
-			if o.Parent() == nil {
+			if o.Parent() == nil || (o.Parent() != nil && parent != "") {
 				for _, typ := range p.doc.Types {
 					if typ.Name != parent {
 						continue
 					}
-					for _, m := range typ.Methods {
-						if m.Name == n {
-							return m.Doc
+					if o.Parent() == nil {
+						for _, m := range typ.Methods {
+							if m.Name == n {
+								return m.Doc
+							}
+						}
+					} else {
+						for _, m := range typ.Funcs {
+							if m.Name == n {
+								return m.Doc
+							}
 						}
 					}
 				}
@@ -194,6 +202,7 @@ func (p *Package) process() error {
 			}
 			if fct.Return() == s.GoType() {
 				delete(funcs, name)
+				fct.doc = p.getDoc(sname, scope.Lookup(name))
 				s.ctors = append(s.ctors, fct)
 				structs[sname] = s
 			}
@@ -391,6 +400,7 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 	if parent != "" {
 		id = obj.Pkg().Name() + "_" + parent + "_" + obj.Name()
 	}
+
 	return Func{
 		pkg:  p,
 		sig:  newSignatureFrom(p, sig),

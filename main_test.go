@@ -109,6 +109,7 @@ hi.Person{Name="foo", Age=42}
 caught: can't work for 24 hours!
 --- p.Salary(2): 20
 --- p.Salary(24): caught: can't work for 24 hours!
+caught: Person.__init__ takes no argument
 `)
 	buf := new(bytes.Buffer)
 	cmd = exec.Command("python2", "./test.py")

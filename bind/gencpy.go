@@ -52,6 +52,15 @@ func (g *cpyGen) gen() error {
 		g.genStruct(s)
 	}
 
+	// expose ctors at module level
+	// FIXME(sbinet): attach them to structs?
+	// -> problem is if one has 2 or more ctors with exactly the same signature.
+	for _, s := range g.pkg.structs {
+		for _, ctor := range s.ctors {
+			g.genFunc(ctor)
+		}
+	}
+
 	for _, f := range g.pkg.funcs {
 		g.genFunc(f)
 	}
@@ -65,6 +74,19 @@ func (g *cpyGen) gen() error {
 			name, "gopy_"+f.ID(), f.Doc(),
 		)
 	}
+	// expose ctors at module level
+	// FIXME(sbinet): attach them to structs?
+	// -> problem is if one has 2 or more ctors with exactly the same signature.
+	for _, s := range g.pkg.structs {
+		for _, f := range s.ctors {
+			name := f.GoName()
+			//obj := scope.Lookup(name)
+			g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
+				name, "gopy_"+f.ID(), f.Doc(),
+			)
+		}
+	}
+
 	g.impl.Printf("{NULL, NULL, 0, NULL}        /* Sentinel */\n")
 	g.impl.Outdent()
 	g.impl.Printf("};\n\n")
@@ -263,7 +285,7 @@ func (g *cpyGen) genStruct(cpy Struct) {
 	g.decl.Printf("} _gopy_%s;\n", cpy.ID())
 	g.decl.Printf("\n\n")
 
-	g.impl.Printf("/* --- impl for %s.%v */\n\n", pkgname, cpy.GoName())
+	g.impl.Printf("\n\n/* --- impl for %s.%v */\n\n", pkgname, cpy.GoName())
 
 	g.genStructNew(cpy)
 	g.genStructDealloc(cpy)
@@ -375,6 +397,42 @@ func (g *cpyGen) genStructInit(cpy Struct) {
 		cpy.ID(),
 	)
 	g.impl.Indent()
+
+	kwds := make(map[string]int)
+	for _, ctor := range cpy.ctors {
+		sig := ctor.Signature()
+		for _, arg := range sig.Params() {
+			n := arg.Name()
+			if _, dup := kwds[n]; !dup {
+				kwds[n] = len(kwds)
+			}
+		}
+	}
+	g.impl.Printf("static char *kwlist[] = {\n")
+	g.impl.Indent()
+	for k, v := range kwds {
+		g.impl.Printf("%q, /* py_kwd_%d */\n", k, v)
+	}
+	g.impl.Printf("NULL\n")
+	g.impl.Outdent()
+	g.impl.Printf("};\n")
+
+	for _, v := range kwds {
+		g.impl.Printf("PyObject *py_kwd_%d = NULL;\n", v)
+	}
+
+	// FIXME(sbinet) remove when/if we manage to work out a proper dispatch
+	// for ctors.
+	g.impl.Printf("Py_ssize_t nkwds = (kwds != NULL) ? PyDict_Size(kwds) : 0;\n")
+	g.impl.Printf("Py_ssize_t nargs = (args != NULL) ? PySequence_Size(args) : 0;\n")
+	g.impl.Printf("if ((nkwds + nargs) > 0) {\n")
+	g.impl.Indent()
+	g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, ")
+	g.impl.Printf("\"%s.__init__ takes no argument\");\n", cpy.GoName())
+	g.impl.Printf("return -1;\n")
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
+
 	g.impl.Printf("return 0;\n")
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
