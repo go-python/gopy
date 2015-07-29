@@ -80,8 +80,8 @@ Person is a simple struct
 
 --- p = hi.Person()...
 ['Age', 'Greet', 'Name', 'String', '__class__', '__delattr__', '__doc__', '__format__', '__getattribute__', '__hash__', '__init__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__']
---- p.Name: None
---- p.Age: None
+--- p.Name: 
+--- p.Age: 0
 --- doc(hi.Greet):
 Greet() str
 
@@ -94,6 +94,12 @@ hi.Person{Name="", Age=0}
 --- doc(p):
 Person is a simple struct
 
+--- p.Name = "foo"...
+--- p.Age = 42...
+--- p.String()...
+hi.Person{Name="foo", Age=42}
+--- p.Age: 42
+--- p.Name: foo
 `)
 	buf := new(bytes.Buffer)
 	cmd = exec.Command("python2", "./test.py")

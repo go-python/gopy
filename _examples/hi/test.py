@@ -45,3 +45,14 @@ print p.String()
 print "--- doc(p):"
 print p.__doc__
 
+print "--- p.Name = \"foo\"..."
+p.Name = "foo"
+
+print "--- p.Age = 42..."
+p.Age = 42
+
+print "--- p.String()..."
+print p.String()
+print "--- p.Age:", p.Age
+print "--- p.Name:",p.Name
+
