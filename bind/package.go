@@ -203,6 +203,7 @@ func (p *Package) process() error {
 			if fct.Return() == s.GoType() {
 				delete(funcs, name)
 				fct.doc = p.getDoc(sname, scope.Lookup(name))
+				fct.ctor = true
 				s.ctors = append(s.ctors, fct)
 				structs[sname] = s
 			}
@@ -361,10 +362,11 @@ type Func struct {
 	typ  types.Type
 	name string
 
-	id  string
-	doc string
-	ret types.Type // return type, if any
-	err bool       // true if original go func has comma-error
+	id   string
+	doc  string
+	ret  types.Type // return type, if any
+	err  bool       // true if original go func has comma-error
+	ctor bool       // true if this is a newXXX function
 }
 
 func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signature) (Func, error) {

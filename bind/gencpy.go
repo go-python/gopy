@@ -236,6 +236,23 @@ func (g *cpyGen) genFuncBody(f Func) {
 			g.impl.Printf("return NULL;\n")
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
+			if f.ctor {
+				ret := string(res[0].CGoType()[len("GoPy_"):])
+				g.impl.Printf("PyObject *o = _gopy_%[1]s_new(&_gopy_%[2]sType, 0, 0);\n",
+					ret,
+					ret,
+				)
+				g.impl.Printf("if (o == NULL) {\n")
+				g.impl.Indent()
+				g.impl.Printf("return NULL;\n")
+				g.impl.Outdent()
+				g.impl.Printf("}\n")
+				g.impl.Printf("((_gopy_%[1]s*)o)->cgopy = c_gopy_ret.r0;\n",
+					ret,
+				)
+				g.impl.Printf("return o;\n")
+				return
+			}
 			pyfmt, _ := res[0].getArgParse()
 			g.impl.Printf("return Py_BuildValue(%q, c_gopy_ret.r0);\n", pyfmt)
 			return
@@ -246,6 +263,24 @@ func (g *cpyGen) genFuncBody(f Func) {
 				f.ID(),
 			))
 		}
+	}
+
+	if f.ctor {
+		ret := string(res[0].CGoType()[len("GoPy_"):])
+		g.impl.Printf("PyObject *o = _gopy_%[1]s_new(&_gopy_%[2]sType, 0, 0);\n",
+			ret,
+			ret,
+		)
+		g.impl.Printf("if (o == NULL) {\n")
+		g.impl.Indent()
+		g.impl.Printf("return NULL;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n")
+		g.impl.Printf("((_gopy_%[1]s*)o)->cgopy = c_gopy_ret;\n",
+			ret,
+		)
+		g.impl.Printf("return o;\n")
+		return
 	}
 
 	format := []string{}
