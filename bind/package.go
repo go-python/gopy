@@ -211,6 +211,9 @@ func (p *Package) process() error {
 				return err
 			}
 			s.meths = append(s.meths, m)
+			if isStringer(meth.Obj()) {
+				s.prots |= ProtoStringer
+			}
 		}
 		p.addStruct(s)
 	}
@@ -248,6 +251,13 @@ func (p *Package) Lookup(o types.Object) (Object, bool) {
 	return obj, ok
 }
 
+// Protocol encodes the various protocols a python type may implement
+type Protocol int
+
+const (
+	ProtoStringer Protocol = 1 << iota
+)
+
 // Struct collects informations about a go struct.
 type Struct struct {
 	pkg *Package
@@ -257,6 +267,8 @@ type Struct struct {
 	doc   string
 	ctors []Func
 	meths []Func
+
+	prots Protocol
 }
 
 func newStruct(p *Package, obj *types.TypeName) (Struct, error) {

@@ -248,6 +248,8 @@ func (g *cpyGen) genStruct(cpy Struct) {
 	g.genStructMembers(cpy)
 	g.genStructMethods(cpy)
 
+	g.genStructProtocols(cpy)
+
 	g.impl.Printf("static PyTypeObject _gopy_%sType = {\n", cpy.ID())
 	g.impl.Indent()
 	g.impl.Printf("PyObject_HEAD_INIT(NULL)\n")
@@ -266,7 +268,7 @@ func (g *cpyGen) genStruct(cpy Struct) {
 	g.impl.Printf("0,\t/*tp_as_mapping*/\n")
 	g.impl.Printf("0,\t/*tp_hash */\n")
 	g.impl.Printf("0,\t/*tp_call*/\n")
-	g.impl.Printf("0,\t/*tp_str*/\n")
+	g.impl.Printf("_gopy_%s_tp_str,\t/*tp_str*/\n", cpy.ID())
 	g.impl.Printf("0,\t/*tp_getattro*/\n")
 	g.impl.Printf("0,\t/*tp_setattro*/\n")
 	g.impl.Printf("0,\t/*tp_as_buffer*/\n")
@@ -649,6 +651,39 @@ func (g *cpyGen) genMethod(cpy Struct, fct Func) {
 
 func (g *cpyGen) genMethodBody(fct Func) {
 	g.genFuncBody(fct)
+}
+
+func (g *cpyGen) genStructProtocols(cpy Struct) {
+	g.genStructTPStr(cpy)
+}
+
+func (g *cpyGen) genStructTPStr(cpy Struct) {
+	g.decl.Printf("static PyObject*\n_gopy_%s_tp_str(PyObject *self);\n", cpy.ID())
+
+	g.impl.Printf("static PyObject*\n_gopy_%s_tp_str(PyObject *self) {\n",
+		cpy.ID(),
+	)
+
+	if (cpy.prots & ProtoStringer) == 0 {
+		g.impl.Indent()
+		g.impl.Printf("return PyObject_Repr(self);\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+		return
+	}
+
+	var m Func
+	for _, f := range cpy.meths {
+		if f.GoName() == "String" {
+			m = f
+			break
+		}
+	}
+
+	g.impl.Indent()
+	g.impl.Printf("return gopy_%[1]s(self, 0);\n", m.ID())
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
 }
 
 func (g *cpyGen) genPreamble() {
