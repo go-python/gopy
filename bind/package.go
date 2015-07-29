@@ -387,12 +387,16 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 		return Func{}, fmt.Errorf("bind: too many results to return: %v", obj)
 	}
 
+	id := obj.Pkg().Name() + "_" + obj.Name()
+	if parent != "" {
+		id = obj.Pkg().Name() + "_" + parent + "_" + obj.Name()
+	}
 	return Func{
 		pkg:  p,
 		sig:  newSignatureFrom(p, sig),
 		typ:  obj.Type(),
 		name: obj.Name(),
-		id:   obj.Pkg().Name() + "_" + obj.Name(),
+		id:   id,
 		doc:  p.getDoc(parent, obj),
 		ret:  ret,
 		err:  haserr,
