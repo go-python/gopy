@@ -313,6 +313,14 @@ func newSignatureFrom(pkg *Package, sig *types.Signature) *Signature {
 	}
 }
 
+func newSignature(pkg *Package, recv *Var, params, results []*Var) *Signature {
+	return &Signature{
+		ret:  results,
+		args: params,
+		recv: recv,
+	}
+}
+
 func (sig *Signature) Results() []*Var {
 	return sig.ret
 }
@@ -327,9 +335,10 @@ func (sig *Signature) Recv() *Var {
 
 // Func collects informations about a go func/method.
 type Func struct {
-	pkg *Package
-	sig *Signature
-	obj types.Object
+	pkg  *Package
+	sig  *Signature
+	typ  types.Type
+	name string
 
 	id  string
 	doc string
@@ -367,13 +376,14 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 	}
 
 	return Func{
-		pkg: p,
-		sig: newSignatureFrom(p, sig),
-		obj: obj,
-		id:  obj.Pkg().Name() + "_" + obj.Name(),
-		doc: p.getDoc(parent, obj),
-		ret: ret,
-		err: haserr,
+		pkg:  p,
+		sig:  newSignatureFrom(p, sig),
+		typ:  obj.Type(),
+		name: obj.Name(),
+		id:   obj.Pkg().Name() + "_" + obj.Name(),
+		doc:  p.getDoc(parent, obj),
+		ret:  ret,
+		err:  haserr,
 	}, nil
 }
 
@@ -390,11 +400,11 @@ func (f Func) Doc() string {
 }
 
 func (f Func) GoType() types.Type {
-	return f.obj.Type()
+	return f.typ
 }
 
 func (f Func) GoName() string {
-	return f.obj.Name()
+	return f.name
 }
 
 func (f Func) Signature() *Signature {

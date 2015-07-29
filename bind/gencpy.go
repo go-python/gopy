@@ -9,6 +9,8 @@ import (
 	"go/token"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/tools/go/types"
 )
 
 const (
@@ -113,12 +115,15 @@ gopy_%[3]s(PyObject *self, PyObject *args) {
 	)
 
 	g.impl.Indent()
-	g.genFuncBody(o.ID(), o.Signature())
+	g.genFuncBody(o)
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }
 
-func (g *cpyGen) genFuncBody(id string, sig *Signature) {
+func (g *cpyGen) genFuncBody(f Func) {
+	id := f.ID()
+	sig := f.Signature()
+
 	funcArgs := []string{}
 
 	res := sig.Results()
@@ -188,7 +193,6 @@ func (g *cpyGen) genFuncBody(id string, sig *Signature) {
 	if len(res) > 0 {
 		g.impl.Printf("c_gopy_ret = ")
 	}
-
 	g.impl.Printf("GoPy_%[1]s(%[2]s);\n", id, strings.Join(funcArgs, ", "))
 
 	g.impl.Printf("\n")
@@ -530,13 +534,13 @@ func (g *cpyGen) genMethod(cpy Struct, fct Func) {
 	g.impl.Printf("static PyObject*\n")
 	g.impl.Printf("gopy_%s(PyObject *self, PyObject *args) {\n", fct.ID())
 	g.impl.Indent()
-	g.genMethodBody(cpy, fct)
+	g.genMethodBody(fct)
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }
 
-func (g *cpyGen) genMethodBody(cpy Struct, fct Func) {
-	g.genFuncBody(fct.ID(), fct.Signature())
+func (g *cpyGen) genMethodBody(fct Func) {
+	g.genFuncBody(fct)
 }
 
 func (g *cpyGen) genPreamble() {
