@@ -56,3 +56,14 @@ func (p *Person) Greet() string {
 func (p *Person) greet() string {
 	return fmt.Sprintf("Hello, I am %s", p.Name)
 }
+
+/*
+// Work makes a Person go to work for h hours
+func (p *Person) Work(h int) error {
+	fmt.Printf("working...\n")
+	if h > 7 {
+		return fmt.Errorf("can't work for %d hours!", h)
+	}
+	return nil
+}
+*/
