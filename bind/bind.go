@@ -28,10 +28,9 @@ func (list ErrorList) Error() string {
 
 // GenCPython generates a (C)Python package from a Go package
 func GenCPython(w io.Writer, fset *token.FileSet, pkg *Package) error {
-	buf := new(bytes.Buffer)
 	gen := &cpyGen{
-		decl: &printer{buf: buf, indentEach: []byte("\t")},
-		impl: &printer{buf: buf, indentEach: []byte("\t")},
+		decl: &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
+		impl: &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
 		fset: fset,
 		pkg:  pkg,
 	}
