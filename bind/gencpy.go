@@ -388,36 +388,6 @@ func (g *cpyGen) genStructMembers(cpy Struct) {
 	g.impl.Printf("{NULL} /* Sentinel */\n")
 	g.impl.Outdent()
 	g.impl.Printf("};\n\n")
-	/*
-				static PyObject *
-				Noddy_getfirst(Noddy *self, void *closure)
-				{
-				    Py_INCREF(self->first);
-				    return self->first;
-				}
-
-				static int
-		Noddy_setfirst(Noddy *self, PyObject *value, void *closure)
-		{
-		  if (value == NULL) {
-		    PyErr_SetString(PyExc_TypeError, "Cannot delete the first attribute");
-		    return -1;
-		  }
-
-		  if (! PyString_Check(value)) {
-		    PyErr_SetString(PyExc_TypeError,
-		                    "The first attribute value must be a string");
-		    return -1;
-		  }
-
-		  Py_DECREF(self->first);
-		  Py_INCREF(value);
-		  self->first = value;
-
-		  return 0;
-		}
-	*/
-
 }
 
 func (g *cpyGen) genStructMemberGetter(cpy Struct, i int, f types.Object) {
