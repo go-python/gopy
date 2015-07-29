@@ -51,6 +51,13 @@ func NewPersonWithAge(age int) Person {
 	}
 }
 
+// NewActivePerson creates a new Person with a certain amount of work done.
+func NewActivePerson(h int) (Person, error) {
+	var p Person
+	err := p.Work(h)
+	return p, err
+}
+
 func (p Person) String() string {
 	return fmt.Sprintf("hi.Person{Name=%q, Age=%d}", p.Name, p.Age)
 }
