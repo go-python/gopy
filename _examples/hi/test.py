@@ -84,6 +84,8 @@ except Exception, err:
     print "caught:", err
     pass
 
-## test ctor
-#print "--- hi.NewPerson('me', 666):", hi.NewPerson("me", 666)
+## test ctors
+print "--- hi.NewPerson('me', 666):", hi.NewPerson("me", 666)
+print "--- hi.NewPersonWithAge(666):", hi.NewPersonWithAge(666)
+print "--- hi.NewActivePerson(4):", hi.NewActivePerson(4)
 
