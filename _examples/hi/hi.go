@@ -43,6 +43,14 @@ func NewPerson(name string, age int) Person {
 	}
 }
 
+// NewPersonWithAge creates a new Person with a specific age
+func NewPersonWithAge(age int) Person {
+	return Person{
+		Name: "stranger",
+		Age:  age,
+	}
+}
+
 func (p Person) String() string {
 	return fmt.Sprintf("hi.Person{Name=%q, Age=%d}", p.Name, p.Age)
 }
