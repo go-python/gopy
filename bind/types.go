@@ -5,6 +5,8 @@
 package bind
 
 import (
+	"reflect"
+
 	"golang.org/x/tools/go/types"
 )
 
@@ -74,6 +76,28 @@ type typedesc struct {
 	cgotype string
 	pyfmt   string
 	pysig   string
+}
+
+var (
+	intsize = reflect.TypeOf(int(0)).Size()
+)
+
+func init() {
+	if intsize == 8 {
+		typedescr[types.Int] = typedesc{
+			ctype:   "int64_t",
+			cgotype: "GoInt",
+			pyfmt:   "k",
+			pysig:   "int",
+		}
+
+		typedescr[types.Uint] = typedesc{
+			ctype:   "uint64_t",
+			cgotype: "GoUint",
+			pyfmt:   "K",
+			pysig:   "int",
+		}
+	}
 }
 
 var typedescr = map[types.BasicKind]typedesc{
