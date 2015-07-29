@@ -81,7 +81,7 @@ try:
     hi.Person(1)
     print "*ERROR* no exception raised!"
 except Exception, err:
-    print "caught:", err
+    print "caught:", err, "| err-type:",type(err)
     pass
 
 ## test ctors
