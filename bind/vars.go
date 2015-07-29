@@ -64,6 +64,14 @@ func getTypedesc(t types.Type) typedesc {
 				cgotype: "GoPy_" + id,
 				pyfmt:   "N",
 			}
+		case *types.Interface:
+			return typedesc{
+				ctype:   "GoInterface",
+				cgotype: "GoInterface",
+				pyfmt:   "?",
+			}
+		default:
+			panic(fmt.Errorf("unhandled type: %#v", typ))
 		}
 	case *types.Pointer:
 		elem := typ.Elem()

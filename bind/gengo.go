@@ -45,6 +45,16 @@ func CGoPy_CString(s string) *C.char {
 	return C.CString(s)
 }
 
+//export CGoPy_ErrorIsNil
+func CGoPy_ErrorIsNil(err error) bool {
+	return err == nil
+}
+
+//export CGoPy_ErrorString
+func CGoPy_ErrorString(err error) *C.char {
+	return C.CString(err.Error())
+}
+
 // --- end cgo helpers ---
 `
 )
@@ -349,10 +359,16 @@ func (g *goGen) qualifiedType(typ types.Type) string {
 	case *types.Named:
 		obj := typ.Obj()
 		//return obj.Pkg().Name() + "." + obj.Name()
-		return "GoPy_" + obj.Name()
+		//return "GoPy_" + obj.Name()
 		switch typ := typ.Underlying().(type) {
 		case *types.Struct:
+			return "GoPy_" + obj.Name()
 			return typ.String()
+		case *types.Interface:
+			if obj.Name() == "error" {
+				return "error"
+			}
+			return "GoPy_" + obj.Name()
 		default:
 			return "GoPy_ooops_" + obj.Name()
 		}

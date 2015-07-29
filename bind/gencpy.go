@@ -218,6 +218,19 @@ func (g *cpyGen) genFuncBody(f Func) {
 		}
 	}
 
+	if len(res) == 1 && f.err {
+		g.impl.Printf("if (!CGoPy_ErrorIsNil(c_gopy_ret)) {\n")
+		g.impl.Indent()
+		g.impl.Printf("const char* c_err_str = CGoPy_ErrorString(c_gopy_ret);\n")
+		g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
+		g.impl.Printf("free((void*)c_err_str);\n")
+		g.impl.Printf("return NULL;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+		g.impl.Printf("Py_INCREF(Py_None);\nreturn Py_None;\n")
+		return
+	}
+
 	g.impl.Printf("return Py_BuildValue(%q, %s);\n",
 		strings.Join(format, ""),
 		strings.Join(funcArgs, ", "),
@@ -582,7 +595,7 @@ func (g *cpyGen) genStructMethods(cpy Struct) {
 	g.impl.Indent()
 	for _, m := range cpy.meths {
 		margs := "METH_VARARGS"
-		if m.Return() == nil {
+		if len(m.Signature().Params()) == 0 {
 			margs = "METH_NOARGS"
 		}
 		g.impl.Printf(
