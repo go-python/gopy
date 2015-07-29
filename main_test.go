@@ -51,6 +51,9 @@ func TestBind(t *testing.T) {
 
 	want := []byte(`hi from go
 hello you from go
+working...
+worked for 2 hours
+working...
 --- doc(hi)...
 package hi exposes a few Go functions to be wrapped and used from Python.
 
@@ -79,7 +82,7 @@ Add returns the sum of its arguments.
 Person is a simple struct
 
 --- p = hi.Person()...
-['Age', 'Greet', 'Name', 'String', '__class__', '__delattr__', '__doc__', '__format__', '__getattribute__', '__hash__', '__init__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__']
+['Age', 'Greet', 'Name', 'String', 'Work', '__class__', '__delattr__', '__doc__', '__format__', '__getattribute__', '__hash__', '__init__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__']
 --- p: hi.Person{Name="", Age=0}
 --- p.Name: 
 --- p.Age: 0
@@ -101,6 +104,9 @@ Person is a simple struct
 hi.Person{Name="foo", Age=42}
 --- p.Age: 42
 --- p.Name: foo
+--- p.Work(2)...
+--- p.Work(24)...
+caught: can't work for 24 hours!
 `)
 	buf := new(bytes.Buffer)
 	cmd = exec.Command("python2", "./test.py")

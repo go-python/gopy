@@ -57,3 +57,16 @@ print p.String()
 print "--- p.Age:", p.Age
 print "--- p.Name:",p.Name
 
+print "--- p.Work(2)..."
+p.Work(2)
+
+print "--- p.Work(24)..."
+try:
+    p.Work(24)
+    print "*ERROR* no exception raised!"
+except Exception, err:
+    print "caught:", err
+    pass
+
+
+
