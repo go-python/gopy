@@ -25,6 +25,10 @@ func (p *printer) writeIndent() error {
 	return err
 }
 
+func (p *printer) Read(b []byte) (n int, err error) {
+	return p.buf.Read(b)
+}
+
 func (p *printer) Write(b []byte) (n int, err error) {
 	wrote := 0
 	for len(b) > 0 {

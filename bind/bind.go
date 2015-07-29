@@ -40,12 +40,12 @@ func GenCPython(w io.Writer, fset *token.FileSet, pkg *Package) error {
 		return err
 	}
 
-	_, err = io.Copy(w, gen.decl.buf)
+	_, err = io.Copy(w, gen.decl)
 	if err != nil {
 		return err
 	}
 
-	_, err = io.Copy(w, gen.impl.buf)
+	_, err = io.Copy(w, gen.impl)
 	if err != nil {
 		return err
 	}
