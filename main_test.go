@@ -82,7 +82,7 @@ Add returns the sum of its arguments.
 Person is a simple struct
 
 --- p = hi.Person()...
-['Age', 'Greet', 'Name', 'String', 'Work', '__class__', '__delattr__', '__doc__', '__format__', '__getattribute__', '__hash__', '__init__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__']
+['Age', 'Greet', 'Name', 'Salary', 'String', 'Work', '__class__', '__delattr__', '__doc__', '__format__', '__getattribute__', '__hash__', '__init__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__']
 --- p: hi.Person{Name="", Age=0}
 --- p.Name: 
 --- p.Age: 0
@@ -107,6 +107,8 @@ hi.Person{Name="foo", Age=42}
 --- p.Work(2)...
 --- p.Work(24)...
 caught: can't work for 24 hours!
+--- p.Salary(2): 20
+--- p.Salary(24): caught: can't work for 24 hours!
 `)
 	buf := new(bytes.Buffer)
 	cmd = exec.Command("python2", "./test.py")

@@ -68,5 +68,10 @@ except Exception, err:
     print "caught:", err
     pass
 
-
-
+print "--- p.Salary(2):", p.Salary(2)
+try:
+    print "--- p.Salary(24):",p.Salary(24)
+    print "*ERROR* no exception raised!"
+except Exception, err:
+    print "caught:", err
+    pass

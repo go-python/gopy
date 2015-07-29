@@ -66,3 +66,11 @@ func (p *Person) Work(h int) error {
 	fmt.Printf("worked for %d hours\n", h)
 	return nil
 }
+
+// Salary returns the expected gains after h hours of work
+func (p *Person) Salary(h int) (int, error) {
+	if h > 7 {
+		return 0, fmt.Errorf("can't work for %d hours!", h)
+	}
+	return h * 10, nil
+}
