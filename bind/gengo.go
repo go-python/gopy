@@ -183,6 +183,8 @@ func (g *goGen) genStruct(s Struct) {
 			g.Printf("type %s unsafe.Pointer\n\n", ftname)
 		}
 
+		// -- getter --
+
 		g.Printf("//export GoPy_%[1]s_getter_%[2]d\n", s.ID(), i+1)
 		g.Printf("func GoPy_%[1]s_getter_%[2]d(self GoPy_%[1]s) %[3]s {\n",
 			s.ID(), i+1,
@@ -194,12 +196,32 @@ func (g *goGen) genStruct(s Struct) {
 			pkgname+"."+s.GoName(),
 		)
 
-		if needWrapType(f.Type()) {
-			dt := getTypedesc(f.Type())
+		if needWrapType(ft) {
+			dt := getTypedesc(ft)
 			g.Printf("%s(unsafe.Pointer(&ret.%s))\n", dt.cgotype, f.Name())
 		} else {
 			g.Printf("return ret.%s\n", f.Name())
 		}
+		g.Outdent()
+		g.Printf("}\n\n")
+
+		// -- setter --
+		g.Printf("//export GoPy_%[1]s_setter_%[2]d\n", s.ID(), i+1)
+		g.Printf("func GoPy_%[1]s_setter_%[2]d(self GoPy_%[1]s, v %[3]s) {\n",
+			s.ID(), i+1, ftname,
+		)
+		g.Indent()
+		fset := "v"
+		if needWrapType(ft) {
+			dt := getTypedesc(ft)
+			fset = fmt.Sprintf("%s(unsafe.Pointer(&v))", dt.cgotype)
+		}
+		g.Printf(
+			"(*%[1]s)(unsafe.Pointer(self)).%[2]s = %[3]s\n",
+			pkgname+"."+s.GoName(),
+			f.Name(),
+			fset,
+		)
 		g.Outdent()
 		g.Printf("}\n\n")
 	}
