@@ -76,6 +76,21 @@ func getTypedesc(t types.Type) typedesc {
 	case *types.Pointer:
 		elem := typ.Elem()
 		return getTypedesc(elem)
+
+	case *types.Signature:
+		return typedesc{
+			ctype:   "GoFunction",
+			cgotype: "GoFunction",
+			pyfmt:   "?",
+		}
+
+	case *types.Slice:
+		return typedesc{
+			ctype:   "GoSlice",
+			cgotype: "GoSlice",
+			pyfmt:   "?",
+		}
+
 	default:
 		panic(fmt.Errorf("unhandled type: %#v\n", typ))
 	}

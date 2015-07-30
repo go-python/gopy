@@ -7,6 +7,7 @@ package bind
 import (
 	"fmt"
 	"go/doc"
+	"os"
 	"strings"
 
 	"golang.org/x/tools/go/types"
@@ -237,11 +238,15 @@ func (p *Package) process() error {
 
 func (p *Package) addConst(obj *types.Const) {
 	//TODO(sbinet)
+	fmt.Fprintf(os.Stderr, "no yet supported: %v (%T)\n", obj, obj)
+	return
 	panic(fmt.Errorf("not yet supported: %v (%T)", obj, obj))
 }
 
 func (p *Package) addVar(obj *types.Var) {
 	//TODO(sbinet)
+	fmt.Fprintf(os.Stderr, "no yet supported: %v (%T)\n", obj, obj)
+	return
 	panic(fmt.Errorf("not yet supported: %v (%T)", obj, obj))
 }
 
