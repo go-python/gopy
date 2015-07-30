@@ -89,3 +89,10 @@ print "--- hi.NewPerson('me', 666):", hi.NewPerson("me", 666)
 print "--- hi.NewPersonWithAge(666):", hi.NewPersonWithAge(666)
 print "--- hi.NewActivePerson(4):", hi.NewActivePerson(4)
 
+## test Couple
+print "--- c = hi.Couple()..."
+c = hi.Couple()
+print c
+
+## FIXME(sbinet) -- segfaults!
+#print "--- c.P1:", c.P1

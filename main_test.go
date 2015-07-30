@@ -115,6 +115,8 @@ caught: Person.__init__ takes no argument | err-type: <type 'exceptions.TypeErro
 --- hi.NewPerson('me', 666): hi.Person{Name="me", Age=666}
 --- hi.NewPersonWithAge(666): hi.Person{Name="stranger", Age=666}
 --- hi.NewActivePerson(4): hi.Person{Name="", Age=0}
+--- c = hi.Couple()...
+hi.Couple{P1=hi.Person{Name="", Age=0}, P2=hi.Person{Name="", Age=0}}
 `)
 	buf := new(bytes.Buffer)
 	cmd = exec.Command("python2", "./test.py")
