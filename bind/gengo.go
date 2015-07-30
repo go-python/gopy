@@ -216,8 +216,7 @@ func (g *goGen) genStruct(s Struct) {
 		)
 
 		if needWrapType(ft) {
-			dt := getTypedesc(ft)
-			g.Printf("%s(unsafe.Pointer(&ret.%s))\n", dt.cgotype, f.Name())
+			g.Printf("return %s(unsafe.Pointer(&ret.%s))\n", ftname, f.Name())
 		} else {
 			g.Printf("return ret.%s\n", f.Name())
 		}
@@ -232,8 +231,10 @@ func (g *goGen) genStruct(s Struct) {
 		g.Indent()
 		fset := "v"
 		if needWrapType(ft) {
-			dt := getTypedesc(ft)
-			fset = fmt.Sprintf("%s(unsafe.Pointer(&v))", dt.cgotype)
+			fset = fmt.Sprintf("*(*%s.%s)(unsafe.Pointer(v))",
+				f.Pkg().Name(),
+				types.TypeString(f.Type(), types.RelativeTo(f.Pkg())),
+			)
 		}
 		g.Printf(
 			"(*%[1]s)(unsafe.Pointer(self)).%[2]s = %[3]s\n",
