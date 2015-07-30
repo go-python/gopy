@@ -88,9 +88,10 @@ func (g *goGen) gen() error {
 		g.genFunc(f)
 	}
 
-	g.Printf("// buildmode=c-shared needs a 'main'\n\nfunc main() {}\n")
-	g.Printf("// tickle cgo\nfunc init() {\n")
+	g.Printf("// buildmode=c-shared needs a 'main'\nfunc main() {}\n\n")
+	g.Printf("func init() {\n")
 	g.Indent()
+	g.Printf("// make sure cgo is used and cgo hooks are run\n")
 	g.Printf("str := C.CString(%q)\n", g.pkg.Name())
 	g.Printf("C.free(unsafe.Pointer(str))\n")
 	g.Outdent()
