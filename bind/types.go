@@ -76,6 +76,13 @@ type typedesc struct {
 	cgotype string
 	pyfmt   string
 	pysig   string
+	c2py    string // name of converter helper C->py
+	py2c    string // name of converter helper for py->c
+
+}
+
+func (td typedesc) hasConverter() bool {
+	return td.c2py != "" || td.py2c != ""
 }
 
 var (
@@ -103,9 +110,11 @@ func init() {
 var typedescr = map[types.BasicKind]typedesc{
 	types.Bool: typedesc{
 		ctype:   "_Bool",
-		cgotype: "GoBool",
-		pyfmt:   "b",
+		cgotype: "GoUint8",
+		pyfmt:   "O&",
 		pysig:   "bool",
+		c2py:    "_cgopy_cnv_c2py_bool",
+		py2c:    "_cgopy_cnv_py2c_bool",
 	},
 
 	types.Int: typedesc{
@@ -209,14 +218,16 @@ var typedescr = map[types.BasicKind]typedesc{
 	types.String: typedesc{
 		ctype:   "const char*",
 		cgotype: "GoString",
-		pyfmt:   "s",
+		pyfmt:   "O&",
 		pysig:   "str",
+		c2py:    "_cgopy_cnv_c2py_string",
+		py2c:    "_cgopy_cnv_py2c_string",
 	},
 
 	types.UnsafePointer: typedesc{
 		ctype:   "void*",
 		cgotype: "void*",
-		pyfmt:   "?",
+		pyfmt:   "O&",
 		pysig:   "object",
 	},
 }

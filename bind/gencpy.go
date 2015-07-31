@@ -31,6 +31,37 @@ const (
 // header exported from 'go tool cgo'
 #include "%[3]s.h"
 
+// helpers for cgopy
+
+static int
+_cgopy_cnv_py2c_bool(PyObject *o, GoUint8 *addr) {
+	*addr = (o == Py_True) ? 1 : 0;
+	return 1;
+}
+
+static PyObject*
+_cgopy_cnv_c2py_bool(GoUint8 *addr) {
+	long v = *addr;
+	return PyBool_FromLong(v);
+}
+
+static int
+_cgopy_cnv_py2c_string(PyObject *o, GoString *addr) {
+	const char *str = PyString_AsString(o);
+	if (str == NULL) {
+		return 0;
+	}
+	*addr = CGoPy_GoString((char*)str);
+	return 1;
+}
+
+static PyObject*
+_cgopy_cnv_c2py_string(GoString *addr) {
+	const char *str = CGoPy_CString(*addr);
+	PyObject *pystr = PyString_FromString(str);
+	free((void*)str);
+	return pystr;
+}
 `
 )
 
@@ -196,7 +227,7 @@ func (g *cpyGen) genFuncBody(f Func) {
 		for _, arg := range args {
 			pyfmt, addr := arg.getArgParse()
 			format = append(format, pyfmt)
-			pyaddrs = append(pyaddrs, addr)
+			pyaddrs = append(pyaddrs, addr...)
 		}
 		g.impl.Printf("%q, %s)) {\n", strings.Join(format, ""), strings.Join(pyaddrs, ", "))
 		g.impl.Indent()
@@ -264,7 +295,7 @@ func (g *cpyGen) genFuncBody(f Func) {
 				g.impl.Printf("return o;\n")
 				return
 			}
-			pyfmt, _ := res[0].getArgParse()
+			pyfmt, _ := res[0].getArgBuildValue()
 			g.impl.Printf("return Py_BuildValue(%q, c_gopy_ret.r0);\n", pyfmt)
 			return
 
@@ -299,14 +330,15 @@ func (g *cpyGen) genFuncBody(f Func) {
 	switch len(res) {
 	case 1:
 		ret := res[0]
-		pyfmt, _ := ret.getArgParse()
+		ret.name = "gopy_ret"
+		pyfmt, pyaddrs := ret.getArgBuildValue()
 		format = append(format, pyfmt)
-		funcArgs = append(funcArgs, "c_gopy_ret")
+		funcArgs = append(funcArgs, pyaddrs...)
 	default:
 		for _, ret := range res {
-			pyfmt, _ := ret.getArgParse()
+			pyfmt, pyaddrs := ret.getArgBuildValue()
 			format = append(format, pyfmt)
-			funcArgs = append(funcArgs, ret.getFuncArg())
+			funcArgs = append(funcArgs, pyaddrs...)
 		}
 	}
 
@@ -384,6 +416,8 @@ func (g *cpyGen) genStruct(cpy Struct) {
 	g.impl.Printf("_gopy_%s_new,\t/* tp_new */\n", cpy.ID())
 	g.impl.Outdent()
 	g.impl.Printf("};\n\n")
+
+	g.genStructConverters(cpy)
 
 }
 
@@ -579,33 +613,13 @@ func (g *cpyGen) genStructMemberGetter(cpy Struct, i int, f types.Object) {
 	ftname := cgoTypeName(ft)
 	if needWrapType(ft) {
 		ftname = fmt.Sprintf("GoPy_%[1]s_field_%d", cpy.ID(), i+1)
-		g.impl.Printf(
-			"%[1]s cgopy_ret = GoPy_%[2]s_getter_%[3]d(self->cgopy);\n",
-			ftname,
-			cpy.ID(),
-			i+1,
-		)
-	} else if ifield.isGoString() {
-		ifield.genDecl(g.impl)
-		g.impl.Printf(
-			"c_ret = (%[1]s)GoPy_%[2]s_getter_%[3]d(self->cgopy);\n",
-			ftname,
-			cpy.ID(),
-			i+1,
-		)
-		g.impl.Printf(
-			"cgopy_%[1]s = CGoPy_CString(c_%[1]s);\n",
-			ifield.Name(),
-		)
-
-	} else {
-		g.impl.Printf(
-			"%[1]s cgopy_ret = GoPy_%[2]s_getter_%[3]d(self->cgopy);\n",
-			ftname,
-			cpy.ID(),
-			i+1,
-		)
 	}
+	g.impl.Printf(
+		"%[1]s c_ret = GoPy_%[2]s_getter_%[3]d(self->cgopy); /*wrap*/\n",
+		ftname,
+		cpy.ID(),
+		i+1,
+	)
 
 	{
 		format := []string{}
@@ -613,9 +627,10 @@ func (g *cpyGen) genStructMemberGetter(cpy Struct, i int, f types.Object) {
 		switch len(results) {
 		case 1:
 			ret := results[0]
-			pyfmt, _ := ret.getArgParse()
+			ret.name = "ret"
+			pyfmt, pyaddrs := ret.getArgBuildValue()
 			format = append(format, pyfmt)
-			funcArgs = append(funcArgs, "cgopy_ret")
+			funcArgs = append(funcArgs, pyaddrs...)
 		default:
 			panic("bind: impossible")
 		}
@@ -623,10 +638,6 @@ func (g *cpyGen) genStructMemberGetter(cpy Struct, i int, f types.Object) {
 			strings.Join(format, ""),
 			strings.Join(funcArgs, ", "),
 		)
-	}
-
-	if ifield.isGoString() {
-		g.impl.Printf("free((void*)cgopy_%[1]s);\n", ifield.Name())
 	}
 
 	g.impl.Printf("return o;\n")
@@ -679,20 +690,13 @@ func (g *cpyGen) genStructMemberSetter(cpy Struct, i int, f types.Object) {
 
 	g.impl.Printf("\nif (!PyArg_ParseTuple(tuple, ")
 	pyfmt, pyaddr := ifield.getArgParse()
-	g.impl.Printf("%q, %s)) {\n", pyfmt, pyaddr)
+	g.impl.Printf("%q, %s)) {\n", pyfmt, strings.Join(pyaddr, ", "))
 	g.impl.Indent()
 	g.impl.Printf("Py_DECREF(tuple);\n")
 	g.impl.Printf("return -1;\n")
 	g.impl.Outdent()
 	g.impl.Printf("}\n")
 	g.impl.Printf("Py_DECREF(tuple);\n\n")
-
-	if ifield.isGoString() {
-		g.impl.Printf(
-			"c_%[1]s = CGoPy_GoString((char*)cgopy_%[1]s);\n",
-			ifield.Name(),
-		)
-	}
 
 	g.impl.Printf("%[1]s((%[2]s)(self->cgopy), c_%[3]s);\n",
 		fsetname,
@@ -788,6 +792,40 @@ func (g *cpyGen) genStructTPStr(cpy Struct) {
 
 	g.impl.Indent()
 	g.impl.Printf("return gopy_%[1]s(self, 0);\n", m.ID())
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
+}
+
+func (g *cpyGen) genStructConverters(cpy Struct) {
+	g.decl.Printf("static int\n")
+	g.decl.Printf("cgopy_cnv_py2c_%[1]s(PyObject *o, GoPy_%[1]s *addr);\n", cpy.ID())
+	g.decl.Printf("static PyObject*\n")
+	g.decl.Printf("cgopy_cnv_c2py_%[1]s(GoPy_%[1]s *addr);\n", cpy.ID())
+
+	g.impl.Printf("static int\n")
+	g.impl.Printf("cgopy_cnv_py2c_%[1]s(PyObject *o, GoPy_%[1]s *addr) {\n", cpy.ID())
+	g.impl.Indent()
+	g.impl.Printf("_gopy_%s *self = NULL;\n", cpy.ID())
+	g.impl.Printf("self = (_gopy_%s *)o;\n", cpy.ID())
+	g.impl.Printf("*addr = self->cgopy;\n")
+	g.impl.Printf("return 1;\n")
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
+
+	g.impl.Printf("static PyObject*\n")
+	g.impl.Printf("cgopy_cnv_c2py_%[1]s(GoPy_%[1]s *addr) {\n", cpy.ID())
+	g.impl.Indent()
+	g.impl.Printf("PyObject *o = _gopy_%[1]s_new(&_gopy_%[2]sType, 0, 0);\n",
+		cpy.ID(),
+		cpy.ID(),
+	)
+	g.impl.Printf("if (o == NULL) {\n")
+	g.impl.Indent()
+	g.impl.Printf("return NULL;\n")
+	g.impl.Outdent()
+	g.impl.Printf("}\n")
+	g.impl.Printf("((_gopy_%[1]s*)o)->cgopy = *addr;\n", cpy.ID())
+	g.impl.Printf("return o;\n")
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }

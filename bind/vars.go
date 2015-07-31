@@ -62,13 +62,22 @@ func getTypedesc(t types.Type) typedesc {
 			return typedesc{
 				ctype:   "GoPy_" + id,
 				cgotype: "GoPy_" + id,
-				pyfmt:   "N",
+				pyfmt:   "O&",
+				c2py:    "cgopy_cnv_c2py_" + id,
+				py2c:    "cgopy_cnv_py2c_" + id,
 			}
 		case *types.Interface:
+			obj := typ.Obj()
+			id := obj.Name()
+			if obj.Pkg() != nil {
+				id = obj.Pkg().Name() + "_" + id
+			}
 			return typedesc{
 				ctype:   "GoInterface",
 				cgotype: "GoInterface",
-				pyfmt:   "?",
+				pyfmt:   "O&",
+				c2py:    "cgopy_cnv_c2py_" + id,
+				py2c:    "cgopy_cnv_py2c_" + id,
 			}
 		default:
 			panic(fmt.Errorf("unhandled type: %#v", typ))
@@ -122,9 +131,6 @@ func (v *Var) isGoString() bool {
 }
 
 func (v *Var) genDecl(g *printer) {
-	if v.isGoString() {
-		g.Printf("const char* cgopy_%s;\n", v.Name())
-	}
 	g.Printf("%[1]s c_%[2]s;\n", v.CGoType(), v.Name())
 }
 
@@ -138,24 +144,36 @@ func (v *Var) genRecvImpl(g *printer) {
 }
 
 func (v *Var) genRetDecl(g *printer) {
-	if v.isGoString() {
-		g.Printf("const char* cgopy_gopy_ret;\n")
-	}
 	g.Printf("%[1]s c_gopy_ret;\n", v.CGoType())
 }
 
-func (v *Var) getArgParse() (string, string) {
-	addr := "&c_" + v.Name()
-	if v.isGoString() {
-		addr = "&cgopy_" + v.Name()
+func (v *Var) getArgParse() (string, []string) {
+	addrs := make([]string, 0, 1)
+	cnv := v.dtype.hasConverter()
+	if cnv {
+		addrs = append(addrs, v.dtype.py2c)
 	}
-	return v.dtype.pyfmt, addr
+	addr := "&c_" + v.Name()
+	addrs = append(addrs, addr)
+	return v.dtype.pyfmt, addrs
+}
+
+func (v *Var) getArgBuildValue() (string, []string) {
+	args := make([]string, 0, 1)
+	cnv := v.dtype.hasConverter()
+	if cnv {
+		args = append(args, ""+v.dtype.c2py)
+	}
+	arg := "c_" + v.Name()
+	if cnv {
+		arg = "&" + arg
+	}
+	args = append(args, arg)
+
+	return v.dtype.pyfmt, args
 }
 
 func (v *Var) genFuncPreamble(g *printer) {
-	if v.isGoString() {
-		g.Printf("c_%[1]s = CGoPy_GoString((char*)cgopy_%[1]s);\n", v.Name())
-	}
 }
 
 func (v *Var) getFuncArg() string {
