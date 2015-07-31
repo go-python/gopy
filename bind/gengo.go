@@ -163,7 +163,18 @@ func (g *goGen) genFuncBody(f Func) {
 		if i+1 < len(args) {
 			tail = ", "
 		}
-		g.Printf("%s%s", arg.Name(), tail)
+		head := arg.Name()
+		if arg.needWrap() {
+			head = fmt.Sprintf(
+				"*(*%s)(unsafe.Pointer(%s))",
+				types.TypeString(
+					arg.GoType(),
+					func(*types.Package) string { return g.pkg.Name() },
+				),
+				arg.Name(),
+			)
+		}
+		g.Printf("%s%s", head, tail)
 	}
 	g.Printf(")\n")
 

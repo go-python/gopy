@@ -7,7 +7,6 @@ package bind
 import (
 	"fmt"
 	"go/doc"
-	"os"
 	"strings"
 
 	"golang.org/x/tools/go/types"
