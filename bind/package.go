@@ -21,7 +21,7 @@ type Package struct {
 
 	objs    map[string]Object
 	consts  []Const
-	vars    []*types.Var
+	vars    []Var
 	structs []Struct
 	funcs   []Func
 }
@@ -243,7 +243,7 @@ func (p *Package) addConst(obj *types.Const) {
 }
 
 func (p *Package) addVar(obj *types.Var) {
-	p.vars = append(p.vars, obj)
+	p.vars = append(p.vars, *newVarFrom(p, obj))
 }
 
 func (p *Package) addStruct(s Struct) {

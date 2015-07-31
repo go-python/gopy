@@ -100,6 +100,10 @@ func (g *cpyGen) gen() error {
 		g.genConst(c)
 	}
 
+	for _, v := range g.pkg.vars {
+		g.genVar(v)
+	}
+
 	g.impl.Printf("static PyMethodDef cpy_%s_methods[] = {\n", g.pkg.pkg.Name())
 	g.impl.Indent()
 	for _, f := range g.pkg.funcs {
@@ -126,6 +130,16 @@ func (g *cpyGen) gen() error {
 		name := c.GoName()
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
 			"Get"+name, "gopy_get_"+c.ID(), c.Doc(),
+		)
+	}
+
+	for _, v := range g.pkg.vars {
+		name := v.Name()
+		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
+			"Get"+name, "gopy_get_"+v.id, v.doc,
+		)
+		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
+			"Set"+name, "gopy_set_"+v.id, v.doc,
 		)
 	}
 
@@ -832,6 +846,41 @@ func (g *cpyGen) genStructConverters(cpy Struct) {
 
 func (g *cpyGen) genConst(o Const) {
 	g.genFunc(o.f)
+}
+
+func (g *cpyGen) genVar(v Var) {
+	id := g.pkg.Name() + "_" + v.Name()
+	doc := v.doc
+	{
+		res := []*Var{newVar(g.pkg, v.GoType(), "ret", v.Name(), doc)}
+		sig := newSignature(g.pkg, nil, nil, res)
+		fget := Func{
+			pkg:  g.pkg,
+			sig:  sig,
+			typ:  nil,
+			name: v.Name(),
+			id:   "get_" + id,
+			doc:  "returns " + g.pkg.Name() + "." + v.Name(),
+			ret:  v.GoType(),
+			err:  false,
+		}
+		g.genFunc(fget)
+	}
+	{
+		params := []*Var{newVar(g.pkg, v.GoType(), "arg", v.Name(), doc)}
+		sig := newSignature(g.pkg, nil, params, nil)
+		fset := Func{
+			pkg:  g.pkg,
+			sig:  sig,
+			typ:  nil,
+			name: v.Name(),
+			id:   "set_" + id,
+			doc:  "sets " + g.pkg.Name() + "." + v.Name(),
+			ret:  nil,
+			err:  false,
+		}
+		g.genFunc(fset)
+	}
 }
 
 func (g *cpyGen) genPreamble() {

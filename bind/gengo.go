@@ -92,6 +92,10 @@ func (g *goGen) gen() error {
 		g.genConst(c)
 	}
 
+	for _, v := range g.pkg.vars {
+		g.genVar(v)
+	}
+
 	g.Printf("// buildmode=c-shared needs a 'main'\nfunc main() {}\n\n")
 	g.Printf("func init() {\n")
 	g.Indent()
@@ -356,6 +360,44 @@ func (g *goGen) genConst(o Const) {
 	g.Printf("func GoPy_get_%[1]s() %[2]s {\n", o.id, tname)
 	g.Indent()
 	g.Printf("return %s.%s\n", pkgname, o.obj.Name())
+	g.Outdent()
+	g.Printf("}\n\n")
+}
+
+func (g *goGen) genVar(o Var) {
+	pkgname := o.pkg.Name()
+	g.Printf("//export GoPy_get_%s\n", o.id)
+	ret := g.qualifiedType(o.GoType())
+	g.Printf("func GoPy_get_%[1]s() %[2]s {\n", o.id, ret)
+	g.Indent()
+	g.Printf("return ")
+	if o.needWrap() {
+		g.Printf("%s(unsafe.Pointer(&", o.dtype.cgotype)
+	}
+	g.Printf("%s.%s", pkgname, o.Name())
+	if o.needWrap() {
+		g.Printf("))")
+	}
+	g.Printf("\n")
+	g.Outdent()
+	g.Printf("}\n\n")
+
+	g.Printf("//export GoPy_set_%s\n", o.id)
+	g.Printf("func GoPy_set_%[1]s(v %[2]s) {\n", o.id, ret)
+	g.Indent()
+	vset := "v"
+	typ := o.GoType()
+	if needWrapType(typ) {
+		vset = fmt.Sprintf("*(*%s)(unsafe.Pointer(v))",
+			types.TypeString(typ, func(*types.Package) string {
+				return pkgname
+			}),
+		)
+	}
+	g.Printf(
+		"%[1]s.%[2]s = %[3]s\n",
+		pkgname, o.Name(), vset,
+	)
 	g.Outdent()
 	g.Printf("}\n\n")
 }
