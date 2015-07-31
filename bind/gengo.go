@@ -276,7 +276,7 @@ func (g *goGen) genStruct(s Struct) {
 		}
 
 		ft := f.Type()
-		ftname := g.qualifiedType(ft)
+		ftname := qualifiedType(ft)
 		if needWrapType(ft) {
 			ftname = fmt.Sprintf("GoPy_%[1]s_field_%d", s.ID(), i+1)
 			g.Printf("//export %s\n", ftname)
@@ -431,8 +431,15 @@ func (g *goGen) genConst(o Const) {
 
 func (g *goGen) genVar(o Var) {
 	pkgname := o.pkg.Name()
+	ret := qualifiedType(o.GoType())
+
+	switch o.GoType().(type) {
+	case *types.Array, *types.Slice:
+		g.Printf("//export %s\n", ret)
+		g.Printf("type %s unsafe.Pointer\n\n", ret)
+	}
+
 	g.Printf("//export GoPy_get_%s\n", o.id)
-	ret := g.qualifiedType(o.GoType())
 	g.Printf("func GoPy_get_%[1]s() %[2]s {\n", o.id, ret)
 	g.Indent()
 	if o.needWrap() {
@@ -485,30 +492,8 @@ func (g *goGen) tupleString(tuple []*Var) string {
 	for _, v := range tuple {
 		n := v.Name()
 		typ := v.GoType()
-		str = append(str, n+" "+g.qualifiedType(typ))
+		str = append(str, n+" "+qualifiedType(typ))
 	}
 
 	return strings.Join(str, ", ")
-}
-
-func (g *goGen) qualifiedType(typ types.Type) string {
-	switch typ := typ.(type) {
-	case *types.Basic:
-		return typ.Name()
-	case *types.Named:
-		obj := typ.Obj()
-		switch typ.Underlying().(type) {
-		case *types.Struct:
-			return "GoPy_" + obj.Pkg().Name() + "_" + obj.Name()
-		case *types.Interface:
-			if obj.Name() == "error" {
-				return "error"
-			}
-			return "GoPy_" + obj.Name()
-		default:
-			return "GoPy_ooops_" + obj.Name()
-		}
-	}
-
-	return fmt.Sprintf("%#T", typ)
 }

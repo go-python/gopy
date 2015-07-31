@@ -850,6 +850,14 @@ func (g *cpyGen) genConst(o Const) {
 }
 
 func (g *cpyGen) genVar(v Var) {
+
+	ret := qualifiedType(v.GoType())
+	switch v.GoType().(type) {
+	case *types.Array, *types.Slice:
+		g.decl.Printf("/* wrapping %s */\n", v.GoType().String())
+		g.decl.Printf("typedef void* %s;\n\n", ret)
+	}
+
 	id := g.pkg.Name() + "_" + v.Name()
 	doc := v.doc
 	{

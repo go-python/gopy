@@ -46,6 +46,10 @@ func newVarFrom(p *Package, v *types.Var) *Var {
 	return newVar(p, v.Type(), v.Name(), v.Name(), p.getDoc("", v))
 }
 
+func getTypeString(t types.Type) string {
+	return types.TypeString(t, func(*types.Package) string { return " " })
+}
+
 func getTypedesc(t types.Type) typedesc {
 	switch typ := t.(type) {
 	case *types.Basic:
@@ -82,6 +86,16 @@ func getTypedesc(t types.Type) typedesc {
 		default:
 			panic(fmt.Errorf("unhandled type: %#v", typ))
 		}
+	case *types.Array:
+		id := fmt.Sprintf("_array_%d_%s", typ.Len(), getTypeString(typ.Elem()))
+		return typedesc{
+			ctype:   "GoPy_" + id,
+			cgotype: "GoPy_" + id,
+			pyfmt:   "O&",
+			c2py:    "cgopy_cnv_c2py_" + id,
+			py2c:    "cgopy_cnv_py2c_" + id,
+		}
+
 	case *types.Pointer:
 		elem := typ.Elem()
 		return getTypedesc(elem)
@@ -183,4 +197,34 @@ func (v *Var) getFuncArg() string {
 func (v *Var) needWrap() bool {
 	typ := v.GoType()
 	return needWrapType(typ)
+}
+
+func qualifiedType(typ types.Type) string {
+	switch typ := typ.(type) {
+	case *types.Basic:
+		return typ.Name()
+	case *types.Named:
+		obj := typ.Obj()
+		switch typ.Underlying().(type) {
+		case *types.Struct:
+			return "GoPy_" + obj.Pkg().Name() + "_" + obj.Name()
+		case *types.Interface:
+			if obj.Name() == "error" {
+				return "error"
+			}
+			return "GoPy_" + obj.Name()
+		default:
+			return "GoPy_ooops_" + obj.Name()
+		}
+	case *types.Array:
+		id := fmt.Sprintf("_array_%d_%s", typ.Len(), getTypeString(typ.Elem()))
+		return "GoPy_" + id
+
+	case *types.Slice:
+		id := fmt.Sprintf("_slice_%s", getTypeString(typ.Elem()))
+		return "GoPy_" + id
+
+	}
+
+	return fmt.Sprintf("%#T", typ)
 }

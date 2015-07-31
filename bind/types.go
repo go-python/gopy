@@ -31,6 +31,12 @@ func needWrapType(typ types.Type) bool {
 		case *types.Struct:
 			return true
 		}
+	case *types.Array:
+		return true
+	case *types.Slice:
+		return true
+	case *types.Interface:
+		return true
 	}
 	return false
 }
