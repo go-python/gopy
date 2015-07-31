@@ -65,6 +65,10 @@ func (g *cpyGen) gen() error {
 		g.genFunc(f)
 	}
 
+	for _, c := range g.pkg.consts {
+		g.genConst(c)
+	}
+
 	g.impl.Printf("static PyMethodDef cpy_%s_methods[] = {\n", g.pkg.pkg.Name())
 	g.impl.Indent()
 	for _, f := range g.pkg.funcs {
@@ -85,6 +89,13 @@ func (g *cpyGen) gen() error {
 				name, "gopy_"+f.ID(), f.Doc(),
 			)
 		}
+	}
+
+	for _, c := range g.pkg.consts {
+		name := c.GoName()
+		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
+			"Get"+name, "gopy_get_"+c.ID(), c.Doc(),
+		)
 	}
 
 	g.impl.Printf("{NULL, NULL, 0, NULL}        /* Sentinel */\n")
@@ -779,6 +790,10 @@ func (g *cpyGen) genStructTPStr(cpy Struct) {
 	g.impl.Printf("return gopy_%[1]s(self, 0);\n", m.ID())
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
+}
+
+func (g *cpyGen) genConst(o Const) {
+	g.genFunc(o.f)
 }
 
 func (g *cpyGen) genPreamble() {

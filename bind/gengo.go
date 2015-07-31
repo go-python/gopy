@@ -88,6 +88,10 @@ func (g *goGen) gen() error {
 		g.genFunc(f)
 	}
 
+	for _, c := range g.pkg.consts {
+		g.genConst(c)
+	}
+
 	g.Printf("// buildmode=c-shared needs a 'main'\nfunc main() {}\n\n")
 	g.Printf("func init() {\n")
 	g.Indent()
@@ -340,6 +344,20 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 	}
 	g.Printf("\n")
 
+}
+
+func (g *goGen) genConst(o Const) {
+	pkgname := o.obj.Pkg().Name()
+	tname := types.TypeString(o.obj.Type(), types.RelativeTo(o.obj.Pkg()))
+	if strings.HasPrefix(tname, "untyped ") {
+		tname = string(tname[len("untyped "):])
+	}
+	g.Printf("//export GoPy_get_%s\n", o.id)
+	g.Printf("func GoPy_get_%[1]s() %[2]s {\n", o.id, tname)
+	g.Indent()
+	g.Printf("return %s.%s\n", pkgname, o.obj.Name())
+	g.Outdent()
+	g.Printf("}\n\n")
 }
 
 func (g *goGen) genPreamble() {

@@ -20,6 +20,8 @@ type Package struct {
 	doc *doc.Package
 
 	objs    map[string]Object
+	consts  []Const
+	vars    []*types.Var
 	structs []Struct
 	funcs   []Func
 }
@@ -237,17 +239,11 @@ func (p *Package) process() error {
 }
 
 func (p *Package) addConst(obj *types.Const) {
-	//TODO(sbinet)
-	fmt.Fprintf(os.Stderr, "no yet supported: %v (%T)\n", obj, obj)
-	return
-	panic(fmt.Errorf("not yet supported: %v (%T)", obj, obj))
+	p.consts = append(p.consts, newConst(p, obj))
 }
 
 func (p *Package) addVar(obj *types.Var) {
-	//TODO(sbinet)
-	fmt.Fprintf(os.Stderr, "no yet supported: %v (%T)\n", obj, obj)
-	return
-	panic(fmt.Errorf("not yet supported: %v (%T)", obj, obj))
+	p.vars = append(p.vars, obj)
 }
 
 func (p *Package) addStruct(s Struct) {
@@ -447,3 +443,43 @@ func (f Func) Signature() *Signature {
 func (f Func) Return() types.Type {
 	return f.ret
 }
+
+type Const struct {
+	pkg *Package
+	obj *types.Const
+	id  string
+	doc string
+	f   Func
+}
+
+func newConst(p *Package, o *types.Const) Const {
+	pkg := o.Pkg()
+	id := pkg.Name() + "_" + o.Name()
+	doc := p.getDoc("", o)
+
+	res := []*Var{newVar(p, o.Type(), "ret", o.Name(), doc)}
+	sig := newSignature(p, nil, nil, res)
+	fct := Func{
+		pkg:  p,
+		sig:  sig,
+		typ:  nil,
+		name: o.Name(),
+		id:   "get_" + id,
+		doc:  doc,
+		ret:  o.Type(),
+		err:  false,
+	}
+
+	return Const{
+		pkg: p,
+		obj: o,
+		id:  id,
+		doc: doc,
+		f:   fct,
+	}
+}
+
+func (c Const) ID() string         { return c.id }
+func (c Const) Doc() string        { return c.doc }
+func (c Const) GoName() string     { return c.obj.Name() }
+func (c Const) GoType() types.Type { return c.obj.Type() }

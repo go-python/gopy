@@ -220,3 +220,13 @@ var typedescr = map[types.BasicKind]typedesc{
 		pysig:   "object",
 	},
 }
+
+func init() {
+	typedescr[types.UntypedBool] = typedescr[types.Bool]
+	typedescr[types.UntypedInt] = typedescr[types.Int]
+	typedescr[types.UntypedRune] = typedescr[types.Rune] // FIXME(sbinet)
+	typedescr[types.UntypedFloat] = typedescr[types.Float64]
+	typedescr[types.UntypedComplex] = typedescr[types.Complex128]
+	typedescr[types.UntypedString] = typedescr[types.String]
+	typedescr[types.UntypedNil] = typedescr[types.UnsafePointer] // FIXME(sbinet)
+}
