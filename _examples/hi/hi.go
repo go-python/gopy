@@ -106,9 +106,8 @@ type Couple struct {
 	P2 Person
 }
 
-// FIXME(sbinet) -- expose!
 // NewCouple returns a new couple made of the p1 and p2 persons.
-func newCouple(p1, p2 Person) Couple {
+func NewCouple(p1, p2 Person) Couple {
 	return Couple{
 		P1: p1,
 		P2: p2,

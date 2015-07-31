@@ -111,6 +111,15 @@ print "--- hi.NewActivePerson(4):", hi.NewActivePerson(4)
 print "--- c = hi.Couple()..."
 c = hi.Couple()
 print c
+print "--- c.P1:", c.P1
+c.P1 = hi.NewPerson("tom", 5)
+c.P2 = hi.NewPerson("bob", 2)
+print "--- c:", c
 
-## FIXME(sbinet) -- segfaults!
-#print "--- c.P1:", c.P1
+print "--- c = hi.NewCouple(tom, bob)..."
+c = hi.NewCouple(hi.NewPerson("tom", 50), hi.NewPerson("bob", 41))
+print c
+c.P1.Name = "mom"
+c.P2.Age = 51
+print c
+
