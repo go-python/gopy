@@ -59,6 +59,17 @@ worked for 4 hours
 --- doc(hi)...
 package hi exposes a few Go functions to be wrapped and used from Python.
 
+--- hi.GetUniverse(): 42
+--- hi.GetVersion(): 0.1
+--- hi.GetDebug(): False
+--- hi.SetDebug(true)
+--- hi.GetDebug(): True
+--- hi.SetDebug(false)
+--- hi.GetDebug(): False
+--- hi.GetAnon(): hi.Person{Name="<nobody>", Age=1}
+--- new anon: hi.Person{Name="you", Age=24}
+--- hi.SetAnon(hi.NewPerson('you', 24))...
+--- hi.GetAnon(): hi.Person{Name="you", Age=24}
 --- doc(hi.Hi)...
 Hi() 
 

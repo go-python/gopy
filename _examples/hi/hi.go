@@ -9,6 +9,16 @@ import (
 	"fmt"
 )
 
+const (
+	Version  = "0.1" // Version of this package
+	Universe = 42    // Universe is the fundamental constant of everything
+)
+
+var (
+	Debug = false                            // Debug switches between debug and prod
+	Anon  = Person{Age: 1, Name: "<nobody>"} // Anon is a default anonymous person
+)
+
 // Hi prints hi from Go
 func Hi() {
 	fmt.Printf("hi from go\n")
