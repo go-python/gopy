@@ -448,6 +448,7 @@ func (g *cpyGen) genStructDealloc(cpy Struct) {
 		cpy.ID(),
 	)
 	g.impl.Indent()
+	g.impl.Printf("cgopy_decref((GoPy_%[1]s)(self->cgopy));\n", cpy.ID())
 	g.impl.Printf("self->ob_type->tp_free((PyObject*)self);\n")
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")

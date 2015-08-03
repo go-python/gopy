@@ -26,6 +26,7 @@ package main
 import "C"
 
 import (
+	"sync"
 	"unsafe"
 
 	%[2]q
@@ -56,6 +57,72 @@ func CGoPy_ErrorString(err error) *C.char {
 }
 
 // --- end cgo helpers ---
+
+// --- begin cref helpers ---
+
+type cobject struct {
+	ptr unsafe.Pointer
+	cnt int32
+}
+
+// refs stores Go objects that have been passed to another language.
+var refs struct {
+	sync.Mutex
+	next int32 // next reference number to use for Go object, always negative
+	refs map[unsafe.Pointer]int32
+	ptrs map[int32]cobject
+}
+
+//export cgopy_incref
+func cgopy_incref(ptr unsafe.Pointer) {
+	refs.Lock()
+	num, ok := refs.refs[ptr]
+	if ok {
+		s := refs.ptrs[num]
+		refs.ptrs[num] = cobject{s.ptr, s.cnt + 1}
+	} else {
+		num = refs.next
+		refs.next--
+		if refs.next > 0 {
+			panic("refs.next underflow")
+		}
+		refs.refs[ptr] = num
+		refs.ptrs[num] = cobject{ptr, 1}
+	}
+	refs.Unlock()
+}
+
+//export cgopy_decref
+func cgopy_decref(ptr unsafe.Pointer) {
+	refs.Lock()
+	num, ok := refs.refs[ptr]
+	if !ok {
+		panic("cgopy: decref untracked object")
+	}
+	s := refs.ptrs[num]
+	if s.cnt - 1 <= 0 {
+		delete(refs.ptrs, num)
+		delete(refs.refs, ptr)
+		refs.Unlock()
+		return
+	}
+	refs.ptrs[num] = cobject{s.ptr, s.cnt - 1}
+	refs.Unlock()
+}
+
+func init() {
+	refs.Lock()
+	refs.next = -24 // Go objects get negative reference numbers. Arbitrary starting point.
+	refs.refs = make(map[unsafe.Pointer]int32)
+	refs.ptrs = make(map[int32]cobject)
+	refs.Unlock()
+
+	// make sure cgo is used and cgo hooks are run
+	str := C.CString(%[1]q)
+	C.free(unsafe.Pointer(str))
+}
+
+// --- end cref helpers ---
 `
 )
 
@@ -96,15 +163,7 @@ func (g *goGen) gen() error {
 		g.genVar(v)
 	}
 
-	g.Printf("// buildmode=c-shared needs a 'main'\nfunc main() {}\n\n")
-	g.Printf("func init() {\n")
-	g.Indent()
-	g.Printf("// make sure cgo is used and cgo hooks are run\n")
-	g.Printf("str := C.CString(%q)\n", g.pkg.Name())
-	g.Printf("C.free(unsafe.Pointer(str))\n")
-	g.Outdent()
-	g.Printf("}\n")
-
+	g.Printf("// buildmode=c-shared needs a 'main'\nfunc main() {}\n")
 	if len(g.err) > 0 {
 		return g.err
 	}
@@ -182,6 +241,13 @@ func (g *goGen) genFuncBody(f Func) {
 		return
 	}
 
+	for i, res := range results {
+		if !res.needWrap() {
+			continue
+		}
+		g.Printf("cgopy_incref(unsafe.Pointer(&_gopy_%03d))\n", i)
+	}
+
 	g.Printf("return ")
 	for i, res := range results {
 		if i > 0 {
@@ -193,7 +259,7 @@ func (g *goGen) genFuncBody(f Func) {
 		if res.needWrap() {
 			g.Printf("%s(unsafe.Pointer(&", res.dtype.cgotype)
 		}
-		g.Printf("_gopy_%03d /* %#v %v */", i, res, res.GoType().Underlying())
+		g.Printf("_gopy_%03d", i)
 		if res.needWrap() {
 			g.Printf("))")
 		}
@@ -236,6 +302,7 @@ func (g *goGen) genStruct(s Struct) {
 		)
 
 		if needWrapType(ft) {
+			g.Printf("cgopy_incref(unsafe.Pointer(&ret.%s))\n", f.Name())
 			g.Printf("return %s(unsafe.Pointer(&ret.%s))\n", ftname, f.Name())
 		} else {
 			g.Printf("return ret.%s\n", f.Name())
@@ -273,11 +340,9 @@ func (g *goGen) genStruct(s Struct) {
 	g.Printf("//export GoPy_%[1]s_new\n", s.ID())
 	g.Printf("func GoPy_%[1]s_new() GoPy_%[1]s {\n", s.ID())
 	g.Indent()
-	g.Printf("return (GoPy_%[1]s)(unsafe.Pointer(&%[2]s.%[3]s{}))\n",
-		s.ID(),
-		pkgname,
-		s.GoName(),
-	)
+	g.Printf("o := %[1]s.%[2]s{}\n", pkgname, s.GoName())
+	g.Printf("cgopy_incref(unsafe.Pointer(&o))\n")
+	g.Printf("return (GoPy_%[1]s)(unsafe.Pointer(&o))\n", s.ID())
 	g.Outdent()
 	g.Printf("}\n\n")
 }
@@ -352,7 +417,7 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 		if res.needWrap() {
 			g.Printf("%s(unsafe.Pointer(&", res.dtype.cgotype)
 		}
-		g.Printf("_gopy_%03d /* %#v %v */", i, res, res.GoType().Underlying())
+		g.Printf("_gopy_%03d", i)
 		if res.needWrap() {
 			g.Printf("))")
 		}
@@ -381,6 +446,9 @@ func (g *goGen) genVar(o Var) {
 	ret := g.qualifiedType(o.GoType())
 	g.Printf("func GoPy_get_%[1]s() %[2]s {\n", o.id, ret)
 	g.Indent()
+	if o.needWrap() {
+		g.Printf("cgopy_incref(unsafe.Pointer(&%s.%s))\n", pkgname, o.Name())
+	}
 	g.Printf("return ")
 	if o.needWrap() {
 		g.Printf("%s(unsafe.Pointer(&", o.dtype.cgotype)
