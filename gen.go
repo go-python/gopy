@@ -26,31 +26,22 @@ var (
 	fset = token.NewFileSet()
 )
 
-func genPkg(odir string, pkg *build.Package, lang string) error {
+func genPkg(odir string, p *bind.Package, lang string) error {
 	var err error
 	var o *os.File
 
-	files, err := parseFiles(pkg.Dir, pkg.GoFiles)
-	if err != nil {
-		return err
-	}
-
-	conf := loader.Config{
-		Fset: fset,
-	}
-	conf.TypeChecker.Error = func(e error) {
-		log.Printf("%v\n", e)
-		err = e
-	}
-
-	p, err := newPackage(files, &conf, pkg)
-	if err != nil {
-		log.Printf("%v\n", err)
-		return err
+	switch lang {
+	case "python", "py":
+		lang, err = getPythonVersion()
+		if err != nil {
+			return err
+		}
+	default:
+		// no-op
 	}
 
 	switch lang {
-	case "python", "py":
+	case "python2", "py2":
 		o, err = os.Create(filepath.Join(odir, p.Name()+".c"))
 		if err != nil {
 			return err
@@ -60,6 +51,9 @@ func genPkg(odir string, pkg *build.Package, lang string) error {
 		if err != nil {
 			return err
 		}
+
+	case "python3", "py3":
+		return fmt.Errorf("gopy: python-3 support not yet implemented")
 
 	case "go":
 		o, err = os.Create(filepath.Join(odir, p.Name()+".go"))
@@ -147,7 +141,36 @@ func parseFiles(dir string, fnames []string) ([]*ast.File, error) {
 	return files, err
 }
 
-func newPackage(files []*ast.File, conf *loader.Config, pkg *build.Package) (*bind.Package, error) {
+func newPackage(path string) (*bind.Package, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	pkg, err := build.Import(path, cwd, 0)
+	files, err := parseFiles(pkg.Dir, pkg.GoFiles)
+	if err != nil {
+		return nil, err
+	}
+
+	conf := loader.Config{
+		Fset: fset,
+	}
+	conf.TypeChecker.Error = func(e error) {
+		log.Printf("%v\n", e)
+		err = e
+	}
+
+	p, err := newPackageFrom(files, &conf, pkg)
+	if err != nil {
+		log.Printf("%v\n", err)
+		return nil, err
+	}
+
+	return p, err
+}
+
+func newPackageFrom(files []*ast.File, conf *loader.Config, pkg *build.Package) (*bind.Package, error) {
 
 	conf.CreateFromFiles(pkg.ImportPath, files...)
 	program, err := conf.Load()

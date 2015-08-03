@@ -6,7 +6,6 @@ package main
 
 import (
 	"fmt"
-	"go/build"
 	"log"
 	"os"
 	"path/filepath"
@@ -73,7 +72,7 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 	}
 
 	path := args[0]
-	pkg, err := build.Import(path, cwd, 0)
+	pkg, err := newPackage(path)
 	if err != nil {
 		return fmt.Errorf(
 			"gopy-gen: go/build.Inport failed with path=%q: %v\n",

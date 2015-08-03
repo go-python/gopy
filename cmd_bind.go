@@ -6,7 +6,6 @@ package main
 
 import (
 	"fmt"
-	"go/build"
 	"io/ioutil"
 	"log"
 	"os"
@@ -32,6 +31,7 @@ ex:
 		Flag: *flag.NewFlagSet("gopy-bind", flag.ExitOnError),
 	}
 
+	cmd.Flag.String("lang", "py2", "python version to use for bindings (python2|py2|python3|py3)")
 	cmd.Flag.String("output", "", "output directory for bindings")
 	return cmd
 }
@@ -47,6 +47,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	}
 
 	odir := cmdr.Flag.Lookup("output").Value.Get().(string)
+	lang := cmdr.Flag.Lookup("lang").Value.Get().(string)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -69,7 +70,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	}
 
 	path := args[0]
-	pkg, err := build.Import(path, cwd, 0)
+	pkg, err := newPackage(path)
 	if err != nil {
 		return fmt.Errorf(
 			"gopy-bind: go/build.Inport failed with path=%q: %v\n",
@@ -90,30 +91,12 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	}
 	//defer os.RemoveAll(work)
 
-	cmd := exec.Command(
-		"gopy", "gen",
-		"-output", work,
-		"-lang=python", pkg.ImportPath,
-	)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err = cmd.Run()
+	err = genPkg(work, pkg, lang)
 	if err != nil {
 		return err
 	}
 
-	cmd = exec.Command(
-		"gopy", "gen",
-		"-output", work,
-		"-lang=go", pkg.ImportPath,
-	)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err = cmd.Run()
+	err = genPkg(work, pkg, "go")
 	if err != nil {
 		return err
 	}
@@ -129,9 +112,9 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	}
 	defer os.RemoveAll(wbind)
 
-	cmd = exec.Command(
+	cmd := exec.Command(
 		"go", "build", "-v", "-buildmode=c-shared",
-		"-o", filepath.Join(wbind, pkg.Name)+".so",
+		"-o", filepath.Join(wbind, pkg.Name())+".so",
 		//	pkg.ImportPath,
 		".",
 	)
@@ -146,8 +129,8 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 
 	cmd = exec.Command(
 		"/bin/cp",
-		filepath.Join(wbind, pkg.Name)+".so",
-		filepath.Join(odir, pkg.Name)+".so",
+		filepath.Join(wbind, pkg.Name())+".so",
+		filepath.Join(odir, pkg.Name())+".so",
 	)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
