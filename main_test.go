@@ -133,6 +133,10 @@ hi.Couple{P1=hi.Person{Name="", Age=0}, P2=hi.Person{Name="", Age=0}}
 --- c = hi.NewCouple(tom, bob)...
 hi.Couple{P1=hi.Person{Name="tom", Age=50}, P2=hi.Person{Name="bob", Age=41}}
 hi.Couple{P1=hi.Person{Name="mom", Age=50}, P2=hi.Person{Name="bob", Age=51}}
+--- testing GC...
+--- len(objs): 100000
+--- len(vs): 100000
+--- testing GC... [ok]
 `)
 	buf := new(bytes.Buffer)
 	cmd = exec.Command("python2", "./test.py")

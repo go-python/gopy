@@ -123,3 +123,21 @@ c.P1.Name = "mom"
 c.P2.Age = 51
 print c
 
+### test gc
+print "--- testing GC..."
+NMAX = 100000
+objs = []
+for i in range(NMAX):
+    p1  = hi.NewPerson("p1-%d" % i, i)
+    p2 = hi.NewPerson("p2-%d" % i, i)
+    objs.append(hi.NewCouple(p1,p2))
+    pass
+print "--- len(objs):",len(objs)
+vs = []
+for i,o in enumerate(objs):
+    v = "%d: %s" % (i, o)
+    vs.append(v)
+    pass
+print "--- len(vs):",len(vs)
+del objs
+print "--- testing GC... [ok]"
