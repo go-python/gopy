@@ -37,7 +37,7 @@ var _ = unsafe.Pointer(nil)
 // --- begin cgo helpers ---
 
 //export CGoPy_GoString
-func CGoPy_GoString(str *C.char) string { 
+func CGoPy_GoString(str *C.char) string {
 	return C.GoString(str)
 }
 
@@ -175,12 +175,7 @@ func (g *goGen) genFunc(f Func) {
 	sig := f.Signature()
 
 	params := "(" + g.tupleString(sig.Params()) + ")"
-	ret := g.tupleString(sig.Results())
-	if len(sig.Results()) > 1 {
-		ret = "(" + ret + ") "
-	} else {
-		ret += " "
-	}
+	ret := " (" + g.tupleString(sig.Results()) + ") "
 
 	//funcName := o.Name()
 	g.Printf(`
@@ -354,13 +349,7 @@ func (g *goGen) genMethod(s Struct, m Func) {
 		params += ", " + g.tupleString(sig.Params())
 	}
 	params += ")"
-
-	ret := g.tupleString(sig.Results())
-	if len(sig.Results()) > 1 {
-		ret = "(" + ret + ")"
-	} else {
-		ret += " "
-	}
+	ret := " (" + g.tupleString(sig.Results()) + ") "
 
 	g.Printf("//export GoPy_%[1]s\n", m.ID())
 	g.Printf("func GoPy_%[1]s%[2]s%[3]s{\n",
