@@ -18,6 +18,7 @@ type Package struct {
 	pkg *types.Package
 	doc *doc.Package
 
+	syms    symtab
 	objs    map[string]Object
 	consts  []Const
 	vars    []Var
@@ -30,6 +31,7 @@ func NewPackage(pkg *types.Package, doc *doc.Package) (*Package, error) {
 	p := &Package{
 		pkg:  pkg,
 		doc:  doc,
+		syms: newSymtab(),
 		objs: map[string]Object{},
 	}
 	err := p.process()
@@ -161,6 +163,8 @@ func (p *Package) process() error {
 			continue
 		}
 
+		p.syms.addSymbol(obj)
+
 		switch obj := obj.(type) {
 		case *types.Const:
 			p.addConst(obj)
@@ -234,6 +238,9 @@ func (p *Package) process() error {
 		p.addFunc(fct)
 	}
 
+	for n, sym := range p.syms.syms {
+		fmt.Printf("--> [%s]: %#v\n", n, sym)
+	}
 	return err
 }
 
