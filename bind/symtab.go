@@ -237,20 +237,11 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 		id = pkg.Name() + "_" + n
 	}
 	kind := skType
-	dtype := getTypedesc(t)
 	switch typ := t.(type) {
 	case *types.Basic:
-		sym.syms[n] = &symbol{
-			goobj:   obj,
-			kind:    kind,
-			id:      id,
-			goname:  n,
-			cgoname: dtype.cgotype,
-			cpyname: dtype.ctype,
-			pyfmt:   dtype.pyfmt,
-			pysig:   dtype.pysig,
-			c2py:    dtype.c2py,
-			py2c:    dtype.py2c,
+		styp := sym.symtype(typ)
+		if styp == nil {
+			panic(fmt.Errorf("builtin type not already known [%s]!", n))
 		}
 
 	case *types.Array:
@@ -335,7 +326,152 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 
 func init() {
 
-	intsize := reflect.TypeOf(int(0)).Size()
+	type typedesc struct {
+		ctype   string
+		cgotype string
+		pyfmt   string
+		pysig   string
+		c2py    string // name of converter helper C->py
+		py2c    string // name of converter helper for py->c
+
+	}
+
+	var (
+		intsize = reflect.TypeOf(int(0)).Size()
+
+		typedescr = map[types.BasicKind]typedesc{
+			types.Bool: typedesc{
+				ctype:   "GoUint8",
+				cgotype: "GoUint8",
+				pyfmt:   "O&",
+				pysig:   "bool",
+				c2py:    "cgopy_cnv_c2py_bool",
+				py2c:    "cgopy_cnv_py2c_bool",
+			},
+
+			types.Int: typedesc{
+				ctype:   "int",
+				cgotype: "GoInt",
+				pyfmt:   "i",
+				pysig:   "int",
+			},
+
+			types.Int8: typedesc{
+				ctype:   "int8_t",
+				cgotype: "GoInt8",
+				pyfmt:   "c",
+				pysig:   "int",
+			},
+
+			types.Int16: typedesc{
+				ctype:   "int16_t",
+				cgotype: "GoInt16",
+				pyfmt:   "h",
+				pysig:   "int",
+			},
+
+			types.Int32: typedesc{
+				ctype:   "int32_t",
+				cgotype: "GoInt32",
+				pyfmt:   "i",
+				pysig:   "long",
+			},
+
+			types.Int64: typedesc{
+				ctype:   "int64_t",
+				cgotype: "GoInt64",
+				pyfmt:   "k",
+				pysig:   "long",
+			},
+
+			types.Uint: typedesc{
+				ctype:   "unsigned int",
+				cgotype: "GoUint",
+				pyfmt:   "I",
+				pysig:   "int",
+			},
+
+			types.Uint8: typedesc{
+				ctype:   "uint8_t",
+				cgotype: "GoUint8",
+				pyfmt:   "b",
+				pysig:   "int",
+			},
+
+			types.Uint16: typedesc{
+				ctype:   "uint16_t",
+				cgotype: "GoUint16",
+				pyfmt:   "H",
+				pysig:   "int",
+			},
+
+			types.Uint32: typedesc{
+				ctype:   "uint32_t",
+				cgotype: "GoUint32",
+				pyfmt:   "I",
+				pysig:   "long",
+			},
+
+			types.Uint64: typedesc{
+				ctype:   "uint64_t",
+				cgotype: "GoUint64",
+				pyfmt:   "K",
+				pysig:   "long",
+			},
+
+			types.Float32: typedesc{
+				ctype:   "float",
+				cgotype: "GoFloat32",
+				pyfmt:   "f",
+				pysig:   "float",
+			},
+
+			types.Float64: typedesc{
+				ctype:   "double",
+				cgotype: "GoFloat64",
+				pyfmt:   "d",
+				pysig:   "float",
+			},
+
+			types.Complex64: typedesc{
+				ctype:   "float complex",
+				cgotype: "GoComplex64",
+				pyfmt:   "D",
+				pysig:   "float",
+			},
+
+			types.Complex128: typedesc{
+				ctype:   "double complex",
+				cgotype: "GoComplex128",
+				pyfmt:   "D",
+				pysig:   "float",
+			},
+
+			types.String: typedesc{
+				ctype:   "GoString",
+				cgotype: "GoString",
+				pyfmt:   "O&",
+				pysig:   "str",
+				c2py:    "cgopy_cnv_c2py_string",
+				py2c:    "cgopy_cnv_py2c_string",
+			},
+
+			types.UnsafePointer: typedesc{
+				ctype:   "void*",
+				cgotype: "void*",
+				pyfmt:   "O&",
+				pysig:   "object",
+			},
+		}
+	)
+
+	typedescr[types.UntypedBool] = typedescr[types.Bool]
+	typedescr[types.UntypedInt] = typedescr[types.Int]
+	typedescr[types.UntypedRune] = typedescr[types.Rune] // FIXME(sbinet)
+	typedescr[types.UntypedFloat] = typedescr[types.Float64]
+	typedescr[types.UntypedComplex] = typedescr[types.Complex128]
+	typedescr[types.UntypedString] = typedescr[types.String]
+	typedescr[types.UntypedNil] = typedescr[types.UnsafePointer] // FIXME(sbinet)
 
 	if intsize == 8 {
 		typedescr[types.Int] = typedesc{
@@ -364,11 +500,12 @@ func init() {
 		"complex64", "complex128",
 		"rune",
 		"string",
-
-		"error",
 	} {
 		obj := types.Universe.Lookup(n)
-		dtype := getTypedesc(obj.Type())
+		dtype, ok := typedescr[obj.Type().Underlying().(*types.Basic).Kind()]
+		if !ok {
+			panic(fmt.Errorf("could not lookup dtype for [%s]", n))
+		}
 		syms[n] = &symbol{
 			goobj:   obj,
 			kind:    skType,
@@ -380,6 +517,44 @@ func init() {
 			c2py:    dtype.c2py,
 			py2c:    dtype.py2c,
 		}
+	}
+
+	{
+		obj := types.Universe.Lookup("error")
+		id := obj.Name()
+		syms["error"] = &symbol{
+			goobj:   obj,
+			kind:    skType,
+			goname:  "error",
+			cgoname: "GoInterface",
+			cpyname: "GoInterface",
+			pyfmt:   "O&",
+			pysig:   "object",
+			c2py:    "cgopy_cnv_c2py_" + id,
+			py2c:    "cgopy_cnv_py2c_" + id,
+		}
+	}
+
+	for _, o := range []struct {
+		kind  types.BasicKind
+		tname string
+		uname string
+	}{
+		{types.UntypedBool, "bool", "bool"},
+		{types.UntypedInt, "int", "int"},
+		{types.UntypedRune, "rune", "rune"},
+		{types.UntypedFloat, "float64", "float"},
+		{types.UntypedComplex, "complex128", "complex"},
+		{types.UntypedString, "string", "string"},
+		//"nil",
+	} {
+		sym := *syms[o.tname]
+		_, ok := typedescr[o.kind]
+		if !ok {
+			panic(fmt.Errorf("gopy: could not lookup dtype for [%s]", o.tname))
+		}
+		n := "untyped " + o.uname
+		syms[n] = &sym
 	}
 
 	universe = &symtab{

@@ -140,20 +140,18 @@ func (g *cpyGen) gen() error {
 
 	for _, c := range g.pkg.consts {
 		name := c.GoName()
-		id := c.id
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
-			"Get"+name, "cpy_func_"+id+"_get", c.Doc(),
+			"Get"+name, "cpy_func_"+c.id+"_get", c.Doc(),
 		)
 	}
 
 	for _, v := range g.pkg.vars {
 		name := v.Name()
-		id := v.sym.goobj.Pkg().Name() + "_" + name
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
-			"Get"+name, "cpy_func_"+id+"_get", v.doc,
+			"Get"+name, "cpy_func_"+v.id+"_get", v.doc,
 		)
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
-			"Set"+name, "cpy_func_"+id+"_set", v.doc,
+			"Set"+name, "cpy_func_"+v.id+"_set", v.doc,
 		)
 	}
 
@@ -588,7 +586,7 @@ func (g *cpyGen) genStructMemberGetter(cpy Struct, i int, f types.Object) {
 	g.impl.Indent()
 
 	g.impl.Printf("PyObject *o = NULL;\n")
-	ftname := cgoTypeName(ft)
+	ftname := g.pkg.syms.symtype(ft).cgoname
 	if needWrapType(ft) {
 		ftname = fmt.Sprintf("%[1]s_field_%d", cpy.sym.cgoname, i+1)
 	}

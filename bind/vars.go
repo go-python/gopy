@@ -11,13 +11,11 @@ import (
 )
 
 type Var struct {
-	//pkg   *Package
+	pkg  *Package
 	sym  *symbol // symbol associated with var's type
 	id   string
 	doc  string
 	name string
-	//typ   types.Type
-	//dtype typedesc
 }
 
 func (v *Var) Name() string {
@@ -30,13 +28,11 @@ func newVar(p *Package, typ types.Type, objname, name, doc string) *Var {
 		panic(fmt.Errorf("could not find symbol for type [%s]!", typ.String()))
 	}
 	return &Var{
-		//pkg:   p,
+		pkg:  p,
 		sym:  sym,
 		id:   p.Name() + "_" + objname,
 		doc:  doc,
 		name: name,
-		//typ:   typ,
-		//dtype: getTypedesc(typ),
 	}
 }
 
@@ -54,76 +50,6 @@ func newVarFrom(p *Package, v *types.Var) *Var {
 
 func getTypeString(t types.Type) string {
 	return types.TypeString(t, func(*types.Package) string { return " " })
-}
-
-func getTypedesc(t types.Type) typedesc {
-	switch typ := t.(type) {
-	case *types.Basic:
-		dtype, ok := typedescr[typ.Kind()]
-		if ok {
-			return dtype
-		}
-	case *types.Named:
-		switch typ.Underlying().(type) {
-		case *types.Struct:
-			obj := typ.Obj()
-			pkgname := obj.Pkg().Name()
-			id := pkgname + "_" + obj.Name()
-			return typedesc{
-				ctype:   "cpy_" + id,
-				cgotype: "cgo_" + id,
-				pyfmt:   "O&",
-				c2py:    "cgopy_cnv_c2py_" + id,
-				py2c:    "cgopy_cnv_py2c_" + id,
-			}
-		case *types.Interface:
-			obj := typ.Obj()
-			id := obj.Name()
-			if obj.Pkg() != nil {
-				id = obj.Pkg().Name() + "_" + id
-			}
-			return typedesc{
-				ctype:   "GoInterface",
-				cgotype: "GoInterface",
-				pyfmt:   "O&",
-				c2py:    "cgopy_cnv_c2py_" + id,
-				py2c:    "cgopy_cnv_py2c_" + id,
-			}
-		default:
-			panic(fmt.Errorf("unhandled type: %#v", typ))
-		}
-	case *types.Array:
-		id := fmt.Sprintf("_array_%d_%s", typ.Len(), getTypeString(typ.Elem()))
-		return typedesc{
-			ctype:   "cpy_" + id,
-			cgotype: "cgo_" + id,
-			pyfmt:   "O&",
-			c2py:    "cgopy_cnv_c2py_" + id,
-			py2c:    "cgopy_cnv_py2c_" + id,
-		}
-
-	case *types.Pointer:
-		elem := typ.Elem()
-		return getTypedesc(elem)
-
-	case *types.Signature:
-		return typedesc{
-			ctype:   "GoFunction",
-			cgotype: "GoFunction",
-			pyfmt:   "?",
-		}
-
-	case *types.Slice:
-		return typedesc{
-			ctype:   "GoSlice",
-			cgotype: "GoSlice",
-			pyfmt:   "?",
-		}
-
-	default:
-		panic(fmt.Errorf("unhandled type: %#v\n", typ))
-	}
-	return typedesc{}
 }
 
 func (v *Var) GoType() types.Type {

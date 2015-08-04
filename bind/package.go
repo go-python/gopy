@@ -110,7 +110,7 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 			}
 			for i := 0; i < tup.Len(); i++ {
 				paramVar := tup.At(i)
-				paramType := pyTypeName(paramVar.Type())
+				paramType := p.syms.symtype(paramVar.Type()).pysig
 				if paramVar.Name() != "" {
 					paramType = fmt.Sprintf("%s %s", paramType, paramVar.Name())
 				}

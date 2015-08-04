@@ -440,7 +440,7 @@ func (g *goGen) genConst(o Const) {
 }
 
 func (g *goGen) genVar(o Var) {
-	pkgname := o.sym.goobj.Pkg().Name()
+	pkgname := o.pkg.Name()
 	typ := o.GoType()
 	ret := o.sym.cgotypename()
 
