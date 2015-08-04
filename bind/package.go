@@ -18,7 +18,7 @@ type Package struct {
 	pkg *types.Package
 	doc *doc.Package
 
-	syms    symtab
+	syms    *symtab
 	objs    map[string]Object
 	consts  []Const
 	vars    []Var
@@ -28,10 +28,11 @@ type Package struct {
 
 // NewPackage creates a new Package, tying types.Package and ast.Package together.
 func NewPackage(pkg *types.Package, doc *doc.Package) (*Package, error) {
+	universe.pkg = pkg // FIXME(sbinet)
 	p := &Package{
 		pkg:  pkg,
 		doc:  doc,
-		syms: newSymtab(),
+		syms: newSymtab(pkg, nil),
 		objs: map[string]Object{},
 	}
 	err := p.process()
@@ -238,9 +239,6 @@ func (p *Package) process() error {
 		p.addFunc(fct)
 	}
 
-	for n, sym := range p.syms.syms {
-		fmt.Printf("--> [%s]: %#v\n", n, sym)
-	}
 	return err
 }
 
@@ -278,6 +276,7 @@ const (
 // Struct collects informations about a go struct.
 type Struct struct {
 	pkg *Package
+	sym *symbol
 	obj *types.TypeName
 
 	id    string
@@ -289,11 +288,15 @@ type Struct struct {
 }
 
 func newStruct(p *Package, obj *types.TypeName) (Struct, error) {
+	sym := p.syms.sym(obj.Name())
+	if sym == nil {
+		panic(fmt.Errorf("no such object [%s] in symbols table", obj.Name()))
+	}
+	sym.doc = p.getDoc("", obj)
 	s := Struct{
 		pkg: p,
+		sym: sym,
 		obj: obj,
-		id:  obj.Pkg().Name() + "_" + obj.Name(),
-		doc: p.getDoc("", obj),
 	}
 	return s, nil
 }
@@ -303,23 +306,23 @@ func (s Struct) Package() *Package {
 }
 
 func (s Struct) ID() string {
-	return s.id
+	return s.sym.id
 }
 
 func (s Struct) Doc() string {
-	return s.doc
+	return s.sym.doc
 }
 
 func (s Struct) GoType() types.Type {
-	return s.obj.Type()
+	return s.sym.goobj.Type()
 }
 
 func (s Struct) GoName() string {
-	return s.obj.Name()
+	return s.sym.goname
 }
 
 func (s Struct) Struct() *types.Struct {
-	return s.obj.Type().Underlying().(*types.Struct)
+	return s.sym.goobj.Type().Underlying().(*types.Struct)
 }
 
 // A Signature represents a (non-builtin) function or method type.
@@ -452,6 +455,7 @@ func (f Func) Return() types.Type {
 
 type Const struct {
 	pkg *Package
+	sym *symbol
 	obj *types.Const
 	id  string
 	doc string
@@ -460,6 +464,7 @@ type Const struct {
 
 func newConst(p *Package, o *types.Const) Const {
 	pkg := o.Pkg()
+	sym := p.syms.symtype(o.Type())
 	id := pkg.Name() + "_" + o.Name()
 	doc := p.getDoc("", o)
 
@@ -470,7 +475,7 @@ func newConst(p *Package, o *types.Const) Const {
 		sig:  sig,
 		typ:  nil,
 		name: o.Name(),
-		id:   "get_" + id,
+		id:   id + "_get",
 		doc:  doc,
 		ret:  o.Type(),
 		err:  false,
@@ -478,6 +483,7 @@ func newConst(p *Package, o *types.Const) Const {
 
 	return Const{
 		pkg: p,
+		sym: sym,
 		obj: o,
 		id:  id,
 		doc: doc,

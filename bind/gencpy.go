@@ -34,30 +34,30 @@ const (
 // helpers for cgopy
 
 static int
-_cgopy_cnv_py2c_bool(PyObject *o, GoUint8 *addr) {
+cgopy_cnv_py2c_bool(PyObject *o, GoUint8 *addr) {
 	*addr = (o == Py_True) ? 1 : 0;
 	return 1;
 }
 
 static PyObject*
-_cgopy_cnv_c2py_bool(GoUint8 *addr) {
+cgopy_cnv_c2py_bool(GoUint8 *addr) {
 	long v = *addr;
 	return PyBool_FromLong(v);
 }
 
 static int
-_cgopy_cnv_py2c_string(PyObject *o, GoString *addr) {
+cgopy_cnv_py2c_string(PyObject *o, GoString *addr) {
 	const char *str = PyString_AsString(o);
 	if (str == NULL) {
 		return 0;
 	}
-	*addr = CGoPy_GoString((char*)str);
+	*addr = _cgopy_GoString((char*)str);
 	return 1;
 }
 
 static PyObject*
-_cgopy_cnv_c2py_string(GoString *addr) {
-	const char *str = CGoPy_CString(*addr);
+cgopy_cnv_c2py_string(GoString *addr) {
+	const char *str = _cgopy_CString(*addr);
 	PyObject *pystr = PyString_FromString(str);
 	free((void*)str);
 	return pystr;
@@ -78,7 +78,19 @@ func (g *cpyGen) gen() error {
 
 	g.genPreamble()
 
-	// first, process structs
+	// first, process slices, arrays
+	{
+		names := g.pkg.syms.names()
+		for _, n := range names {
+			sym := g.pkg.syms.sym(n)
+			if !sym.isType() {
+				continue
+			}
+			g.genType(sym)
+		}
+	}
+
+	// then, process structs
 	for _, s := range g.pkg.structs {
 		g.genStruct(s)
 	}
@@ -110,7 +122,7 @@ func (g *cpyGen) gen() error {
 		name := f.GoName()
 		//obj := scope.Lookup(name)
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
-			name, "gopy_"+f.ID(), f.Doc(),
+			name, "cpy_func_"+f.ID(), f.Doc(),
 		)
 	}
 	// expose ctors at module level
@@ -121,25 +133,27 @@ func (g *cpyGen) gen() error {
 			name := f.GoName()
 			//obj := scope.Lookup(name)
 			g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
-				name, "gopy_"+f.ID(), f.Doc(),
+				name, "cpy_func_"+f.ID(), f.Doc(),
 			)
 		}
 	}
 
 	for _, c := range g.pkg.consts {
 		name := c.GoName()
+		id := c.id
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
-			"Get"+name, "gopy_get_"+c.ID(), c.Doc(),
+			"Get"+name, "cpy_func_"+id+"_get", c.Doc(),
 		)
 	}
 
 	for _, v := range g.pkg.vars {
 		name := v.Name()
+		id := v.sym.goobj.Pkg().Name() + "_" + name
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
-			"Get"+name, "gopy_get_"+v.id, v.doc,
+			"Get"+name, "cpy_func_"+id+"_get", v.doc,
 		)
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
-			"Set"+name, "gopy_set_"+v.id, v.doc,
+			"Set"+name, "cpy_func_"+id+"_set", v.doc,
 		)
 	}
 
@@ -153,8 +167,8 @@ func (g *cpyGen) gen() error {
 
 	for _, s := range g.pkg.structs {
 		g.impl.Printf(
-			"if (PyType_Ready(&_gopy_%sType) < 0) { return; }\n",
-			s.ID(),
+			"if (PyType_Ready(&%sType) < 0) { return; }\n",
+			s.sym.cpyname,
 		)
 	}
 
@@ -164,10 +178,10 @@ func (g *cpyGen) gen() error {
 	)
 
 	for _, s := range g.pkg.structs {
-		g.impl.Printf("Py_INCREF(&_gopy_%sType);\n", s.ID())
-		g.impl.Printf("PyModule_AddObject(module, %q, (PyObject*)&_gopy_%sType);\n\n",
+		g.impl.Printf("Py_INCREF(&%sType);\n", s.sym.cpyname)
+		g.impl.Printf("PyModule_AddObject(module, %q, (PyObject*)&%sType);\n\n",
 			s.GoName(),
-			s.ID(),
+			s.sym.cpyname,
 		)
 	}
 	g.impl.Outdent()
@@ -185,7 +199,7 @@ func (g *cpyGen) genFunc(o Func) {
 	g.impl.Printf(`
 /* pythonization of: %[1]s.%[2]s */
 static PyObject*
-gopy_%[3]s(PyObject *self, PyObject *args) {
+cpy_func_%[3]s(PyObject *self, PyObject *args) {
 `,
 		g.pkg.pkg.Name(),
 		o.GoName(),
@@ -224,7 +238,7 @@ func (g *cpyGen) genFuncBody(f Func) {
 			ret := res[0]
 			ret.genRetDecl(g.impl)
 		default:
-			g.impl.Printf("struct GoPy_%[1]s_return c_gopy_ret;\n", id)
+			g.impl.Printf("struct cgo_func_%[1]s_return c_gopy_ret;\n", id)
 		}
 	}
 
@@ -260,7 +274,7 @@ func (g *cpyGen) genFuncBody(f Func) {
 	if len(res) > 0 {
 		g.impl.Printf("c_gopy_ret = ")
 	}
-	g.impl.Printf("GoPy_%[1]s(%[2]s);\n", id, strings.Join(funcArgs, ", "))
+	g.impl.Printf("cgo_func_%[1]s(%[2]s);\n", id, strings.Join(funcArgs, ", "))
 
 	g.impl.Printf("\n")
 
@@ -272,9 +286,9 @@ func (g *cpyGen) genFuncBody(f Func) {
 	if f.err {
 		switch len(res) {
 		case 1:
-			g.impl.Printf("if (!CGoPy_ErrorIsNil(c_gopy_ret)) {\n")
+			g.impl.Printf("if (!_cgopy_ErrorIsNil(c_gopy_ret)) {\n")
 			g.impl.Indent()
-			g.impl.Printf("const char* c_err_str = CGoPy_ErrorString(c_gopy_ret);\n")
+			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(c_gopy_ret);\n")
 			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
 			g.impl.Printf("free((void*)c_err_str);\n")
 			g.impl.Printf("return NULL;\n")
@@ -284,27 +298,27 @@ func (g *cpyGen) genFuncBody(f Func) {
 			return
 
 		case 2:
-			g.impl.Printf("if (!CGoPy_ErrorIsNil(c_gopy_ret.r1)) {\n")
+			g.impl.Printf("if (!_cgopy_ErrorIsNil(c_gopy_ret.r1)) {\n")
 			g.impl.Indent()
-			g.impl.Printf("const char* c_err_str = CGoPy_ErrorString(c_gopy_ret.r1);\n")
+			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(c_gopy_ret.r1);\n")
 			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
 			g.impl.Printf("free((void*)c_err_str);\n")
 			g.impl.Printf("return NULL;\n")
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
 			if f.ctor {
-				ret := string(res[0].CGoType()[len("GoPy_"):])
-				g.impl.Printf("PyObject *o = _gopy_%[1]s_new(&_gopy_%[2]sType, 0, 0);\n",
-					ret,
-					ret,
+				ret := res[0]
+				g.impl.Printf("PyObject *o = cpy_func_%[1]s_new(&%[2]sType, 0, 0);\n",
+					ret.sym.id,
+					ret.sym.cpyname,
 				)
 				g.impl.Printf("if (o == NULL) {\n")
 				g.impl.Indent()
 				g.impl.Printf("return NULL;\n")
 				g.impl.Outdent()
 				g.impl.Printf("}\n")
-				g.impl.Printf("((_gopy_%[1]s*)o)->cgopy = c_gopy_ret.r0;\n",
-					ret,
+				g.impl.Printf("((%[1]s*)o)->cgopy = c_gopy_ret.r0;\n",
+					ret.sym.cpyname,
 				)
 				g.impl.Printf("return o;\n")
 				return
@@ -322,18 +336,18 @@ func (g *cpyGen) genFuncBody(f Func) {
 	}
 
 	if f.ctor {
-		ret := string(res[0].CGoType()[len("GoPy_"):])
-		g.impl.Printf("PyObject *o = _gopy_%[1]s_new(&_gopy_%[2]sType, 0, 0);\n",
-			ret,
-			ret,
+		ret := res[0]
+		g.impl.Printf("PyObject *o = cpy_func_%[1]s_new(&%[2]sType, 0, 0);\n",
+			ret.sym.id,
+			ret.sym.cpyname,
 		)
 		g.impl.Printf("if (o == NULL) {\n")
 		g.impl.Indent()
 		g.impl.Printf("return NULL;\n")
 		g.impl.Outdent()
 		g.impl.Printf("}\n")
-		g.impl.Printf("((_gopy_%[1]s*)o)->cgopy = c_gopy_ret;\n",
-			ret,
+		g.impl.Printf("((%[1]s*)o)->cgopy = c_gopy_ret;\n",
+			ret.sym.cpyname,
 		)
 		g.impl.Printf("return o;\n")
 		return
@@ -367,14 +381,17 @@ func (g *cpyGen) genStruct(cpy Struct) {
 
 	//fmt.Printf("obj: %#v\ntyp: %#v\n", obj, typ)
 	g.decl.Printf("/* --- decls for struct %s.%v --- */\n", pkgname, cpy.GoName())
-	g.decl.Printf("typedef void* GoPy_%s;\n\n", cpy.ID())
+	g.decl.Printf("typedef void* %s;\n\n", cpy.sym.cgoname)
 	g.decl.Printf("/* type for struct %s.%v\n", pkgname, cpy.GoName())
 	g.decl.Printf(" */\ntypedef struct {\n")
 	g.decl.Indent()
 	g.decl.Printf("PyObject_HEAD\n")
-	g.decl.Printf("GoPy_%[1]s cgopy; /* unsafe.Pointer to %[1]s */\n", cpy.ID())
+	g.decl.Printf("%[1]s cgopy; /* unsafe.Pointer to %[2]s */\n",
+		cpy.sym.cgoname,
+		cpy.ID(),
+	)
 	g.decl.Outdent()
-	g.decl.Printf("} _gopy_%s;\n", cpy.ID())
+	g.decl.Printf("} %s;\n", cpy.sym.cpyname)
 	g.decl.Printf("\n\n")
 
 	g.impl.Printf("\n\n/* --- impl for %s.%v */\n\n", pkgname, cpy.GoName())
@@ -387,14 +404,14 @@ func (g *cpyGen) genStruct(cpy Struct) {
 
 	g.genStructProtocols(cpy)
 
-	g.impl.Printf("static PyTypeObject _gopy_%sType = {\n", cpy.ID())
+	g.impl.Printf("static PyTypeObject %sType = {\n", cpy.sym.cpyname)
 	g.impl.Indent()
 	g.impl.Printf("PyObject_HEAD_INIT(NULL)\n")
 	g.impl.Printf("0,\t/*ob_size*/\n")
 	g.impl.Printf("\"%s.%s\",\t/*tp_name*/\n", pkgname, cpy.GoName())
-	g.impl.Printf("sizeof(_gopy_%s),\t/*tp_basicsize*/\n", cpy.ID())
+	g.impl.Printf("sizeof(%s),\t/*tp_basicsize*/\n", cpy.sym.cpyname)
 	g.impl.Printf("0,\t/*tp_itemsize*/\n")
-	g.impl.Printf("(destructor)_gopy_%s_dealloc,\t/*tp_dealloc*/\n", cpy.ID())
+	g.impl.Printf("(destructor)%s_dealloc,\t/*tp_dealloc*/\n", cpy.sym.cpyname)
 	g.impl.Printf("0,\t/*tp_print*/\n")
 	g.impl.Printf("0,\t/*tp_getattr*/\n")
 	g.impl.Printf("0,\t/*tp_setattr*/\n")
@@ -405,7 +422,7 @@ func (g *cpyGen) genStruct(cpy Struct) {
 	g.impl.Printf("0,\t/*tp_as_mapping*/\n")
 	g.impl.Printf("0,\t/*tp_hash */\n")
 	g.impl.Printf("0,\t/*tp_call*/\n")
-	g.impl.Printf("_gopy_%s_tp_str,\t/*tp_str*/\n", cpy.ID())
+	g.impl.Printf("cpy_func_%s_tp_str,\t/*tp_str*/\n", cpy.sym.id)
 	g.impl.Printf("0,\t/*tp_getattro*/\n")
 	g.impl.Printf("0,\t/*tp_setattro*/\n")
 	g.impl.Printf("0,\t/*tp_as_buffer*/\n")
@@ -417,17 +434,17 @@ func (g *cpyGen) genStruct(cpy Struct) {
 	g.impl.Printf("0,\t/* tp_weaklistoffset */\n")
 	g.impl.Printf("0,\t/* tp_iter */\n")
 	g.impl.Printf("0,\t/* tp_iternext */\n")
-	g.impl.Printf("_gopy_%s_methods,             /* tp_methods */\n", cpy.ID())
+	g.impl.Printf("%s_methods,             /* tp_methods */\n", cpy.sym.cpyname)
 	g.impl.Printf("0,\t/* tp_members */\n")
-	g.impl.Printf("_gopy_%s_getsets,\t/* tp_getset */\n", cpy.ID())
+	g.impl.Printf("%s_getsets,\t/* tp_getset */\n", cpy.sym.cpyname)
 	g.impl.Printf("0,\t/* tp_base */\n")
 	g.impl.Printf("0,\t/* tp_dict */\n")
 	g.impl.Printf("0,\t/* tp_descr_get */\n")
 	g.impl.Printf("0,\t/* tp_descr_set */\n")
 	g.impl.Printf("0,\t/* tp_dictoffset */\n")
-	g.impl.Printf("(initproc)_gopy_%s_init,      /* tp_init */\n", cpy.ID())
+	g.impl.Printf("(initproc)cpy_func_%s_init,      /* tp_init */\n", cpy.sym.id)
 	g.impl.Printf("0,                         /* tp_alloc */\n")
-	g.impl.Printf("_gopy_%s_new,\t/* tp_new */\n", cpy.ID())
+	g.impl.Printf("cpy_func_%s_new,\t/* tp_new */\n", cpy.sym.id)
 	g.impl.Outdent()
 	g.impl.Printf("};\n\n")
 
@@ -435,46 +452,12 @@ func (g *cpyGen) genStruct(cpy Struct) {
 
 }
 
-func (g *cpyGen) genStructDealloc(cpy Struct) {
-	pkgname := cpy.Package().Name()
-
-	g.decl.Printf("/* tp_dealloc for %s.%v */\n", pkgname, cpy.GoName())
-	g.decl.Printf("static void\n_gopy_%[1]s_dealloc(_gopy_%[1]s *self);\n",
-		cpy.ID(),
-	)
-
-	g.impl.Printf("/* tp_dealloc for %s.%v */\n", pkgname, cpy.GoName())
-	g.impl.Printf("static void\n_gopy_%[1]s_dealloc(_gopy_%[1]s *self) {\n",
-		cpy.ID(),
-	)
-	g.impl.Indent()
-	g.impl.Printf("cgopy_decref((GoPy_%[1]s)(self->cgopy));\n", cpy.ID())
-	g.impl.Printf("self->ob_type->tp_free((PyObject*)self);\n")
-	g.impl.Outdent()
-	g.impl.Printf("}\n\n")
+func (g *cpyGen) genStructNew(cpy Struct) {
+	g.genTypeNew(cpy.sym)
 }
 
-func (g *cpyGen) genStructNew(cpy Struct) {
-	pkgname := cpy.Package().Name()
-
-	g.decl.Printf("/* tp_new for %s.%v */\n", pkgname, cpy.GoName())
-	g.decl.Printf(
-		"static PyObject*\n_gopy_%s_new(PyTypeObject *type, PyObject *args, PyObject *kwds);\n",
-		cpy.ID(),
-	)
-
-	g.impl.Printf("/* tp_new */\n")
-	g.impl.Printf(
-		"static PyObject*\n_gopy_%s_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {\n",
-		cpy.ID(),
-	)
-	g.impl.Indent()
-	g.impl.Printf("_gopy_%s *self;\n", cpy.ID())
-	g.impl.Printf("self = (_gopy_%s *)type->tp_alloc(type, 0);\n", cpy.ID())
-	g.impl.Printf("self->cgopy = GoPy_%s_new();\n", cpy.ID())
-	g.impl.Printf("return (PyObject*)self;\n")
-	g.impl.Outdent()
-	g.impl.Printf("}\n\n")
+func (g *cpyGen) genStructDealloc(cpy Struct) {
+	g.genTypeDealloc(cpy.sym)
 }
 
 func (g *cpyGen) genStructInit(cpy Struct) {
@@ -482,14 +465,16 @@ func (g *cpyGen) genStructInit(cpy Struct) {
 
 	g.decl.Printf("/* tp_init for %s.%v */\n", pkgname, cpy.GoName())
 	g.decl.Printf(
-		"static int\n_gopy_%[1]s_init(_gopy_%[1]s *self, PyObject *args, PyObject *kwds);\n",
-		cpy.ID(),
+		"static int\ncpy_func_%[1]s_init(%[2]s *self, PyObject *args, PyObject *kwds);\n",
+		cpy.sym.id,
+		cpy.sym.cpyname,
 	)
 
 	g.impl.Printf("/* tp_init */\n")
 	g.impl.Printf(
-		"static int\n_gopy_%[1]s_init(_gopy_%[1]s *self, PyObject *args, PyObject *kwds) {\n",
-		cpy.ID(),
+		"static int\ncpy_func_%[1]s_init(%[2]s *self, PyObject *args, PyObject *kwds) {\n",
+		cpy.sym.id,
+		cpy.sym.cpyname,
 	)
 	g.impl.Indent()
 
@@ -548,7 +533,7 @@ func (g *cpyGen) genStructMembers(cpy Struct) {
 	}
 
 	g.impl.Printf("/* tp_getset for %s.%v */\n", pkgname, cpy.GoName())
-	g.impl.Printf("static PyGetSetDef _gopy_%s_getsets[] = {\n", cpy.ID())
+	g.impl.Printf("static PyGetSetDef %s_getsets[] = {\n", cpy.sym.cpyname)
 	g.impl.Indent()
 	for i := 0; i < typ.NumFields(); i++ {
 		f := typ.Field(i)
@@ -557,8 +542,8 @@ func (g *cpyGen) genStructMembers(cpy Struct) {
 		}
 		doc := "doc for " + f.Name() // FIXME(sbinet) retrieve doc for fields
 		g.impl.Printf("{%q, ", f.Name())
-		g.impl.Printf("(getter)_gopy_%[1]s_getter_%[2]d, ", cpy.ID(), i+1)
-		g.impl.Printf("(setter)_gopy_%[1]s_setter_%[2]d, ", cpy.ID(), i+1)
+		g.impl.Printf("(getter)cpy_func_%[1]s_getter_%[2]d, ", cpy.sym.id, i+1)
+		g.impl.Printf("(setter)cpy_func_%[1]s_setter_%[2]d, ", cpy.sym.id, i+1)
 		g.impl.Printf("%q, NULL},\n", doc)
 	}
 	g.impl.Printf("{NULL} /* Sentinel */\n")
@@ -568,72 +553,49 @@ func (g *cpyGen) genStructMembers(cpy Struct) {
 
 func (g *cpyGen) genStructMemberGetter(cpy Struct, i int, f types.Object) {
 	pkg := cpy.Package()
+	ft := f.Type()
 	var (
-		recv *Var
-		self = newVar(pkg, cpy.GoType(), cpy.GoName(), cpy.GoName(), cpy.Doc())
+		cgo_fgetname = fmt.Sprintf("cgo_func_%[1]s_getter_%[2]d", cpy.sym.id, i+1)
+		cpy_fgetname = fmt.Sprintf("cpy_func_%[1]s_getter_%[2]d", cpy.sym.id, i+1)
+		ifield       = newVar(pkg, ft, f.Name(), "ret", "")
+		results      = []*Var{ifield}
 	)
 
-	ft := f.Type()
 	if needWrapType(ft) {
 		g.decl.Printf("/* wrapper for field %s.%s.%s */\n",
 			pkg.Name(),
 			cpy.GoName(),
 			f.Name(),
 		)
-		g.decl.Printf("typedef void* GoPy_%[1]s_field_%d;\n", cpy.ID(), i+1)
+		g.decl.Printf("typedef void* %[1]s_field_%d;\n", cpy.sym.cgoname, i+1)
 	}
 
 	g.decl.Printf("static PyObject*\n")
 	g.decl.Printf(
-		"_gopy_%[1]s_getter_%[2]d(_gopy_%[1]s *self, void *closure); /* %[3]s */\n",
-		cpy.ID(),
-		i+1,
+		"%[2]s(%[1]s *self, void *closure); /* %[3]s */\n",
+		cpy.sym.cpyname,
+		cpy_fgetname,
 		f.Name(),
 	)
 
 	g.impl.Printf("static PyObject*\n")
 	g.impl.Printf(
-		"_gopy_%[1]s_getter_%[2]d(_gopy_%[1]s *self, void *closure) /* %[3]s */ {\n",
-		cpy.ID(),
-		i+1,
+		"%[2]s(%[1]s *self, void *closure) /* %[3]s */ {\n",
+		cpy.sym.cpyname,
+		cpy_fgetname,
 		f.Name(),
 	)
 	g.impl.Indent()
 
-	var (
-		ifield   = newVar(pkg, ft, f.Name(), "ret", "")
-		params   = []*Var{self}
-		results  = []*Var{ifield}
-		fgetname = fmt.Sprintf("GoPy_%[1]s_getter_%[2]d", cpy.ID(), i+1)
-		fgetid   = fmt.Sprintf("%[1]s_getter_%[2]d", cpy.ID(), i+1)
-		fgetret  = ft
-	)
-
-	if false {
-		fget := Func{
-			pkg:  pkg,
-			sig:  newSignature(pkg, recv, params, results),
-			typ:  nil,
-			name: fgetname,
-			id:   fgetid,
-			doc:  "",
-			ret:  fgetret,
-			err:  false,
-		}
-
-		g.genFuncBody(fget)
-	}
-
 	g.impl.Printf("PyObject *o = NULL;\n")
 	ftname := cgoTypeName(ft)
 	if needWrapType(ft) {
-		ftname = fmt.Sprintf("GoPy_%[1]s_field_%d", cpy.ID(), i+1)
+		ftname = fmt.Sprintf("%[1]s_field_%d", cpy.sym.cgoname, i+1)
 	}
 	g.impl.Printf(
-		"%[1]s c_ret = GoPy_%[2]s_getter_%[3]d(self->cgopy); /*wrap*/\n",
+		"%[1]s c_ret = %[2]s(self->cgopy); /*wrap*/\n",
 		ftname,
-		cpy.ID(),
-		i+1,
+		cgo_fgetname,
 	)
 
 	{
@@ -663,25 +625,26 @@ func (g *cpyGen) genStructMemberGetter(cpy Struct, i int, f types.Object) {
 
 func (g *cpyGen) genStructMemberSetter(cpy Struct, i int, f types.Object) {
 	var (
-		pkg      = cpy.Package()
-		ft       = f.Type()
-		self     = newVar(pkg, cpy.GoType(), cpy.GoName(), "self", "")
-		ifield   = newVar(pkg, ft, f.Name(), "ret", "")
-		fsetname = fmt.Sprintf("GoPy_%[1]s_setter_%[2]d", cpy.ID(), i+1)
+		pkg          = cpy.Package()
+		ft           = f.Type()
+		self         = newVar(pkg, cpy.GoType(), cpy.GoName(), "self", "")
+		ifield       = newVar(pkg, ft, f.Name(), "ret", "")
+		cgo_fsetname = fmt.Sprintf("cgo_func_%[1]s_setter_%[2]d", cpy.sym.id, i+1)
+		cpy_fsetname = fmt.Sprintf("cpy_func_%[1]s_setter_%[2]d", cpy.sym.id, i+1)
 	)
 
 	g.decl.Printf("static int\n")
 	g.decl.Printf(
-		"_gopy_%[1]s_setter_%[2]d(_gopy_%[1]s *self, PyObject *value, void *closure);\n",
-		cpy.ID(),
-		i+1,
+		"%[2]s(%[1]s *self, PyObject *value, void *closure);\n",
+		cpy.sym.cpyname,
+		cpy_fsetname,
 	)
 
 	g.impl.Printf("static int\n")
 	g.impl.Printf(
-		"_gopy_%[1]s_setter_%[2]d(_gopy_%[1]s *self, PyObject *value, void *closure) {\n",
-		cpy.ID(),
-		i+1,
+		"%[2]s(%[1]s *self, PyObject *value, void *closure) {\n",
+		cpy.sym.cpyname,
+		cpy_fsetname,
 	)
 	g.impl.Indent()
 
@@ -714,7 +677,7 @@ func (g *cpyGen) genStructMemberSetter(cpy Struct, i int, f types.Object) {
 	g.impl.Printf("Py_DECREF(tuple);\n\n")
 
 	g.impl.Printf("%[1]s((%[2]s)(self->cgopy), c_%[3]s);\n",
-		fsetname,
+		cgo_fsetname,
 		self.CGoType(),
 		ifield.Name(),
 	)
@@ -733,7 +696,7 @@ func (g *cpyGen) genStructMethods(cpy Struct) {
 		g.genMethod(cpy, m)
 	}
 
-	g.impl.Printf("static PyMethodDef _gopy_%s_methods[] = {\n", cpy.ID())
+	g.impl.Printf("static PyMethodDef %s_methods[] = {\n", cpy.sym.cpyname)
 	g.impl.Indent()
 	for _, m := range cpy.meths {
 		margs := "METH_VARARGS"
@@ -741,7 +704,7 @@ func (g *cpyGen) genStructMethods(cpy Struct) {
 			margs = "METH_NOARGS"
 		}
 		g.impl.Printf(
-			"{%[1]q, (PyCFunction)gopy_%[2]s, %[3]s, %[4]q},\n",
+			"{%[1]q, (PyCFunction)cpy_func_%[2]s, %[3]s, %[4]q},\n",
 			m.GoName(),
 			m.ID(),
 			margs,
@@ -760,14 +723,14 @@ func (g *cpyGen) genMethod(cpy Struct, fct Func) {
 		cpy.GoName()+"."+fct.GoName(),
 	)
 	g.decl.Printf("static PyObject*\n")
-	g.decl.Printf("gopy_%s(PyObject *self, PyObject *args);\n", fct.ID())
+	g.decl.Printf("cpy_func_%s(PyObject *self, PyObject *args);\n", fct.ID())
 
 	g.impl.Printf("/* wrapper of %[1]s.%[2]s */\n",
 		pkgname,
 		cpy.GoName()+"."+fct.GoName(),
 	)
 	g.impl.Printf("static PyObject*\n")
-	g.impl.Printf("gopy_%s(PyObject *self, PyObject *args) {\n", fct.ID())
+	g.impl.Printf("cpy_func_%s(PyObject *self, PyObject *args) {\n", fct.ID())
 	g.impl.Indent()
 	g.genMethodBody(fct)
 	g.impl.Outdent()
@@ -783,10 +746,14 @@ func (g *cpyGen) genStructProtocols(cpy Struct) {
 }
 
 func (g *cpyGen) genStructTPStr(cpy Struct) {
-	g.decl.Printf("static PyObject*\n_gopy_%s_tp_str(PyObject *self);\n", cpy.ID())
+	g.decl.Printf(
+		"static PyObject*\ncpy_func_%s_tp_str(PyObject *self);\n",
+		cpy.sym.id,
+	)
 
-	g.impl.Printf("static PyObject*\n_gopy_%s_tp_str(PyObject *self) {\n",
-		cpy.ID(),
+	g.impl.Printf(
+		"static PyObject*\ncpy_func_%s_tp_str(PyObject *self) {\n",
+		cpy.sym.id,
 	)
 
 	if (cpy.prots & ProtoStringer) == 0 {
@@ -806,43 +773,13 @@ func (g *cpyGen) genStructTPStr(cpy Struct) {
 	}
 
 	g.impl.Indent()
-	g.impl.Printf("return gopy_%[1]s(self, 0);\n", m.ID())
+	g.impl.Printf("return cpy_func_%[1]s(self, 0);\n", m.ID())
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }
 
 func (g *cpyGen) genStructConverters(cpy Struct) {
-	g.decl.Printf("static int\n")
-	g.decl.Printf("cgopy_cnv_py2c_%[1]s(PyObject *o, GoPy_%[1]s *addr);\n", cpy.ID())
-	g.decl.Printf("static PyObject*\n")
-	g.decl.Printf("cgopy_cnv_c2py_%[1]s(GoPy_%[1]s *addr);\n", cpy.ID())
-
-	g.impl.Printf("static int\n")
-	g.impl.Printf("cgopy_cnv_py2c_%[1]s(PyObject *o, GoPy_%[1]s *addr) {\n", cpy.ID())
-	g.impl.Indent()
-	g.impl.Printf("_gopy_%s *self = NULL;\n", cpy.ID())
-	g.impl.Printf("self = (_gopy_%s *)o;\n", cpy.ID())
-	g.impl.Printf("*addr = self->cgopy;\n")
-	g.impl.Printf("return 1;\n")
-	g.impl.Outdent()
-	g.impl.Printf("}\n\n")
-
-	g.impl.Printf("static PyObject*\n")
-	g.impl.Printf("cgopy_cnv_c2py_%[1]s(GoPy_%[1]s *addr) {\n", cpy.ID())
-	g.impl.Indent()
-	g.impl.Printf("PyObject *o = _gopy_%[1]s_new(&_gopy_%[2]sType, 0, 0);\n",
-		cpy.ID(),
-		cpy.ID(),
-	)
-	g.impl.Printf("if (o == NULL) {\n")
-	g.impl.Indent()
-	g.impl.Printf("return NULL;\n")
-	g.impl.Outdent()
-	g.impl.Printf("}\n")
-	g.impl.Printf("((_gopy_%[1]s*)o)->cgopy = *addr;\n", cpy.ID())
-	g.impl.Printf("return o;\n")
-	g.impl.Outdent()
-	g.impl.Printf("}\n\n")
+	g.genTypeConverter(cpy.sym)
 }
 
 func (g *cpyGen) genConst(o Const) {
@@ -850,13 +787,6 @@ func (g *cpyGen) genConst(o Const) {
 }
 
 func (g *cpyGen) genVar(v Var) {
-
-	ret := qualifiedType(v.GoType())
-	switch v.GoType().(type) {
-	case *types.Array, *types.Slice:
-		g.decl.Printf("/* wrapping %s */\n", v.GoType().String())
-		g.decl.Printf("typedef void* %s;\n\n", ret)
-	}
 
 	id := g.pkg.Name() + "_" + v.Name()
 	doc := v.doc
@@ -868,7 +798,7 @@ func (g *cpyGen) genVar(v Var) {
 			sig:  sig,
 			typ:  nil,
 			name: v.Name(),
-			id:   "get_" + id,
+			id:   id + "_get",
 			doc:  "returns " + g.pkg.Name() + "." + v.Name(),
 			ret:  v.GoType(),
 			err:  false,
@@ -883,13 +813,249 @@ func (g *cpyGen) genVar(v Var) {
 			sig:  sig,
 			typ:  nil,
 			name: v.Name(),
-			id:   "set_" + id,
+			id:   id + "_set",
 			doc:  "sets " + g.pkg.Name() + "." + v.Name(),
 			ret:  nil,
 			err:  false,
 		}
 		g.genFunc(fset)
 	}
+}
+
+func (g *cpyGen) genType(sym *symbol) {
+	if !sym.isType() {
+		return
+	}
+	if sym.isStruct() || sym.isBasic() {
+		return
+	}
+
+	pkgname := sym.goobj.Pkg().Name()
+
+	g.decl.Printf("/* --- decls for type %s.%v --- */\n", pkgname, sym.goname)
+	g.decl.Printf("typedef void* %s;\n\n", sym.cgoname)
+	g.decl.Printf("/* type for type %s.%v\n", pkgname, sym.goname)
+	g.decl.Printf(" */\ntypedef struct {\n")
+	g.decl.Indent()
+	g.decl.Printf("PyObject_HEAD\n")
+	g.decl.Printf("%[1]s cgopy; /* unsafe.Pointer to %[2]s */\n",
+		sym.cgoname,
+		sym.id,
+	)
+	g.decl.Outdent()
+	g.decl.Printf("} %s;\n", sym.cpyname)
+	g.decl.Printf("\n\n")
+
+	g.impl.Printf("\n\n/* --- impl for %s.%v */\n\n", pkgname, sym.goname)
+
+	g.genTypeNew(sym)
+	g.genTypeDealloc(sym)
+	g.genTypeInit(sym)
+	g.genTypeMembers(sym)
+	g.genTypeMethods(sym)
+
+	g.genTypeProtocols(sym)
+
+	g.impl.Printf("static PyTypeObject %sType = {\n", sym.cpyname)
+	g.impl.Indent()
+	g.impl.Printf("PyObject_HEAD_INIT(NULL)\n")
+	g.impl.Printf("0,\t/*ob_size*/\n")
+	g.impl.Printf("\"%s.%s\",\t/*tp_name*/\n", pkgname, sym.goname)
+	g.impl.Printf("sizeof(%s),\t/*tp_basicsize*/\n", sym.cpyname)
+	g.impl.Printf("0,\t/*tp_itemsize*/\n")
+	g.impl.Printf("(destructor)%s_dealloc,\t/*tp_dealloc*/\n", sym.cpyname)
+	g.impl.Printf("0,\t/*tp_print*/\n")
+	g.impl.Printf("0,\t/*tp_getattr*/\n")
+	g.impl.Printf("0,\t/*tp_setattr*/\n")
+	g.impl.Printf("0,\t/*tp_compare*/\n")
+	g.impl.Printf("0,\t/*tp_repr*/\n")
+	g.impl.Printf("0,\t/*tp_as_number*/\n")
+	g.impl.Printf("0,\t/*tp_as_sequence*/\n")
+	g.impl.Printf("0,\t/*tp_as_mapping*/\n")
+	g.impl.Printf("0,\t/*tp_hash */\n")
+	g.impl.Printf("0,\t/*tp_call*/\n")
+	g.impl.Printf("cpy_func_%s_tp_str,\t/*tp_str*/\n", sym.id)
+	g.impl.Printf("0,\t/*tp_getattro*/\n")
+	g.impl.Printf("0,\t/*tp_setattro*/\n")
+	g.impl.Printf("0,\t/*tp_as_buffer*/\n")
+	g.impl.Printf("Py_TPFLAGS_DEFAULT,\t/*tp_flags*/\n")
+	g.impl.Printf("%q,\t/* tp_doc */\n", sym.doc)
+	g.impl.Printf("0,\t/* tp_traverse */\n")
+	g.impl.Printf("0,\t/* tp_clear */\n")
+	g.impl.Printf("0,\t/* tp_richcompare */\n")
+	g.impl.Printf("0,\t/* tp_weaklistoffset */\n")
+	g.impl.Printf("0,\t/* tp_iter */\n")
+	g.impl.Printf("0,\t/* tp_iternext */\n")
+	g.impl.Printf("%s_methods,             /* tp_methods */\n", sym.cpyname)
+	g.impl.Printf("0,\t/* tp_members */\n")
+	g.impl.Printf("%s_getsets,\t/* tp_getset */\n", sym.cpyname)
+	g.impl.Printf("0,\t/* tp_base */\n")
+	g.impl.Printf("0,\t/* tp_dict */\n")
+	g.impl.Printf("0,\t/* tp_descr_get */\n")
+	g.impl.Printf("0,\t/* tp_descr_set */\n")
+	g.impl.Printf("0,\t/* tp_dictoffset */\n")
+	g.impl.Printf("(initproc)%s_init,      /* tp_init */\n", sym.cpyname)
+	g.impl.Printf("0,                         /* tp_alloc */\n")
+	g.impl.Printf("cpy_func_%s_new,\t/* tp_new */\n", sym.id)
+	g.impl.Outdent()
+	g.impl.Printf("};\n\n")
+
+	g.genTypeConverter(sym)
+}
+
+func (g *cpyGen) genTypeNew(sym *symbol) {
+	pkgname := sym.goobj.Pkg().Name()
+
+	g.decl.Printf("/* tp_new for %s.%v */\n", pkgname, sym.goname)
+	g.decl.Printf(
+		"static PyObject*\ncpy_func_%s_new(PyTypeObject *type, PyObject *args, PyObject *kwds);\n",
+		sym.id,
+	)
+
+	g.impl.Printf("/* tp_new */\n")
+	g.impl.Printf(
+		"static PyObject*\ncpy_func_%s_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {\n",
+		sym.id,
+	)
+	g.impl.Indent()
+	g.impl.Printf("%s *self;\n", sym.cpyname)
+	g.impl.Printf("self = (%s *)type->tp_alloc(type, 0);\n", sym.cpyname)
+	g.impl.Printf("self->cgopy = cgo_func_%s_new();\n", sym.id)
+	g.impl.Printf("return (PyObject*)self;\n")
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
+}
+
+func (g *cpyGen) genTypeDealloc(sym *symbol) {
+	pkgname := sym.goobj.Pkg().Name()
+
+	g.decl.Printf("/* tp_dealloc for %s.%v */\n", pkgname, sym.goname)
+	g.decl.Printf("static void\n%[1]s_dealloc(%[1]s *self);\n",
+		sym.cpyname,
+	)
+
+	g.impl.Printf("/* tp_dealloc for %s.%v */\n", pkgname, sym.goname)
+	g.impl.Printf("static void\n%[1]s_dealloc(%[1]s *self) {\n",
+		sym.cpyname,
+	)
+	g.impl.Indent()
+	g.impl.Printf("cgopy_decref((%[1]s)(self->cgopy));\n", sym.cgoname)
+	g.impl.Printf("self->ob_type->tp_free((PyObject*)self);\n")
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
+}
+
+func (g *cpyGen) genTypeInit(sym *symbol) {
+	pkgname := sym.goobj.Pkg().Name()
+
+	g.decl.Printf("/* tp_init for %s.%v */\n", pkgname, sym.goname)
+	g.decl.Printf(
+		"static int\n%[1]s_init(%[1]s *self, PyObject *args, PyObject *kwds);\n",
+		sym.cpyname,
+	)
+
+	g.impl.Printf("/* tp_init */\n")
+	g.impl.Printf(
+		"static int\n%[1]s_init(%[1]s *self, PyObject *args, PyObject *kwds) {\n",
+		sym.cpyname,
+	)
+	g.impl.Indent()
+
+	g.impl.Printf("return 0;\n")
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
+}
+
+func (g *cpyGen) genTypeMembers(sym *symbol) {
+	pkgname := sym.goobj.Pkg().Name()
+	//g.decl.Printf("/* tp_getset for %s.%v */\n", pkgname, sym.goname)
+	g.impl.Printf("/* tp_getset for %s.%v */\n", pkgname, sym.goname)
+	g.impl.Printf("static PyGetSetDef %s_getsets[] = {\n", sym.cpyname)
+	g.impl.Indent()
+	g.impl.Printf("{NULL} /* Sentinel */\n")
+	g.impl.Outdent()
+	g.impl.Printf("};\n\n")
+}
+
+func (g *cpyGen) genTypeMethods(sym *symbol) {
+
+	//pkgname := sym.goobj.Pkg().Name()
+	//g.decl.Printf("/* methods for %s.%s */\n\n", pkgname, sym.goname)
+
+	g.impl.Printf("static PyMethodDef %s_methods[] = {\n", sym.cpyname)
+	g.impl.Indent()
+	g.impl.Printf("{NULL} /* sentinel */\n")
+	g.impl.Outdent()
+	g.impl.Printf("};\n\n")
+}
+
+func (g *cpyGen) genTypeProtocols(sym *symbol) {
+	g.genTypeTPStr(sym)
+}
+
+func (g *cpyGen) genTypeTPStr(sym *symbol) {
+	g.decl.Printf(
+		"static PyObject*\ncpy_func_%s_tp_str(PyObject *self);\n",
+		sym.id,
+	)
+
+	g.impl.Printf(
+		"static PyObject*\ncpy_func_%s_tp_str(PyObject *self) {\n",
+		sym.id,
+	)
+
+	g.impl.Indent()
+	g.impl.Printf("return PyObject_Repr(self);\n")
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
+}
+
+func (g *cpyGen) genTypeConverter(sym *symbol) {
+	g.decl.Printf("\n/* converters for %s - %s */\n",
+		sym.id,
+		sym.goname,
+	)
+	g.decl.Printf("static int\n")
+	g.decl.Printf("cgopy_cnv_py2c_%[1]s(PyObject *o, %[2]s *addr);\n",
+		sym.id,
+		sym.cgoname,
+	)
+	g.decl.Printf("static PyObject*\n")
+	g.decl.Printf("cgopy_cnv_c2py_%[1]s(%[2]s *addr);\n\n",
+		sym.id,
+		sym.cgoname,
+	)
+
+	g.impl.Printf("static int\n")
+	g.impl.Printf("cgopy_cnv_py2c_%[1]s(PyObject *o, %[2]s *addr) {\n",
+		sym.id,
+		sym.cgoname,
+	)
+	g.impl.Indent()
+	g.impl.Printf("%s *self = NULL;\n", sym.cpyname)
+	g.impl.Printf("self = (%s *)o;\n", sym.cpyname)
+	g.impl.Printf("*addr = self->cgopy;\n")
+	g.impl.Printf("return 1;\n")
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
+
+	g.impl.Printf("static PyObject*\n")
+	g.impl.Printf("cgopy_cnv_c2py_%[1]s(%[2]s *addr) {\n", sym.id, sym.cgoname)
+	g.impl.Indent()
+	g.impl.Printf("PyObject *o = cpy_func_%[1]s_new(&%[2]sType, 0, 0);\n",
+		sym.id,
+		sym.cpyname,
+	)
+	g.impl.Printf("if (o == NULL) {\n")
+	g.impl.Indent()
+	g.impl.Printf("return NULL;\n")
+	g.impl.Outdent()
+	g.impl.Printf("}\n")
+	g.impl.Printf("((%[1]s*)o)->cgopy = *addr;\n", sym.cpyname)
+	g.impl.Printf("return o;\n")
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
+
 }
 
 func (g *cpyGen) genPreamble() {

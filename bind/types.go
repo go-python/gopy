@@ -5,8 +5,6 @@
 package bind
 
 import (
-	"reflect"
-
 	"golang.org/x/tools/go/types"
 )
 
@@ -91,36 +89,14 @@ func (td typedesc) hasConverter() bool {
 	return td.c2py != "" || td.py2c != ""
 }
 
-var (
-	intsize = reflect.TypeOf(int(0)).Size()
-)
-
-func init() {
-	if intsize == 8 {
-		typedescr[types.Int] = typedesc{
-			ctype:   "int64_t",
-			cgotype: "GoInt",
-			pyfmt:   "k",
-			pysig:   "int",
-		}
-
-		typedescr[types.Uint] = typedesc{
-			ctype:   "uint64_t",
-			cgotype: "GoUint",
-			pyfmt:   "K",
-			pysig:   "int",
-		}
-	}
-}
-
 var typedescr = map[types.BasicKind]typedesc{
 	types.Bool: typedesc{
-		ctype:   "_Bool",
+		ctype:   "GoUint8",
 		cgotype: "GoUint8",
 		pyfmt:   "O&",
 		pysig:   "bool",
-		c2py:    "_cgopy_cnv_c2py_bool",
-		py2c:    "_cgopy_cnv_py2c_bool",
+		c2py:    "cgopy_cnv_c2py_bool",
+		py2c:    "cgopy_cnv_py2c_bool",
 	},
 
 	types.Int: typedesc{
@@ -195,14 +171,14 @@ var typedescr = map[types.BasicKind]typedesc{
 
 	types.Float32: typedesc{
 		ctype:   "float",
-		cgotype: "float",
+		cgotype: "GoFloat32",
 		pyfmt:   "f",
 		pysig:   "float",
 	},
 
 	types.Float64: typedesc{
 		ctype:   "double",
-		cgotype: "double",
+		cgotype: "GoFloat64",
 		pyfmt:   "d",
 		pysig:   "float",
 	},
@@ -222,12 +198,12 @@ var typedescr = map[types.BasicKind]typedesc{
 	},
 
 	types.String: typedesc{
-		ctype:   "const char*",
+		ctype:   "GoString",
 		cgotype: "GoString",
 		pyfmt:   "O&",
 		pysig:   "str",
-		c2py:    "_cgopy_cnv_c2py_string",
-		py2c:    "_cgopy_cnv_py2c_string",
+		c2py:    "cgopy_cnv_c2py_string",
+		py2c:    "cgopy_cnv_py2c_string",
 	},
 
 	types.UnsafePointer: typedesc{

@@ -11,12 +11,13 @@ import (
 )
 
 type Var struct {
-	pkg   *Package
-	id    string
-	doc   string
-	name  string
-	typ   types.Type
-	dtype typedesc
+	//pkg   *Package
+	sym  *symbol // symbol associated with var's type
+	id   string
+	doc  string
+	name string
+	//typ   types.Type
+	//dtype typedesc
 }
 
 func (v *Var) Name() string {
@@ -24,13 +25,18 @@ func (v *Var) Name() string {
 }
 
 func newVar(p *Package, typ types.Type, objname, name, doc string) *Var {
+	sym := p.syms.symtype(typ)
+	if sym == nil {
+		panic(fmt.Errorf("could not find symbol for type [%s]!", typ.String()))
+	}
 	return &Var{
-		pkg:   p,
-		id:    p.Name() + "_" + objname,
-		doc:   doc,
-		name:  name,
-		typ:   typ,
-		dtype: getTypedesc(typ),
+		//pkg:   p,
+		sym:  sym,
+		id:   p.Name() + "_" + objname,
+		doc:  doc,
+		name: name,
+		//typ:   typ,
+		//dtype: getTypedesc(typ),
 	}
 }
 
@@ -64,8 +70,8 @@ func getTypedesc(t types.Type) typedesc {
 			pkgname := obj.Pkg().Name()
 			id := pkgname + "_" + obj.Name()
 			return typedesc{
-				ctype:   "GoPy_" + id,
-				cgotype: "GoPy_" + id,
+				ctype:   "cpy_" + id,
+				cgotype: "cgo_" + id,
 				pyfmt:   "O&",
 				c2py:    "cgopy_cnv_c2py_" + id,
 				py2c:    "cgopy_cnv_py2c_" + id,
@@ -89,8 +95,8 @@ func getTypedesc(t types.Type) typedesc {
 	case *types.Array:
 		id := fmt.Sprintf("_array_%d_%s", typ.Len(), getTypeString(typ.Elem()))
 		return typedesc{
-			ctype:   "GoPy_" + id,
-			cgotype: "GoPy_" + id,
+			ctype:   "cpy_" + id,
+			cgotype: "cgo_" + id,
 			pyfmt:   "O&",
 			c2py:    "cgopy_cnv_c2py_" + id,
 			py2c:    "cgopy_cnv_py2c_" + id,
@@ -121,19 +127,19 @@ func getTypedesc(t types.Type) typedesc {
 }
 
 func (v *Var) GoType() types.Type {
-	return v.typ
+	return v.sym.goobj.Type()
 }
 
 func (v *Var) CType() string {
-	return v.dtype.ctype
+	return v.sym.cpyname
 }
 
 func (v *Var) CGoType() string {
-	return v.dtype.cgotype
+	return v.sym.cgoname
 }
 
 func (v *Var) PyCode() string {
-	return v.dtype.pyfmt
+	return v.sym.pyfmt
 }
 
 func (v *Var) isGoString() bool {
@@ -153,30 +159,30 @@ func (v *Var) genRecvDecl(g *printer) {
 }
 
 func (v *Var) genRecvImpl(g *printer) {
-	n := string(v.CGoType()[len("GoPy_"):])
-	g.Printf("c_%[1]s = ((_gopy_%[2]s*)self)->cgopy;\n", v.Name(), n)
+	n := v.sym.cpyname
+	g.Printf("c_%[1]s = ((%[2]s*)self)->cgopy;\n", v.Name(), n)
 }
 
 func (v *Var) genRetDecl(g *printer) {
-	g.Printf("%[1]s c_gopy_ret;\n", v.CGoType())
+	g.Printf("%[1]s c_gopy_ret;\n", v.sym.cgoname)
 }
 
 func (v *Var) getArgParse() (string, []string) {
 	addrs := make([]string, 0, 1)
-	cnv := v.dtype.hasConverter()
+	cnv := v.sym.hasConverter()
 	if cnv {
-		addrs = append(addrs, v.dtype.py2c)
+		addrs = append(addrs, v.sym.py2c)
 	}
 	addr := "&c_" + v.Name()
 	addrs = append(addrs, addr)
-	return v.dtype.pyfmt, addrs
+	return v.sym.pyfmt, addrs
 }
 
 func (v *Var) getArgBuildValue() (string, []string) {
 	args := make([]string, 0, 1)
-	cnv := v.dtype.hasConverter()
+	cnv := v.sym.hasConverter()
 	if cnv {
-		args = append(args, ""+v.dtype.c2py)
+		args = append(args, ""+v.sym.c2py)
 	}
 	arg := "c_" + v.Name()
 	if cnv {
@@ -184,7 +190,7 @@ func (v *Var) getArgBuildValue() (string, []string) {
 	}
 	args = append(args, arg)
 
-	return v.dtype.pyfmt, args
+	return v.sym.pyfmt, args
 }
 
 func (v *Var) genFuncPreamble(g *printer) {
@@ -197,34 +203,4 @@ func (v *Var) getFuncArg() string {
 func (v *Var) needWrap() bool {
 	typ := v.GoType()
 	return needWrapType(typ)
-}
-
-func qualifiedType(typ types.Type) string {
-	switch typ := typ.(type) {
-	case *types.Basic:
-		return typ.Name()
-	case *types.Named:
-		obj := typ.Obj()
-		switch typ.Underlying().(type) {
-		case *types.Struct:
-			return "GoPy_" + obj.Pkg().Name() + "_" + obj.Name()
-		case *types.Interface:
-			if obj.Name() == "error" {
-				return "error"
-			}
-			return "GoPy_" + obj.Name()
-		default:
-			return "GoPy_ooops_" + obj.Name()
-		}
-	case *types.Array:
-		id := fmt.Sprintf("_array_%d_%s", typ.Len(), getTypeString(typ.Elem()))
-		return "GoPy_" + id
-
-	case *types.Slice:
-		id := fmt.Sprintf("_slice_%s", getTypeString(typ.Elem()))
-		return "GoPy_" + id
-
-	}
-
-	return fmt.Sprintf("%#T", typ)
 }

@@ -36,23 +36,23 @@ var _ = unsafe.Pointer(nil)
 
 // --- begin cgo helpers ---
 
-//export CGoPy_GoString
-func CGoPy_GoString(str *C.char) string {
+//export _cgopy_GoString
+func _cgopy_GoString(str *C.char) string {
 	return C.GoString(str)
 }
 
-//export CGoPy_CString
-func CGoPy_CString(s string) *C.char {
+//export _cgopy_CString
+func _cgopy_CString(s string) *C.char {
 	return C.CString(s)
 }
 
-//export CGoPy_ErrorIsNil
-func CGoPy_ErrorIsNil(err error) bool {
+//export _cgopy_ErrorIsNil
+func _cgopy_ErrorIsNil(err error) bool {
 	return err == nil
 }
 
-//export CGoPy_ErrorString
-func CGoPy_ErrorString(err error) *C.char {
+//export _cgopy_ErrorString
+func _cgopy_ErrorString(err error) *C.char {
 	return C.CString(err.Error())
 }
 
@@ -138,6 +138,15 @@ func (g *goGen) gen() error {
 
 	g.genPreamble()
 
+	// process slices, arrays, ...
+	for _, n := range g.pkg.syms.names() {
+		sym := g.pkg.syms.sym(n)
+		if !sym.isType() {
+			continue
+		}
+		g.genType(sym)
+	}
+
 	for _, s := range g.pkg.structs {
 		g.genStruct(s)
 	}
@@ -179,9 +188,9 @@ func (g *goGen) genFunc(f Func) {
 
 	//funcName := o.Name()
 	g.Printf(`
-//export GoPy_%[1]s
-// GoPy_%[1]s wraps %[2]s.%[3]s
-func GoPy_%[1]s%[4]v%[5]v{
+//export cgo_func_%[1]s
+// cgo_func_%[1]s wraps %[2]s.%[3]s
+func cgo_func_%[1]s%[4]v%[5]v{
 `,
 		f.ID(),
 		f.Package().Name(),
@@ -252,7 +261,7 @@ func (g *goGen) genFuncBody(f Func) {
 		// 	g.Printf("")
 		// }
 		if res.needWrap() {
-			g.Printf("%s(unsafe.Pointer(&", res.dtype.cgotype)
+			g.Printf("%s(unsafe.Pointer(&", res.sym.cgoname)
 		}
 		g.Printf("_gopy_%03d", i)
 		if res.needWrap() {
@@ -266,8 +275,8 @@ func (g *goGen) genStruct(s Struct) {
 	//fmt.Printf("obj: %#v\ntyp: %#v\n", obj, typ)
 	typ := s.Struct()
 	pkgname := s.Package().Name()
-	g.Printf("//export GoPy_%[1]s\n", s.ID())
-	g.Printf("type GoPy_%[1]s unsafe.Pointer\n\n", s.ID())
+	g.Printf("//export %[1]s\n", s.sym.cgoname)
+	g.Printf("type %[1]s unsafe.Pointer\n\n", s.sym.cgoname)
 
 	for i := 0; i < typ.NumFields(); i++ {
 		f := typ.Field(i)
@@ -276,17 +285,17 @@ func (g *goGen) genStruct(s Struct) {
 		}
 
 		ft := f.Type()
-		ftname := qualifiedType(ft)
+		ftname := g.pkg.syms.symtype(ft).cgotypename()
 		if needWrapType(ft) {
-			ftname = fmt.Sprintf("GoPy_%[1]s_field_%d", s.ID(), i+1)
+			ftname = fmt.Sprintf("cgo_type_%[1]s_field_%d", s.ID(), i+1)
 			g.Printf("//export %s\n", ftname)
 			g.Printf("type %s unsafe.Pointer\n\n", ftname)
 		}
 
 		// -- getter --
 
-		g.Printf("//export GoPy_%[1]s_getter_%[2]d\n", s.ID(), i+1)
-		g.Printf("func GoPy_%[1]s_getter_%[2]d(self GoPy_%[1]s) %[3]s {\n",
+		g.Printf("//export cgo_func_%[1]s_getter_%[2]d\n", s.ID(), i+1)
+		g.Printf("func cgo_func_%[1]s_getter_%[2]d(self cgo_type_%[1]s) %[3]s {\n",
 			s.ID(), i+1,
 			ftname,
 		)
@@ -306,8 +315,8 @@ func (g *goGen) genStruct(s Struct) {
 		g.Printf("}\n\n")
 
 		// -- setter --
-		g.Printf("//export GoPy_%[1]s_setter_%[2]d\n", s.ID(), i+1)
-		g.Printf("func GoPy_%[1]s_setter_%[2]d(self GoPy_%[1]s, v %[3]s) {\n",
+		g.Printf("//export cgo_func_%[1]s_setter_%[2]d\n", s.ID(), i+1)
+		g.Printf("func cgo_func_%[1]s_setter_%[2]d(self cgo_type_%[1]s, v %[3]s) {\n",
 			s.ID(), i+1, ftname,
 		)
 		g.Indent()
@@ -332,27 +341,27 @@ func (g *goGen) genStruct(s Struct) {
 		g.genMethod(s, m)
 	}
 
-	g.Printf("//export GoPy_%[1]s_new\n", s.ID())
-	g.Printf("func GoPy_%[1]s_new() GoPy_%[1]s {\n", s.ID())
+	g.Printf("//export cgo_func_%[1]s_new\n", s.ID())
+	g.Printf("func cgo_func_%[1]s_new() cgo_type_%[1]s {\n", s.ID())
 	g.Indent()
 	g.Printf("o := %[1]s.%[2]s{}\n", pkgname, s.GoName())
 	g.Printf("cgopy_incref(unsafe.Pointer(&o))\n")
-	g.Printf("return (GoPy_%[1]s)(unsafe.Pointer(&o))\n", s.ID())
+	g.Printf("return (cgo_type_%[1]s)(unsafe.Pointer(&o))\n", s.ID())
 	g.Outdent()
 	g.Printf("}\n\n")
 }
 
 func (g *goGen) genMethod(s Struct, m Func) {
 	sig := m.Signature()
-	params := "(self GoPy_" + s.ID()
+	params := "(self cgo_type_" + s.ID()
 	if len(sig.Params()) > 0 {
 		params += ", " + g.tupleString(sig.Params())
 	}
 	params += ")"
 	ret := " (" + g.tupleString(sig.Results()) + ") "
 
-	g.Printf("//export GoPy_%[1]s\n", m.ID())
-	g.Printf("func GoPy_%[1]s%[2]s%[3]s{\n",
+	g.Printf("//export cgo_func_%[1]s\n", m.ID())
+	g.Printf("func cgo_func_%[1]s%[2]s%[3]s{\n",
 		m.ID(),
 		params,
 		ret,
@@ -404,7 +413,7 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 		// 	g.Printf("")
 		// }
 		if res.needWrap() {
-			g.Printf("%s(unsafe.Pointer(&", res.dtype.cgotype)
+			g.Printf("%s(unsafe.Pointer(&", res.sym.cgoname)
 		}
 		g.Printf("_gopy_%03d", i)
 		if res.needWrap() {
@@ -417,12 +426,13 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 
 func (g *goGen) genConst(o Const) {
 	pkgname := o.obj.Pkg().Name()
+	sym := o.sym
 	tname := types.TypeString(o.obj.Type(), types.RelativeTo(o.obj.Pkg()))
 	if strings.HasPrefix(tname, "untyped ") {
 		tname = string(tname[len("untyped "):])
 	}
-	g.Printf("//export GoPy_get_%s\n", o.id)
-	g.Printf("func GoPy_get_%[1]s() %[2]s {\n", o.id, tname)
+	g.Printf("//export cgo_func_%s_get\n", o.id)
+	g.Printf("func cgo_func_%[1]s_get() %[2]s {\n", o.id, sym.cgotypename())
 	g.Indent()
 	g.Printf("return %s.%s\n", pkgname, o.obj.Name())
 	g.Outdent()
@@ -430,24 +440,19 @@ func (g *goGen) genConst(o Const) {
 }
 
 func (g *goGen) genVar(o Var) {
-	pkgname := o.pkg.Name()
-	ret := qualifiedType(o.GoType())
+	pkgname := o.sym.goobj.Pkg().Name()
+	typ := o.GoType()
+	ret := o.sym.cgotypename()
 
-	switch o.GoType().(type) {
-	case *types.Array, *types.Slice:
-		g.Printf("//export %s\n", ret)
-		g.Printf("type %s unsafe.Pointer\n\n", ret)
-	}
-
-	g.Printf("//export GoPy_get_%s\n", o.id)
-	g.Printf("func GoPy_get_%[1]s() %[2]s {\n", o.id, ret)
+	g.Printf("//export cgo_func_%s_get\n", o.id)
+	g.Printf("func cgo_func_%[1]s_get() %[2]s {\n", o.id, ret)
 	g.Indent()
 	if o.needWrap() {
 		g.Printf("cgopy_incref(unsafe.Pointer(&%s.%s))\n", pkgname, o.Name())
 	}
 	g.Printf("return ")
 	if o.needWrap() {
-		g.Printf("%s(unsafe.Pointer(&", o.dtype.cgotype)
+		g.Printf("%s(unsafe.Pointer(&", ret)
 	}
 	g.Printf("%s.%s", pkgname, o.Name())
 	if o.needWrap() {
@@ -457,11 +462,10 @@ func (g *goGen) genVar(o Var) {
 	g.Outdent()
 	g.Printf("}\n\n")
 
-	g.Printf("//export GoPy_set_%s\n", o.id)
-	g.Printf("func GoPy_set_%[1]s(v %[2]s) {\n", o.id, ret)
+	g.Printf("//export cgo_func_%s_set\n", o.id)
+	g.Printf("func cgo_func_%[1]s_set(v %[2]s) {\n", o.id, ret)
 	g.Indent()
 	vset := "v"
-	typ := o.GoType()
 	if needWrapType(typ) {
 		vset = fmt.Sprintf("*(*%s)(unsafe.Pointer(v))",
 			types.TypeString(typ, func(*types.Package) string {
@@ -475,6 +479,31 @@ func (g *goGen) genVar(o Var) {
 	)
 	g.Outdent()
 	g.Printf("}\n\n")
+}
+
+func (g *goGen) genType(sym *symbol) {
+	if !sym.isType() {
+		return
+	}
+	if sym.isStruct() || sym.isBasic() {
+		return
+	}
+
+	pkgname := sym.goobj.Pkg().Name()
+
+	g.Printf("// --- wrapping %s.%s\n\n", pkgname, sym.goname)
+	g.Printf("//export %[1]s\n", sym.cgoname)
+	g.Printf("type %[1]s unsafe.Pointer\n\n", sym.cgoname)
+
+	g.Printf("//export cgo_func_%[1]s_new\n", sym.id)
+	g.Printf("func cgo_func_%[1]s_new() %[2]s {\n", sym.id, sym.cgoname)
+	g.Indent()
+	g.Printf("var o %[1]s\n", sym.goname)
+	g.Printf("cgopy_incref(unsafe.Pointer(&o))\n")
+	g.Printf("return (%[1]s)(unsafe.Pointer(&o))\n", sym.cgoname)
+	g.Outdent()
+	g.Printf("}\n\n")
+
 }
 
 func (g *goGen) genPreamble() {
@@ -491,8 +520,11 @@ func (g *goGen) tupleString(tuple []*Var) string {
 	str := make([]string, 0, n)
 	for _, v := range tuple {
 		n := v.Name()
-		typ := v.GoType()
-		str = append(str, n+" "+qualifiedType(typ))
+		//typ := v.GoType()
+		sym := v.sym
+		//str = append(str, n+" "+qualifiedType(typ))
+		tname := sym.cgotypename()
+		str = append(str, n+" "+tname)
 	}
 
 	return strings.Join(str, ", ")
