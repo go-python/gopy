@@ -122,4 +122,6 @@ ok  	github.com/go-python/gopy	2.135s
 
 - wrap `go` structs into `python` classes **[DONE]**
 - better pythonization: turn `go` `errors` into `python` exceptions **[DONE]**
+- wrap arrays and slices into types implementing `tp_as_sequence` **[DONE]**
 - only `python-2` supported for now
+
