@@ -31,6 +31,39 @@ const (
 
 // helpers for cgopy
 
+#define def_cnv(name, c2py, py2c, gotype) \
+	static int \
+	cgopy_cnv_py2c_ ## name(PyObject *o, gotype *addr) { \
+		*addr = py2c(o); \
+		return 1;	\
+	} \
+	\
+	static PyObject* \
+	cgopy_cnv_c2py_ ## name(gotype *addr) { \
+		return c2py(*addr); \
+	} 
+
+#ifdef __X86_64__
+	def_cnv( int,  PyLong_FromLong,         PyLong_AsLong,         GoInt)
+	def_cnv(uint,  PyLong_FromUnsignedLong, PyLong_AsUnsignedLong, GoUint)
+#else
+	def_cnv( int,  PyInt_FromLong, PyInt_AsLong, GoInt)
+	def_cnv(uint,  PyInt_FromLong, PyInt_AsLong, GoUint)
+#endif
+
+def_cnv(  int8, PyInt_FromLong, PyInt_AsLong, GoInt8)
+def_cnv( int16, PyInt_FromLong, PyInt_AsLong, GoInt16)
+def_cnv( int32, PyInt_FromLong, PyInt_AsLong, GoInt32)
+def_cnv( int64, PyLong_FromLong, PyLong_AsLong, GoInt64)
+def_cnv(uint8,  PyInt_FromLong, PyInt_AsLong, GoUint8)
+def_cnv(uint16, PyInt_FromLong, PyInt_AsLong, GoUint16)
+def_cnv(uint32, PyInt_FromLong, PyInt_AsLong, GoUint32)
+def_cnv(uint64, PyLong_FromUnsignedLong, PyLong_AsUnsignedLong, GoUint64)
+
+def_cnv(float64, PyFloat_FromDouble, PyFloat_AsDouble, GoFloat64)
+
+#undef def_cnv
+
 static int
 cgopy_cnv_py2c_bool(PyObject *o, GoUint8 *addr) {
 	*addr = (o == Py_True) ? 1 : 0;
@@ -62,14 +95,14 @@ cgopy_cnv_c2py_string(GoString *addr) {
 }
 
 static int
-cgopy_cnv_py2c_f32(PyObject *o, GoFloat32 *addr) {
+cgopy_cnv_py2c_float32(PyObject *o, GoFloat32 *addr) {
 	GoFloat32 v = PyFloat_AsDouble(o);
 	*addr = v;
 	return 1;
 }
 
 static PyObject*
-cgopy_cnv_c2py_f32(GoFloat32 *addr) {
+cgopy_cnv_c2py_float32(GoFloat32 *addr) {
 	GoFloat64 v = *addr;
 	return PyFloat_FromDouble(v);
 }

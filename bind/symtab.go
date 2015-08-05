@@ -356,8 +356,8 @@ func init() {
 			cgoname: "GoInt",
 			pyfmt:   "i",
 			pysig:   "int",
-			c2py:    "PyInt_FromLong",
-			py2c:    "PyInt_AsLong",
+			c2py:    "cgopy_cnv_c2py_int",
+			py2c:    "cgopy_cnv_py2c_int",
 		},
 
 		"int8": {
@@ -368,8 +368,8 @@ func init() {
 			cgoname: "GoInt8",
 			pyfmt:   "c",
 			pysig:   "int",
-			c2py:    "PyInt_FromLong",
-			py2c:    "PyInt_AsLong",
+			c2py:    "cgopy_cnv_c2py_int8",
+			py2c:    "cgopy_cnv_py2c_int8",
 		},
 
 		"int16": {
@@ -380,8 +380,8 @@ func init() {
 			cgoname: "GoInt16",
 			pyfmt:   "h",
 			pysig:   "int",
-			c2py:    "PyInt_FromLong",
-			py2c:    "PyInt_AsLong",
+			c2py:    "cgopy_cnv_c2py_int16",
+			py2c:    "cgopy_cnv_py2c_int16",
 		},
 
 		"int32": {
@@ -392,8 +392,8 @@ func init() {
 			cgoname: "GoInt32",
 			pyfmt:   "i",
 			pysig:   "int",
-			c2py:    "PyInt_FromLong",
-			py2c:    "PyInt_AsLong",
+			c2py:    "cgopy_cnv_c2py_int32",
+			py2c:    "cgopy_cnv_py2c_int32",
 		},
 
 		"int64": {
@@ -404,8 +404,8 @@ func init() {
 			cgoname: "GoInt64",
 			pyfmt:   "k",
 			pysig:   "long",
-			c2py:    "PyLong_FromLong",
-			py2c:    "PyLong_AsLong",
+			c2py:    "cgopy_cnv_c2py_int64",
+			py2c:    "cgopy_cnv_py2c_int64",
 		},
 
 		"uint": {
@@ -416,8 +416,8 @@ func init() {
 			cgoname: "GoUint",
 			pyfmt:   "I",
 			pysig:   "int",
-			c2py:    "PyInt_FromUnsignedLong",
-			py2c:    "PyInt_AsUnsignedLong",
+			c2py:    "cgopy_cnv_c2py_uint",
+			py2c:    "cgopy_cnv_py2c_uint",
 		},
 
 		"uint8": {
@@ -428,8 +428,8 @@ func init() {
 			cgoname: "GoUint8",
 			pyfmt:   "b",
 			pysig:   "int",
-			c2py:    "PyInt_FromUnsignedLong",
-			py2c:    "PyInt_AsUnsignedLong",
+			c2py:    "cgopy_cnv_c2py_uint8",
+			py2c:    "cgopy_cnv_py2c_uint8",
 		},
 		"uint16": {
 			goobj:   look("uint16"),
@@ -439,8 +439,8 @@ func init() {
 			cgoname: "GoUint16",
 			pyfmt:   "H",
 			pysig:   "int",
-			c2py:    "PyInt_FromUnsignedLong",
-			py2c:    "PyInt_AsUnsignedLong",
+			c2py:    "cgopy_cnv_c2py_uint16",
+			py2c:    "cgopy_cnv_py2c_uint16",
 		},
 		"uint32": {
 			goobj:   look("uint32"),
@@ -450,8 +450,8 @@ func init() {
 			cgoname: "GoUint32",
 			pyfmt:   "I",
 			pysig:   "long",
-			c2py:    "PyInt_FromUnsignedLong",
-			py2c:    "PyInt_AsUnsignedLong",
+			c2py:    "cgopy_cnv_c2py_uint32",
+			py2c:    "cgopy_cnv_py2c_uint32",
 		},
 
 		"uint64": {
@@ -462,8 +462,8 @@ func init() {
 			cgoname: "GoUint64",
 			pyfmt:   "K",
 			pysig:   "long",
-			c2py:    "PyLong_FromUnsignedLong",
-			py2c:    "PyLong_AsUnsignedLong",
+			c2py:    "cgopy_cnv_c2py_uint64",
+			py2c:    "cgopy_cnv_py2c_uint64",
 		},
 
 		"float32": {
@@ -485,8 +485,8 @@ func init() {
 			cgoname: "GoFloat64",
 			pyfmt:   "d",
 			pysig:   "float",
-			c2py:    "PyFloat_FromDouble",
-			py2c:    "PyFloat_AsDouble",
+			c2py:    "cgopy_cnv_c2py_float64",
+			py2c:    "cgopy_cnv_py2c_float64",
 		},
 		"complex64": {
 			goobj:   look("complex64"),
@@ -557,8 +557,8 @@ func init() {
 			cgoname: "GoInt",
 			pyfmt:   "k",
 			pysig:   "int",
-			c2py:    "PyLong_FromLong",
-			py2c:    "PyLong_AsLong",
+			c2py:    "cgopy_cnv_c2py_int",
+			py2c:    "cgopy_cnv_py2c_int",
 		}
 		syms["uint"] = &symbol{
 			goobj:   look("uint"),
@@ -568,8 +568,8 @@ func init() {
 			cgoname: "GoUint",
 			pyfmt:   "K",
 			pysig:   "int",
-			c2py:    "PyLong_FromUnsignedLong",
-			py2c:    "PyLong_AsUnsignedLong",
+			c2py:    "cgopy_cnv_c2py_uint",
+			py2c:    "cgopy_cnv_py2c_uint",
 		}
 	}
 
