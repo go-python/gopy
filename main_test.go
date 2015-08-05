@@ -140,9 +140,15 @@ hi.Couple{P1=hi.Person{Name="mom", Age=50}, P2=hi.Person{Name="bob", Age=51}}
 --- testing array...
 arr: [2]int{1, 2}
 len(arr): 2
+arr[0]: 1
+arr[1]: 2
+arr[2]: caught: array index out of range
 --- testing slice...
 slice: []int{1, 2}
 len(slice): 2
+slice[0]: 1
+slice[1]: 2
+slice[2]: caught: array index out of range
 `)
 	buf := new(bytes.Buffer)
 	cmd = exec.Command("python2", "./test.py")

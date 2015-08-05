@@ -146,9 +146,26 @@ print "--- testing array..."
 arr = hi.GetIntArray()
 print "arr:",arr
 print "len(arr):",len(arr)
+print "arr[0]:",arr[0]
+print "arr[1]:",arr[1]
+try:
+    print "arr[2]:", arr[2]
+    print "*ERROR* no exception raised!"
+except Exception, err:
+    print "caught:",err
+    pass
 
 print "--- testing slice..."
 s = hi.GetIntSlice()
 print "slice:",s
 print "len(slice):",len(s)
+print "slice[0]:",s[0]
+print "slice[1]:",s[1]
+try:
+    print "slice[2]:", s[2]
+    print "*ERROR* no exception raised!"
+except Exception, err:
+    print "caught:",err
+    pass
+
 
