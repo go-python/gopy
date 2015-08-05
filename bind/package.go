@@ -7,6 +7,7 @@ package bind
 import (
 	"fmt"
 	"go/doc"
+	"reflect"
 	"strings"
 
 	"golang.org/x/tools/go/types"
@@ -16,6 +17,7 @@ import (
 // Package also collects informations about structs and funcs.
 type Package struct {
 	pkg *types.Package
+	sz  types.Sizes
 	doc *doc.Package
 
 	syms    *symtab
@@ -29,8 +31,10 @@ type Package struct {
 // NewPackage creates a new Package, tying types.Package and ast.Package together.
 func NewPackage(pkg *types.Package, doc *doc.Package) (*Package, error) {
 	universe.pkg = pkg // FIXME(sbinet)
+	sz := int64(reflect.TypeOf(int(0)).Size())
 	p := &Package{
 		pkg:  pkg,
+		sz:   &types.StdSizes{sz, sz},
 		doc:  doc,
 		syms: newSymtab(pkg, nil),
 		objs: map[string]Object{},
