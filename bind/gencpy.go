@@ -164,10 +164,14 @@ func (g *cpyGen) gen() error {
 	g.impl.Indent()
 	g.impl.Printf("PyObject *module = NULL;\n\n")
 
-	for _, s := range g.pkg.structs {
+	for _, n := range g.pkg.syms.names() {
+		sym := g.pkg.syms.sym(n)
+		if !sym.isType() {
+			continue
+		}
 		g.impl.Printf(
 			"if (PyType_Ready(&%sType) < 0) { return; }\n",
-			s.sym.cpyname,
+			sym.cpyname,
 		)
 	}
 
@@ -176,11 +180,15 @@ func (g *cpyGen) gen() error {
 		g.pkg.doc.Doc,
 	)
 
-	for _, s := range g.pkg.structs {
-		g.impl.Printf("Py_INCREF(&%sType);\n", s.sym.cpyname)
+	for _, n := range g.pkg.syms.names() {
+		sym := g.pkg.syms.sym(n)
+		if !sym.isType() {
+			continue
+		}
+		g.impl.Printf("Py_INCREF(&%sType);\n", sym.cpyname)
 		g.impl.Printf("PyModule_AddObject(module, %q, (PyObject*)&%sType);\n\n",
-			s.GoName(),
-			s.sym.cpyname,
+			sym.goname,
+			sym.cpyname,
 		)
 	}
 	g.impl.Outdent()
