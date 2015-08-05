@@ -226,10 +226,12 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 		pkgname, sym.goname,
 	)
 
+	var arrlen int64
 	var etyp types.Type
 	switch typ := sym.goobj.Type().(type) {
 	case *types.Array:
 		etyp = typ.Elem()
+		arrlen = typ.Len()
 	case *types.Slice:
 		etyp = typ.Elem()
 	}
@@ -255,8 +257,12 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 			sym.cpyname,
 		)
 		g.impl.Indent()
-		g.impl.Printf("GoSlice *slice = (GoSlice*)(self->cgopy);\n")
-		g.impl.Printf("return slice->len;\n")
+		if sym.isArray() {
+			g.impl.Printf("return %d;\n", arrlen)
+		} else {
+			g.impl.Printf("GoSlice *slice = (GoSlice*)(self->cgopy);\n")
+			g.impl.Printf("return slice->len;\n")
+		}
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
@@ -275,8 +281,12 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 		)
 		g.impl.Indent()
 		g.impl.Printf("PyObject *pyitem = NULL;\n")
-		g.impl.Printf("GoSlice *slice = (GoSlice*)(self->cgopy);\n")
-		g.impl.Printf("if (i < 0 || i >= slice->len) {\n")
+		if sym.isArray() {
+			g.impl.Printf("if (i < 0 || i >= %d) {\n", arrlen)
+		} else {
+			g.impl.Printf("GoSlice *slice = (GoSlice*)(self->cgopy);\n")
+			g.impl.Printf("if (i < 0 || i >= slice->len) {\n")
+		}
 		g.impl.Indent()
 		g.impl.Printf("PyErr_SetString(PyExc_IndexError, ")
 		g.impl.Printf("\"array index out of range\");\n")
@@ -287,8 +297,42 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 			esym.cgoname,
 			sym.id,
 		)
-		g.impl.Printf("pyitem = %[1]s(item);\n", esym.c2py)
+		g.impl.Printf("pyitem = %[1]s(&item);\n", esym.c2py)
 		g.impl.Printf("return pyitem;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+
+		g.decl.Printf("\n/* ass_item */\n")
+		g.decl.Printf("static int\n")
+		g.decl.Printf("cpy_func_%[1]s_ass_item(%[2]s *self, Py_ssize_t i, PyObject *v);\n",
+			sym.id,
+			sym.cpyname,
+		)
+
+		g.impl.Printf("\n/* ass_item */\n")
+		g.impl.Printf("static int\n")
+		g.impl.Printf("cpy_func_%[1]s_ass_item(%[2]s *self, Py_ssize_t i, PyObject *v) {\n",
+			sym.id,
+			sym.cpyname,
+		)
+		g.impl.Indent()
+		g.impl.Printf("%[1]s c_v;\n", esym.cgoname)
+		if sym.isArray() {
+			g.impl.Printf("if (i < 0 || i >= %d) {\n", arrlen)
+		} else {
+			g.impl.Printf("GoSlice *slice = (GoSlice*)(self->cgopy);\n")
+			g.impl.Printf("if (i < 0 || i >= slice->len) {\n")
+		}
+		g.impl.Indent()
+		g.impl.Printf("PyErr_SetString(PyExc_IndexError, ")
+		g.impl.Printf("\"array assignment index out of range\");\n")
+		g.impl.Printf("return -1;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+		g.impl.Printf("if (v == NULL) { return 0; }\n") // FIXME(sbinet): semantics?
+		g.impl.Printf("if (!%[1]s(v, &c_v)) { return -1; }\n", esym.py2c)
+		g.impl.Printf("cgo_func_%[1]s_ass_item(self->cgopy, i, c_v);\n", sym.id)
+		g.impl.Printf("return 0;\n")
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
@@ -299,8 +343,8 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 		g.impl.Printf("(binaryfunc)0,\n")   // array_concat,               sq_concat
 		g.impl.Printf("(ssizeargfunc)0,\n") //array_repeat,                 /*sq_repeat
 		g.impl.Printf("(ssizeargfunc)cpy_func_%[1]s_item,\n", sym.id)
-		g.impl.Printf("(ssizessizeargfunc)0,\n")    // array_slice,             /*sq_slice
-		g.impl.Printf("(ssizeobjargproc)0,\n")      //array_ass_item,                    /*sq_ass_item
+		g.impl.Printf("(ssizessizeargfunc)0,\n") // array_slice,             /*sq_slice
+		g.impl.Printf("(ssizeobjargproc)cpy_func_%[1]s_ass_item,\n", sym.id)
 		g.impl.Printf("(ssizessizeobjargproc)0,\n") //array_ass_slice,      /*sq_ass_slice
 		g.impl.Printf("(objobjproc)0,\n")           //array_contains,                 /*sq_contains
 		g.impl.Printf("(binaryfunc)0,\n")           //array_inplace_concat,           /*sq_inplace_concat
@@ -343,6 +387,16 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 		sym.id,
 	)
 
+	var esize int64
+	var arrlen int64
+	switch o := sym.goobj.Type().(type) {
+	case *types.Array:
+		esize = g.pkg.sz.Sizeof(o.Elem())
+		arrlen = o.Len()
+	case *types.Slice:
+		esize = g.pkg.sz.Sizeof(o.Elem())
+	}
+
 	g.impl.Printf("\n/* __get_buffer__ impl for %[1]s.%[2]s */\n",
 		pkgname, sym.goname,
 	)
@@ -360,22 +414,27 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 	g.impl.Printf("%[1]s *py = (%[1]s*)self;\n", sym.cpyname)
-	g.impl.Printf("GoSlice *go = (GoSlice*)(py->cgopy);\n")
-	g.impl.Printf("view->obj = (PyObject*)py;\n")
-	g.impl.Printf("view->buf = (void*)go->data;\n")
-	g.impl.Printf("view->len = go->len;\n")
-	g.impl.Printf("view->readonly = 0;\n")
-	var esize int64
-	switch o := sym.goobj.Type().(type) {
-	case *types.Array:
-		esize = g.pkg.sz.Sizeof(o.Elem())
-	case *types.Slice:
-		esize = g.pkg.sz.Sizeof(o.Elem())
+	if sym.isArray() {
+		g.impl.Printf("void *array = (void*)(py->cgopy);\n")
+		g.impl.Printf("view->obj = (PyObject*)py;\n")
+		g.impl.Printf("view->buf = (void*)array;\n")
+		g.impl.Printf("view->len = %d;\n", arrlen)
+		g.impl.Printf("view->readonly = 0;\n")
+		g.impl.Printf("view->itemsize = %d;\n", esize)
+		g.impl.Printf("view->format = %q;\n", "B") // FIXME(sbinet)
+		g.impl.Printf("view->ndim = 1;\n")
+		g.impl.Printf("view->shape = (Py_ssize_t*)&view->len;\n")
+	} else {
+		g.impl.Printf("GoSlice *slice = (GoSlice*)(py->cgopy);\n")
+		g.impl.Printf("view->obj = (PyObject*)py;\n")
+		g.impl.Printf("view->buf = (void*)slice->data;\n")
+		g.impl.Printf("view->len = slice->len;\n")
+		g.impl.Printf("view->readonly = 0;\n")
+		g.impl.Printf("view->itemsize = %d;\n", esize)
+		g.impl.Printf("view->format = %q;\n", "B") // FIXME(sbinet)
+		g.impl.Printf("view->ndim = 1;\n")
+		g.impl.Printf("view->shape = (Py_ssize_t*)&slice->len;\n")
 	}
-	g.impl.Printf("view->itemsize = %d;\n", esize)
-	g.impl.Printf("view->format = %q;\n", "B") // FIXME(sbinet)
-	g.impl.Printf("view->ndim = 1;\n")
-	g.impl.Printf("view->shape = (Py_ssize_t*)&go->len;\n")
 	g.impl.Printf("view->strides = &view->itemsize;\n")
 	g.impl.Printf("view->suboffsets = NULL;\n")
 	g.impl.Printf("view->internal = NULL;\n")
@@ -403,7 +462,6 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 			sym.cpyname,
 		)
 		g.impl.Indent()
-		g.impl.Printf("GoSlice *slice = NULL;\n")
 		g.impl.Printf("if (index != 0) {\n")
 		g.impl.Indent()
 		g.impl.Printf("PyErr_SetString(PyExc_SystemError, ")
@@ -411,9 +469,14 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 		g.impl.Printf("return -1;\n")
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
-		g.impl.Printf("slice = (GoSlice*)self->cgopy;\n")
-		g.impl.Printf("*ptr = (void*)slice->data;\n")
-		g.impl.Printf("return slice->len;\n")
+		if sym.isArray() {
+			g.impl.Printf("*ptr = (void*)self->cgopy;\n")
+			g.impl.Printf("return %d;\n", arrlen)
+		} else {
+			g.impl.Printf("GoSlice *slice = (GoSlice*)self->cgopy;\n")
+			g.impl.Printf("*ptr = (void*)slice->data;\n")
+			g.impl.Printf("return slice->len;\n")
+		}
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
@@ -453,8 +516,12 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 			sym.cpyname,
 		)
 		g.impl.Indent()
-		g.impl.Printf("GoSlice *slice = (GoSlice*)(self->cgopy);\n")
-		g.impl.Printf("if (lenp) { *lenp = slice->len; }\n")
+		if sym.isArray() {
+			g.impl.Printf("if (lenp) { *lenp = %d; }\n", arrlen)
+		} else {
+			g.impl.Printf("GoSlice *slice = (GoSlice*)(self->cgopy);\n")
+			g.impl.Printf("if (lenp) { *lenp = slice->len; }\n")
+		}
 		g.impl.Printf("return 1;\n")
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")

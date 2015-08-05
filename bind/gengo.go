@@ -575,6 +575,25 @@ func (g *goGen) genType(sym *symbol) {
 	}
 	g.Outdent()
 	g.Printf("}\n\n")
+
+	// support for __setitem__
+	g.Printf("//export cgo_func_%[1]s_ass_item\n", sym.id)
+	g.Printf("func cgo_func_%[1]s_ass_item(self %[2]s, i int, v %[3]s) {\n",
+		sym.id,
+		sym.cgoname,
+		esym.cgotypename(),
+	)
+	g.Indent()
+	g.Printf("arr := (*%[1]s)(unsafe.Pointer(self))\n", sym.goname)
+	g.Printf("(*arr)[i] = ")
+	if needWrapType(etyp) {
+		g.Printf("*(*%[1]s)(unsafe.Pointer(v))\n", esym.cgotypename())
+	} else {
+		g.Printf("v\n")
+	}
+	g.Outdent()
+	g.Printf("}\n\n")
+
 }
 
 func (g *goGen) genPreamble() {
