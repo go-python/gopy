@@ -27,12 +27,13 @@ func (list ErrorList) Error() string {
 }
 
 // GenCPython generates a (C)Python package from a Go package
-func GenCPython(w io.Writer, fset *token.FileSet, pkg *Package) error {
+func GenCPython(w io.Writer, fset *token.FileSet, pkg *Package, lang int) error {
 	gen := &cpyGen{
 		decl: &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
 		impl: &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
 		fset: fset,
 		pkg:  pkg,
+		lang: lang,
 	}
 	err := gen.gen()
 	if err != nil {

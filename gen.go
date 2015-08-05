@@ -47,7 +47,7 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 			return err
 		}
 		defer o.Close()
-		err = bind.GenCPython(o, fset, p)
+		err = bind.GenCPython(o, fset, p, 2)
 		if err != nil {
 			return err
 		}

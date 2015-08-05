@@ -72,6 +72,8 @@ type cpyGen struct {
 	fset *token.FileSet
 	pkg  *Package
 	err  ErrorList
+
+	lang int // c-python api version (2,3)
 }
 
 func (g *cpyGen) gen() error {
