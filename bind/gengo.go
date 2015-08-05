@@ -26,6 +26,7 @@ package main
 import "C"
 
 import (
+	"fmt"
 	"sync"
 	"unsafe"
 
@@ -33,6 +34,7 @@ import (
 )
 
 var _ = unsafe.Pointer(nil)
+var _ = fmt.Sprintf
 
 // --- begin cgo helpers ---
 
@@ -351,6 +353,25 @@ func (g *goGen) genStruct(s Struct) {
 	g.Printf("return (cgo_type_%[1]s)(unsafe.Pointer(&o))\n", s.ID())
 	g.Outdent()
 	g.Printf("}\n\n")
+
+	// support for __str__
+	g.Printf("//export cgo_func_%[1]s_str\n", s.ID())
+	g.Printf(
+		"func cgo_func_%[1]s_str(self %[2]s) string {\n",
+		s.ID(),
+		s.sym.cgoname,
+	)
+	g.Indent()
+	if (s.prots & ProtoStringer) == 0 {
+		g.Printf("return fmt.Sprintf(\"%%#v\", ")
+		g.Printf("*(*%[1]s.%[2]s)(unsafe.Pointer(self)))\n", pkgname, s.GoName())
+	} else {
+		g.Printf("return (*%[1]s.%[2]s)(unsafe.Pointer(self)).String()\n",
+			pkgname, s.GoName(),
+		)
+	}
+	g.Outdent()
+	g.Printf("}\n\n")
 }
 
 func (g *goGen) genMethod(s Struct, m Func) {
@@ -507,6 +528,18 @@ func (g *goGen) genType(sym *symbol) {
 	g.Outdent()
 	g.Printf("}\n\n")
 
+	// support for __str__
+	g.Printf("//export cgo_func_%[1]s_str\n", sym.id)
+	g.Printf(
+		"func cgo_func_%[1]s_str(self %[2]s) string {\n",
+		sym.id,
+		sym.cgoname,
+	)
+	g.Indent()
+	g.Printf("return fmt.Sprintf(\"%%#v\", ")
+	g.Printf("*(*%[1]s)(unsafe.Pointer(self)))\n", sym.goname)
+	g.Outdent()
+	g.Printf("}\n\n")
 }
 
 func (g *goGen) genPreamble() {

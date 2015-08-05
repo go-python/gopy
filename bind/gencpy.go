@@ -767,40 +767,7 @@ func (g *cpyGen) genStructProtocols(cpy Struct) {
 }
 
 func (g *cpyGen) genStructTPStr(cpy Struct) {
-	g.decl.Printf("\n/* __str__ support for %[1]s.%[2]s */\n",
-		cpy.pkg.Name(),
-		cpy.sym.goname,
-	)
-	g.decl.Printf(
-		"static PyObject*\ncpy_func_%s_tp_str(PyObject *self);\n",
-		cpy.sym.id,
-	)
-
-	g.impl.Printf(
-		"static PyObject*\ncpy_func_%s_tp_str(PyObject *self) {\n",
-		cpy.sym.id,
-	)
-
-	if (cpy.prots & ProtoStringer) == 0 {
-		g.impl.Indent()
-		g.impl.Printf("return PyObject_Repr(self);\n")
-		g.impl.Outdent()
-		g.impl.Printf("}\n\n")
-		return
-	}
-
-	var m Func
-	for _, f := range cpy.meths {
-		if f.GoName() == "String" {
-			m = f
-			break
-		}
-	}
-
-	g.impl.Indent()
-	g.impl.Printf("return cpy_func_%[1]s(self, 0);\n", m.ID())
-	g.impl.Outdent()
-	g.impl.Printf("}\n\n")
+	g.genTypeTPStr(cpy.sym)
 }
 
 func (g *cpyGen) genStructConverters(cpy Struct) {
@@ -1034,7 +1001,14 @@ func (g *cpyGen) genTypeTPStr(sym *symbol) {
 	)
 
 	g.impl.Indent()
-	g.impl.Printf("return PyObject_Repr(self);\n")
+	g.impl.Printf("%[1]s c_self = ((%[2]s*)self)->cgopy;\n",
+		sym.cgoname,
+		sym.cpyname,
+	)
+	g.impl.Printf("GoString str = cgo_func_%[1]s_str(c_self);\n",
+		sym.id,
+	)
+	g.impl.Printf("return cgopy_cnv_c2py_string(&str);\n")
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }
