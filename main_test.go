@@ -137,6 +137,12 @@ hi.Couple{P1=hi.Person{Name="mom", Age=50}, P2=hi.Person{Name="bob", Age=51}}
 --- len(objs): 100000
 --- len(vs): 100000
 --- testing GC... [ok]
+--- testing array...
+arr: [2]int{1, 2}
+len(arr): 2
+--- testing slice...
+slice: []int{1, 2}
+len(slice): 2
 `)
 	buf := new(bytes.Buffer)
 	cmd = exec.Command("python2", "./test.py")

@@ -141,3 +141,14 @@ for i,o in enumerate(objs):
 print "--- len(vs):",len(vs)
 del objs
 print "--- testing GC... [ok]"
+
+print "--- testing array..."
+arr = hi.GetIntArray()
+print "arr:",arr
+print "len(arr):",len(arr)
+
+print "--- testing slice..."
+s = hi.GetIntSlice()
+print "slice:",s
+print "len(slice):",len(s)
+
