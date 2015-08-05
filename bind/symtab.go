@@ -39,17 +39,17 @@ type symbol struct {
 	kind    symkind
 	goobj   types.Object
 	doc     string
-	id      string
-	goname  string
-	cgoname string
-	cpyname string
+	id      string // mangled name of entity (eg: <pkg>_<name>)
+	goname  string // name of go entity
+	cgoname string // name of entity for cgo
+	cpyname string // name of entity for cpython
 
 	// for types only
 
-	pyfmt string
-	pysig string
-	c2py  string
-	py2c  string
+	pyfmt string // format string for PyArg_ParseTuple
+	pysig string // type string for doc-signatures
+	c2py  string // name of c->py converter function
+	py2c  string // name of py->c converter function
 }
 
 func (s symbol) isType() bool {
