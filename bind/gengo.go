@@ -515,6 +515,20 @@ func (g *goGen) genType(sym *symbol) {
 
 	pkgname := sym.goobj.Pkg().Name()
 
+	var etyp types.Type
+	switch typ := sym.goobj.Type().(type) {
+	case *types.Array:
+		etyp = typ.Elem()
+	case *types.Slice:
+		etyp = typ.Elem()
+	}
+	esym := g.pkg.syms.symtype(etyp)
+	if esym == nil {
+		panic(fmt.Errorf("gopy: could not retrieve element type of %#v",
+			sym,
+		))
+	}
+
 	g.Printf("\n// --- wrapping %s.%s ---\n\n", pkgname, sym.goname)
 	g.Printf("//export %[1]s\n", sym.cgoname)
 	g.Printf("// %[1]s wraps %[2]s.%[3]s\n", sym.cgoname, pkgname, sym.goname)
@@ -539,6 +553,26 @@ func (g *goGen) genType(sym *symbol) {
 	g.Indent()
 	g.Printf("return fmt.Sprintf(\"%%#v\", ")
 	g.Printf("*(*%[1]s)(unsafe.Pointer(self)))\n", sym.goname)
+	g.Outdent()
+	g.Printf("}\n\n")
+
+	// support for __getitem__
+	g.Printf("//export cgo_func_%[1]s_item\n", sym.id)
+	g.Printf(
+		"func cgo_func_%[1]s_item(self %[2]s, i int) %[3]s {\n",
+		sym.id,
+		sym.cgoname,
+		esym.cgotypename(),
+	)
+	g.Indent()
+	g.Printf("arr := (*%[1]s)(unsafe.Pointer(self))\n", sym.goname)
+	g.Printf("elt := (*arr)[i]\n")
+	if needWrapType(etyp) {
+		g.Printf("cgopy_incref(unsafe.Pointer(&elt))\n")
+		g.Printf("return (%[1]s)(unsafe.Pointer(&elt))\n", esym.cgotypename())
+	} else {
+		g.Printf("return elt\n")
+	}
 	g.Outdent()
 	g.Printf("}\n\n")
 }

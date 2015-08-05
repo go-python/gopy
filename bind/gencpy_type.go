@@ -45,8 +45,10 @@ func (g *cpyGen) genType(sym *symbol) {
 	g.genTypeProtocols(sym)
 
 	asBuffer := "0"
+	asSequence := "0"
 	if sym.isArray() || sym.isSlice() {
 		asBuffer = fmt.Sprintf("&%[1]s_tp_as_buffer", sym.cpyname)
+		asSequence = fmt.Sprintf("&%[1]s_tp_as_sequence", sym.cpyname)
 	}
 
 	g.impl.Printf("static PyTypeObject %sType = {\n", sym.cpyname)
@@ -63,7 +65,7 @@ func (g *cpyGen) genType(sym *symbol) {
 	g.impl.Printf("0,\t/*tp_compare*/\n")
 	g.impl.Printf("0,\t/*tp_repr*/\n")
 	g.impl.Printf("0,\t/*tp_as_number*/\n")
-	g.impl.Printf("0,\t/*tp_as_sequence*/\n")
+	g.impl.Printf("%s,\t/*tp_as_sequence*/\n", asSequence)
 	g.impl.Printf("0,\t/*tp_as_mapping*/\n")
 	g.impl.Printf("0,\t/*tp_hash */\n")
 	g.impl.Printf("0,\t/*tp_call*/\n")
@@ -185,6 +187,7 @@ func (g *cpyGen) genTypeMethods(sym *symbol) {
 func (g *cpyGen) genTypeProtocols(sym *symbol) {
 	g.genTypeTPStr(sym)
 	if sym.isSlice() || sym.isArray() {
+		g.genTypeTPAsSequence(sym)
 		g.genTypeTPAsBuffer(sym)
 	}
 }
@@ -215,6 +218,114 @@ func (g *cpyGen) genTypeTPStr(sym *symbol) {
 	g.impl.Printf("return cgopy_cnv_c2py_string(&str);\n")
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
+}
+
+func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
+	pkgname := g.pkg.pkg.Name()
+	g.decl.Printf("\n/* sequence support for %[1]s.%[2]s */\n",
+		pkgname, sym.goname,
+	)
+
+	var etyp types.Type
+	switch typ := sym.goobj.Type().(type) {
+	case *types.Array:
+		etyp = typ.Elem()
+	case *types.Slice:
+		etyp = typ.Elem()
+	}
+	esym := g.pkg.syms.symtype(etyp)
+	if esym == nil {
+		panic(fmt.Errorf("gopy: could not retrieve element type of %#v",
+			sym,
+		))
+	}
+
+	switch g.lang {
+	case 2:
+
+		g.decl.Printf("\n/* len */\n")
+		g.decl.Printf("static Py_ssize_t\ncpy_func_%[1]s_len(%[2]s *self);\n",
+			sym.id,
+			sym.cpyname,
+		)
+
+		g.impl.Printf("\n/* len */\n")
+		g.impl.Printf("static Py_ssize_t\ncpy_func_%[1]s_len(%[2]s *self) {\n",
+			sym.id,
+			sym.cpyname,
+		)
+		g.impl.Indent()
+		g.impl.Printf("GoSlice *slice = (GoSlice*)(self->cgopy);\n")
+		g.impl.Printf("return slice->len;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+
+		g.decl.Printf("\n/* item */\n")
+		g.decl.Printf("static PyObject*\n")
+		g.decl.Printf("cpy_func_%[1]s_item(%[2]s *self, Py_ssize_t i);\n",
+			sym.id,
+			sym.cpyname,
+		)
+
+		g.impl.Printf("\n/* item */\n")
+		g.impl.Printf("static PyObject*\n")
+		g.impl.Printf("cpy_func_%[1]s_item(%[2]s *self, Py_ssize_t i) {\n",
+			sym.id,
+			sym.cpyname,
+		)
+		g.impl.Indent()
+		g.impl.Printf("PyObject *pyitem = NULL;\n")
+		g.impl.Printf("GoSlice *slice = (GoSlice*)(self->cgopy);\n")
+		g.impl.Printf("if (i < 0 || i >= slice->len) {\n")
+		g.impl.Indent()
+		g.impl.Printf("PyErr_SetString(PyExc_IndexError, ")
+		g.impl.Printf("\"array index out of range\");\n")
+		g.impl.Printf("return NULL;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+		g.impl.Printf("%[1]s item = cgo_func_%[2]s_item(self->cgopy, i);\n",
+			esym.cgoname,
+			sym.id,
+		)
+		g.impl.Printf("pyitem = %[1]s(item);\n", esym.c2py)
+		g.impl.Printf("return pyitem;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+
+		g.impl.Printf("\n/* tp_as_sequence */\n")
+		g.impl.Printf("static PySequenceMethods %[1]s_tp_as_sequence = {\n", sym.cpyname)
+		g.impl.Indent()
+		g.impl.Printf("(lenfunc)cpy_func_%[1]s_len,\n", sym.id)
+		g.impl.Printf("(binaryfunc)0,\n")   // array_concat,               sq_concat
+		g.impl.Printf("(ssizeargfunc)0,\n") //array_repeat,                 /*sq_repeat
+		g.impl.Printf("(ssizeargfunc)cpy_func_%[1]s_item,\n", sym.id)
+		g.impl.Printf("(ssizessizeargfunc)0,\n")    // array_slice,             /*sq_slice
+		g.impl.Printf("(ssizeobjargproc)0,\n")      //array_ass_item,                    /*sq_ass_item
+		g.impl.Printf("(ssizessizeobjargproc)0,\n") //array_ass_slice,      /*sq_ass_slice
+		g.impl.Printf("(objobjproc)0,\n")           //array_contains,                 /*sq_contains
+		g.impl.Printf("(binaryfunc)0,\n")           //array_inplace_concat,           /*sq_inplace_concat
+		g.impl.Printf("(ssizeargfunc)0\n")          //array_inplace_repeat          /*sq_inplace_repeat
+		g.impl.Outdent()
+		g.impl.Printf("};\n\n")
+
+	case 3:
+	}
+
+	/*
+		static PySequenceMethods array_as_sequence = {
+		    (lenfunc)array_length,                      /*sq_length
+		    (binaryfunc)array_concat,               /*sq_concat
+		    (ssizeargfunc)array_repeat,                 /*sq_repeat
+		    (ssizeargfunc)array_item,                           /*sq_item
+		    (ssizessizeargfunc)array_slice,             /*sq_slice
+		    (ssizeobjargproc)array_ass_item,                    /*sq_ass_item
+		    (ssizessizeobjargproc)array_ass_slice,      /*sq_ass_slice
+		    (objobjproc)array_contains,                 /*sq_contains
+		    (binaryfunc)array_inplace_concat,           /*sq_inplace_concat
+		    (ssizeargfunc)array_inplace_repeat          /*sq_inplace_repeat
+		};
+
+	*/
 }
 
 func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
