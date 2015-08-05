@@ -275,7 +275,9 @@ func (g *goGen) genStruct(s Struct) {
 	//fmt.Printf("obj: %#v\ntyp: %#v\n", obj, typ)
 	typ := s.Struct()
 	pkgname := s.Package().Name()
+	g.Printf("\n// --- wrapping %s.%s ---\n\n", pkgname, s.sym.goname)
 	g.Printf("//export %[1]s\n", s.sym.cgoname)
+	g.Printf("// %[1]s wraps %[2]s.%[3]s\n", s.sym.cgoname, pkgname, s.sym.goname)
 	g.Printf("type %[1]s unsafe.Pointer\n\n", s.sym.cgoname)
 
 	for i := 0; i < typ.NumFields(); i++ {
@@ -491,8 +493,9 @@ func (g *goGen) genType(sym *symbol) {
 
 	pkgname := sym.goobj.Pkg().Name()
 
-	g.Printf("// --- wrapping %s.%s\n\n", pkgname, sym.goname)
+	g.Printf("\n// --- wrapping %s.%s ---\n\n", pkgname, sym.goname)
 	g.Printf("//export %[1]s\n", sym.cgoname)
+	g.Printf("// %[1]s wraps %[2]s.%[3]s\n", sym.cgoname, pkgname, sym.goname)
 	g.Printf("type %[1]s unsafe.Pointer\n\n", sym.cgoname)
 
 	g.Printf("//export cgo_func_%[1]s_new\n", sym.id)
