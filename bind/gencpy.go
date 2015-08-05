@@ -60,6 +60,43 @@ cgopy_cnv_c2py_string(GoString *addr) {
 	free((void*)str);
 	return pystr;
 }
+
+static int
+cgopy_cnv_py2c_f32(PyObject *o, GoFloat32 *addr) {
+	GoFloat32 v = PyFloat_AsDouble(o);
+	*addr = v;
+	return 1;
+}
+
+static PyObject*
+cgopy_cnv_c2py_f32(GoFloat32 *addr) {
+	GoFloat64 v = *addr;
+	return PyFloat_FromDouble(v);
+}
+
+static int
+cgopy_cnv_py2c_complex64(PyObject *o, GoComplex64 *addr) {
+	Py_complex v = PyComplex_AsCComplex(o);
+	*addr = v.real + v.imag * _Complex_I;
+	return 1;
+}
+
+static PyObject*
+cgopy_cnv_c2py_complex64(GoComplex64 *addr) {
+	return PyComplex_FromDoubles(creal(*addr), cimag(*addr));
+}
+
+static int
+cgopy_cnv_py2c_complex128(PyObject *o, GoComplex128 *addr) {
+	Py_complex v = PyComplex_AsCComplex(o);
+	*addr = v.real + v.imag * _Complex_I;
+	return 1;
+}
+
+static PyObject*
+cgopy_cnv_c2py_complex128(GoComplex128 *addr) {
+	return PyComplex_FromDoubles(creal(*addr), cimag(*addr));
+}
 `
 )
 

@@ -23,6 +23,7 @@ package main
 //#cgo pkg-config: python2 --cflags --libs
 //#include <stdlib.h>
 //#include <string.h>
+//#include <complex.h>
 import "C"
 
 import (
