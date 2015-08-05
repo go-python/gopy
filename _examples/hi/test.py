@@ -154,6 +154,9 @@ try:
 except Exception, err:
     print "caught:",err
     pass
+arr[1] = 42
+print "arr:",arr
+print "len(arr):",len(arr)
 
 print "--- testing slice..."
 s = hi.GetIntSlice()
@@ -167,5 +170,7 @@ try:
 except Exception, err:
     print "caught:",err
     pass
-
+s[1] = 42
+print "slice:",s
+print "len(slice):",len(s)
 
