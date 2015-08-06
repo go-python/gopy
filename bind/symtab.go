@@ -265,7 +265,7 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 			cgoname: "cgo_type_" + id,
 			cpyname: "cpy_type_" + id,
 			pyfmt:   "O&",
-			pybuf:   elt.pybuf,
+			pybuf:   fmt.Sprintf("%d%s", typ.Len(), elt.pybuf),
 			pysig:   "[]" + elt.pysig,
 			c2py:    "cgopy_cnv_c2py_" + id,
 			py2c:    "cgopy_cnv_py2c_" + id,

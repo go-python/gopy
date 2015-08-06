@@ -387,6 +387,7 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 
 	var esize int64
 	var arrlen int64
+	esym := g.pkg.syms.symtype(sym.goobj.Type())
 	switch o := sym.goobj.Type().(type) {
 	case *types.Array:
 		esize = g.pkg.sz.Sizeof(o.Elem())
@@ -419,7 +420,7 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 		g.impl.Printf("view->len = %d;\n", arrlen)
 		g.impl.Printf("view->readonly = 0;\n")
 		g.impl.Printf("view->itemsize = %d;\n", esize)
-		g.impl.Printf("view->format = %q;\n", sym.pybuf)
+		g.impl.Printf("view->format = %q;\n", esym.pybuf)
 		g.impl.Printf("view->ndim = 1;\n")
 		g.impl.Printf("view->shape = (Py_ssize_t*)&view->len;\n")
 	} else {
@@ -429,7 +430,7 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 		g.impl.Printf("view->len = slice->len;\n")
 		g.impl.Printf("view->readonly = 0;\n")
 		g.impl.Printf("view->itemsize = %d;\n", esize)
-		g.impl.Printf("view->format = %q;\n", sym.pybuf)
+		g.impl.Printf("view->format = %q;\n", esym.pybuf)
 		g.impl.Printf("view->ndim = 1;\n")
 		g.impl.Printf("view->shape = (Py_ssize_t*)&slice->len;\n")
 	}
