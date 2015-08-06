@@ -81,7 +81,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 
 	// install it first to tickle the GOPATH cache
 	cmd := exec.Command(
-		"go", "install", "-v", "-buildmode=c-shared",
+		"go", "install", "-buildmode=c-shared",
 		pkg.ImportPath(),
 		//".",
 	)
