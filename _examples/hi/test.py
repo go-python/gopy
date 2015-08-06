@@ -157,6 +157,7 @@ except Exception, err:
 arr[1] = 42
 print "arr:",arr
 print "len(arr):",len(arr)
+print "mem(arr):",len(memoryview(arr))
 
 print "--- testing slice..."
 s = hi.GetIntSlice()
@@ -173,4 +174,5 @@ except Exception, err:
 s[1] = 42
 print "slice:",s
 print "len(slice):",len(s)
+print "mem(slice):",len(memoryview(s))
 

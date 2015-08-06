@@ -145,6 +145,7 @@ arr[1]: 2
 arr[2]: caught: array index out of range
 arr: [2]int{1, 42}
 len(arr): 2
+mem(arr): 2
 --- testing slice...
 slice: []int{1, 2}
 len(slice): 2
@@ -153,6 +154,7 @@ slice[1]: 2
 slice[2]: caught: array index out of range
 slice: []int{1, 42}
 len(slice): 2
+mem(slice): 2
 `)
 	buf := new(bytes.Buffer)
 	cmd = exec.Command("python2", "./test.py")
