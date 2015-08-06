@@ -43,7 +43,7 @@ const (
 		return c2py(*addr); \
 	} 
 
-#ifdef __X86_64__
+#if (GOINTBITS == 4)
 	def_cnv( int,  PyLong_FromLong,         PyLong_AsLong,         GoInt)
 	def_cnv(uint,  PyLong_FromUnsignedLong, PyLong_AsUnsignedLong, GoUint)
 #else
