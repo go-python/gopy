@@ -73,10 +73,24 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	pkg, err := newPackage(path)
 	if err != nil {
 		return fmt.Errorf(
-			"gopy-bind: go/build.Inport failed with path=%q: %v\n",
+			"gopy-bind: go/build.Import failed with path=%q: %v\n",
 			path,
 			err,
 		)
+	}
+
+	// install it first to tickle the GOPATH cache
+	cmd := exec.Command(
+		"go", "install", "-v", "-buildmode=c-shared",
+		pkg.ImportPath(),
+		//".",
+	)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		return err
 	}
 
 	work, err := ioutil.TempDir("", "gopy-")
@@ -112,7 +126,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	}
 	defer os.RemoveAll(wbind)
 
-	cmd := exec.Command(
+	cmd = exec.Command(
 		"go", "build", "-v", "-buildmode=c-shared",
 		"-o", filepath.Join(wbind, pkg.Name())+".so",
 		//	pkg.ImportPath,

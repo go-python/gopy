@@ -51,6 +51,11 @@ func (p *Package) Name() string {
 	return p.pkg.Name()
 }
 
+// ImportPath returns the package import path.
+func (p *Package) ImportPath() string {
+	return p.doc.ImportPath
+}
+
 // getDoc returns the doc string associated with types.Object
 // parent is the name of the containing scope ("" for global scope)
 func (p *Package) getDoc(parent string, o types.Object) string {
