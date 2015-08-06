@@ -419,7 +419,7 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 		g.impl.Printf("view->len = %d;\n", arrlen)
 		g.impl.Printf("view->readonly = 0;\n")
 		g.impl.Printf("view->itemsize = %d;\n", esize)
-		g.impl.Printf("view->format = %q;\n", "q") // FIXME(sbinet)
+		g.impl.Printf("view->format = %q;\n", sym.pybuf)
 		g.impl.Printf("view->ndim = 1;\n")
 		g.impl.Printf("view->shape = (Py_ssize_t*)&view->len;\n")
 	} else {
@@ -429,7 +429,7 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 		g.impl.Printf("view->len = slice->len;\n")
 		g.impl.Printf("view->readonly = 0;\n")
 		g.impl.Printf("view->itemsize = %d;\n", esize)
-		g.impl.Printf("view->format = %q;\n", "q") // FIXME(sbinet)
+		g.impl.Printf("view->format = %q;\n", sym.pybuf)
 		g.impl.Printf("view->ndim = 1;\n")
 		g.impl.Printf("view->shape = (Py_ssize_t*)&slice->len;\n")
 	}

@@ -47,6 +47,7 @@ type symbol struct {
 	// for types only
 
 	pyfmt string // format string for PyArg_ParseTuple
+	pybuf string // format string for 'struct'/'buffer'
 	pysig string // type string for doc-signatures
 	c2py  string // name of c->py converter function
 	py2c  string // name of py->c converter function
@@ -264,6 +265,7 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 			cgoname: "cgo_type_" + id,
 			cpyname: "cpy_type_" + id,
 			pyfmt:   "O&",
+			pybuf:   elt.pybuf,
 			pysig:   "[]" + elt.pysig,
 			c2py:    "cgopy_cnv_c2py_" + id,
 			py2c:    "cgopy_cnv_py2c_" + id,
@@ -289,14 +291,21 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 			cgoname: "cgo_type_" + id,
 			cpyname: "cpy_type_" + id,
 			pyfmt:   "O&",
+			pybuf:   elt.pybuf,
 			pysig:   "[]" + elt.pysig,
 			c2py:    "cgopy_cnv_c2py_" + id,
 			py2c:    "cgopy_cnv_py2c_" + id,
 		}
 
 	case *types.Named:
-		switch typ.Underlying().(type) {
+		switch typ := typ.Underlying().(type) {
 		case *types.Struct:
+			pybuf := make([]string, 0, typ.NumFields())
+			for i := 0; i < typ.NumFields(); i++ {
+				ftyp := typ.Field(i).Type()
+				fsym := sym.symtype(ftyp)
+				pybuf = append(pybuf, fsym.pybuf)
+			}
 			sym.syms[n] = &symbol{
 				goobj:   obj,
 				kind:    kind,
@@ -305,6 +314,7 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 				cgoname: "cgo_type_" + id,
 				cpyname: "cpy_type_" + id,
 				pyfmt:   "O&",
+				pybuf:   strings.Join(pybuf, ""),
 				pysig:   "object",
 				c2py:    "cgopy_cnv_c2py_" + id,
 				py2c:    "cgopy_cnv_py2c_" + id,
@@ -335,6 +345,7 @@ func init() {
 			cgoname: "GoUint8",
 			cpyname: "GoUint8",
 			pyfmt:   "O&",
+			pybuf:   "?",
 			pysig:   "bool",
 			c2py:    "cgopy_cnv_c2py_bool",
 			py2c:    "cgopy_cnv_py2c_bool",
@@ -346,6 +357,7 @@ func init() {
 			cpyname: "uint8_t",
 			cgoname: "GoUint8",
 			pyfmt:   "b",
+			pybuf:   "B",
 			pysig:   "int", // FIXME(sbinet) py2/py3
 		},
 		"int": {
@@ -355,6 +367,7 @@ func init() {
 			cpyname: "int",
 			cgoname: "GoInt",
 			pyfmt:   "i",
+			pybuf:   "i",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int",
 			py2c:    "cgopy_cnv_py2c_int",
@@ -366,7 +379,8 @@ func init() {
 			goname:  "int8",
 			cpyname: "int8_t",
 			cgoname: "GoInt8",
-			pyfmt:   "c",
+			pyfmt:   "b",
+			pybuf:   "b",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int8",
 			py2c:    "cgopy_cnv_py2c_int8",
@@ -379,6 +393,7 @@ func init() {
 			cpyname: "int16_t",
 			cgoname: "GoInt16",
 			pyfmt:   "h",
+			pybuf:   "h",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int16",
 			py2c:    "cgopy_cnv_py2c_int16",
@@ -391,6 +406,7 @@ func init() {
 			cpyname: "int32_t",
 			cgoname: "GoInt32",
 			pyfmt:   "i",
+			pybuf:   "i",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int32",
 			py2c:    "cgopy_cnv_py2c_int32",
@@ -403,6 +419,7 @@ func init() {
 			cpyname: "int64_t",
 			cgoname: "GoInt64",
 			pyfmt:   "k",
+			pybuf:   "q",
 			pysig:   "long",
 			c2py:    "cgopy_cnv_c2py_int64",
 			py2c:    "cgopy_cnv_py2c_int64",
@@ -415,6 +432,7 @@ func init() {
 			cpyname: "unsigned int",
 			cgoname: "GoUint",
 			pyfmt:   "I",
+			pybuf:   "I",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_uint",
 			py2c:    "cgopy_cnv_py2c_uint",
@@ -426,7 +444,8 @@ func init() {
 			goname:  "uint8",
 			cpyname: "uint8_t",
 			cgoname: "GoUint8",
-			pyfmt:   "b",
+			pyfmt:   "B",
+			pybuf:   "B",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_uint8",
 			py2c:    "cgopy_cnv_py2c_uint8",
@@ -438,6 +457,7 @@ func init() {
 			cpyname: "uint16_t",
 			cgoname: "GoUint16",
 			pyfmt:   "H",
+			pybuf:   "H",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_uint16",
 			py2c:    "cgopy_cnv_py2c_uint16",
@@ -449,6 +469,7 @@ func init() {
 			cpyname: "uint32_t",
 			cgoname: "GoUint32",
 			pyfmt:   "I",
+			pybuf:   "I",
 			pysig:   "long",
 			c2py:    "cgopy_cnv_c2py_uint32",
 			py2c:    "cgopy_cnv_py2c_uint32",
@@ -461,6 +482,7 @@ func init() {
 			cpyname: "uint64_t",
 			cgoname: "GoUint64",
 			pyfmt:   "K",
+			pybuf:   "Q",
 			pysig:   "long",
 			c2py:    "cgopy_cnv_c2py_uint64",
 			py2c:    "cgopy_cnv_py2c_uint64",
@@ -473,6 +495,7 @@ func init() {
 			cpyname: "float",
 			cgoname: "GoFloat32",
 			pyfmt:   "f",
+			pybuf:   "f",
 			pysig:   "float",
 			c2py:    "cgopy_cnv_c2py_f32",
 			py2c:    "cgopy_cnv_py2c_f32",
@@ -484,6 +507,7 @@ func init() {
 			cpyname: "double",
 			cgoname: "GoFloat64",
 			pyfmt:   "d",
+			pybuf:   "d",
 			pysig:   "float",
 			c2py:    "cgopy_cnv_c2py_float64",
 			py2c:    "cgopy_cnv_py2c_float64",
@@ -495,7 +519,8 @@ func init() {
 			cpyname: "float complex",
 			cgoname: "GoComplex64",
 			pyfmt:   "D",
-			pysig:   "float",
+			pybuf:   "ff",
+			pysig:   "complex",
 			c2py:    "cgopy_cnv_c2py_complex64",
 			py2c:    "cgopy_cnv_py2c_complex64",
 		},
@@ -506,7 +531,8 @@ func init() {
 			cpyname: "double complex",
 			cgoname: "GoComplex128",
 			pyfmt:   "D",
-			pysig:   "float",
+			pybuf:   "dd",
+			pysig:   "complex",
 			c2py:    "cgopy_cnv_c2py_complex128",
 			py2c:    "cgopy_cnv_py2c_complex128",
 		},
@@ -518,6 +544,7 @@ func init() {
 			cpyname: "GoString",
 			cgoname: "GoString",
 			pyfmt:   "O&",
+			pybuf:   "s",
 			pysig:   "str",
 			c2py:    "cgopy_cnv_c2py_string",
 			py2c:    "cgopy_cnv_py2c_string",
@@ -530,6 +557,7 @@ func init() {
 			cpyname: "GoRune",
 			cgoname: "GoRune",
 			pyfmt:   "O&",
+			pybuf:   "p",
 			pysig:   "str",
 			c2py:    "cgopy_cnv_c2py_rune",
 			py2c:    "cgopy_cnv_py2c_rune",
@@ -542,6 +570,7 @@ func init() {
 			cgoname: "GoInterface",
 			cpyname: "GoInterface",
 			pyfmt:   "O&",
+			pybuf:   "PP",
 			pysig:   "object",
 			c2py:    "cgopy_cnv_c2py_error",
 			py2c:    "cgopy_cnv_py2c_error",
@@ -556,6 +585,7 @@ func init() {
 			cpyname: "int64_t",
 			cgoname: "GoInt",
 			pyfmt:   "k",
+			pybuf:   "q",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int",
 			py2c:    "cgopy_cnv_py2c_int",
@@ -567,6 +597,7 @@ func init() {
 			cpyname: "uint64_t",
 			cgoname: "GoUint",
 			pyfmt:   "K",
+			pybuf:   "Q",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_uint",
 			py2c:    "cgopy_cnv_py2c_uint",
