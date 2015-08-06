@@ -192,6 +192,15 @@ func (p *Package) process() error {
 					return err
 				}
 
+			case *types.Basic:
+				// ok. handled by p.syms-types
+
+			case *types.Signature:
+				// ok. handled by p.syms-types
+
+			case *types.Slice:
+				// ok. handled by p.syms-types
+
 			default:
 				//TODO(sbinet)
 				panic(fmt.Errorf("not yet supported: %v (%T)", typ, obj))

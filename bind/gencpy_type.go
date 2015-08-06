@@ -15,22 +15,38 @@ func (g *cpyGen) genType(sym *symbol) {
 	if !sym.isType() {
 		return
 	}
-	if sym.isStruct() || sym.isBasic() {
+	if sym.isStruct() {
+		return
+	}
+	if sym.isBasic() && !sym.isNamed() {
 		return
 	}
 
-	pkgname := sym.goobj.Pkg().Name()
+	pkgname := sym.pkgname()
 
 	g.decl.Printf("\n/* --- decls for type %s.%v --- */\n", pkgname, sym.goname)
-	g.decl.Printf("typedef void* %s;\n\n", sym.cgoname)
+	if sym.isBasic() {
+		// reach at the underlying type
+		btyp := g.pkg.syms.symtype(sym.GoType().Underlying())
+		g.decl.Printf("typedef %s %s;\n\n", btyp.cgoname, sym.cgoname)
+	} else {
+		g.decl.Printf("typedef void* %s;\n\n", sym.cgoname)
+	}
 	g.decl.Printf("/* Python type for type %s.%v\n", pkgname, sym.goname)
 	g.decl.Printf(" */\ntypedef struct {\n")
 	g.decl.Indent()
 	g.decl.Printf("PyObject_HEAD\n")
-	g.decl.Printf("%[1]s cgopy; /* unsafe.Pointer to %[2]s */\n",
-		sym.cgoname,
-		sym.id,
-	)
+	if sym.isBasic() {
+		g.decl.Printf("%[1]s cgopy; /* value of %[2]s */\n",
+			sym.cgoname,
+			sym.id,
+		)
+	} else {
+		g.decl.Printf("%[1]s cgopy; /* unsafe.Pointer to %[2]s */\n",
+			sym.cgoname,
+			sym.id,
+		)
+	}
 	g.decl.Outdent()
 	g.decl.Printf("} %s;\n", sym.cpyname)
 	g.decl.Printf("\n\n")
@@ -148,7 +164,9 @@ func (g *cpyGen) genTypeDealloc(sym *symbol) {
 		sym.cpyname,
 	)
 	g.impl.Indent()
-	g.impl.Printf("cgopy_decref((%[1]s)(self->cgopy));\n", sym.cgoname)
+	if !sym.isBasic() {
+		g.impl.Printf("cgopy_decref((%[1]s)(self->cgopy));\n", sym.cgoname)
+	}
 	g.impl.Printf("self->ob_type->tp_free((PyObject*)self);\n")
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
@@ -248,6 +266,18 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 		arrlen = typ.Len()
 	case *types.Slice:
 		etyp = typ.Elem()
+	case *types.Named:
+		switch typ := typ.Underlying().(type) {
+		case *types.Array:
+			etyp = typ.Elem()
+			arrlen = typ.Len()
+		case *types.Slice:
+			etyp = typ.Elem()
+		default:
+			panic(fmt.Errorf("gopy: unhandled type [%#v]", typ))
+		}
+	default:
+		panic(fmt.Errorf("gopy: unhandled type [%#v]", typ))
 	}
 	esym := g.pkg.syms.symtype(etyp)
 	if esym == nil {

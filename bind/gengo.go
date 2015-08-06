@@ -508,37 +508,39 @@ func (g *goGen) genType(sym *symbol) {
 	if !sym.isType() {
 		return
 	}
-	if sym.isStruct() || sym.isBasic() {
+	if sym.isStruct() {
+		return
+	}
+	if sym.isBasic() && !sym.isNamed() {
 		return
 	}
 
-	pkgname := sym.goobj.Pkg().Name()
-
-	var etyp types.Type
-	switch typ := sym.goobj.Type().(type) {
-	case *types.Array:
-		etyp = typ.Elem()
-	case *types.Slice:
-		etyp = typ.Elem()
-	}
-	esym := g.pkg.syms.symtype(etyp)
-	if esym == nil {
-		panic(fmt.Errorf("gopy: could not retrieve element type of %#v",
-			sym,
-		))
+	pkgname := sym.pkgname()
+	goname := sym.goname
+	if sym.isNamed() {
+		goname = pkgname + "." + goname
 	}
 
 	g.Printf("\n// --- wrapping %s.%s ---\n\n", pkgname, sym.goname)
 	g.Printf("//export %[1]s\n", sym.cgoname)
 	g.Printf("// %[1]s wraps %[2]s.%[3]s\n", sym.cgoname, pkgname, sym.goname)
-	g.Printf("type %[1]s unsafe.Pointer\n\n", sym.cgoname)
-
+	if sym.isBasic() {
+		// we need to reach at the underlying type
+		btyp := sym.GoType().Underlying().String()
+		g.Printf("type %[1]s %[2]s\n\n", sym.cgoname, btyp)
+	} else {
+		g.Printf("type %[1]s unsafe.Pointer\n\n", sym.cgoname)
+	}
 	g.Printf("//export cgo_func_%[1]s_new\n", sym.id)
 	g.Printf("func cgo_func_%[1]s_new() %[2]s {\n", sym.id, sym.cgoname)
 	g.Indent()
-	g.Printf("var o %[1]s\n", sym.goname)
-	g.Printf("cgopy_incref(unsafe.Pointer(&o))\n")
-	g.Printf("return (%[1]s)(unsafe.Pointer(&o))\n", sym.cgoname)
+	g.Printf("var o %[1]s\n", goname)
+	if sym.isBasic() {
+		g.Printf("return %[1]s(o)\n", sym.cgoname)
+	} else {
+		g.Printf("cgopy_incref(unsafe.Pointer(&o))\n")
+		g.Printf("return (%[1]s)(unsafe.Pointer(&o))\n", sym.cgoname)
+	}
 	g.Outdent()
 	g.Printf("}\n\n")
 
@@ -551,47 +553,86 @@ func (g *goGen) genType(sym *symbol) {
 	)
 	g.Indent()
 	g.Printf("return fmt.Sprintf(\"%%#v\", ")
-	g.Printf("*(*%[1]s)(unsafe.Pointer(self)))\n", sym.goname)
-	g.Outdent()
-	g.Printf("}\n\n")
-
-	// support for __getitem__
-	g.Printf("//export cgo_func_%[1]s_item\n", sym.id)
-	g.Printf(
-		"func cgo_func_%[1]s_item(self %[2]s, i int) %[3]s {\n",
-		sym.id,
-		sym.cgoname,
-		esym.cgotypename(),
-	)
-	g.Indent()
-	g.Printf("arr := (*%[1]s)(unsafe.Pointer(self))\n", sym.goname)
-	g.Printf("elt := (*arr)[i]\n")
-	if needWrapType(etyp) {
-		g.Printf("cgopy_incref(unsafe.Pointer(&elt))\n")
-		g.Printf("return (%[1]s)(unsafe.Pointer(&elt))\n", esym.cgotypename())
+	if sym.isBasic() {
+		g.Printf("%[1]s(self))\n", goname)
 	} else {
-		g.Printf("return elt\n")
+		g.Printf("*(*%[1]s)(unsafe.Pointer(self)))\n", goname)
 	}
 	g.Outdent()
 	g.Printf("}\n\n")
 
-	// support for __setitem__
-	g.Printf("//export cgo_func_%[1]s_ass_item\n", sym.id)
-	g.Printf("func cgo_func_%[1]s_ass_item(self %[2]s, i int, v %[3]s) {\n",
-		sym.id,
-		sym.cgoname,
-		esym.cgotypename(),
-	)
-	g.Indent()
-	g.Printf("arr := (*%[1]s)(unsafe.Pointer(self))\n", sym.goname)
-	g.Printf("(*arr)[i] = ")
-	if needWrapType(etyp) {
-		g.Printf("*(*%[1]s)(unsafe.Pointer(v))\n", esym.cgotypename())
-	} else {
-		g.Printf("v\n")
+	if sym.isArray() || sym.isSlice() {
+		var etyp types.Type
+		switch typ := sym.GoType().(type) {
+		case *types.Array:
+			etyp = typ.Elem()
+		case *types.Slice:
+			etyp = typ.Elem()
+		case *types.Named:
+			switch typ := typ.Underlying().(type) {
+			case *types.Array:
+				etyp = typ.Elem()
+			case *types.Slice:
+				etyp = typ.Elem()
+			default:
+				panic(fmt.Errorf("gopy: unhandled type [%#v]", typ))
+			}
+		default:
+			panic(fmt.Errorf("gopy: unhandled type [%#v]", typ))
+		}
+		esym := g.pkg.syms.symtype(etyp)
+		if esym == nil {
+			panic(fmt.Errorf("gopy: could not retrieve element type of %#v",
+				sym,
+			))
+		}
+
+		// support for __getitem__
+		g.Printf("//export cgo_func_%[1]s_item\n", sym.id)
+		g.Printf(
+			"func cgo_func_%[1]s_item(self %[2]s, i int) %[3]s {\n",
+			sym.id,
+			sym.cgoname,
+			esym.cgotypename(),
+		)
+		g.Indent()
+		g.Printf("arr := (*%[1]s)(unsafe.Pointer(self))\n", goname)
+		g.Printf("elt := (*arr)[i]\n")
+		if !esym.isBasic() {
+			g.Printf("cgopy_incref(unsafe.Pointer(&elt))\n")
+			g.Printf("return (%[1]s)(unsafe.Pointer(&elt))\n", esym.cgotypename())
+		} else {
+			if esym.isNamed() {
+				g.Printf("return %[1]s(elt)\n", esym.cgotypename())
+			} else {
+				g.Printf("return elt\n")
+			}
+		}
+		g.Outdent()
+		g.Printf("}\n\n")
+
+		// support for __setitem__
+		g.Printf("//export cgo_func_%[1]s_ass_item\n", sym.id)
+		g.Printf("func cgo_func_%[1]s_ass_item(self %[2]s, i int, v %[3]s) {\n",
+			sym.id,
+			sym.cgoname,
+			esym.cgotypename(),
+		)
+		g.Indent()
+		g.Printf("arr := (*%[1]s)(unsafe.Pointer(self))\n", goname)
+		g.Printf("(*arr)[i] = ")
+		if !esym.isBasic() {
+			g.Printf("*(*%[1]s)(unsafe.Pointer(v))\n", esym.cgotypename())
+		} else {
+			if esym.isNamed() {
+				g.Printf("%[1]s.%[2]s(v)\n", esym.pkgname(), esym.goname)
+			} else {
+				g.Printf("v\n")
+			}
+		}
+		g.Outdent()
+		g.Printf("}\n\n")
 	}
-	g.Outdent()
-	g.Printf("}\n\n")
 
 }
 
