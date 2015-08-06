@@ -6,6 +6,7 @@ package bind
 
 import (
 	"fmt"
+	"strings"
 
 	"golang.org/x/tools/go/types"
 )
@@ -46,9 +47,22 @@ func (g *cpyGen) genType(sym *symbol) {
 
 	asBuffer := "0"
 	asSequence := "0"
+	tpFlags := "Py_TPFLAGS_DEFAULT"
 	if sym.isArray() || sym.isSlice() {
 		asBuffer = fmt.Sprintf("&%[1]s_tp_as_buffer", sym.cpyname)
 		asSequence = fmt.Sprintf("&%[1]s_tp_as_sequence", sym.cpyname)
+		switch g.lang {
+		case 2:
+			tpFlags = fmt.Sprintf(
+				"(%s)",
+				strings.Join([]string{
+					"Py_TPFLAGS_DEFAULT",
+					"Py_TPFLAGS_HAVE_NEWBUFFER",
+				},
+					" |\n ",
+				))
+		case 3:
+		}
 	}
 
 	g.impl.Printf("static PyTypeObject %sType = {\n", sym.cpyname)
@@ -73,7 +87,7 @@ func (g *cpyGen) genType(sym *symbol) {
 	g.impl.Printf("0,\t/*tp_getattro*/\n")
 	g.impl.Printf("0,\t/*tp_setattro*/\n")
 	g.impl.Printf("%s,\t/*tp_as_buffer*/\n", asBuffer)
-	g.impl.Printf("Py_TPFLAGS_DEFAULT,\t/*tp_flags*/\n")
+	g.impl.Printf("%s,\t/*tp_flags*/\n", tpFlags)
 	g.impl.Printf("%q,\t/* tp_doc */\n", sym.doc)
 	g.impl.Printf("0,\t/* tp_traverse */\n")
 	g.impl.Printf("0,\t/* tp_clear */\n")
@@ -354,22 +368,6 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 
 	case 3:
 	}
-
-	/*
-		static PySequenceMethods array_as_sequence = {
-		    (lenfunc)array_length,                      /*sq_length
-		    (binaryfunc)array_concat,               /*sq_concat
-		    (ssizeargfunc)array_repeat,                 /*sq_repeat
-		    (ssizeargfunc)array_item,                           /*sq_item
-		    (ssizessizeargfunc)array_slice,             /*sq_slice
-		    (ssizeobjargproc)array_ass_item,                    /*sq_ass_item
-		    (ssizessizeobjargproc)array_ass_slice,      /*sq_ass_slice
-		    (objobjproc)array_contains,                 /*sq_contains
-		    (binaryfunc)array_inplace_concat,           /*sq_inplace_concat
-		    (ssizeargfunc)array_inplace_repeat          /*sq_inplace_repeat
-		};
-
-	*/
 }
 
 func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
@@ -421,7 +419,7 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 		g.impl.Printf("view->len = %d;\n", arrlen)
 		g.impl.Printf("view->readonly = 0;\n")
 		g.impl.Printf("view->itemsize = %d;\n", esize)
-		g.impl.Printf("view->format = %q;\n", "B") // FIXME(sbinet)
+		g.impl.Printf("view->format = %q;\n", "q") // FIXME(sbinet)
 		g.impl.Printf("view->ndim = 1;\n")
 		g.impl.Printf("view->shape = (Py_ssize_t*)&view->len;\n")
 	} else {
@@ -431,7 +429,7 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 		g.impl.Printf("view->len = slice->len;\n")
 		g.impl.Printf("view->readonly = 0;\n")
 		g.impl.Printf("view->itemsize = %d;\n", esize)
-		g.impl.Printf("view->format = %q;\n", "B") // FIXME(sbinet)
+		g.impl.Printf("view->format = %q;\n", "q") // FIXME(sbinet)
 		g.impl.Printf("view->ndim = 1;\n")
 		g.impl.Printf("view->shape = (Py_ssize_t*)&slice->len;\n")
 	}
@@ -556,8 +554,9 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 		g.impl.Printf("(readbufferproc)cpy_func_%[1]s_readbuffer,\n", sym.id)
 		g.impl.Printf("(writebufferproc)cpy_func_%[1]s_writebuffer,\n", sym.id)
 		g.impl.Printf("(segcountproc)cpy_func_%[1]s_segcount,\n", sym.id)
-		g.impl.Printf("NULL\n")
-		//g.impl.Printf("(charbufferproc)cpy_func_%[1]s_charbuffer,\n", sym.id)
+		g.impl.Printf("(charbufferproc)cpy_func_%[1]s_charbuffer,\n", sym.id)
+		g.impl.Printf("(getbufferproc)cpy_func_%[1]s_getbuffer,\n", sym.id)
+		g.impl.Printf("(releasebufferproc)0,\n")
 		g.impl.Outdent()
 		g.impl.Printf("};\n\n")
 	case 3:
@@ -566,7 +565,7 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 		g.impl.Printf("static PyBufferProcs %[1]s_tp_as_buffer = {\n", sym.cpyname)
 		g.impl.Indent()
 		g.impl.Printf("(getbufferproc)cpy_func_%[1]s_getbuffer,\n", sym.id)
-		g.impl.Printf("(releasebufferproc)0\n")
+		g.impl.Printf("(releasebufferproc)0,\n")
 		g.impl.Outdent()
 		g.impl.Printf("};\n\n")
 	}
