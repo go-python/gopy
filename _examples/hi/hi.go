@@ -119,3 +119,12 @@ func NewCouple(p1, p2 Person) Couple {
 func (c *Couple) String() string {
 	return fmt.Sprintf("hi.Couple{P1=%v, P2=%v}", c.P1, c.P2)
 }
+
+// Float is a kind of float32
+type Float float32
+
+// Floats is a slice of floats
+type Floats []Float
+
+// Eval evals float64
+type Eval func(f float64) float64
