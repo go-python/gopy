@@ -449,7 +449,6 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 }
 
 func (g *goGen) genConst(o Const) {
-	pkgname := o.obj.Pkg().Name()
 	sym := o.sym
 	tname := types.TypeString(o.obj.Type(), types.RelativeTo(o.obj.Pkg()))
 	if strings.HasPrefix(tname, "untyped ") {
@@ -458,7 +457,7 @@ func (g *goGen) genConst(o Const) {
 	g.Printf("//export cgo_func_%s_get\n", o.id)
 	g.Printf("func cgo_func_%[1]s_get() %[2]s {\n", o.id, sym.cgotypename())
 	g.Indent()
-	g.Printf("return %s.%s\n", pkgname, o.obj.Name())
+	g.Printf("return %s.%s\n", o.pkg.Name(), o.obj.Name())
 	g.Outdent()
 	g.Printf("}\n\n")
 }

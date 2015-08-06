@@ -32,12 +32,24 @@ const (
 	skVar
 	skFunc
 	skType
+	skArray
+	skBasic
+	skInterface
+	skMap
+	skNamed
+	skPointer
+	skSignature
+	skSlice
+	skStruct
+	skString
 )
 
 // symbol is an exported symbol in a go package
 type symbol struct {
 	kind    symkind
+	gopkg   *types.Package
 	goobj   types.Object
+	gotyp   types.Type
 	doc     string
 	id      string // mangled name of entity (eg: <pkg>_<name>)
 	goname  string // name of go entity
@@ -54,39 +66,49 @@ type symbol struct {
 }
 
 func (s symbol) isType() bool {
-	return s.kind == skType
+	return (s.kind & skType) != 0
+}
+
+func (s symbol) isNamed() bool {
+	return (s.kind & skNamed) != 0
 }
 
 func (s symbol) isBasic() bool {
-	_, ok := s.goobj.Type().(*types.Basic)
-	return ok
+	return (s.kind & skBasic) != 0
 }
 
 func (s symbol) isArray() bool {
-	_, ok := s.goobj.Type().(*types.Array)
-	return ok
+	return (s.kind & skArray) != 0
 }
 
 func (s symbol) isSlice() bool {
-	_, ok := s.goobj.Type().(*types.Slice)
-	return ok
+	return (s.kind & skSlice) != 0
 }
 
 func (s symbol) isStruct() bool {
-	typ, ok := s.goobj.(*types.TypeName)
-	if !ok {
-		return false
-	}
-	_, ok = typ.Type().Underlying().(*types.Struct)
-	return ok
+	return (s.kind & skStruct) != 0
 }
 
 func (s symbol) hasConverter() bool {
 	return s.pyfmt == "O&" && (s.c2py != "" || s.py2c != "")
 }
 
+func (s symbol) pkgname() string {
+	if s.gopkg == nil {
+		return ""
+	}
+	return s.gopkg.Name()
+}
+
+func (s symbol) GoType() types.Type {
+	if s.goobj != nil {
+		return s.goobj.Type()
+	}
+	return s.gotyp
+}
+
 func (s symbol) cgotypename() string {
-	typ := s.goobj.Type()
+	typ := s.gotyp
 	switch typ := typ.(type) {
 	case *types.Basic:
 		n := typ.Name()
@@ -174,13 +196,50 @@ func (sym *symtab) symtype(t types.Type) *symbol {
 	if s != nil {
 		return s
 	}
-	switch typ := t.(type) {
-	case *types.Pointer:
-		s = sym.symtype(typ.Elem())
-		if s == nil {
-			return nil
+	obj := sym.pkg.Scope().Lookup(tname)
+	switch {
+	case obj == nil:
+		// means we are actually creating a new type.
+		// fmt.Printf(">>> adding new type [%s]...\n", tname)
+		switch typ := t.(type) {
+		case *types.Pointer:
+			s = sym.symtype(typ.Elem())
+			if s == nil {
+				return nil
+			}
+			sym.addType(s.goobj, typ)
+			return sym.sym(tname)
+
+		case *types.Slice:
+			s = sym.symtype(typ.Elem())
+			if s == nil {
+				return nil
+			}
+			sym.addType(s.goobj, typ)
+			return sym.sym(tname)
+
+		case *types.Signature:
+			sym.addType(obj, typ)
+			return sym.sym(tname)
+
+		case *types.Named:
+			switch tn := typ.Underlying().(type) {
+			default:
+				panic(fmt.Errorf("gopy: %#v -- %#v", typ, tn))
+			}
 		}
-		sym.addType(s.goobj, typ)
+		panic(fmt.Errorf(
+			"gopy: could not lookup type [%s] (%#v)",
+			tname,
+			t,
+		))
+	default:
+		sym.addSymbol(obj)
+		s = sym.symtype(obj.Type())
+		if s == nil {
+			panic(fmt.Errorf("gopy: could not lookup type [%s]", tname))
+		}
+		return s
 	}
 	return sym.sym(tname)
 }
@@ -195,6 +254,7 @@ func (sym *symtab) addSymbol(obj types.Object) {
 	switch obj.(type) {
 	case *types.Const:
 		sym.syms[n] = &symbol{
+			gopkg:   pkg,
 			goobj:   obj,
 			kind:    skConst,
 			id:      id,
@@ -206,6 +266,7 @@ func (sym *symtab) addSymbol(obj types.Object) {
 
 	case *types.Var:
 		sym.syms[n] = &symbol{
+			gopkg:   pkg,
 			goobj:   obj,
 			kind:    skVar,
 			id:      id,
@@ -217,6 +278,7 @@ func (sym *symtab) addSymbol(obj types.Object) {
 
 	case *types.Func:
 		sym.syms[n] = &symbol{
+			gopkg:   pkg,
 			goobj:   obj,
 			kind:    skFunc,
 			id:      id,
@@ -227,12 +289,18 @@ func (sym *symtab) addSymbol(obj types.Object) {
 
 	case *types.TypeName:
 		sym.addType(obj, obj.Type())
+
+	default:
+		panic(fmt.Errorf("gopy: handled object [%#v]", obj))
 	}
 }
 
 func (sym *symtab) addType(obj types.Object, t types.Type) {
 	n := sym.typename(t)
-	pkg := obj.Pkg()
+	var pkg *types.Package
+	if obj != nil {
+		pkg = obj.Pkg()
+	}
 	id := n
 	if pkg != nil {
 		id = pkg.Name() + "_" + n
@@ -240,85 +308,53 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 	kind := skType
 	switch typ := t.(type) {
 	case *types.Basic:
+		kind |= skBasic
 		styp := sym.symtype(typ)
 		if styp == nil {
 			panic(fmt.Errorf("builtin type not already known [%s]!", n))
 		}
 
 	case *types.Array:
-		enam := sym.typename(typ.Elem())
-		elt := sym.sym(enam)
-		if elt.goname == "" {
-			eobj := sym.pkg.Scope().Lookup(enam)
-			if eobj == nil {
-				panic(fmt.Errorf("could not look-up %q!\n", enam))
-			}
-			sym.addSymbol(eobj)
-			elt = sym.typeof(enam)
-		}
-		id := hash(id)
-		sym.syms[n] = &symbol{
-			goobj:   obj,
-			kind:    kind,
-			id:      id,
-			goname:  n,
-			cgoname: "cgo_type_" + id,
-			cpyname: "cpy_type_" + id,
-			pyfmt:   "O&",
-			pybuf:   fmt.Sprintf("%d%s", typ.Len(), elt.pybuf),
-			pysig:   "[]" + elt.pysig,
-			c2py:    "cgopy_cnv_c2py_" + id,
-			py2c:    "cgopy_cnv_py2c_" + id,
-		}
+		sym.addArrayType(pkg, obj, t, kind, id, n)
 
 	case *types.Slice:
-		enam := sym.typename(typ.Elem())
-		elt := sym.sym(enam)
-		if elt.goname == "" {
-			eobj := sym.pkg.Scope().Lookup(enam)
-			if eobj == nil {
-				panic(fmt.Errorf("could not look-up %q!\n", enam))
-			}
-			sym.addSymbol(eobj)
-			elt = sym.typeof(enam)
-		}
-		id := hash(id)
-		sym.syms[n] = &symbol{
-			goobj:   obj,
-			kind:    kind,
-			id:      id,
-			goname:  n,
-			cgoname: "cgo_type_" + id,
-			cpyname: "cpy_type_" + id,
-			pyfmt:   "O&",
-			pybuf:   elt.pybuf,
-			pysig:   "[]" + elt.pysig,
-			c2py:    "cgopy_cnv_c2py_" + id,
-			py2c:    "cgopy_cnv_py2c_" + id,
-		}
+		sym.addSliceType(pkg, obj, t, kind, id, n)
+
+	case *types.Signature:
+		sym.addSignatureType(pkg, obj, typ, kind, id, n)
 
 	case *types.Named:
+		kind |= skNamed
 		switch typ := typ.Underlying().(type) {
 		case *types.Struct:
-			pybuf := make([]string, 0, typ.NumFields())
-			for i := 0; i < typ.NumFields(); i++ {
-				ftyp := typ.Field(i).Type()
-				fsym := sym.symtype(ftyp)
-				pybuf = append(pybuf, fsym.pybuf)
-			}
+			sym.addStructType(pkg, obj, t, kind, id, n)
+
+		case *types.Basic:
+			bsym := sym.symtype(typ)
 			sym.syms[n] = &symbol{
+				gopkg:   pkg,
 				goobj:   obj,
-				kind:    kind,
+				gotyp:   typ,
+				kind:    kind | skBasic,
 				id:      id,
 				goname:  n,
 				cgoname: "cgo_type_" + id,
 				cpyname: "cpy_type_" + id,
-				pyfmt:   "O&",
-				pybuf:   strings.Join(pybuf, ""),
+				pyfmt:   bsym.pyfmt,
+				pybuf:   bsym.pybuf,
 				pysig:   "object",
 				c2py:    "cgopy_cnv_c2py_" + id,
 				py2c:    "cgopy_cnv_py2c_" + id,
 			}
+
+		case *types.Array:
+			sym.addArrayType(pkg, obj, typ, kind, id, n)
+
+		case *types.Slice:
+			sym.addSliceType(pkg, obj, typ, kind, id, n)
+
+		case *types.Signature:
+			sym.addSignatureType(pkg, obj, typ, kind, id, n)
 
 		default:
 			panic(fmt.Errorf("unhandled named-type: [%T]\n%#v\n", obj, t))
@@ -326,11 +362,131 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 
 	case *types.Pointer:
 		// FIXME(sbinet): better handling?
-		elm := sym.symtype(typ.Elem())
-		sym.syms[n] = elm
+		elm := *sym.symtype(typ.Elem())
+		elm.kind |= skPointer
+		sym.syms[n] = &elm
 
 	default:
 		panic(fmt.Errorf("unhandled obj [%T]\ntype [%#v]", obj, t))
+	}
+}
+
+func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+	typ := t.(*types.Array)
+	kind |= skArray
+	enam := sym.typename(typ.Elem())
+	elt := sym.sym(enam)
+	if elt == nil || elt.goname == "" {
+		eobj := sym.pkg.Scope().Lookup(enam)
+		if eobj == nil {
+			panic(fmt.Errorf("could not look-up %q!\n", enam))
+		}
+		sym.addSymbol(eobj)
+		elt = sym.typeof(enam)
+	}
+	id = hash(id)
+	sym.syms[n] = &symbol{
+		gopkg:   pkg,
+		goobj:   obj,
+		gotyp:   typ,
+		kind:    kind,
+		id:      id,
+		goname:  n,
+		cgoname: "cgo_type_" + id,
+		cpyname: "cpy_type_" + id,
+		pyfmt:   "O&",
+		pybuf:   fmt.Sprintf("%d%s", typ.Len(), elt.pybuf),
+		pysig:   "[]" + elt.pysig,
+		c2py:    "cgopy_cnv_c2py_" + id,
+		py2c:    "cgopy_cnv_py2c_" + id,
+	}
+}
+
+func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+	typ := t.(*types.Slice)
+	kind |= skSlice
+	enam := sym.typename(typ.Elem())
+	elt := sym.sym(enam)
+	if elt == nil || elt.goname == "" {
+		eobj := sym.pkg.Scope().Lookup(enam)
+		if eobj == nil {
+			panic(fmt.Errorf("could not look-up %q!\n", enam))
+		}
+		sym.addSymbol(eobj)
+		elt = sym.typeof(enam)
+	}
+	id = hash(id)
+	sym.syms[n] = &symbol{
+		gopkg:   pkg,
+		goobj:   obj,
+		gotyp:   typ,
+		kind:    kind,
+		id:      id,
+		goname:  n,
+		cgoname: "cgo_type_" + id,
+		cpyname: "cpy_type_" + id,
+		pyfmt:   "O&",
+		pybuf:   elt.pybuf,
+		pysig:   "[]" + elt.pysig,
+		c2py:    "cgopy_cnv_c2py_" + id,
+		py2c:    "cgopy_cnv_py2c_" + id,
+	}
+}
+
+func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+	typ := t.Underlying().(*types.Struct)
+	kind |= skStruct
+	pybuf := make([]string, 0, typ.NumFields())
+	for i := 0; i < typ.NumFields(); i++ {
+		ftyp := typ.Field(i).Type()
+		fsym := sym.symtype(ftyp)
+		if fsym == nil {
+			sym.addType(typ.Field(i), ftyp)
+			fsym = sym.symtype(ftyp)
+			if fsym == nil {
+				panic(fmt.Errorf(
+					"gopy: could not add type [%s]",
+					ftyp.String(),
+				))
+			}
+		}
+		pybuf = append(pybuf, fsym.pybuf)
+	}
+	sym.syms[n] = &symbol{
+		gopkg:   pkg,
+		goobj:   obj,
+		gotyp:   typ,
+		kind:    kind,
+		id:      id,
+		goname:  n,
+		cgoname: "cgo_type_" + id,
+		cpyname: "cpy_type_" + id,
+		pyfmt:   "O&",
+		pybuf:   strings.Join(pybuf, ""),
+		pysig:   "object",
+		c2py:    "cgopy_cnv_c2py_" + id,
+		py2c:    "cgopy_cnv_py2c_" + id,
+	}
+}
+
+func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+	typ := t.(*types.Signature)
+	kind |= skSignature
+	id = hash(id)
+	sym.syms[n] = &symbol{
+		gopkg:   pkg,
+		goobj:   obj,
+		gotyp:   typ,
+		kind:    kind,
+		id:      id,
+		goname:  n,
+		cgoname: "cgo_type_" + id,
+		cpyname: "cpy_type_" + id,
+		pyfmt:   "O&",
+		pybuf:   "P",
+		pysig:   "callable",
+		c2py:    "cgopy_cnv_c2py_" + id,
+		py2c:    "cgopy_cnv_py2c_" + id,
 	}
 }
 
@@ -339,8 +495,10 @@ func init() {
 	look := types.Universe.Lookup
 	syms := map[string]*symbol{
 		"bool": {
+			gopkg:   look("bool").Pkg(),
 			goobj:   look("bool"),
-			kind:    skType,
+			gotyp:   look("bool").Type(),
+			kind:    skType | skBasic,
 			goname:  "bool",
 			cgoname: "GoUint8",
 			cpyname: "GoUint8",
@@ -351,8 +509,10 @@ func init() {
 			py2c:    "cgopy_cnv_py2c_bool",
 		},
 		"byte": {
+			gopkg:   look("byte").Pkg(),
 			goobj:   look("byte"),
-			kind:    skType,
+			gotyp:   look("byte").Type(),
+			kind:    skType | skBasic,
 			goname:  "byte",
 			cpyname: "uint8_t",
 			cgoname: "GoUint8",
@@ -361,8 +521,10 @@ func init() {
 			pysig:   "int", // FIXME(sbinet) py2/py3
 		},
 		"int": {
+			gopkg:   look("int").Pkg(),
 			goobj:   look("int"),
-			kind:    skType,
+			gotyp:   look("int").Type(),
+			kind:    skType | skBasic,
 			goname:  "int",
 			cpyname: "int",
 			cgoname: "GoInt",
@@ -374,8 +536,10 @@ func init() {
 		},
 
 		"int8": {
+			gopkg:   look("int8").Pkg(),
 			goobj:   look("int8"),
-			kind:    skType,
+			gotyp:   look("int8").Type(),
+			kind:    skType | skBasic,
 			goname:  "int8",
 			cpyname: "int8_t",
 			cgoname: "GoInt8",
@@ -387,8 +551,10 @@ func init() {
 		},
 
 		"int16": {
+			gopkg:   look("int16").Pkg(),
 			goobj:   look("int16"),
-			kind:    skType,
+			gotyp:   look("int16").Type(),
+			kind:    skType | skBasic,
 			goname:  "int16",
 			cpyname: "int16_t",
 			cgoname: "GoInt16",
@@ -400,8 +566,10 @@ func init() {
 		},
 
 		"int32": {
+			gopkg:   look("int32").Pkg(),
 			goobj:   look("int32"),
-			kind:    skType,
+			gotyp:   look("int32").Type(),
+			kind:    skType | skBasic,
 			goname:  "int32",
 			cpyname: "int32_t",
 			cgoname: "GoInt32",
@@ -413,8 +581,10 @@ func init() {
 		},
 
 		"int64": {
+			gopkg:   look("int64").Pkg(),
 			goobj:   look("int64"),
-			kind:    skType,
+			gotyp:   look("int64").Type(),
+			kind:    skType | skBasic,
 			goname:  "int64",
 			cpyname: "int64_t",
 			cgoname: "GoInt64",
@@ -426,8 +596,10 @@ func init() {
 		},
 
 		"uint": {
+			gopkg:   look("uint").Pkg(),
 			goobj:   look("uint"),
-			kind:    skType,
+			gotyp:   look("uint").Type(),
+			kind:    skType | skBasic,
 			goname:  "uint",
 			cpyname: "unsigned int",
 			cgoname: "GoUint",
@@ -439,8 +611,10 @@ func init() {
 		},
 
 		"uint8": {
+			gopkg:   look("uint8").Pkg(),
 			goobj:   look("uint8"),
-			kind:    skType,
+			gotyp:   look("uint8").Type(),
+			kind:    skType | skBasic,
 			goname:  "uint8",
 			cpyname: "uint8_t",
 			cgoname: "GoUint8",
@@ -451,8 +625,10 @@ func init() {
 			py2c:    "cgopy_cnv_py2c_uint8",
 		},
 		"uint16": {
+			gopkg:   look("uint16").Pkg(),
 			goobj:   look("uint16"),
-			kind:    skType,
+			gotyp:   look("uint16").Type(),
+			kind:    skType | skBasic,
 			goname:  "uint16",
 			cpyname: "uint16_t",
 			cgoname: "GoUint16",
@@ -463,8 +639,10 @@ func init() {
 			py2c:    "cgopy_cnv_py2c_uint16",
 		},
 		"uint32": {
+			gopkg:   look("uint32").Pkg(),
 			goobj:   look("uint32"),
-			kind:    skType,
+			gotyp:   look("uint32").Type(),
+			kind:    skType | skBasic,
 			goname:  "uint32",
 			cpyname: "uint32_t",
 			cgoname: "GoUint32",
@@ -476,8 +654,10 @@ func init() {
 		},
 
 		"uint64": {
+			gopkg:   look("uint64").Pkg(),
 			goobj:   look("uint64"),
-			kind:    skType,
+			gotyp:   look("uint64").Type(),
+			kind:    skType | skBasic,
 			goname:  "uint64",
 			cpyname: "uint64_t",
 			cgoname: "GoUint64",
@@ -489,8 +669,10 @@ func init() {
 		},
 
 		"float32": {
+			gopkg:   look("float32").Pkg(),
 			goobj:   look("float32"),
-			kind:    skType,
+			gotyp:   look("float32").Type(),
+			kind:    skType | skBasic,
 			goname:  "float32",
 			cpyname: "float",
 			cgoname: "GoFloat32",
@@ -501,8 +683,10 @@ func init() {
 			py2c:    "cgopy_cnv_py2c_f32",
 		},
 		"float64": {
+			gopkg:   look("float64").Pkg(),
 			goobj:   look("float64"),
-			kind:    skType,
+			gotyp:   look("float64").Type(),
+			kind:    skType | skBasic,
 			goname:  "float64",
 			cpyname: "double",
 			cgoname: "GoFloat64",
@@ -513,8 +697,10 @@ func init() {
 			py2c:    "cgopy_cnv_py2c_float64",
 		},
 		"complex64": {
+			gopkg:   look("complex64").Pkg(),
 			goobj:   look("complex64"),
-			kind:    skType,
+			gotyp:   look("complex64").Type(),
+			kind:    skType | skBasic,
 			goname:  "complex64",
 			cpyname: "float complex",
 			cgoname: "GoComplex64",
@@ -525,8 +711,10 @@ func init() {
 			py2c:    "cgopy_cnv_py2c_complex64",
 		},
 		"complex128": {
+			gopkg:   look("complex128").Pkg(),
 			goobj:   look("complex128"),
-			kind:    skType,
+			gotyp:   look("complex128").Type(),
+			kind:    skType | skBasic,
 			goname:  "complex128",
 			cpyname: "double complex",
 			cgoname: "GoComplex128",
@@ -538,8 +726,10 @@ func init() {
 		},
 
 		"string": {
+			gopkg:   look("string").Pkg(),
 			goobj:   look("string"),
-			kind:    skType,
+			gotyp:   look("string").Type(),
+			kind:    skType | skBasic,
 			goname:  "string",
 			cpyname: "GoString",
 			cgoname: "GoString",
@@ -551,8 +741,10 @@ func init() {
 		},
 
 		"rune": { // FIXME(sbinet) py2/py3
+			gopkg:   look("rune").Pkg(),
 			goobj:   look("rune"),
-			kind:    skType,
+			gotyp:   look("rune").Type(),
+			kind:    skType | skBasic,
 			goname:  "rune",
 			cpyname: "GoRune",
 			cgoname: "GoRune",
@@ -564,8 +756,10 @@ func init() {
 		},
 
 		"error": &symbol{
+			gopkg:   look("error").Pkg(),
 			goobj:   look("error"),
-			kind:    skType,
+			gotyp:   look("error").Type(),
+			kind:    skType | skInterface,
 			goname:  "error",
 			cgoname: "GoInterface",
 			cpyname: "GoInterface",
@@ -579,8 +773,10 @@ func init() {
 
 	if reflect.TypeOf(int(0)).Size() == 8 {
 		syms["int"] = &symbol{
+			gopkg:   look("int").Pkg(),
 			goobj:   look("int"),
-			kind:    skType,
+			gotyp:   look("int").Type(),
+			kind:    skType | skBasic,
 			goname:  "int",
 			cpyname: "int64_t",
 			cgoname: "GoInt",
@@ -591,8 +787,10 @@ func init() {
 			py2c:    "cgopy_cnv_py2c_int",
 		}
 		syms["uint"] = &symbol{
+			gopkg:   look("uint").Pkg(),
 			goobj:   look("uint"),
-			kind:    skType,
+			gotyp:   look("uint").Type(),
+			kind:    skType | skBasic,
 			goname:  "uint",
 			cpyname: "uint64_t",
 			cgoname: "GoUint",

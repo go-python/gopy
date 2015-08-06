@@ -113,7 +113,7 @@ func (g *cpyGen) genType(sym *symbol) {
 }
 
 func (g *cpyGen) genTypeNew(sym *symbol) {
-	pkgname := sym.goobj.Pkg().Name()
+	pkgname := sym.pkgname()
 
 	g.decl.Printf("\n/* tp_new for %s.%v */\n", pkgname, sym.goname)
 	g.decl.Printf(
@@ -136,7 +136,7 @@ func (g *cpyGen) genTypeNew(sym *symbol) {
 }
 
 func (g *cpyGen) genTypeDealloc(sym *symbol) {
-	pkgname := sym.goobj.Pkg().Name()
+	pkgname := sym.pkgname()
 
 	g.decl.Printf("\n/* tp_dealloc for %s.%v */\n", pkgname, sym.goname)
 	g.decl.Printf("static void\n%[1]s_dealloc(%[1]s *self);\n",
@@ -155,7 +155,7 @@ func (g *cpyGen) genTypeDealloc(sym *symbol) {
 }
 
 func (g *cpyGen) genTypeInit(sym *symbol) {
-	pkgname := sym.goobj.Pkg().Name()
+	pkgname := sym.pkgname()
 
 	g.decl.Printf("\n/* tp_init for %s.%v */\n", pkgname, sym.goname)
 	g.decl.Printf(
@@ -176,7 +176,7 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 }
 
 func (g *cpyGen) genTypeMembers(sym *symbol) {
-	pkgname := sym.goobj.Pkg().Name()
+	pkgname := sym.pkgname()
 	g.decl.Printf("\n/* tp_getset for %s.%v */\n", pkgname, sym.goname)
 	g.impl.Printf("\n/* tp_getset for %s.%v */\n", pkgname, sym.goname)
 	g.impl.Printf("static PyGetSetDef %s_getsets[] = {\n", sym.cpyname)
@@ -188,7 +188,7 @@ func (g *cpyGen) genTypeMembers(sym *symbol) {
 
 func (g *cpyGen) genTypeMethods(sym *symbol) {
 
-	pkgname := sym.goobj.Pkg().Name()
+	pkgname := sym.pkgname()
 	g.decl.Printf("\n/* methods for %s.%s */\n", pkgname, sym.goname)
 	g.impl.Printf("\n/* methods for %s.%s */\n", pkgname, sym.goname)
 	g.impl.Printf("static PyMethodDef %s_methods[] = {\n", sym.cpyname)
@@ -242,7 +242,7 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 
 	var arrlen int64
 	var etyp types.Type
-	switch typ := sym.goobj.Type().(type) {
+	switch typ := sym.GoType().(type) {
 	case *types.Array:
 		etyp = typ.Elem()
 		arrlen = typ.Len()

@@ -318,7 +318,7 @@ func (s Struct) Doc() string {
 }
 
 func (s Struct) GoType() types.Type {
-	return s.sym.goobj.Type()
+	return s.sym.GoType()
 }
 
 func (s Struct) GoName() string {
@@ -326,7 +326,7 @@ func (s Struct) GoName() string {
 }
 
 func (s Struct) Struct() *types.Struct {
-	return s.sym.goobj.Type().Underlying().(*types.Struct)
+	return s.sym.GoType().Underlying().(*types.Struct)
 }
 
 // A Signature represents a (non-builtin) function or method type.
