@@ -22,9 +22,7 @@ func (g *cpyGen) genType(sym *symbol) {
 		return
 	}
 
-	pkgname := sym.pkgname()
-
-	g.decl.Printf("\n/* --- decls for type %s.%v --- */\n", pkgname, sym.goname)
+	g.decl.Printf("\n/* --- decls for type %v --- */\n", sym.gofmt())
 	if sym.isBasic() {
 		// reach at the underlying type
 		btyp := g.pkg.syms.symtype(sym.GoType().Underlying())
@@ -32,7 +30,7 @@ func (g *cpyGen) genType(sym *symbol) {
 	} else {
 		g.decl.Printf("typedef void* %s;\n\n", sym.cgoname)
 	}
-	g.decl.Printf("/* Python type for type %s.%v\n", pkgname, sym.goname)
+	g.decl.Printf("/* Python type for %v\n", sym.gofmt())
 	g.decl.Printf(" */\ntypedef struct {\n")
 	g.decl.Indent()
 	g.decl.Printf("PyObject_HEAD\n")
@@ -51,7 +49,7 @@ func (g *cpyGen) genType(sym *symbol) {
 	g.decl.Printf("} %s;\n", sym.cpyname)
 	g.decl.Printf("\n\n")
 
-	g.impl.Printf("\n\n/* --- impl for %s.%v */\n\n", pkgname, sym.goname)
+	g.impl.Printf("\n\n/* --- impl for %s */\n\n", sym.gofmt())
 
 	g.genTypeNew(sym)
 	g.genTypeDealloc(sym)
@@ -85,7 +83,7 @@ func (g *cpyGen) genType(sym *symbol) {
 	g.impl.Indent()
 	g.impl.Printf("PyObject_HEAD_INIT(NULL)\n")
 	g.impl.Printf("0,\t/*ob_size*/\n")
-	g.impl.Printf("\"%s.%s\",\t/*tp_name*/\n", pkgname, sym.goname)
+	g.impl.Printf("\"%s\",\t/*tp_name*/\n", sym.gofmt())
 	g.impl.Printf("sizeof(%s),\t/*tp_basicsize*/\n", sym.cpyname)
 	g.impl.Printf("0,\t/*tp_itemsize*/\n")
 	g.impl.Printf("(destructor)%s_dealloc,\t/*tp_dealloc*/\n", sym.cpyname)
@@ -129,9 +127,7 @@ func (g *cpyGen) genType(sym *symbol) {
 }
 
 func (g *cpyGen) genTypeNew(sym *symbol) {
-	pkgname := sym.pkgname()
-
-	g.decl.Printf("\n/* tp_new for %s.%v */\n", pkgname, sym.goname)
+	g.decl.Printf("\n/* tp_new for %s */\n", sym.gofmt())
 	g.decl.Printf(
 		"static PyObject*\ncpy_func_%s_new(PyTypeObject *type, PyObject *args, PyObject *kwds);\n",
 		sym.id,
@@ -152,14 +148,12 @@ func (g *cpyGen) genTypeNew(sym *symbol) {
 }
 
 func (g *cpyGen) genTypeDealloc(sym *symbol) {
-	pkgname := sym.pkgname()
-
-	g.decl.Printf("\n/* tp_dealloc for %s.%v */\n", pkgname, sym.goname)
+	g.decl.Printf("\n/* tp_dealloc for %s */\n", sym.gofmt())
 	g.decl.Printf("static void\n%[1]s_dealloc(%[1]s *self);\n",
 		sym.cpyname,
 	)
 
-	g.impl.Printf("\n/* tp_dealloc for %s.%v */\n", pkgname, sym.goname)
+	g.impl.Printf("\n/* tp_dealloc for %s */\n", sym.gofmt())
 	g.impl.Printf("static void\n%[1]s_dealloc(%[1]s *self) {\n",
 		sym.cpyname,
 	)
@@ -173,9 +167,7 @@ func (g *cpyGen) genTypeDealloc(sym *symbol) {
 }
 
 func (g *cpyGen) genTypeInit(sym *symbol) {
-	pkgname := sym.pkgname()
-
-	g.decl.Printf("\n/* tp_init for %s.%v */\n", pkgname, sym.goname)
+	g.decl.Printf("\n/* tp_init for %s */\n", sym.gofmt())
 	g.decl.Printf(
 		"static int\n%[1]s_init(%[1]s *self, PyObject *args, PyObject *kwds);\n",
 		sym.cpyname,
@@ -194,9 +186,8 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 }
 
 func (g *cpyGen) genTypeMembers(sym *symbol) {
-	pkgname := sym.pkgname()
-	g.decl.Printf("\n/* tp_getset for %s.%v */\n", pkgname, sym.goname)
-	g.impl.Printf("\n/* tp_getset for %s.%v */\n", pkgname, sym.goname)
+	g.decl.Printf("\n/* tp_getset for %s */\n", sym.gofmt())
+	g.impl.Printf("\n/* tp_getset for %s */\n", sym.gofmt())
 	g.impl.Printf("static PyGetSetDef %s_getsets[] = {\n", sym.cpyname)
 	g.impl.Indent()
 	g.impl.Printf("{NULL} /* Sentinel */\n")
@@ -205,10 +196,8 @@ func (g *cpyGen) genTypeMembers(sym *symbol) {
 }
 
 func (g *cpyGen) genTypeMethods(sym *symbol) {
-
-	pkgname := sym.pkgname()
-	g.decl.Printf("\n/* methods for %s.%s */\n", pkgname, sym.goname)
-	g.impl.Printf("\n/* methods for %s.%s */\n", pkgname, sym.goname)
+	g.decl.Printf("\n/* methods for %s */\n", sym.gofmt())
+	g.impl.Printf("\n/* methods for %s */\n", sym.gofmt())
 	g.impl.Printf("static PyMethodDef %s_methods[] = {\n", sym.cpyname)
 	g.impl.Indent()
 	g.impl.Printf("{NULL} /* sentinel */\n")
@@ -253,10 +242,7 @@ func (g *cpyGen) genTypeTPStr(sym *symbol) {
 }
 
 func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
-	pkgname := g.pkg.pkg.Name()
-	g.decl.Printf("\n/* sequence support for %[1]s.%[2]s */\n",
-		pkgname, sym.goname,
-	)
+	g.decl.Printf("\n/* sequence support for %s */\n", sym.gofmt())
 
 	var arrlen int64
 	var etyp types.Type
@@ -401,14 +387,9 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 }
 
 func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
-	pkgname := g.pkg.pkg.Name()
-	g.decl.Printf("\n/* buffer support for %[1]s.%[2]s */\n",
-		pkgname, sym.goname,
-	)
+	g.decl.Printf("\n/* buffer support for %s */\n", sym.gofmt())
 
-	g.decl.Printf("\n/* __get_buffer__ impl for %[1]s.%[2]s */\n",
-		pkgname, sym.goname,
-	)
+	g.decl.Printf("\n/* __get_buffer__ impl for %s */\n", sym.gofmt())
 	g.decl.Printf("static int\n")
 	g.decl.Printf(
 		"cpy_func_%[1]s_getbuffer(PyObject *self, Py_buffer *view, int flags);\n",
@@ -426,9 +407,7 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 		esize = g.pkg.sz.Sizeof(o.Elem())
 	}
 
-	g.impl.Printf("\n/* __get_buffer__ impl for %[1]s.%[2]s */\n",
-		pkgname, sym.goname,
-	)
+	g.impl.Printf("\n/* __get_buffer__ impl for %s */\n", sym.gofmt())
 	g.impl.Printf("static int\n")
 	g.impl.Printf(
 		"cpy_func_%[1]s_getbuffer(PyObject *self, Py_buffer *view, int flags) {\n",

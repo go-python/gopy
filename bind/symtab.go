@@ -130,6 +130,13 @@ func (s symbol) cgotypename() string {
 	return s.cgoname
 }
 
+func (s symbol) gofmt() string {
+	return types.TypeString(
+		s.GoType(),
+		func(*types.Package) string { return s.pkgname() },
+	)
+}
+
 // symtab is a table of symbols in a go package
 type symtab struct {
 	pkg    *types.Package
