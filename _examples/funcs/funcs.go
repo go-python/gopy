@@ -12,7 +12,7 @@ var (
 	F5 []func()
 	F6 []Func
 	F7 [2]func()
-	F7 [2]Func
+	F8 [2]Func
 )
 
 type Func func()
