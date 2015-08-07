@@ -260,10 +260,20 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 		case *types.Slice:
 			etyp = typ.Elem()
 		default:
-			panic(fmt.Errorf("gopy: unhandled type [%#v]", typ))
+			panic(fmt.Errorf(
+				"gopy: unhandled type [%#v] (go=%s kind=%v)",
+				typ,
+				sym.gofmt(),
+				sym.kind,
+			))
 		}
 	default:
-		panic(fmt.Errorf("gopy: unhandled type [%#v]", typ))
+		panic(fmt.Errorf(
+			"gopy: unhandled type [%#v] (go=%s kind=%v)",
+			typ,
+			sym.gofmt(),
+			sym.kind,
+		))
 	}
 	esym := g.pkg.syms.symtype(etyp)
 	if esym == nil {
@@ -398,8 +408,8 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 
 	var esize int64
 	var arrlen int64
-	esym := g.pkg.syms.symtype(sym.goobj.Type())
-	switch o := sym.goobj.Type().(type) {
+	esym := g.pkg.syms.symtype(sym.GoType())
+	switch o := sym.GoType().(type) {
 	case *types.Array:
 		esize = g.pkg.sz.Sizeof(o.Elem())
 		arrlen = o.Len()

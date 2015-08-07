@@ -235,6 +235,7 @@ func (p *Package) process() error {
 		}
 
 		ptyp := types.NewPointer(s.GoType())
+		p.syms.addType(nil, ptyp)
 		mset := types.NewMethodSet(ptyp)
 		for i := 0; i < mset.Len(); i++ {
 			meth := mset.At(i)

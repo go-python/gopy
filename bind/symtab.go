@@ -44,6 +44,36 @@ const (
 	skString
 )
 
+var (
+	symkinds = map[string]symkind{
+		"const":     skConst,
+		"var":       skVar,
+		"func":      skFunc,
+		"type":      skType,
+		"array":     skArray,
+		"basic":     skBasic,
+		"interface": skInterface,
+		"map":       skMap,
+		"named":     skNamed,
+		"pointer":   skPointer,
+		"signature": skSignature,
+		"slice":     skSlice,
+		"struct":    skStruct,
+		"string":    skString,
+	}
+)
+
+func (k symkind) String() string {
+	str := []string{}
+	for n, v := range symkinds {
+		if (k & v) != 0 {
+			str = append(str, n)
+		}
+	}
+	sort.Strings(str)
+	return strings.Join(str, "|")
+}
+
 // symbol is an exported symbol in a go package
 type symbol struct {
 	kind    symkind
@@ -79,6 +109,10 @@ func (s symbol) isBasic() bool {
 
 func (s symbol) isArray() bool {
 	return (s.kind & skArray) != 0
+}
+
+func (s symbol) isSignature() bool {
+	return (s.kind & skSignature) != 0
 }
 
 func (s symbol) isSlice() bool {
@@ -199,55 +233,6 @@ func (sym *symtab) typename(t types.Type) string {
 
 func (sym *symtab) symtype(t types.Type) *symbol {
 	tname := sym.typename(t)
-	s := sym.sym(tname)
-	if s != nil {
-		return s
-	}
-	obj := sym.pkg.Scope().Lookup(tname)
-	switch {
-	case obj == nil:
-		// means we are actually creating a new type.
-		// fmt.Printf(">>> adding new type [%s]...\n", tname)
-		switch typ := t.(type) {
-		case *types.Pointer:
-			s = sym.symtype(typ.Elem())
-			if s == nil {
-				return nil
-			}
-			sym.addType(s.goobj, typ)
-			return sym.sym(tname)
-
-		case *types.Slice:
-			s = sym.symtype(typ.Elem())
-			if s == nil {
-				return nil
-			}
-			sym.addType(s.goobj, typ)
-			return sym.sym(tname)
-
-		case *types.Signature:
-			sym.addType(obj, typ)
-			return sym.sym(tname)
-
-		case *types.Named:
-			switch tn := typ.Underlying().(type) {
-			default:
-				panic(fmt.Errorf("gopy: %#v -- %#v", typ, tn))
-			}
-		}
-		panic(fmt.Errorf(
-			"gopy: could not lookup type [%s] (%#v)",
-			tname,
-			t,
-		))
-	default:
-		sym.addSymbol(obj)
-		s = sym.symtype(obj.Type())
-		if s == nil {
-			panic(fmt.Errorf("gopy: could not lookup type [%s]", tname))
-		}
-		return s
-	}
 	return sym.sym(tname)
 }
 
@@ -328,7 +313,7 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 		sym.addSliceType(pkg, obj, t, kind, id, n)
 
 	case *types.Signature:
-		sym.addSignatureType(pkg, obj, typ, kind, id, n)
+		sym.addSignatureType(pkg, obj, t, kind, id, n)
 
 	case *types.Named:
 		kind |= skNamed
@@ -341,7 +326,7 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 			sym.syms[n] = &symbol{
 				gopkg:   pkg,
 				goobj:   obj,
-				gotyp:   typ,
+				gotyp:   t,
 				kind:    kind | skBasic,
 				id:      id,
 				goname:  n,
@@ -355,13 +340,13 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 			}
 
 		case *types.Array:
-			sym.addArrayType(pkg, obj, typ, kind, id, n)
+			sym.addArrayType(pkg, obj, t, kind, id, n)
 
 		case *types.Slice:
-			sym.addSliceType(pkg, obj, typ, kind, id, n)
+			sym.addSliceType(pkg, obj, t, kind, id, n)
 
 		case *types.Signature:
-			sym.addSignatureType(pkg, obj, typ, kind, id, n)
+			sym.addSignatureType(pkg, obj, t, kind, id, n)
 
 		default:
 			panic(fmt.Errorf("unhandled named-type: [%T]\n%#v\n", obj, t))
@@ -379,7 +364,7 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 }
 
 func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
-	typ := t.(*types.Array)
+	typ := t.Underlying().(*types.Array)
 	kind |= skArray
 	enam := sym.typename(typ.Elem())
 	elt := sym.sym(enam)
@@ -395,7 +380,7 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 	sym.syms[n] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
-		gotyp:   typ,
+		gotyp:   t,
 		kind:    kind,
 		id:      id,
 		goname:  n,
@@ -410,7 +395,7 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 }
 
 func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
-	typ := t.(*types.Slice)
+	typ := t.Underlying().(*types.Slice)
 	kind |= skSlice
 	enam := sym.typename(typ.Elem())
 	elt := sym.sym(enam)
@@ -426,7 +411,7 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 	sym.syms[n] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
-		gotyp:   typ,
+		gotyp:   t,
 		kind:    kind,
 		id:      id,
 		goname:  n,
@@ -462,7 +447,7 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 	sym.syms[n] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
-		gotyp:   typ,
+		gotyp:   t,
 		kind:    kind,
 		id:      id,
 		goname:  n,
@@ -477,13 +462,13 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 }
 
 func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
-	typ := t.(*types.Signature)
+	//typ := t.(*types.Signature)
 	kind |= skSignature
 	id = hash(id)
 	sym.syms[n] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
-		gotyp:   typ,
+		gotyp:   t,
 		kind:    kind,
 		id:      id,
 		goname:  n,
