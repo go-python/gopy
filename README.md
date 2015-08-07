@@ -59,6 +59,26 @@ Options:
 
 ## Examples
 
+### From the `python` shell
+
+`gopy` comes with a little `python` module allowing to wrap and compile `go`
+packages directly from the `python` interactive shell:
+
+```python
+>>> import gopy
+>>> hi = gopy.load("github.com/go-python/gopy/_examples/hi")
+gopy> inferring package name...
+gopy> loading 'github.com/go-python/gopy/_examples/hi'...
+gopy> importing 'github.com/go-python/gopy/_examples/hi'
+
+>>> print hi
+<module 'github.com/go-python/gopy/_examples/hi' from '/some/path/.../hi.so'>
+
+>>> print hi.__doc__
+package hi exposes a few Go functions to be wrapped and used from Python.
+```
+
+### From the command line
 ```sh
 $ gopy bind -output=out github.com/go-python/gopy/_examples/hi
 $ ls out
