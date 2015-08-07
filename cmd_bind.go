@@ -127,9 +127,8 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	defer os.RemoveAll(wbind)
 
 	cmd = exec.Command(
-		"go", "build", "-v", "-buildmode=c-shared",
+		"go", "build", "-buildmode=c-shared",
 		"-o", filepath.Join(wbind, pkg.Name())+".so",
-		//	pkg.ImportPath,
 		".",
 	)
 	cmd.Dir = work
