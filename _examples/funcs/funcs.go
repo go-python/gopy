@@ -12,7 +12,7 @@ var (
 	F5 []func()
 	F6 []Func
 	F7 [2]func()
-	F8 [2]Func
+	F8 [3]Func
 )
 
 type Func func()
@@ -26,5 +26,5 @@ type S1 struct {
 type S2 struct {
 	F1 func()
 	F2 []func()
-	F3 [4]func()
+	F3 [5]func()
 }
