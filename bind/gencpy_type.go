@@ -59,12 +59,12 @@ func (g *cpyGen) genType(sym *symbol) {
 
 	g.genTypeProtocols(sym)
 
-	asBuffer := "0"
-	asSequence := "0"
+	tpAsBuffer := "0"
+	tpAsSequence := "0"
 	tpFlags := "Py_TPFLAGS_DEFAULT"
 	if sym.isArray() || sym.isSlice() {
-		asBuffer = fmt.Sprintf("&%[1]s_tp_as_buffer", sym.cpyname)
-		asSequence = fmt.Sprintf("&%[1]s_tp_as_sequence", sym.cpyname)
+		tpAsBuffer = fmt.Sprintf("&%[1]s_tp_as_buffer", sym.cpyname)
+		tpAsSequence = fmt.Sprintf("&%[1]s_tp_as_sequence", sym.cpyname)
 		switch g.lang {
 		case 2:
 			tpFlags = fmt.Sprintf(
@@ -77,6 +77,11 @@ func (g *cpyGen) genType(sym *symbol) {
 				))
 		case 3:
 		}
+	}
+
+	tpCall := "0"
+	if sym.isSignature() {
+		tpCall = fmt.Sprintf("(ternaryfunc)cpy_func_%[1]s_tp_call", sym.id)
 	}
 
 	g.impl.Printf("static PyTypeObject %sType = {\n", sym.cpyname)
@@ -93,14 +98,14 @@ func (g *cpyGen) genType(sym *symbol) {
 	g.impl.Printf("0,\t/*tp_compare*/\n")
 	g.impl.Printf("0,\t/*tp_repr*/\n")
 	g.impl.Printf("0,\t/*tp_as_number*/\n")
-	g.impl.Printf("%s,\t/*tp_as_sequence*/\n", asSequence)
+	g.impl.Printf("%s,\t/*tp_as_sequence*/\n", tpAsSequence)
 	g.impl.Printf("0,\t/*tp_as_mapping*/\n")
 	g.impl.Printf("0,\t/*tp_hash */\n")
-	g.impl.Printf("0,\t/*tp_call*/\n")
+	g.impl.Printf("%s,\t/*tp_call*/\n", tpCall)
 	g.impl.Printf("cpy_func_%s_tp_str,\t/*tp_str*/\n", sym.id)
 	g.impl.Printf("0,\t/*tp_getattro*/\n")
 	g.impl.Printf("0,\t/*tp_setattro*/\n")
-	g.impl.Printf("%s,\t/*tp_as_buffer*/\n", asBuffer)
+	g.impl.Printf("%s,\t/*tp_as_buffer*/\n", tpAsBuffer)
 	g.impl.Printf("%s,\t/*tp_flags*/\n", tpFlags)
 	g.impl.Printf("%q,\t/* tp_doc */\n", sym.doc)
 	g.impl.Printf("0,\t/* tp_traverse */\n")
@@ -210,6 +215,9 @@ func (g *cpyGen) genTypeProtocols(sym *symbol) {
 	if sym.isSlice() || sym.isArray() {
 		g.genTypeTPAsSequence(sym)
 		g.genTypeTPAsBuffer(sym)
+	}
+	if sym.isSignature() {
+		g.genTypeTPCall(sym)
 	}
 }
 
@@ -589,6 +597,193 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 		g.impl.Outdent()
 		g.impl.Printf("};\n\n")
 	}
+}
+
+func (g *cpyGen) genTypeTPCall(sym *symbol) {
+	g.decl.Printf("\n/* tp_call */\n")
+	g.decl.Printf("static PyObject *\n")
+	g.decl.Printf(
+		"cpy_func_%[1]s_tp_call(%[2]s *self, PyObject *args, PyObject *other);\n",
+		sym.id,
+		sym.cpyname,
+	)
+
+	sig := sym.GoType().Underlying().(*types.Signature)
+
+	g.impl.Printf("\n/* tp_call */\n")
+	g.impl.Printf("static PyObject *\n")
+	g.impl.Printf(
+		"cpy_func_%[1]s_tp_call(%[2]s *self, PyObject *args, PyObject *other) {\n",
+		sym.id,
+		sym.cpyname,
+	)
+	g.impl.Indent()
+
+	//TODO(sbinet): refactor/consolidate with genFuncBody
+
+	funcArgs := []string{"self->cgopy"}
+	args := newVarsFrom(g.pkg, sig.Params())
+	res := newVarsFrom(g.pkg, sig.Results())
+
+	for _, arg := range args {
+		arg.genDecl(g.impl)
+		funcArgs = append(funcArgs, arg.getFuncArg())
+	}
+
+	if len(res) > 0 {
+		switch len(res) {
+		case 1:
+			ret := res[0]
+			ret.genRetDecl(g.impl)
+		default:
+			g.impl.Printf(
+				"struct cgo_func_%[1]s_tp_call_return c_gopy_ret;\n",
+				sym.id,
+			)
+		}
+	}
+
+	g.impl.Printf("\n")
+
+	if len(args) > 0 {
+		g.impl.Printf("if (!PyArg_ParseTuple(args, ")
+		format := []string{}
+		pyaddrs := []string{}
+		for _, arg := range args {
+			pyfmt, addr := arg.getArgParse()
+			format = append(format, pyfmt)
+			pyaddrs = append(pyaddrs, addr...)
+		}
+		g.impl.Printf("%q, %s)) {\n", strings.Join(format, ""), strings.Join(pyaddrs, ", "))
+		g.impl.Indent()
+		g.impl.Printf("return NULL;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+	}
+
+	if len(args) > 0 {
+		for _, arg := range args {
+			arg.genFuncPreamble(g.impl)
+		}
+		g.impl.Printf("\n")
+	}
+
+	if len(res) > 0 {
+		g.impl.Printf("c_gopy_ret = ")
+	}
+	g.impl.Printf("cgo_func_%[1]s_call(%[2]s);\n", sym.id, strings.Join(funcArgs, ", "))
+
+	g.impl.Printf("\n")
+
+	if len(res) <= 0 {
+		g.impl.Printf("Py_INCREF(Py_None);\nreturn Py_None;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+		return
+	}
+
+	if hasError(sig) {
+		switch len(res) {
+		case 1:
+			g.impl.Printf("if (!_cgopy_ErrorIsNil(c_gopy_ret)) {\n")
+			g.impl.Indent()
+			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(c_gopy_ret);\n")
+			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
+			g.impl.Printf("free((void*)c_err_str);\n")
+			g.impl.Printf("return NULL;\n")
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+			g.impl.Printf("Py_INCREF(Py_None);\nreturn Py_None;\n")
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+			return
+
+		case 2:
+			g.impl.Printf("if (!_cgopy_ErrorIsNil(c_gopy_ret.r1)) {\n")
+			g.impl.Indent()
+			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(c_gopy_ret.r1);\n")
+			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
+			g.impl.Printf("free((void*)c_err_str);\n")
+			g.impl.Printf("return NULL;\n")
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+			if isConstructor(sig) {
+				ret := res[0]
+				g.impl.Printf("PyObject *o = cpy_func_%[1]s_new(&%[2]sType, 0, 0);\n",
+					ret.sym.id,
+					ret.sym.cpyname,
+				)
+				g.impl.Printf("if (o == NULL) {\n")
+				g.impl.Indent()
+				g.impl.Printf("return NULL;\n")
+				g.impl.Outdent()
+				g.impl.Printf("}\n")
+				g.impl.Printf("((%[1]s*)o)->cgopy = c_gopy_ret.r0;\n",
+					ret.sym.cpyname,
+				)
+				g.impl.Printf("return o;\n")
+				g.impl.Outdent()
+				g.impl.Printf("}\n\n")
+				return
+			}
+			pyfmt, _ := res[0].getArgBuildValue()
+			g.impl.Printf("return Py_BuildValue(%q, c_gopy_ret.r0);\n", pyfmt)
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+			return
+
+		default:
+			panic(fmt.Errorf(
+				"bind: function/method with more than 2 results not supported! (%s)",
+				sym.id,
+			))
+		}
+	}
+
+	if isConstructor(sig) {
+		ret := res[0]
+		g.impl.Printf("PyObject *o = cpy_func_%[1]s_new(&%[2]sType, 0, 0);\n",
+			ret.sym.id,
+			ret.sym.cpyname,
+		)
+		g.impl.Printf("if (o == NULL) {\n")
+		g.impl.Indent()
+		g.impl.Printf("return NULL;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n")
+		g.impl.Printf("((%[1]s*)o)->cgopy = c_gopy_ret;\n",
+			ret.sym.cpyname,
+		)
+		g.impl.Printf("return o;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+		return
+	}
+
+	format := []string{}
+	funcArgs = []string{}
+	switch len(res) {
+	case 1:
+		ret := res[0]
+		ret.name = "gopy_ret"
+		pyfmt, pyaddrs := ret.getArgBuildValue()
+		format = append(format, pyfmt)
+		funcArgs = append(funcArgs, pyaddrs...)
+	default:
+		for _, ret := range res {
+			pyfmt, pyaddrs := ret.getArgBuildValue()
+			format = append(format, pyfmt)
+			funcArgs = append(funcArgs, pyaddrs...)
+		}
+	}
+
+	g.impl.Printf("return Py_BuildValue(%q, %s);\n",
+		strings.Join(format, ""),
+		strings.Join(funcArgs, ", "),
+	)
+
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
 }
 
 func (g *cpyGen) genTypeConverter(sym *symbol) {

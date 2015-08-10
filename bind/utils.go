@@ -5,6 +5,8 @@
 package bind
 
 import (
+	"fmt"
+
 	"golang.org/x/tools/go/types"
 )
 
@@ -41,5 +43,39 @@ func isStringer(obj types.Object) bool {
 		return false
 	}
 
+	return false
+}
+
+func hasError(sig *types.Signature) bool {
+	res := sig.Results()
+	if res == nil || res.Len() <= 0 {
+		return false
+	}
+
+	nerr := 0
+	for i := 0; i < res.Len(); i++ {
+		ret := res.At(i)
+		if isErrorType(ret.Type()) {
+			nerr++
+		}
+	}
+
+	switch {
+	case nerr == 0:
+		return false
+	case nerr == 1:
+		return true
+	default:
+		panic(fmt.Errorf(
+			"gopy: invalid number of comma-errors (%d)",
+			nerr,
+		))
+	}
+
+	return false
+}
+
+func isConstructor(sig *types.Signature) bool {
+	//TODO(sbinet)
 	return false
 }
