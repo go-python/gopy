@@ -225,3 +225,14 @@ fct()...
 `),
 	})
 }
+
+func TestBindEmpty(t *testing.T) {
+	t.Parallel()
+	testPkg(t, pkg{
+		path: "_examples/empty",
+		want: []byte(`empty.init()... [CALLED]
+doc(pkg):
+'Package empty does not expose anything.\nWe may want to wrap and import it just for its side-effects.\n'
+`),
+	})
+}
