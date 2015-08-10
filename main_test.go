@@ -212,3 +212,16 @@ s2.F1() = None
 `),
 	})
 }
+
+func TestBindSimple(t *testing.T) {
+	t.Parallel()
+	testPkg(t, pkg{
+		path: "_examples/simple",
+		want: []byte(`doc(pkg):
+'simple is a simple package.\n'
+pkg.Func()...
+fct = pkg.Func...
+fct()...
+`),
+	})
+}
