@@ -98,13 +98,22 @@ except Exception, err:
     print "caught:", err
     pass
 
-## test ctor args. (dispatch is not working yet!)
+## test ctor args
+print "--- Person.__init__"
 try:
     hi.Person(1)
     print "*ERROR* no exception raised!"
 except Exception, err:
     print "caught:", err, "| err-type:",type(err)
     pass
+p = hi.Person("name")
+print p
+p = hi.Person("name", 42)
+print p
+p = hi.Person(Name="name", Age=42)
+print p
+p = hi.Person(Age=42, Name="name")
+print p
 
 ## test ctors
 print "--- hi.NewPerson('me', 666):", hi.NewPerson("me", 666)
@@ -126,6 +135,25 @@ print c
 c.P1.Name = "mom"
 c.P2.Age = 51
 print c
+
+## test Couple.__init__
+print "--- Couple.__init__"
+c = hi.Couple(hi.Person("p1", 42))
+print c
+c = hi.Couple(hi.Person("p1", 42), hi.Person("p2", 52))
+print c
+c = hi.Couple(P1=hi.Person("p1", 42), P2=hi.Person("p2", 52))
+print c
+c = hi.Couple(P2=hi.Person("p1", 42), P1=hi.Person("p2", 52))
+print c
+
+## FIXME(sbinet): this needs a Py<mytype>Check - ie: issue#16
+#try:
+#    hi.Couple(1)
+#    print "*ERROR* no exception raised!"
+#except Exception, err:
+#    print "caught:", err, "| err-type:",type(err)
+#    pass
 
 ### test gc
 print "--- testing GC..."

@@ -152,7 +152,12 @@ working...
 caught: can't work for 24 hours!
 --- p.Salary(2): 20
 --- p.Salary(24): caught: can't work for 24 hours!
-caught: Person.__init__ takes no argument | err-type: <type 'exceptions.TypeError'>
+--- Person.__init__
+caught: expected string or Unicode object, int found | err-type: <type 'exceptions.TypeError'>
+hi.Person{Name="name", Age=0}
+hi.Person{Name="name", Age=42}
+hi.Person{Name="name", Age=42}
+hi.Person{Name="name", Age=42}
 --- hi.NewPerson('me', 666): hi.Person{Name="me", Age=666}
 --- hi.NewPersonWithAge(666): hi.Person{Name="stranger", Age=666}
 --- hi.NewActivePerson(4):working...
@@ -165,6 +170,11 @@ hi.Couple{P1=hi.Person{Name="", Age=0}, P2=hi.Person{Name="", Age=0}}
 --- c = hi.NewCouple(tom, bob)...
 hi.Couple{P1=hi.Person{Name="tom", Age=50}, P2=hi.Person{Name="bob", Age=41}}
 hi.Couple{P1=hi.Person{Name="mom", Age=50}, P2=hi.Person{Name="bob", Age=51}}
+--- Couple.__init__
+hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="", Age=0}}
+hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="p2", Age=52}}
+hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="p2", Age=52}}
+hi.Couple{P1=hi.Person{Name="p2", Age=52}, P2=hi.Person{Name="p1", Age=42}}
 --- testing GC...
 --- len(objs): 100000
 --- len(vs): 100000
