@@ -9,6 +9,7 @@ package cpkg
 //#include <stdlib.h>
 //void cpkg_printf(const char *str) {
 //	fprintf(stdout, str);
+//	fflush(stdout);
 //}
 import "C"
 
