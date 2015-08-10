@@ -153,7 +153,9 @@ caught: can't work for 24 hours!
 --- p.Salary(2): 20
 --- p.Salary(24): caught: can't work for 24 hours!
 --- Person.__init__
-caught: expected string or Unicode object, int found | err-type: <type 'exceptions.TypeError'>
+caught: invalid type for 'Name' attribute | err-type: <type 'exceptions.TypeError'>
+caught: invalid type for 'Age' attribute | err-type: <type 'exceptions.TypeError'>
+caught: Person.__init__ takes at most 2 argument(s) | err-type: <type 'exceptions.TypeError'>
 hi.Person{Name="name", Age=0}
 hi.Person{Name="name", Age=42}
 hi.Person{Name="name", Age=42}
@@ -175,6 +177,9 @@ hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="", Age=0}}
 hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="p2", Age=52}}
 hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="p2", Age=52}}
 hi.Couple{P1=hi.Person{Name="p2", Age=52}, P2=hi.Person{Name="p1", Age=42}}
+caught: invalid type for 'P1' attribute | err-type: <type 'exceptions.TypeError'>
+caught: invalid type for 'P1' attribute | err-type: <type 'exceptions.TypeError'>
+caught: invalid type for 'P2' attribute | err-type: <type 'exceptions.TypeError'>
 --- testing GC...
 --- len(objs): 100000
 --- len(vs): 100000

@@ -106,6 +106,21 @@ try:
 except Exception, err:
     print "caught:", err, "| err-type:",type(err)
     pass
+
+try:
+    hi.Person("name","2")
+    print "*ERROR* no exception raised!"
+except Exception, err:
+    print "caught:", err, "| err-type:",type(err)
+    pass
+
+try:
+    hi.Person("name",2,3)
+    print "*ERROR* no exception raised!"
+except Exception, err:
+    print "caught:", err, "| err-type:",type(err)
+    pass
+
 p = hi.Person("name")
 print p
 p = hi.Person("name", 42)
@@ -147,13 +162,26 @@ print c
 c = hi.Couple(P2=hi.Person("p1", 42), P1=hi.Person("p2", 52))
 print c
 
-## FIXME(sbinet): this needs a Py<mytype>Check - ie: issue#16
-#try:
-#    hi.Couple(1)
-#    print "*ERROR* no exception raised!"
-#except Exception, err:
-#    print "caught:", err, "| err-type:",type(err)
-#    pass
+try:
+    hi.Couple(1)
+    print "*ERROR* no exception raised!"
+except Exception, err:
+    print "caught:", err, "| err-type:",type(err)
+    pass
+
+try:
+    hi.Couple(1,2)
+    print "*ERROR* no exception raised!"
+except Exception, err:
+    print "caught:", err, "| err-type:",type(err)
+    pass
+
+try:
+    hi.Couple(P2=1)
+    print "*ERROR* no exception raised!"
+except Exception, err:
+    print "caught:", err, "| err-type:",type(err)
+    pass
 
 ### test gc
 print "--- testing GC..."
