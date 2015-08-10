@@ -7,7 +7,7 @@ package cpkg
 //#include <stdio.h>
 //#include <string.h>
 //#include <stdlib.h>
-//void hello(const char *str) {
+//void cpkg_printf(const char *str) {
 //	fprintf(stdout, str);
 //}
 import "C"
@@ -17,12 +17,27 @@ import (
 	"unsafe"
 )
 
+// Hi prints hi from Go (via C's stdio)
+func Hi() {
+	cstr := C.CString("hi from go\n")
+	defer C.free(unsafe.Pointer(cstr))
+	C.cpkg_printf(cstr)
+}
+
 // Hello prints a string via C's stdio
 func Hello(s string) {
 	if s == "" {
 		s = "you"
 	}
-	cstr := C.CString(fmt.Sprintf("hello %s from C\n", s))
+	cstr := C.CString(fmt.Sprintf("hello %s from go\n", s))
 	defer C.free(unsafe.Pointer(cstr))
-	C.hello(cstr)
+	C.cpkg_printf(cstr)
+}
+
+// Printf prints a string via C's stdio
+func Printf(format string, args ...interface{}) {
+	str := fmt.Sprintf(format, args...)
+	cstr := C.CString(str)
+	defer C.free(unsafe.Pointer(cstr))
+	C.cpkg_printf(cstr)
 }

@@ -7,6 +7,8 @@ package hi
 
 import (
 	"fmt"
+
+	"github.com/go-python/gopy/_examples/cpkg"
 )
 
 const (
@@ -23,12 +25,12 @@ var (
 
 // Hi prints hi from Go
 func Hi() {
-	fmt.Printf("hi from go\n")
+	cpkg.Hi()
 }
 
 // Hello prints a greeting from Go
 func Hello(s string) {
-	fmt.Printf("hello %s from go\n", s)
+	cpkg.Hello(s)
 }
 
 // Concat concatenates two strings together and returns the resulting string.
@@ -86,11 +88,11 @@ func (p *Person) greet() string {
 
 // Work makes a Person go to work for h hours
 func (p *Person) Work(h int) error {
-	fmt.Printf("working...\n")
+	cpkg.Printf("working...\n")
 	if h > 7 {
 		return fmt.Errorf("can't work for %d hours!", h)
 	}
-	fmt.Printf("worked for %d hours\n", h)
+	cpkg.Printf("worked for %d hours\n", h)
 	return nil
 }
 

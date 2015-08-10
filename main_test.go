@@ -49,14 +49,7 @@ func TestBind(t *testing.T) {
 		t.Fatalf("error copying 'test.py': %v\n", err)
 	}
 
-	want := []byte(`hi from go
-hello you from go
-working...
-worked for 2 hours
-working...
-working...
-worked for 4 hours
---- doc(hi)...
+	want := []byte(`--- doc(hi)...
 package hi exposes a few Go functions to be wrapped and used from Python.
 
 --- hi.GetUniverse(): 42
@@ -76,12 +69,14 @@ Hi()
 Hi prints hi from Go
 
 --- hi.Hi()...
+hi from go
 --- doc(hi.Hello)...
 Hello(str s) 
 
 Hello prints a greeting from Go
 
 --- hi.Hello('you')...
+hello you from go
 --- doc(hi.Add)...
 Add(int i, int j) int
 
@@ -118,14 +113,19 @@ hi.Person{Name="foo", Age=42}
 --- p.Age: 42
 --- p.Name: foo
 --- p.Work(2)...
+working...
+worked for 2 hours
 --- p.Work(24)...
+working...
 caught: can't work for 24 hours!
 --- p.Salary(2): 20
 --- p.Salary(24): caught: can't work for 24 hours!
 caught: Person.__init__ takes no argument | err-type: <type 'exceptions.TypeError'>
 --- hi.NewPerson('me', 666): hi.Person{Name="me", Age=666}
 --- hi.NewPersonWithAge(666): hi.Person{Name="stranger", Age=666}
---- hi.NewActivePerson(4): hi.Person{Name="", Age=0}
+--- hi.NewActivePerson(4):working...
+worked for 4 hours
+ hi.Person{Name="", Age=0}
 --- c = hi.Couple()...
 hi.Couple{P1=hi.Person{Name="", Age=0}, P2=hi.Person{Name="", Age=0}}
 --- c.P1: hi.Person{Name="", Age=0}
