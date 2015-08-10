@@ -14,31 +14,33 @@ import (
 	"testing"
 )
 
-func TestBind(t *testing.T) {
-	// mk && rm -rf toto $TMPDIR/gopy-* && gopy bind -output=./toto ./_examples/hi && (echo "=== testing..."; cd toto; cp ../_examples/hi/test.py .; python2 ./test.py && echo "[ok]" || echo "ERR")
-	//
+type pkg struct {
+	path string
+	want []byte
+}
 
+func testPkg(t *testing.T, table pkg) {
 	workdir, err := ioutil.TempDir("", "gopy-")
 	if err != nil {
-		t.Fatalf("could not create workdir: %v\n", err)
+		t.Fatalf("[%s]: could not create workdir: %v\n", table.path, err)
 	}
 	err = os.MkdirAll(workdir, 0644)
 	if err != nil {
-		t.Fatalf("could not create workdir: %v\n", err)
+		t.Fatalf("[%s]: could not create workdir: %v\n", table.path, err)
 	}
 	defer os.RemoveAll(workdir)
 
-	cmd := exec.Command("gopy", "bind", "-output="+workdir, "./_examples/hi")
+	cmd := exec.Command("gopy", "bind", "-output="+workdir, "./"+table.path)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
 	if err != nil {
-		t.Fatalf("error running gopy-bind: %v\n", err)
+		t.Fatalf("[%s]: error running gopy-bind: %v\n", table.path, err)
 	}
 
 	cmd = exec.Command(
-		"/bin/cp", "./_examples/hi/test.py",
+		"/bin/cp", "./"+table.path+"/test.py",
 		filepath.Join(workdir, "test.py"),
 	)
 	cmd.Stdin = os.Stdin
@@ -46,10 +48,40 @@ func TestBind(t *testing.T) {
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
 	if err != nil {
-		t.Fatalf("error copying 'test.py': %v\n", err)
+		t.Fatalf("[%s]: error copying 'test.py': %v\n", table.path, err)
 	}
 
-	want := []byte(`--- doc(hi)...
+	buf := new(bytes.Buffer)
+	cmd = exec.Command("python2", "./test.py")
+	cmd.Dir = workdir
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = buf
+	cmd.Stderr = buf
+	err = cmd.Run()
+	if err != nil {
+		t.Fatalf(
+			"[%s]: error running python module: %v\n%v\n",
+			table.path,
+			err,
+			string(buf.Bytes()),
+		)
+	}
+
+	if !reflect.DeepEqual(string(buf.Bytes()), string(table.want)) {
+		t.Fatalf("[%s]: error running python module:\nwant:\n%s\n\ngot:\n%s\n",
+			table.path,
+			string(table.want), string(buf.Bytes()),
+		)
+	}
+
+}
+
+func TestHi(t *testing.T) {
+	t.Parallel()
+
+	testPkg(t, pkg{
+		path: "_examples/hi",
+		want: []byte(`--- doc(hi)...
 package hi exposes a few Go functions to be wrapped and used from Python.
 
 --- hi.GetUniverse(): 42
@@ -155,24 +187,28 @@ slice[2]: caught: array index out of range
 slice: []int{1, 42}
 len(slice): 2
 mem(slice): 2
-`)
-	buf := new(bytes.Buffer)
-	cmd = exec.Command("python2", "./test.py")
-	cmd.Dir = workdir
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = buf
-	cmd.Stderr = buf
-	err = cmd.Run()
-	if err != nil {
-		t.Fatalf(
-			"error running python module: %v\n%v\n", err,
-			string(buf.Bytes()),
-		)
-	}
+`),
+	})
+}
 
-	if !reflect.DeepEqual(string(buf.Bytes()), string(want)) {
-		t.Fatalf("error running python module:\nwant:\n%s\n\ngot:\n%s\n",
-			string(want), string(buf.Bytes()),
-		)
-	}
+func TestBindFuncs(t *testing.T) {
+	t.Parallel()
+	testPkg(t, pkg{
+		path: "_examples/funcs",
+		want: []byte(`funcs.GetF1()...
+calling F1
+f1()= None
+funcs.GetF2()...
+calling F2
+f2()= None
+s1 = funcs.S1()...
+s1.F1 = funcs.GetF2()...
+calling F2
+s1.F1() = None
+s2 = funcs.S2()...
+s2.F1 = funcs.GetF1()...
+calling F1
+s2.F1() = None
+`),
+	})
 }

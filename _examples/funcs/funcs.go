@@ -4,6 +4,10 @@
 
 package funcs
 
+import (
+	"github.com/go-python/gopy/_examples/cpkg"
+)
+
 var (
 	F1 func()
 	F2 Func
@@ -27,4 +31,14 @@ type S2 struct {
 	F1 func()
 	F2 []func()
 	F3 [5]func()
+}
+
+func init() {
+	F1 = func() {
+		cpkg.Printf("calling F1\n")
+	}
+
+	F2 = Func(func() {
+		cpkg.Printf("calling F2\n")
+	})
 }
