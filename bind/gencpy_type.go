@@ -129,6 +129,7 @@ func (g *cpyGen) genType(sym *symbol) {
 	g.impl.Printf("};\n\n")
 
 	g.genTypeConverter(sym)
+	g.genTypeTypeCheck(sym)
 }
 
 func (g *cpyGen) genTypeNew(sym *symbol) {
@@ -829,6 +830,36 @@ func (g *cpyGen) genTypeConverter(sym *symbol) {
 	g.impl.Printf("}\n")
 	g.impl.Printf("((%[1]s*)o)->cgopy = *addr;\n", sym.cpyname)
 	g.impl.Printf("return o;\n")
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
+
+}
+
+func (g *cpyGen) genTypeTypeCheck(sym *symbol) {
+	g.decl.Printf(
+		"\n/* check-type function for %[1]s */\n",
+		sym.gofmt(),
+	)
+	g.decl.Printf("static int\n")
+	g.decl.Printf(
+		"cpy_func_%[1]s_check(PyObject *self);\n",
+		sym.id,
+	)
+
+	g.impl.Printf(
+		"\n/* check-type function for %[1]s */\n",
+		sym.gofmt(),
+	)
+	g.impl.Printf("static int\n")
+	g.impl.Printf(
+		"cpy_func_%[1]s_check(PyObject *self) {\n",
+		sym.id,
+	)
+	g.impl.Indent()
+	g.impl.Printf(
+		"return PyObject_TypeCheck(self, &cpy_type_%sType);\n",
+		sym.id,
+	)
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 

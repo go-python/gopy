@@ -84,6 +84,7 @@ func (g *cpyGen) genStruct(cpy Struct) {
 	g.impl.Printf("};\n\n")
 
 	g.genStructConverters(cpy)
+	g.genStructTypeCheck(cpy)
 
 }
 
@@ -333,32 +334,31 @@ func (g *cpyGen) genStructMemberSetter(cpy Struct, i int, f types.Object) {
 	g.impl.Indent()
 
 	ifield.genDecl(g.impl)
-	g.impl.Printf("PyObject *tuple = NULL;\n\n")
 	g.impl.Printf("if (value == NULL) {\n")
 	g.impl.Indent()
 	g.impl.Printf(
-		"PyErr_SetString(PyExc_TypeError, \"Cannot delete '%[1]s' attribute\");\n",
+		"PyErr_SetString(PyExc_TypeError, \"cannot delete '%[1]s' attribute\");\n",
 		f.Name(),
 	)
 	g.impl.Printf("return -1;\n")
 	g.impl.Outdent()
-	g.impl.Printf("}\n")
+	g.impl.Printf("}\n\n")
 
-	// TODO(sbinet) check 'value' type (PyString_Check, PyInt_Check, ...)
-
-	g.impl.Printf("tuple = PyTuple_New(1);\n")
-	g.impl.Printf("Py_INCREF(value);\n")
-	g.impl.Printf("PyTuple_SET_ITEM(tuple, 0, value);\n\n")
-
-	g.impl.Printf("\nif (!PyArg_ParseTuple(tuple, ")
-	pyfmt, pyaddr := ifield.getArgParse()
-	g.impl.Printf("%q, %s)) {\n", pyfmt, strings.Join(pyaddr, ", "))
+	g.impl.Printf("if (!%s) {\n", fmt.Sprintf(ifield.sym.pychk, "value"))
 	g.impl.Indent()
-	g.impl.Printf("Py_DECREF(tuple);\n")
+	g.impl.Printf(
+		"PyErr_SetString(PyExc_TypeError, \"invalid type for '%[1]s' attribute\");\n",
+		f.Name(),
+	)
 	g.impl.Printf("return -1;\n")
 	g.impl.Outdent()
-	g.impl.Printf("}\n")
-	g.impl.Printf("Py_DECREF(tuple);\n\n")
+	g.impl.Printf("}\n\n")
+
+	g.impl.Printf("if (!%[1]s(value, &c_ret)) {\n", ifield.sym.py2c)
+	g.impl.Indent()
+	g.impl.Printf("return -1;\n")
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
 
 	g.impl.Printf("%[1]s((%[2]s)(self->cgopy), c_%[3]s);\n",
 		cgo_fsetname,
@@ -436,4 +436,8 @@ func (g *cpyGen) genStructTPStr(cpy Struct) {
 
 func (g *cpyGen) genStructConverters(cpy Struct) {
 	g.genTypeConverter(cpy.sym)
+}
+
+func (g *cpyGen) genStructTypeCheck(cpy Struct) {
+	g.genTypeTypeCheck(cpy.sym)
 }

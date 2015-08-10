@@ -93,6 +93,10 @@ type symbol struct {
 	pysig string // type string for doc-signatures
 	c2py  string // name of c->py converter function
 	py2c  string // name of py->c converter function
+
+	// Py<Type>_Check type-check function codelet
+	// e.g. PyObject_TypeCheck(%s, cpy_type_mypkg_MyStructType)
+	pychk string
 }
 
 func (s symbol) isType() bool {
@@ -337,6 +341,7 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 				pysig:   "object",
 				c2py:    "cgopy_cnv_c2py_" + id,
 				py2c:    "cgopy_cnv_py2c_" + id,
+				pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
 			}
 
 		case *types.Array:
@@ -391,6 +396,7 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		pysig:   "[]" + elt.pysig,
 		c2py:    "cgopy_cnv_c2py_" + id,
 		py2c:    "cgopy_cnv_py2c_" + id,
+		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
 	}
 }
 
@@ -422,6 +428,7 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		pysig:   "[]" + elt.pysig,
 		c2py:    "cgopy_cnv_c2py_" + id,
 		py2c:    "cgopy_cnv_py2c_" + id,
+		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
 	}
 }
 
@@ -458,6 +465,7 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 		pysig:   "object",
 		c2py:    "cgopy_cnv_c2py_" + id,
 		py2c:    "cgopy_cnv_py2c_" + id,
+		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
 	}
 }
 
@@ -479,6 +487,7 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 		pysig:   "callable",
 		c2py:    "cgopy_cnv_c2py_" + id,
 		py2c:    "cgopy_cnv_py2c_" + id,
+		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
 	}
 }
 
@@ -499,7 +508,9 @@ func init() {
 			pysig:   "bool",
 			c2py:    "cgopy_cnv_c2py_bool",
 			py2c:    "cgopy_cnv_py2c_bool",
+			pychk:   "PyBool_Check(%s)",
 		},
+
 		"byte": {
 			gopkg:   look("byte").Pkg(),
 			goobj:   look("byte"),
@@ -511,7 +522,9 @@ func init() {
 			pyfmt:   "b",
 			pybuf:   "B",
 			pysig:   "int", // FIXME(sbinet) py2/py3
+			pychk:   "PyByte_Check(%s)",
 		},
+
 		"int": {
 			gopkg:   look("int").Pkg(),
 			goobj:   look("int"),
@@ -525,6 +538,7 @@ func init() {
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int",
 			py2c:    "cgopy_cnv_py2c_int",
+			pychk:   "PyInt_Check(%s)",
 		},
 
 		"int8": {
@@ -540,6 +554,7 @@ func init() {
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int8",
 			py2c:    "cgopy_cnv_py2c_int8",
+			pychk:   "PyInt_Check(%s)",
 		},
 
 		"int16": {
@@ -555,6 +570,7 @@ func init() {
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int16",
 			py2c:    "cgopy_cnv_py2c_int16",
+			pychk:   "PyInt_Check(%s)",
 		},
 
 		"int32": {
@@ -570,6 +586,7 @@ func init() {
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int32",
 			py2c:    "cgopy_cnv_py2c_int32",
+			pychk:   "PyInt_Check(%s)",
 		},
 
 		"int64": {
@@ -585,6 +602,7 @@ func init() {
 			pysig:   "long",
 			c2py:    "cgopy_cnv_c2py_int64",
 			py2c:    "cgopy_cnv_py2c_int64",
+			pychk:   "PyLong_Check(%s)",
 		},
 
 		"uint": {
@@ -600,6 +618,7 @@ func init() {
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_uint",
 			py2c:    "cgopy_cnv_py2c_uint",
+			pychk:   "PyInt_Check(%s)",
 		},
 
 		"uint8": {
@@ -615,7 +634,9 @@ func init() {
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_uint8",
 			py2c:    "cgopy_cnv_py2c_uint8",
+			pychk:   "PyInt_Check(%s)",
 		},
+
 		"uint16": {
 			gopkg:   look("uint16").Pkg(),
 			goobj:   look("uint16"),
@@ -629,7 +650,9 @@ func init() {
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_uint16",
 			py2c:    "cgopy_cnv_py2c_uint16",
+			pychk:   "PyInt_Check(%s)",
 		},
+
 		"uint32": {
 			gopkg:   look("uint32").Pkg(),
 			goobj:   look("uint32"),
@@ -643,6 +666,7 @@ func init() {
 			pysig:   "long",
 			c2py:    "cgopy_cnv_c2py_uint32",
 			py2c:    "cgopy_cnv_py2c_uint32",
+			pychk:   "PyInt_Check(%s)",
 		},
 
 		"uint64": {
@@ -658,6 +682,7 @@ func init() {
 			pysig:   "long",
 			c2py:    "cgopy_cnv_c2py_uint64",
 			py2c:    "cgopy_cnv_py2c_uint64",
+			pychk:   "PyLong_Check(%s)",
 		},
 
 		"float32": {
@@ -673,7 +698,9 @@ func init() {
 			pysig:   "float",
 			c2py:    "cgopy_cnv_c2py_f32",
 			py2c:    "cgopy_cnv_py2c_f32",
+			pychk:   "PyFloat_Check(%s)",
 		},
+
 		"float64": {
 			gopkg:   look("float64").Pkg(),
 			goobj:   look("float64"),
@@ -687,7 +714,9 @@ func init() {
 			pysig:   "float",
 			c2py:    "cgopy_cnv_c2py_float64",
 			py2c:    "cgopy_cnv_py2c_float64",
+			pychk:   "PyFloat_Check(%s)",
 		},
+
 		"complex64": {
 			gopkg:   look("complex64").Pkg(),
 			goobj:   look("complex64"),
@@ -701,7 +730,9 @@ func init() {
 			pysig:   "complex",
 			c2py:    "cgopy_cnv_c2py_complex64",
 			py2c:    "cgopy_cnv_py2c_complex64",
+			pychk:   "PyComplex_Check(%s)",
 		},
+
 		"complex128": {
 			gopkg:   look("complex128").Pkg(),
 			goobj:   look("complex128"),
@@ -715,6 +746,7 @@ func init() {
 			pysig:   "complex",
 			c2py:    "cgopy_cnv_c2py_complex128",
 			py2c:    "cgopy_cnv_py2c_complex128",
+			pychk:   "PyComplex_Check(%s)",
 		},
 
 		"string": {
@@ -730,6 +762,7 @@ func init() {
 			pysig:   "str",
 			c2py:    "cgopy_cnv_c2py_string",
 			py2c:    "cgopy_cnv_py2c_string",
+			pychk:   "PyString_Check(%s)",
 		},
 
 		"rune": { // FIXME(sbinet) py2/py3
@@ -745,6 +778,7 @@ func init() {
 			pysig:   "str",
 			c2py:    "cgopy_cnv_c2py_rune",
 			py2c:    "cgopy_cnv_py2c_rune",
+			pychk:   "PyUnicode_Check(%s)",
 		},
 
 		"error": &symbol{
@@ -777,6 +811,7 @@ func init() {
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int",
 			py2c:    "cgopy_cnv_py2c_int",
+			pychk:   "PyInt_Check(%s)",
 		}
 		syms["uint"] = &symbol{
 			gopkg:   look("uint").Pkg(),
@@ -791,6 +826,7 @@ func init() {
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_uint",
 			py2c:    "cgopy_cnv_py2c_uint",
+			pychk:   "PyInt_Check(%s)",
 		}
 	}
 
