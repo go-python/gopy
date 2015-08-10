@@ -148,7 +148,10 @@ func newPackage(path string) (*bind.Package, error) {
 	}
 
 	pkg, err := build.Import(path, cwd, 0)
-	files, err := parseFiles(pkg.Dir, pkg.GoFiles)
+	pkgfiles := make([]string, 0, len(pkg.GoFiles)+len(pkg.CgoFiles))
+	pkgfiles = append(pkgfiles, pkg.GoFiles...)
+	pkgfiles = append(pkgfiles, pkg.CgoFiles...)
+	files, err := parseFiles(pkg.Dir, pkgfiles)
 	if err != nil {
 		return nil, err
 	}
@@ -185,6 +188,9 @@ func newPackageFrom(files []*ast.File, conf *loader.Config, pkg *build.Package) 
 		return nil, err
 	}
 	pkgast = pkgs[p.Name()]
+	if pkgast == nil {
+		return nil, fmt.Errorf("gopy: could not find AST for package %q", p.Name())
+	}
 
 	pkgdoc := doc.New(pkgast, pkg.ImportPath, 0)
 
