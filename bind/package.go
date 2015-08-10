@@ -17,6 +17,7 @@ import (
 // Package also collects informations about structs and funcs.
 type Package struct {
 	pkg *types.Package
+	n   int // number of entities to wrap
 	sz  types.Sizes
 	doc *doc.Package
 
@@ -34,6 +35,7 @@ func NewPackage(pkg *types.Package, doc *doc.Package) (*Package, error) {
 	sz := int64(reflect.TypeOf(int(0)).Size())
 	p := &Package{
 		pkg:  pkg,
+		n:    0,
 		sz:   &types.StdSizes{sz, sz},
 		doc:  doc,
 		syms: newSymtab(pkg, nil),
@@ -173,6 +175,7 @@ func (p *Package) process() error {
 			continue
 		}
 
+		p.n++
 		p.syms.addSymbol(obj)
 
 		switch obj := obj.(type) {

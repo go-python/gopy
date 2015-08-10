@@ -234,6 +234,9 @@ func (g *cpyGen) gen() error {
 	g.impl.Indent()
 	g.impl.Printf("PyObject *module = NULL;\n\n")
 
+	g.impl.Printf("/* make sure Cgo is loaded and initialized */\n")
+	g.impl.Printf("cgo_pkg_%[1]s_init();\n\n", g.pkg.pkg.Name())
+
 	for _, n := range g.pkg.syms.names() {
 		sym := g.pkg.syms.sym(n)
 		if !sym.isType() {

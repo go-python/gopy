@@ -31,7 +31,7 @@ import (
 	"sync"
 	"unsafe"
 
-	%[2]q
+	%[2]s
 )
 
 var _ = unsafe.Pointer(nil)
@@ -141,6 +141,9 @@ func (g *goGen) gen() error {
 
 	g.genPreamble()
 
+	// create a Cgo hook for empty packages
+	g.genPackage()
+
 	// process slices, arrays, ...
 	for _, n := range g.pkg.syms.names() {
 		sym := g.pkg.syms.sym(n)
@@ -181,6 +184,11 @@ func (g *goGen) gen() error {
 	}
 
 	return nil
+}
+
+func (g *goGen) genPackage() {
+	g.Printf("//export cgo_pkg_%[1]s_init\n", g.pkg.Name())
+	g.Printf("func cgo_pkg_%[1]s_init() {}\n\n", g.pkg.Name())
 }
 
 func (g *goGen) genFunc(f Func) {
@@ -724,7 +732,12 @@ func (g *goGen) genType(sym *symbol) {
 
 func (g *goGen) genPreamble() {
 	n := g.pkg.pkg.Name()
-	g.Printf(goPreamble, n, g.pkg.pkg.Path(), filepath.Base(n))
+	pkgimport := fmt.Sprintf("%q", g.pkg.pkg.Path())
+	if g.pkg.n == 0 {
+		pkgimport = fmt.Sprintf("_ %q", g.pkg.pkg.Path())
+	}
+
+	g.Printf(goPreamble, n, pkgimport, filepath.Base(n))
 }
 
 func (g *goGen) tupleString(tuple []*Var) string {
