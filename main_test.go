@@ -301,3 +301,15 @@ s.Value() = 'string'
 `),
 	})
 }
+
+func TestBindStructs(t *testing.T) {
+	t.Parallel()
+	testPkg(t, pkg{
+		path: "_examples/structs",
+		want: []byte(`s = structs.S()
+s = structs.S{}
+s.Init()
+s.Upper('boo')= 'BOO'
+`),
+	})
+}
