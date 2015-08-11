@@ -12,3 +12,8 @@ type X float32
 type XX X
 type XXX XX
 type XXXX XXX
+
+func (x X) Value() float32    { return float32(x) }
+func (x XX) Value() float32   { return float32(x) }
+func (x XXX) Value() float32  { return float32(x) }
+func (x XXXX) Value() float32 { return float32(x) }

@@ -251,3 +251,26 @@ doc(pkg):
 `),
 	})
 }
+
+func TestBindNamed(t *testing.T) {
+	t.Parallel()
+	testPkg(t, pkg{
+		path: "_examples/named",
+		want: []byte(`v = named.Float()
+v = 0
+v.Value() = 0.0
+x = named.X()
+x = 0
+x.Value() = 0.0
+x = named.XX()
+x = 0
+x.Value() = 0.0
+x = named.XXX()
+x = 0
+x.Value() = 0.0
+x = named.XXXX()
+x = 0
+x.Value() = 0.0
+`),
+	})
+}
