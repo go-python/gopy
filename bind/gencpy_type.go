@@ -190,7 +190,78 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 	)
 	g.impl.Indent()
 
+	genNargCheck := func(nargs int) {
+		g.impl.Printf("Py_ssize_t nkwds = (kwds != NULL) ? PyDict_Size(kwds) : 0;\n")
+		g.impl.Printf("Py_ssize_t nargs = (args != NULL) ? PySequence_Size(args) : 0;\n")
+		g.impl.Printf("if ((nkwds + nargs) > %d) {\n", nargs)
+		g.impl.Indent()
+		g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
+		g.impl.Printf("\"%s.__init__ takes at most %d argument(s)\");\n",
+			sym.goname,
+			nargs,
+		)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+
+	}
+
+	// FIXME(sbinet) handle slices, arrays and funcs
+	switch {
+	case sym.isBasic():
+		g.impl.Printf("static char *kwlist[] = {\n")
+		g.impl.Indent()
+		g.impl.Printf("%q,\n", "v")
+		g.impl.Printf("NULL\n")
+		g.impl.Outdent()
+		g.impl.Printf("};\n")
+
+		g.impl.Printf("PyObject *arg = NULL;\n\n")
+		genNargCheck(1)
+		g.impl.Printf("if (!PyArg_ParseTupleAndKeywords(args, kwds, ")
+		format := []string{"|O"}
+		addrs := []string{"&arg"}
+		g.impl.Printf("%q, kwlist, %s)) {\n",
+			strings.Join(format, ""),
+			strings.Join(addrs, ", "),
+		)
+		g.impl.Indent()
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+
+		g.impl.Printf("if (arg != NULL) {\n")
+		g.impl.Indent()
+		bsym := g.pkg.syms.symtype(sym.GoType().Underlying())
+		g.impl.Printf(
+			"if (!%s(arg, &self->cgopy)) {\n",
+			bsym.py2c,
+		)
+		g.impl.Indent()
+		g.impl.Printf("Py_XDECREF(arg);\n")
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+
+	case sym.isArray():
+	case sym.isSlice():
+	case sym.isSignature():
+	default:
+		panic(fmt.Errorf(
+			"gopy: tp_init for %s not handled",
+			sym.gofmt(),
+		))
+	}
+
 	g.impl.Printf("return 0;\n")
+	g.impl.Outdent()
+
+	g.impl.Printf("\ncpy_label_%s_init_fail:\n", sym.cpyname)
+	g.impl.Indent()
+	g.impl.Printf("return -1;\n")
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }
