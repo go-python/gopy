@@ -68,9 +68,33 @@ func testPkg(t *testing.T, table pkg) {
 	}
 
 	if !reflect.DeepEqual(string(buf.Bytes()), string(table.want)) {
-		t.Fatalf("[%s]: error running python module:\nwant:\n%s\n\ngot:\n%s\n",
+		diffTxt := ""
+		diffBin, diffErr := exec.LookPath("diff")
+		if diffErr == nil {
+			wantFile, wantErr := os.Create(filepath.Join(workdir, "want.txt"))
+			if wantErr == nil {
+				wantFile.Write(table.want)
+				wantFile.Close()
+			}
+			gotFile, gotErr := os.Create(filepath.Join(workdir, "got.txt"))
+			if gotErr == nil {
+				gotFile.Write(buf.Bytes())
+				gotFile.Close()
+			}
+			if gotErr == nil && wantErr == nil {
+				cmd = exec.Command(diffBin, "-urN",
+					wantFile.Name(),
+					gotFile.Name(),
+				)
+				diff, _ := cmd.CombinedOutput()
+				diffTxt = string(diff) + "\n"
+			}
+		}
+
+		t.Fatalf("[%s]: error running python module:\nwant:\n%s\n\ngot:\n%s\n%s",
 			table.path,
 			string(table.want), string(buf.Bytes()),
+			diffTxt,
 		)
 	}
 
