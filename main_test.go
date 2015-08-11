@@ -292,6 +292,12 @@ x.Value() = 42.0
 x = named.XXXX(42.0)
 x = 42
 x.Value() = 42.0
+s = named.Str()
+s = ""
+s.Value() = ''
+s = named.Str('string')
+s = "string"
+s.Value() = 'string'
 `),
 	})
 }

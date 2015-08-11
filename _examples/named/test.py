@@ -69,3 +69,13 @@ x = named.XXXX(42.0)
 print("x = %s" % (x,))
 print("x.Value() = %s" % (x.Value(),))
 
+print("s = named.Str()")
+s = named.Str()
+print("s = %s" % (s,))
+print("s.Value() = %r" % (s.Value(),))
+
+print("s = named.Str('string')")
+s = named.Str("string")
+print("s = %s" % (s,))
+print("s.Value() = %r" % (s.Value(),))
+
