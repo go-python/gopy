@@ -271,6 +271,27 @@ x.Value() = 0.0
 x = named.XXXX()
 x = 0
 x.Value() = 0.0
+v = named.Float(42)
+v = 42
+v.Value() = 42.0
+v = named.Float(42.0)
+v = 42
+v.Value() = 42.0
+x = named.X(42)
+x = 42
+x.Value() = 42.0
+x = named.XX(42)
+x = 42
+x.Value() = 42.0
+x = named.XXX(42)
+x = 42
+x.Value() = 42.0
+x = named.XXXX(42)
+x = 42
+x.Value() = 42.0
+x = named.XXXX(42.0)
+x = 42
+x.Value() = 42.0
 `),
 	})
 }
