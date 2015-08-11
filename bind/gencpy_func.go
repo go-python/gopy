@@ -7,7 +7,192 @@ package bind
 import (
 	"fmt"
 	"strings"
+
+	"golang.org/x/tools/go/types"
 )
+
+func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
+	isMethod := (sym != nil)
+
+	switch {
+	case isMethod:
+		g.decl.Printf("\n/* wrapping %s.%s */\n", sym.gofmt(), fsym.goname)
+		g.decl.Printf("static PyObject*\n")
+		g.decl.Printf(
+			"cpy_func_%[1]s(%[2]s *self, PyObject *args, PyObject *kwds);\n",
+			fsym.id,
+			sym.cpyname,
+		)
+
+		g.impl.Printf(
+			"\n/* wrapping %s.%s */\n",
+			sym.gofmt(),
+			fsym.goname,
+		)
+		g.impl.Printf("static PyObject*\n")
+		g.impl.Printf(
+			"cpy_func_%[1]s(%[2]s *self, PyObject *args, PyObject *kwds) {\n",
+			fsym.id,
+			sym.cpyname,
+		)
+
+	default:
+		g.decl.Printf("\n/* wrapping %s */\n", fsym.goname)
+		g.decl.Printf("static PyObject*\n")
+		g.decl.Printf(
+			"cpy_func_%[1]s(PyObject *self, PyObject *args, PyObject *kwds);\n",
+			fsym.id,
+		)
+
+		g.impl.Printf(
+			"\n/* wrapping %s */\n",
+			fsym.goname,
+		)
+		g.impl.Printf("static PyObject*\n")
+		g.impl.Printf(
+			"cpy_func_%[1]s(PyObject *self, PyObject *args, PyObject *kwds) {\n",
+			fsym.id,
+		)
+	}
+	g.impl.Indent()
+	sig := fsym.GoType().Underlying().(*types.Signature)
+	args := sig.Params()
+	res := sig.Results()
+
+	nargs := 0
+	nres := 0
+
+	funcArgs := []string{}
+	if isMethod {
+		funcArgs = append(funcArgs, "self->cgopy")
+	}
+
+	if args != nil {
+		nargs = args.Len()
+		for i := 0; i < nargs; i++ {
+			arg := args.At(i)
+			sarg := g.pkg.syms.symtype(arg.Type())
+			if sarg == nil {
+				panic(fmt.Errorf(
+					"gopy: could not find symbol for %q",
+					arg.String(),
+				))
+			}
+			g.impl.Printf("%[1]s arg%03d;\n",
+				sarg.cgoname,
+				i,
+			)
+			funcArgs = append(funcArgs, fmt.Sprintf("arg%03d", i))
+		}
+	}
+
+	if res != nil {
+		nres = res.Len()
+		switch nres {
+		case 0:
+			// no-op
+
+		case 1:
+			ret := res.At(0)
+			sret := g.pkg.syms.symtype(ret.Type())
+			if sret == nil {
+				panic(fmt.Errorf(
+					"gopy: could not find symbol for %q",
+					ret.String(),
+				))
+			}
+			g.impl.Printf("%[1]s ret;\n", sret.cgoname)
+
+		default:
+			g.impl.Printf(
+				"struct cgo_func_%[1]s_return ret;\n",
+				fsym.id,
+			)
+		}
+	}
+
+	g.impl.Printf("\n")
+
+	if nargs > 0 {
+		g.impl.Printf("if (!PyArg_ParseTuple(args, ")
+		format := []string{}
+		pyaddrs := []string{}
+		for i := 0; i < nargs; i++ {
+			sarg := g.pkg.syms.symtype(args.At(i).Type())
+			vname := fmt.Sprintf("arg%03d", i)
+			pyfmt, addr := sarg.getArgParse(vname)
+			format = append(format, pyfmt)
+			pyaddrs = append(pyaddrs, addr...)
+		}
+		g.impl.Printf("%q, %s)) {\n", strings.Join(format, ""), strings.Join(pyaddrs, ", "))
+		g.impl.Indent()
+		g.impl.Printf("return NULL;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+	}
+
+	if nres > 0 {
+		g.impl.Printf("ret = ")
+	}
+
+	g.impl.Printf("cgo_func_%[1]s(%[2]s);\n\n",
+		fsym.id,
+		strings.Join(funcArgs, ", "),
+	)
+
+	if nres <= 0 {
+		g.impl.Printf("Py_INCREF(Py_None);\nreturn Py_None;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+		return
+	}
+
+	if hasError(sig) {
+		switch nres {
+		case 1:
+			g.impl.Printf("if (!_cgopy_ErrorIsNil(ret)) {\n")
+			g.impl.Indent()
+			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(ret);\n")
+			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
+			g.impl.Printf("free((void*)c_err_str);\n")
+			g.impl.Printf("return NULL;\n")
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+			g.impl.Printf("Py_INCREF(Py_None);\nreturn Py_None;\n")
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+			return
+
+		case 2:
+			g.impl.Printf("if (!_cgopy_ErrorIsNil(ret.r1)) {\n")
+			g.impl.Indent()
+			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(ret.r1);\n")
+			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
+			g.impl.Printf("free((void*)c_err_str);\n")
+			g.impl.Printf("return NULL;\n")
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+			ret := res.At(0)
+			sret := g.pkg.syms.symtype(ret.Type())
+			g.impl.Printf("return %s(&ret.r0);\n", sret.c2py)
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+			return
+
+		default:
+			panic(fmt.Errorf(
+				"bind: function/method with more than 2 results not supported! (%s)",
+				fsym.id,
+			))
+		}
+	}
+
+	ret := res.At(0)
+	sret := g.pkg.syms.symtype(ret.Type())
+	g.impl.Printf("return %s(&ret);\n", sret.c2py)
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
+}
 
 func (g *cpyGen) genFunc(o Func) {
 
