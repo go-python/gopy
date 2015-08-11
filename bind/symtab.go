@@ -389,6 +389,19 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 			panic(fmt.Errorf("unhandled named-type: [%T]\n%#v\n", obj, t))
 		}
 
+		// add methods
+		for i := 0; i < typ.NumMethods(); i++ {
+			m := typ.Method(i)
+			if !m.Exported() {
+				continue
+			}
+			if true {
+				mid := id + "_" + m.Name()
+				mname := m.Name()
+				sym.addMethod(pkg, m, m.Type(), skFunc, mid, mname)
+			}
+		}
+
 	case *types.Pointer:
 		// FIXME(sbinet): better handling?
 		elm := *sym.symtype(typ.Elem())
@@ -526,6 +539,21 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 		c2py:    "cgopy_cnv_c2py_" + id,
 		py2c:    "cgopy_cnv_py2c_" + id,
 		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
+	}
+}
+
+func (sym *symtab) addMethod(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+	fn := types.ObjectString(obj, nil)
+	kind |= skFunc
+	sym.syms[fn] = &symbol{
+		gopkg:   pkg,
+		goobj:   obj,
+		gotyp:   t,
+		kind:    kind,
+		id:      id,
+		goname:  n,
+		cgoname: "cgo_func_" + id,
+		cpyname: "cpy_func_" + id,
 	}
 }
 
