@@ -81,7 +81,11 @@ func (g *cpyGen) genType(sym *symbol) {
 
 	tpCall := "0"
 	if sym.isSignature() {
-		tpCall = fmt.Sprintf("(ternaryfunc)cpy_func_%[1]s_tp_call", sym.id)
+		sig := sym.GoType().Underlying().(*types.Signature)
+		if sig.Recv() == nil {
+			// only generate tp_call for functions (not methods)
+			tpCall = fmt.Sprintf("(ternaryfunc)cpy_func_%[1]s_tp_call", sym.id)
+		}
 	}
 
 	g.impl.Printf("static PyTypeObject %sType = {\n", sym.cpyname)
@@ -203,9 +207,51 @@ func (g *cpyGen) genTypeMembers(sym *symbol) {
 
 func (g *cpyGen) genTypeMethods(sym *symbol) {
 	g.decl.Printf("\n/* methods for %s */\n", sym.gofmt())
+	if sym.isNamed() {
+		typ := sym.GoType().(*types.Named)
+		for imeth := 0; imeth < typ.NumMethods(); imeth++ {
+			m := typ.Method(imeth)
+			if !m.Exported() {
+				continue
+			}
+			mname := types.ObjectString(m, nil)
+			msym := g.pkg.syms.sym(mname)
+			if msym == nil {
+				panic(fmt.Errorf(
+					"gopy: could not find symbol for [%[1]T] (%#[1]v) (%[2]s)",
+					m.Type(),
+					m.Name()+" || "+m.FullName(),
+				))
+			}
+			g._genFunc(sym, msym)
+		}
+	}
 	g.impl.Printf("\n/* methods for %s */\n", sym.gofmt())
 	g.impl.Printf("static PyMethodDef %s_methods[] = {\n", sym.cpyname)
 	g.impl.Indent()
+	if sym.isNamed() {
+		typ := sym.GoType().(*types.Named)
+		for imeth := 0; imeth < typ.NumMethods(); imeth++ {
+			m := typ.Method(imeth)
+			if !m.Exported() {
+				continue
+			}
+			mname := types.ObjectString(m, nil)
+			msym := g.pkg.syms.sym(mname)
+			margs := "METH_VARARGS"
+			sig := m.Type().Underlying().(*types.Signature)
+			if sig.Params() == nil || sig.Params().Len() <= 0 {
+				margs = "METH_NOARGS"
+			}
+			g.impl.Printf(
+				"{%[1]q, (PyCFunction)cpy_func_%[2]s, %[3]s, %[4]q},\n",
+				msym.goname,
+				msym.id,
+				margs,
+				msym.doc,
+			)
+		}
+	}
 	g.impl.Printf("{NULL} /* sentinel */\n")
 	g.impl.Outdent()
 	g.impl.Printf("};\n\n")
@@ -601,6 +647,17 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 }
 
 func (g *cpyGen) genTypeTPCall(sym *symbol) {
+
+	if !sym.isSignature() {
+		return
+	}
+
+	sig := sym.GoType().Underlying().(*types.Signature)
+	if sig.Recv() != nil {
+		// don't generate tp_call for methods.
+		return
+	}
+
 	g.decl.Printf("\n/* tp_call */\n")
 	g.decl.Printf("static PyObject *\n")
 	g.decl.Printf(
@@ -608,8 +665,6 @@ func (g *cpyGen) genTypeTPCall(sym *symbol) {
 		sym.id,
 		sym.cpyname,
 	)
-
-	sig := sym.GoType().Underlying().(*types.Signature)
 
 	g.impl.Printf("\n/* tp_call */\n")
 	g.impl.Printf("static PyObject *\n")
@@ -708,27 +763,9 @@ func (g *cpyGen) genTypeTPCall(sym *symbol) {
 			g.impl.Printf("return NULL;\n")
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
-			if isConstructor(sig) {
-				ret := res[0]
-				g.impl.Printf("PyObject *o = cpy_func_%[1]s_new(&%[2]sType, 0, 0);\n",
-					ret.sym.id,
-					ret.sym.cpyname,
-				)
-				g.impl.Printf("if (o == NULL) {\n")
-				g.impl.Indent()
-				g.impl.Printf("return NULL;\n")
-				g.impl.Outdent()
-				g.impl.Printf("}\n")
-				g.impl.Printf("((%[1]s*)o)->cgopy = c_gopy_ret.r0;\n",
-					ret.sym.cpyname,
-				)
-				g.impl.Printf("return o;\n")
-				g.impl.Outdent()
-				g.impl.Printf("}\n\n")
-				return
-			}
-			pyfmt, _ := res[0].getArgBuildValue()
-			g.impl.Printf("return Py_BuildValue(%q, c_gopy_ret.r0);\n", pyfmt)
+			ret := res[0]
+			sret := g.pkg.syms.symtype(ret.GoType())
+			g.impl.Printf("return %s(&c_gopy_ret.r0);\n", sret.c2py)
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
 			return
@@ -741,48 +778,9 @@ func (g *cpyGen) genTypeTPCall(sym *symbol) {
 		}
 	}
 
-	if isConstructor(sig) {
-		ret := res[0]
-		g.impl.Printf("PyObject *o = cpy_func_%[1]s_new(&%[2]sType, 0, 0);\n",
-			ret.sym.id,
-			ret.sym.cpyname,
-		)
-		g.impl.Printf("if (o == NULL) {\n")
-		g.impl.Indent()
-		g.impl.Printf("return NULL;\n")
-		g.impl.Outdent()
-		g.impl.Printf("}\n")
-		g.impl.Printf("((%[1]s*)o)->cgopy = c_gopy_ret;\n",
-			ret.sym.cpyname,
-		)
-		g.impl.Printf("return o;\n")
-		g.impl.Outdent()
-		g.impl.Printf("}\n\n")
-		return
-	}
-
-	format := []string{}
-	funcArgs = []string{}
-	switch len(res) {
-	case 1:
-		ret := res[0]
-		ret.name = "gopy_ret"
-		pyfmt, pyaddrs := ret.getArgBuildValue()
-		format = append(format, pyfmt)
-		funcArgs = append(funcArgs, pyaddrs...)
-	default:
-		for _, ret := range res {
-			pyfmt, pyaddrs := ret.getArgBuildValue()
-			format = append(format, pyfmt)
-			funcArgs = append(funcArgs, pyaddrs...)
-		}
-	}
-
-	g.impl.Printf("return Py_BuildValue(%q, %s);\n",
-		strings.Join(format, ""),
-		strings.Join(funcArgs, ", "),
-	)
-
+	ret := res[0]
+	sret := g.pkg.syms.symtype(ret.GoType())
+	g.impl.Printf("return %s(&c_gopy_ret);\n", sret.c2py)
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }

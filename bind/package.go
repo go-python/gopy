@@ -310,9 +310,9 @@ type Struct struct {
 }
 
 func newStruct(p *Package, obj *types.TypeName) (Struct, error) {
-	sym := p.syms.sym(obj.Name())
+	sym := p.syms.symtype(obj.Type())
 	if sym == nil {
-		panic(fmt.Errorf("no such object [%s] in symbols table", obj.Name()))
+		panic(fmt.Errorf("no such object [%s] in symbols table", obj.Id()))
 	}
 	sym.doc = p.getDoc("", obj)
 	s := Struct{

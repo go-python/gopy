@@ -187,7 +187,7 @@ func (g *goGen) gen() error {
 }
 
 func (g *goGen) genPackage() {
-	g.Printf("//export cgo_pkg_%[1]s_init\n", g.pkg.Name())
+	g.Printf("\n//export cgo_pkg_%[1]s_init\n", g.pkg.Name())
 	g.Printf("func cgo_pkg_%[1]s_init() {}\n\n", g.pkg.Name())
 }
 
@@ -625,30 +625,171 @@ func (g *goGen) genType(sym *symbol) {
 		g.Printf("}\n\n")
 	}
 
-	if sym.isSignature() {
-		// support for __call__
-		g.Printf("//export cgo_func_%[1]s_call\n", sym.id)
-		g.Printf("func cgo_func_%[1]s_call(self %[2]s", sym.id, sym.cgotypename())
-		sig := sym.GoType().Underlying().(*types.Signature)
+	g.genTypeTPCall(sym)
+
+	g.genTypeMethods(sym)
+
+}
+
+func (g *goGen) genTypeTPCall(sym *symbol) {
+	if !sym.isSignature() {
+		return
+	}
+
+	sig := sym.GoType().Underlying().(*types.Signature)
+	if sig.Recv() != nil {
+		// don't generate tp_call for methods.
+		return
+	}
+
+	// support for __call__
+	g.Printf("//export cgo_func_%[1]s_call\n", sym.id)
+	g.Printf("func cgo_func_%[1]s_call(self %[2]s", sym.id, sym.cgotypename())
+	params := sig.Params()
+	res := sig.Results()
+	if params != nil && params.Len() > 0 {
+		for i := 0; i < params.Len(); i++ {
+			arg := params.At(i)
+			sarg := g.pkg.syms.symtype(arg.Type())
+			if sarg == nil {
+				panic(fmt.Errorf(
+					"gopy: could not find symtype for [%T]",
+					arg.Type(),
+				))
+			}
+			g.Printf(", arg%03d %s", i, sarg.cgotypename())
+		}
+	}
+	g.Printf(")")
+	if res != nil && res.Len() > 0 {
+		g.Printf(" (")
+		for i := 0; i < res.Len(); i++ {
+			ret := res.At(i)
+			sret := g.pkg.syms.symtype(ret.Type())
+			if sret == nil {
+				panic(fmt.Errorf(
+					"gopy: could not find symbol for [%T]",
+					ret.Type(),
+				))
+			}
+			comma := ", "
+			if i == 0 {
+				comma = ""
+			}
+			g.Printf("%s%s", comma, sret.cgotypename())
+		}
+		g.Printf(")")
+	}
+	g.Printf(" {\n")
+	g.Indent()
+	if res != nil && res.Len() > 0 {
+		for i := 0; i < res.Len(); i++ {
+			if i > 0 {
+				g.Printf(", ")
+			}
+			g.Printf("res%03d", i)
+		}
+		g.Printf(" := ")
+	}
+	g.Printf("(*(*%[1]s)(unsafe.Pointer(self)))(", sym.gofmt())
+	if params != nil && params.Len() > 0 {
+		for i := 0; i < params.Len(); i++ {
+			comma := ", "
+			if i == 0 {
+				comma = ""
+			}
+			arg := params.At(i)
+			sarg := g.pkg.syms.symtype(arg.Type())
+			if sarg.isBasic() {
+				g.Printf("%sarg%03d", comma, i)
+			} else {
+				g.Printf(
+					"%s*(*%s)(unsafe.Pointer(arg%03d))",
+					comma,
+					sarg.gofmt(),
+					i,
+				)
+			}
+		}
+	}
+	g.Printf(")\n")
+	if res != nil && res.Len() > 0 {
+		for i := 0; i < res.Len(); i++ {
+			ret := res.At(i)
+			sret := g.pkg.syms.symtype(ret.Type())
+			if !needWrapType(sret.GoType()) {
+				continue
+			}
+			g.Printf("cgopy_incref(unsafe.Pointer(&arg%03d))", i)
+		}
+
+		g.Printf("return ")
+		for i := 0; i < res.Len(); i++ {
+			if i > 0 {
+				g.Printf(", ")
+			}
+			ret := res.At(i)
+			sret := g.pkg.syms.symtype(ret.Type())
+			if needWrapType(ret.Type()) {
+				g.Printf("%s(unsafe.Pointer(&", sret.cgotypename())
+			}
+			g.Printf("res%03d", i)
+			if needWrapType(ret.Type()) {
+				g.Printf("))")
+			}
+		}
+		g.Printf("\n")
+	}
+	g.Outdent()
+	g.Printf("}\n\n")
+
+}
+
+func (g *goGen) genTypeMethods(sym *symbol) {
+	if !sym.isNamed() {
+		return
+	}
+
+	typ := sym.GoType().(*types.Named)
+	for imeth := 0; imeth < typ.NumMethods(); imeth++ {
+		m := typ.Method(imeth)
+		mname := types.ObjectString(m, nil)
+		msym := g.pkg.syms.sym(mname)
+		if msym == nil {
+			panic(fmt.Errorf(
+				"gopy: could not find symbol for [%[1]T] (%#[1]v) (%[2]s)",
+				m.Type(),
+				m.Name()+" || "+m.FullName(),
+			))
+		}
+		g.Printf("//export cgo_func_%[1]s\n", msym.id)
+		g.Printf("func cgo_func_%[1]s(self %[2]s",
+			msym.id,
+			sym.cgoname,
+		)
+		sig := m.Type().(*types.Signature)
 		params := sig.Params()
-		res := sig.Results()
-		if params != nil && params.Len() > 0 {
+		if params != nil {
 			for i := 0; i < params.Len(); i++ {
 				arg := params.At(i)
 				sarg := g.pkg.syms.symtype(arg.Type())
 				if sarg == nil {
 					panic(fmt.Errorf(
-						"gopy: could not find symtype for [%T]",
+						"gopy: could not find symbol for [%T]",
 						arg.Type(),
 					))
 				}
 				g.Printf(", arg%03d %s", i, sarg.cgotypename())
 			}
 		}
-		g.Printf(")")
-		if res != nil && res.Len() > 0 {
-			g.Printf(" (")
+		g.Printf(") ")
+		res := sig.Results()
+		if res != nil {
+			g.Printf("(")
 			for i := 0; i < res.Len(); i++ {
+				if i > 0 {
+					g.Printf(", ")
+				}
 				ret := res.At(i)
 				sret := g.pkg.syms.symtype(ret.Type())
 				if sret == nil {
@@ -657,74 +798,79 @@ func (g *goGen) genType(sym *symbol) {
 						ret.Type(),
 					))
 				}
-				comma := ", "
-				if i == 0 {
-					comma = ""
-				}
-				g.Printf("%s%s", comma, sret.cgotypename())
+				g.Printf("%s", sret.cgotypename())
 			}
 			g.Printf(")")
 		}
 		g.Printf(" {\n")
 		g.Indent()
-		if res != nil && res.Len() > 0 {
+
+		if res != nil {
 			for i := 0; i < res.Len(); i++ {
 				if i > 0 {
 					g.Printf(", ")
 				}
 				g.Printf("res%03d", i)
 			}
-			g.Printf(" := ")
+			if res.Len() > 0 {
+				g.Printf(" := ")
+			}
 		}
-		g.Printf("(*(*%[1]s)(unsafe.Pointer(self)))(", sym.gofmt())
-		if params != nil && params.Len() > 0 {
+		if sym.isBasic() {
+			g.Printf("(*%s)(unsafe.Pointer(&self)).%s(",
+				sym.gofmt(),
+				msym.goname,
+			)
+		} else {
+			g.Printf("(*%s)(unsafe.Pointer(self)).%s(",
+				sym.gofmt(),
+				msym.goname,
+			)
+		}
+
+		if params != nil {
 			for i := 0; i < params.Len(); i++ {
-				comma := ", "
-				if i == 0 {
-					comma = ""
+				if i > 0 {
+					g.Printf(", ")
 				}
-				arg := params.At(i)
-				sarg := g.pkg.syms.symtype(arg.Type())
-				if sarg.isBasic() {
-					g.Printf("%sarg%03d", comma, i)
-				} else {
-					g.Printf(
-						"%s*(*%s)(unsafe.Pointer(arg%03d))",
-						comma,
+				sarg := g.pkg.syms.symtype(params.At(i).Type())
+				if needWrapType(sarg.GoType()) {
+					g.Printf("*(*%s)(unsafe.Pointer(arg%03d))",
 						sarg.gofmt(),
 						i,
 					)
+				} else {
+					g.Printf("arg%03d", i)
 				}
 			}
 		}
 		g.Printf(")\n")
-		if res != nil && res.Len() > 0 {
-			for i := 0; i < res.Len(); i++ {
-				ret := res.At(i)
-				sret := g.pkg.syms.symtype(ret.Type())
-				if !needWrapType(sret.GoType()) {
-					continue
-				}
-				g.Printf("cgopy_incref(unsafe.Pointer(&arg%03d))", i)
-			}
 
-			g.Printf("return ")
-			for i := 0; i < res.Len(); i++ {
-				if i > 0 {
-					g.Printf(", ")
-				}
-				ret := res.At(i)
-				sret := g.pkg.syms.symtype(ret.Type())
-				if needWrapType(ret.Type()) {
-					g.Printf("%s(unsafe.Pointer(&", sret.cgotypename())
-				}
-				g.Printf("res%03d", i)
-				if needWrapType(ret.Type()) {
-					g.Printf("))")
-				}
-			}
-			g.Printf("\n")
+		if res == nil || res.Len() <= 0 {
+			g.Outdent()
+			g.Printf("}\n\n")
+			continue
 		}
+
+		g.Printf("return ")
+		for i := 0; i < res.Len(); i++ {
+			if i > 0 {
+				g.Printf(", ")
+			}
+			sret := g.pkg.syms.symtype(res.At(i).Type())
+			if needWrapType(sret.GoType()) {
+				g.Printf(
+					"%s(unsafe.Pointer(&",
+					sret.cgoname,
+				)
+			}
+			g.Printf("res%03d", i)
+			if needWrapType(sret.GoType()) {
+				g.Printf("))")
+			}
+		}
+		g.Printf("\n")
+
 		g.Outdent()
 		g.Printf("}\n\n")
 	}
