@@ -8,7 +8,7 @@ package cpkg
 //#include <string.h>
 //#include <stdlib.h>
 //void cpkg_printf(const char *str) {
-//	fprintf(stdout, str);
+//	fprintf(stdout, "%s", str);
 //	fflush(stdout);
 //}
 import "C"
