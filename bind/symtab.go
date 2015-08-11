@@ -175,6 +175,33 @@ func (s symbol) gofmt() string {
 	)
 }
 
+func (s symbol) getArgParse(v string) (string, []string) {
+	addrs := make([]string, 0, 1)
+	cnv := s.hasConverter()
+	if cnv {
+		addrs = append(addrs, s.py2c)
+	}
+	addr := "&" + v
+	addrs = append(addrs, addr)
+	return s.pyfmt, addrs
+}
+
+func (s symbol) getBuildValue(v string) (string, []string) {
+	args := make([]string, 0, 1)
+	cnv := s.hasConverter()
+	if cnv {
+		args = append(args, ""+s.c2py)
+	}
+	arg := v
+	if cnv {
+		arg = "&" + arg
+	}
+	args = append(args, arg)
+
+	return s.pyfmt, args
+
+}
+
 // symtab is a table of symbols in a go package
 type symtab struct {
 	pkg    *types.Package
@@ -218,7 +245,7 @@ func (sym *symtab) typeof(n string) *symbol {
 	s := sym.sym(n)
 	switch s.kind {
 	case skVar, skConst:
-		tname := sym.typename(s.goobj.Type())
+		tname := sym.typename(s.goobj.Type(), nil)
 		return sym.sym(tname)
 	case skFunc:
 		//FIXME(sbinet): really?
@@ -231,16 +258,20 @@ func (sym *symtab) typeof(n string) *symbol {
 	panic("unreachable")
 }
 
-func (sym *symtab) typename(t types.Type) string {
-	return types.TypeString(t, types.RelativeTo(sym.pkg))
+func (sym *symtab) typename(t types.Type, pkg *types.Package) string {
+	if pkg == nil {
+		return types.TypeString(t, nil)
+	}
+	return types.TypeString(t, types.RelativeTo(pkg))
 }
 
 func (sym *symtab) symtype(t types.Type) *symbol {
-	tname := sym.typename(t)
+	tname := sym.typename(t, nil)
 	return sym.sym(tname)
 }
 
 func (sym *symtab) addSymbol(obj types.Object) {
+	fn := types.ObjectString(obj, nil)
 	n := obj.Name()
 	pkg := obj.Pkg()
 	id := n
@@ -249,7 +280,7 @@ func (sym *symtab) addSymbol(obj types.Object) {
 	}
 	switch obj.(type) {
 	case *types.Const:
-		sym.syms[n] = &symbol{
+		sym.syms[fn] = &symbol{
 			gopkg:   pkg,
 			goobj:   obj,
 			kind:    skConst,
@@ -261,7 +292,7 @@ func (sym *symtab) addSymbol(obj types.Object) {
 		sym.addType(obj, obj.Type())
 
 	case *types.Var:
-		sym.syms[n] = &symbol{
+		sym.syms[fn] = &symbol{
 			gopkg:   pkg,
 			goobj:   obj,
 			kind:    skVar,
@@ -273,7 +304,7 @@ func (sym *symtab) addSymbol(obj types.Object) {
 		sym.addType(obj, obj.Type())
 
 	case *types.Func:
-		sym.syms[n] = &symbol{
+		sym.syms[fn] = &symbol{
 			gopkg:   pkg,
 			goobj:   obj,
 			kind:    skFunc,
@@ -292,7 +323,8 @@ func (sym *symtab) addSymbol(obj types.Object) {
 }
 
 func (sym *symtab) addType(obj types.Object, t types.Type) {
-	n := sym.typename(t)
+	fn := sym.typename(t, nil)
+	n := sym.typename(t, sym.pkg)
 	var pkg *types.Package
 	if obj != nil {
 		pkg = obj.Pkg()
@@ -327,7 +359,7 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 
 		case *types.Basic:
 			bsym := sym.symtype(typ)
-			sym.syms[n] = &symbol{
+			sym.syms[fn] = &symbol{
 				gopkg:   pkg,
 				goobj:   obj,
 				gotyp:   t,
@@ -361,7 +393,7 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 		// FIXME(sbinet): better handling?
 		elm := *sym.symtype(typ.Elem())
 		elm.kind |= skPointer
-		sym.syms[n] = &elm
+		sym.syms[fn] = &elm
 
 	default:
 		panic(fmt.Errorf("unhandled obj [%T]\ntype [%#v]", obj, t))
@@ -369,9 +401,10 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 }
 
 func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+	fn := sym.typename(t, nil)
 	typ := t.Underlying().(*types.Array)
 	kind |= skArray
-	enam := sym.typename(typ.Elem())
+	enam := sym.typename(typ.Elem(), nil)
 	elt := sym.sym(enam)
 	if elt == nil || elt.goname == "" {
 		eobj := sym.pkg.Scope().Lookup(enam)
@@ -382,7 +415,7 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		elt = sym.typeof(enam)
 	}
 	id = hash(id)
-	sym.syms[n] = &symbol{
+	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
 		gotyp:   t,
@@ -401,9 +434,10 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 }
 
 func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+	fn := sym.typename(t, nil)
 	typ := t.Underlying().(*types.Slice)
 	kind |= skSlice
-	enam := sym.typename(typ.Elem())
+	enam := sym.typename(typ.Elem(), nil)
 	elt := sym.sym(enam)
 	if elt == nil || elt.goname == "" {
 		eobj := sym.pkg.Scope().Lookup(enam)
@@ -414,7 +448,7 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		elt = sym.typeof(enam)
 	}
 	id = hash(id)
-	sym.syms[n] = &symbol{
+	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
 		gotyp:   t,
@@ -433,6 +467,7 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 }
 
 func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+	fn := sym.typename(t, nil)
 	typ := t.Underlying().(*types.Struct)
 	kind |= skStruct
 	pybuf := make([]string, 0, typ.NumFields())
@@ -451,7 +486,7 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 		}
 		pybuf = append(pybuf, fsym.pybuf)
 	}
-	sym.syms[n] = &symbol{
+	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
 		gotyp:   t,
@@ -470,10 +505,13 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 }
 
 func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+	fn := sym.typename(t, nil)
 	//typ := t.(*types.Signature)
 	kind |= skSignature
-	id = hash(id)
-	sym.syms[n] = &symbol{
+	if (kind & skNamed) == 0 {
+		id = hash(id)
+	}
+	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
 		gotyp:   t,
