@@ -377,8 +377,21 @@ func (g *cpyGen) genStructMethods(cpy Struct) {
 	pkgname := cpy.Package().Name()
 
 	g.decl.Printf("\n/* methods for %s.%s */\n", pkgname, cpy.GoName())
-	for _, m := range cpy.meths {
-		g.genMethod(cpy, m)
+	typ := cpy.sym.GoType().(*types.Named)
+	for i := 0; i < typ.NumMethods(); i++ {
+		m := typ.Method(i)
+		if !m.Exported() {
+			continue
+		}
+		mname := types.ObjectString(m, nil)
+		msym := g.pkg.syms.sym(mname)
+		if msym == nil {
+			panic(fmt.Errorf(
+				"gopy: could not find symbol for %q",
+				m.FullName(),
+			))
+		}
+		g._genFunc(cpy.sym, msym)
 	}
 
 	g.impl.Printf("\n/* methods for %s.%s */\n", pkgname, cpy.GoName())
@@ -400,31 +413,6 @@ func (g *cpyGen) genStructMethods(cpy Struct) {
 	g.impl.Printf("{NULL} /* sentinel */\n")
 	g.impl.Outdent()
 	g.impl.Printf("};\n\n")
-}
-
-func (g *cpyGen) genMethod(cpy Struct, fct Func) {
-	pkgname := g.pkg.pkg.Name()
-	g.decl.Printf("\n/* wrapper of %[1]s.%[2]s */\n",
-		pkgname,
-		cpy.GoName()+"."+fct.GoName(),
-	)
-	g.decl.Printf("static PyObject*\n")
-	g.decl.Printf("cpy_func_%s(PyObject *self, PyObject *args);\n", fct.ID())
-
-	g.impl.Printf("/* wrapper of %[1]s.%[2]s */\n",
-		pkgname,
-		cpy.GoName()+"."+fct.GoName(),
-	)
-	g.impl.Printf("static PyObject*\n")
-	g.impl.Printf("cpy_func_%s(PyObject *self, PyObject *args) {\n", fct.ID())
-	g.impl.Indent()
-	g.genMethodBody(fct)
-	g.impl.Outdent()
-	g.impl.Printf("}\n\n")
-}
-
-func (g *cpyGen) genMethodBody(fct Func) {
-	g.genFuncBody(fct)
 }
 
 func (g *cpyGen) genStructProtocols(cpy Struct) {
