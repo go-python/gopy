@@ -115,69 +115,70 @@ func (g *cpyGen) genStructInit(cpy Struct) {
 	g.impl.Indent()
 
 	nfields := cpy.Struct().NumFields()
-	kwds := make(map[string]int)
-	g.impl.Printf("static char *kwlist[] = {\n")
-	g.impl.Indent()
-	for i := 0; i < nfields; i++ {
-		field := cpy.Struct().Field(i)
-		kwds[field.Name()] = i
-		g.impl.Printf("%q, /* py_kwd_%03d */\n", field.Name(), i)
-	}
-	g.impl.Printf("NULL\n")
-	g.impl.Outdent()
-	g.impl.Printf("};\n")
-
-	for i := 0; i < nfields; i++ {
-		g.impl.Printf("PyObject *py_kwd_%03d = NULL;\n", i)
-	}
-
-	g.impl.Printf("Py_ssize_t nkwds = (kwds != NULL) ? PyDict_Size(kwds) : 0;\n")
-	g.impl.Printf("Py_ssize_t nargs = (args != NULL) ? PySequence_Size(args) : 0;\n")
-	g.impl.Printf("if ((nkwds + nargs) > %d) {\n", nfields)
-	g.impl.Indent()
-	g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
-	g.impl.Printf("\"%s.__init__ takes at most %d argument(s)\");\n",
-		cpy.GoName(),
-		nfields,
-	)
-	g.impl.Printf("goto cpy_label_%s_init_fail;\n", cpy.sym.cpyname)
-	g.impl.Outdent()
-	g.impl.Printf("}\n\n")
-
-	g.impl.Printf("if (!PyArg_ParseTupleAndKeywords(args, kwds, ")
-	format := []string{"|"}
-	addrs := []string{}
-	for i := 0; i < nfields; i++ {
-		format = append(format, "O")
-		addrs = append(addrs, fmt.Sprintf("&py_kwd_%03d", i))
-	}
-	g.impl.Printf("%q, kwlist, %s)) {\n",
-		strings.Join(format, ""),
-		strings.Join(addrs, ", "),
-	)
-	g.impl.Indent()
-	g.impl.Printf("goto cpy_label_%s_init_fail;\n", cpy.sym.cpyname)
-	g.impl.Outdent()
-	g.impl.Printf("}\n\n")
-
-	for i := 0; i < nfields; i++ {
-		g.impl.Printf("if (py_kwd_%03d != NULL) {\n", i)
+	if nfields > 0 {
+		kwds := make(map[string]int)
+		g.impl.Printf("static char *kwlist[] = {\n")
 		g.impl.Indent()
-		g.impl.Printf(
-			"if (cpy_func_%[1]s_setter_%[2]d(self, py_kwd_%03[3]d, NULL)) {\n",
-			cpy.sym.id,
-			i+1,
-			i,
+		for i := 0; i < nfields; i++ {
+			field := cpy.Struct().Field(i)
+			kwds[field.Name()] = i
+			g.impl.Printf("%q, /* py_kwd_%03d */\n", field.Name(), i)
+		}
+		g.impl.Printf("NULL\n")
+		g.impl.Outdent()
+		g.impl.Printf("};\n")
+
+		for i := 0; i < nfields; i++ {
+			g.impl.Printf("PyObject *py_kwd_%03d = NULL;\n", i)
+		}
+
+		g.impl.Printf("Py_ssize_t nkwds = (kwds != NULL) ? PyDict_Size(kwds) : 0;\n")
+		g.impl.Printf("Py_ssize_t nargs = (args != NULL) ? PySequence_Size(args) : 0;\n")
+		g.impl.Printf("if ((nkwds + nargs) > %d) {\n", nfields)
+		g.impl.Indent()
+		g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
+		g.impl.Printf("\"%s.__init__ takes at most %d argument(s)\");\n",
+			cpy.GoName(),
+			nfields,
+		)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", cpy.sym.cpyname)
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+
+		g.impl.Printf("if (!PyArg_ParseTupleAndKeywords(args, kwds, ")
+		format := []string{"|"}
+		addrs := []string{}
+		for i := 0; i < nfields; i++ {
+			format = append(format, "O")
+			addrs = append(addrs, fmt.Sprintf("&py_kwd_%03d", i))
+		}
+		g.impl.Printf("%q, kwlist, %s)) {\n",
+			strings.Join(format, ""),
+			strings.Join(addrs, ", "),
 		)
 		g.impl.Indent()
 		g.impl.Printf("goto cpy_label_%s_init_fail;\n", cpy.sym.cpyname)
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
-		g.impl.Outdent()
-		g.impl.Printf("}\n\n")
-	}
+		for i := 0; i < nfields; i++ {
+			g.impl.Printf("if (py_kwd_%03d != NULL) {\n", i)
+			g.impl.Indent()
+			g.impl.Printf(
+				"if (cpy_func_%[1]s_setter_%[2]d(self, py_kwd_%03[3]d, NULL)) {\n",
+				cpy.sym.id,
+				i+1,
+				i,
+			)
+			g.impl.Indent()
+			g.impl.Printf("goto cpy_label_%s_init_fail;\n", cpy.sym.cpyname)
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
 
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+		}
+	}
 	g.impl.Printf("return 0;\n")
 	g.impl.Outdent()
 	g.impl.Printf("\ncpy_label_%s_init_fail:\n", cpy.sym.cpyname)
