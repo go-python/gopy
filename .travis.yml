@@ -1,0 +1,16 @@
+language: go
+
+go:
+  - 1.5rc1
+
+before_install:
+   - sudo apt-get update -qq
+   - sudo apt-get install python-dev -qq
+   - export PATH=$HOME/gopath/bin:$PATH
+
+notifications:
+  email:
+    recipients:
+      - binet@cern.ch
+    on_success: change
+    on_failure: always
