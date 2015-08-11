@@ -762,8 +762,8 @@ func init() {
 			pyfmt:   "f",
 			pybuf:   "f",
 			pysig:   "float",
-			c2py:    "cgopy_cnv_c2py_f32",
-			py2c:    "cgopy_cnv_py2c_f32",
+			c2py:    "cgopy_cnv_c2py_float32",
+			py2c:    "cgopy_cnv_py2c_float32",
 			pychk:   "PyFloat_Check(%s)",
 		},
 
