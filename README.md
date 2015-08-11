@@ -2,6 +2,7 @@ gopy
 ====
 
 [![GoDoc](https://godoc.org/github.com/go-python/gopy?status.svg)](https://godoc.org/github.com/go-python/gopy)
+[![Build Status](https://travis-ci.org/go-python/gopy.svg?branch=master)](https://travis-ci.org/go-python/gopy)
 
 `gopy` generates (and compiles) a `CPython` extension module from a `go` package.
 
