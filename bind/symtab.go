@@ -313,12 +313,29 @@ func (sym *symtab) addSymbol(obj types.Object) {
 			cgoname: "cgo_func_" + id,
 			cpyname: "cpy_func_" + id,
 		}
+		sig := obj.Type().Underlying().(*types.Signature)
+		sym.processTuple(sig.Params())
+		sym.processTuple(sig.Results())
 
 	case *types.TypeName:
 		sym.addType(obj, obj.Type())
 
 	default:
 		panic(fmt.Errorf("gopy: handled object [%#v]", obj))
+	}
+}
+
+func (sym *symtab) processTuple(tuple *types.Tuple) {
+	if tuple == nil {
+		return
+	}
+	for i := 0; i < tuple.Len(); i++ {
+		ivar := tuple.At(i)
+		ityp := ivar.Type()
+		isym := sym.symtype(ityp)
+		if isym == nil {
+			sym.addType(ivar, ityp)
+		}
 	}
 }
 
@@ -403,10 +420,43 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 		}
 
 	case *types.Pointer:
+		etyp := typ.Elem()
+		esym := sym.symtype(etyp)
+		if esym == nil {
+			sym.addType(obj, etyp)
+			esym = sym.symtype(etyp)
+			if esym == nil {
+				panic(fmt.Errorf(
+					"gopy: could not retrieve symbol for %q",
+					sym.typename(etyp, nil),
+				))
+			}
+		}
+
 		// FIXME(sbinet): better handling?
-		elm := *sym.symtype(typ.Elem())
-		elm.kind |= skPointer
-		sym.syms[fn] = &elm
+		if true {
+			elm := *esym
+			elm.kind |= skPointer
+			sym.syms[fn] = &elm
+		} else {
+			id = hash(id)
+			sym.syms[fn] = &symbol{
+				gopkg:   pkg,
+				goobj:   obj,
+				gotyp:   t,
+				kind:    esym.kind | skPointer,
+				id:      id,
+				goname:  n,
+				cgoname: "cgo_type_" + id,
+				cpyname: "cpy_type_" + id,
+				pyfmt:   "O&",
+				pybuf:   "P",
+				pysig:   "object",
+				c2py:    "cgopy_cnv_c2py_" + id,
+				py2c:    "cgopy_cnv_py2c_" + id,
+				pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
+			}
+		}
 
 	default:
 		panic(fmt.Errorf("unhandled obj [%T]\ntype [%#v]", obj, t))
@@ -569,6 +619,17 @@ func (sym *symtab) addMethod(pkg *types.Package, obj types.Object, t types.Type,
 		cgoname: "cgo_func_" + id,
 		cpyname: "cpy_func_" + id,
 	}
+	sig := t.Underlying().(*types.Signature)
+	sym.processTuple(sig.Results())
+	sym.processTuple(sig.Params())
+}
+
+func (sym *symtab) print() {
+	fmt.Printf("\n\n%s\n", strings.Repeat("=", 80))
+	for _, n := range sym.names() {
+		fmt.Printf("%q (kind=%v)\n", n, sym.syms[n].kind)
+	}
+	fmt.Printf("%s\n", strings.Repeat("=", 80))
 }
 
 func init() {

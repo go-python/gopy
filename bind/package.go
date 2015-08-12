@@ -177,6 +177,13 @@ func (p *Package) process() error {
 
 		p.n++
 		p.syms.addSymbol(obj)
+	}
+
+	for _, name := range scope.Names() {
+		obj := scope.Lookup(name)
+		if !obj.Exported() {
+			continue
+		}
 
 		switch obj := obj.(type) {
 		case *types.Const:
