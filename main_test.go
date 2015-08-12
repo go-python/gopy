@@ -341,6 +341,22 @@ s.Value() = ''
 s = named.Str('string')
 s = "string"
 s.Value() = 'string'
+arr = named.Array()
+arr = named.Array{0, 0}
+arr = named.Array([1,2])
+arr = named.Array{1, 2}
+arr = named.Array(range(10))
+caught: Array.__init__ takes a sequence of size at most 2
+arr = named.Array(xrange(2))
+arr = named.Slice{0, 1}
+s = named.Slice()
+s = named.Slice(nil)
+s = named.Slice([1,2])
+s = named.Slice{1, 2}
+s = named.Slice(range(10))
+s = named.Slice{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+s = named.Slice(xrange(10))
+s = named.Slice{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 `),
 	})
 }

@@ -84,3 +84,39 @@ s = named.Str("string")
 print("s = %s" % (s,))
 print("s.Value() = %r" % (s.Value(),))
 
+print("arr = named.Array()")
+arr = named.Array()
+print("arr = %s" % (arr,))
+
+print("arr = named.Array([1,2])")
+arr = named.Array([1,2])
+print("arr = %s" % (arr,))
+
+try:
+    print("arr = named.Array(range(10))")
+    arr = named.Array(range(10))
+    print("arr = %s" % (arr,))
+except Exception, err:
+    print("caught: %s" % (err,))
+    pass
+
+print("arr = named.Array(xrange(2))")
+arr = named.Slice(xrange(2))
+print("arr = %s" % (arr,))
+
+print("s = named.Slice()")
+s = named.Slice()
+print("s = %s" % (s,))
+
+print("s = named.Slice([1,2])")
+s = named.Slice([1,2])
+print("s = %s" % (s,))
+
+print("s = named.Slice(range(10))")
+s = named.Slice(range(10))
+print("s = %s" % (s,))
+
+print("s = named.Slice(xrange(10))")
+s = named.Slice(xrange(10))
+print("s = %s" % (s,))
+
