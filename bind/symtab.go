@@ -453,12 +453,19 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 	enam := sym.typename(typ.Elem(), nil)
 	elt := sym.sym(enam)
 	if elt == nil || elt.goname == "" {
-		eobj := sym.pkg.Scope().Lookup(enam)
+		eltname := sym.typename(typ.Elem(), pkg)
+		eobj := sym.pkg.Scope().Lookup(eltname)
 		if eobj == nil {
 			panic(fmt.Errorf("could not look-up %q!\n", enam))
 		}
 		sym.addSymbol(eobj)
-		elt = sym.typeof(enam)
+		elt = sym.sym(enam)
+		if elt == nil {
+			panic(fmt.Errorf(
+				"gopy: could not retrieve slice-elt symbol for %q",
+				enam,
+			))
+		}
 	}
 	id = hash(id)
 	sym.syms[fn] = &symbol{
