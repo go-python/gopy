@@ -101,7 +101,7 @@ except Exception, err:
     pass
 
 print("arr = named.Array(xrange(2))")
-arr = named.Slice(xrange(2))
+arr = named.Array(xrange(2))
 print("arr = %s" % (arr,))
 
 print("s = named.Slice()")

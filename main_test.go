@@ -348,7 +348,7 @@ arr = named.Array{1, 2}
 arr = named.Array(range(10))
 caught: Array.__init__ takes a sequence of size at most 2
 arr = named.Array(xrange(2))
-arr = named.Slice{0, 1}
+arr = named.Array{0, 1}
 s = named.Slice()
 s = named.Slice(nil)
 s = named.Slice([1,2])
