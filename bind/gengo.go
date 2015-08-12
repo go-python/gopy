@@ -458,7 +458,7 @@ func (g *goGen) genConst(o Const) {
 	g.Printf("//export cgo_func_%s_get\n", o.id)
 	g.Printf("func cgo_func_%[1]s_get() %[2]s {\n", o.id, sym.cgotypename())
 	g.Indent()
-	g.Printf("return %s.%s\n", o.pkg.Name(), o.obj.Name())
+	g.Printf("return %s(%s.%s)\n", sym.cgotypename(), o.pkg.Name(), o.obj.Name())
 	g.Outdent()
 	g.Printf("}\n\n")
 }
@@ -476,11 +476,11 @@ func (g *goGen) genVar(o Var) {
 	}
 	g.Printf("return ")
 	if o.needWrap() {
-		g.Printf("%s(unsafe.Pointer(&", ret)
-	}
-	g.Printf("%s.%s", pkgname, o.Name())
-	if o.needWrap() {
-		g.Printf("))")
+		g.Printf("%s(unsafe.Pointer(&%s.%s))",
+			ret, pkgname, o.Name(),
+		)
+	} else {
+		g.Printf("%s(%s.%s)", ret, pkgname, o.Name())
 	}
 	g.Printf("\n")
 	g.Outdent()
@@ -492,6 +492,8 @@ func (g *goGen) genVar(o Var) {
 	vset := "v"
 	if needWrapType(typ) {
 		vset = fmt.Sprintf("*(*%s)(unsafe.Pointer(v))", o.sym.gofmt())
+	} else {
+		vset = fmt.Sprintf("%s(v)", o.sym.gofmt())
 	}
 	g.Printf(
 		"%[1]s.%[2]s = %[3]s\n",
