@@ -402,6 +402,9 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 		case *types.Signature:
 			sym.addSignatureType(pkg, obj, t, kind, id, n)
 
+		case *types.Pointer:
+			sym.addPointerType(pkg, obj, t, kind, id, n)
+
 		default:
 			panic(fmt.Errorf("unhandled named-type: [%T]\n%#v\n", obj, t))
 		}
@@ -420,43 +423,7 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 		}
 
 	case *types.Pointer:
-		etyp := typ.Elem()
-		esym := sym.symtype(etyp)
-		if esym == nil {
-			sym.addType(obj, etyp)
-			esym = sym.symtype(etyp)
-			if esym == nil {
-				panic(fmt.Errorf(
-					"gopy: could not retrieve symbol for %q",
-					sym.typename(etyp, nil),
-				))
-			}
-		}
-
-		// FIXME(sbinet): better handling?
-		if true {
-			elm := *esym
-			elm.kind |= skPointer
-			sym.syms[fn] = &elm
-		} else {
-			id = hash(id)
-			sym.syms[fn] = &symbol{
-				gopkg:   pkg,
-				goobj:   obj,
-				gotyp:   t,
-				kind:    esym.kind | skPointer,
-				id:      id,
-				goname:  n,
-				cgoname: "cgo_type_" + id,
-				cpyname: "cpy_type_" + id,
-				pyfmt:   "O&",
-				pybuf:   "P",
-				pysig:   "object",
-				c2py:    "cgopy_cnv_c2py_" + id,
-				py2c:    "cgopy_cnv_py2c_" + id,
-				pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
-			}
-		}
+		sym.addPointerType(pkg, obj, t, kind, id, n)
 
 	default:
 		panic(fmt.Errorf("unhandled obj [%T]\ntype [%#v]", obj, t))
@@ -622,6 +589,48 @@ func (sym *symtab) addMethod(pkg *types.Package, obj types.Object, t types.Type,
 	sig := t.Underlying().(*types.Signature)
 	sym.processTuple(sig.Results())
 	sym.processTuple(sig.Params())
+}
+
+func (sym *symtab) addPointerType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+	fn := sym.typename(t, nil)
+	typ := t.Underlying().(*types.Pointer)
+	etyp := typ.Elem()
+	esym := sym.symtype(etyp)
+	if esym == nil {
+		sym.addType(obj, etyp)
+		esym = sym.symtype(etyp)
+		if esym == nil {
+			panic(fmt.Errorf(
+				"gopy: could not retrieve symbol for %q",
+				sym.typename(etyp, nil),
+			))
+		}
+	}
+
+	// FIXME(sbinet): better handling?
+	if true {
+		elm := *esym
+		elm.kind |= skPointer
+		sym.syms[fn] = &elm
+	} else {
+		id = hash(id)
+		sym.syms[fn] = &symbol{
+			gopkg:   pkg,
+			goobj:   obj,
+			gotyp:   t,
+			kind:    esym.kind | skPointer,
+			id:      id,
+			goname:  n,
+			cgoname: "cgo_type_" + id,
+			cpyname: "cpy_type_" + id,
+			pyfmt:   "O&",
+			pybuf:   "P",
+			pysig:   "object",
+			c2py:    "cgopy_cnv_c2py_" + id,
+			py2c:    "cgopy_cnv_py2c_" + id,
+			pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
+		}
+	}
 }
 
 func (sym *symtab) print() {
