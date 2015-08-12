@@ -406,3 +406,28 @@ k2 = 2
 `),
 	})
 }
+
+func TestBindSeqs(t *testing.T) {
+	t.Parallel()
+	testPkg(t, pkg{
+		path: "_examples/seqs",
+		want: []byte(`doc(seqs): 'package seqs tests various aspects of sequence types.\n'
+arr = seqs.Array(xrange(2))
+arr = seqs.Array{0, 1, 0, 0, 0, 0, 0, 0, 0, 0}
+s = seqs.Slice()
+s = seqs.Slice(nil)
+s = seqs.Slice([1,2])
+s = seqs.Slice{1, 2}
+s = seqs.Slice(range(10))
+s = seqs.Slice{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+s = seqs.Slice(xrange(10))
+s = seqs.Slice{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+s = seqs.Slice()
+s = seqs.Slice(nil)
+s += [1,2]
+s = seqs.Slice{1, 2}
+s += [10,20]
+s = seqs.Slice{1, 2, 10, 20}
+`),
+	})
+}
