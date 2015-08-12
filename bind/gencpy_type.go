@@ -281,7 +281,8 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
-		g.impl.Printf("for (Py_ssize_t i = 0; i < len; i++) {\n")
+		g.impl.Printf("Py_ssize_t i = 0;\n")
+		g.impl.Printf("for (i = 0; i < len; i++) {\n")
 		g.impl.Indent()
 		g.impl.Printf("PyObject *elt = PySequence_GetItem(arg, i);\n")
 		g.impl.Printf("if (cpy_func_%[1]s_ass_item(self, i, elt)) {\n", sym.id)
@@ -305,23 +306,13 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 		g.impl.Printf("if (arg != NULL) {\n")
 		g.impl.Indent()
 
-		if false {
-			g.impl.Printf("if (!PyIter_Check(arg)) {\n")
-			g.impl.Indent()
-			g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
-			g.impl.Printf("\"%s.__init__ takes an iterable as argument\");\n", sym.goname)
-			g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
-			g.impl.Outdent()
-			g.impl.Printf("}\n\n")
-		} else {
-			g.impl.Printf("if (!PySequence_Check(arg)) {\n")
-			g.impl.Indent()
-			g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
-			g.impl.Printf("\"%s.__init__ takes a sequence as argument\");\n", sym.goname)
-			g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
-			g.impl.Outdent()
-			g.impl.Printf("}\n\n")
-		}
+		g.impl.Printf("if (!PySequence_Check(arg)) {\n")
+		g.impl.Indent()
+		g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
+		g.impl.Printf("\"%s.__init__ takes a sequence as argument\");\n", sym.goname)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
 
 		typ := sym.GoType().Underlying().(*types.Slice)
 		esym := g.pkg.syms.symtype(typ.Elem())
@@ -332,50 +323,31 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 			))
 		}
 
-		if false {
-			g.impl.Printf("PyObject *item = NULL;\n")
-			g.impl.Printf("while (item = PyIter_Next(arg)) {\n")
-			g.impl.Indent()
-			g.impl.Printf("if (cpy_func_%[1]s_append(self, item)) {\n", sym.id)
-			g.impl.Printf("Py_DECREF(item);\n")
-			g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
-			g.impl.Outdent()
-			g.impl.Printf("}\n\n")
-			g.impl.Printf("Py_DECREF(item);\n")
-			g.impl.Outdent()
-			g.impl.Printf("}\n\n") // while-loop
+		g.impl.Printf("Py_ssize_t len = PySequence_Size(arg);\n")
+		g.impl.Printf("if (len == -1) {\n")
+		g.impl.Indent()
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
 
-			g.impl.Printf("if (PyErr_Occurred()) {\n")
-			g.impl.Indent()
-			g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
-			g.impl.Outdent()
-			g.impl.Printf("}\n\n")
-		} else {
-			g.impl.Printf("Py_ssize_t len = PySequence_Size(arg);\n")
-			g.impl.Printf("if (len == -1) {\n")
-			g.impl.Indent()
-			g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
-			g.impl.Outdent()
-			g.impl.Printf("}\n\n")
+		g.impl.Printf("Py_ssize_t i = 0;\n")
+		g.impl.Printf("for (i = 0; i < len; i++) {\n")
+		g.impl.Indent()
+		g.impl.Printf("PyObject *elt = PySequence_GetItem(arg, i);\n")
+		g.impl.Printf("if (cpy_func_%[1]s_append(self, elt)) {\n", sym.id)
+		g.impl.Indent()
+		g.impl.Printf("Py_XDECREF(elt);\n")
+		g.impl.Printf(
+			"PyErr_SetString(PyExc_TypeError, \"invalid type (expected a %s)\");\n",
+			esym.goname,
+		)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+		g.impl.Printf("Py_XDECREF(elt);\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n") // for-loop
 
-			g.impl.Printf("for (Py_ssize_t i = 0; i < len; i++) {\n")
-			g.impl.Indent()
-			g.impl.Printf("PyObject *elt = PySequence_GetItem(arg, i);\n")
-			g.impl.Printf("if (cpy_func_%[1]s_append(self, elt)) {\n", sym.id)
-			g.impl.Indent()
-			g.impl.Printf("Py_XDECREF(elt);\n")
-			g.impl.Printf(
-				"PyErr_SetString(PyExc_TypeError, \"invalid type (expected a %s)\");\n",
-				esym.goname,
-			)
-			g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
-			g.impl.Outdent()
-			g.impl.Printf("}\n\n")
-			g.impl.Printf("Py_XDECREF(elt);\n")
-			g.impl.Outdent()
-			g.impl.Printf("}\n\n") // for-loop
-
-		}
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n") // if-arg
 
