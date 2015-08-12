@@ -340,3 +340,37 @@ s.Upper('boo')= 'BOO'
 `),
 	})
 }
+
+func TestBindConsts(t *testing.T) {
+	t.Parallel()
+	testPkg(t, pkg{
+		path: "_examples/consts",
+		want: []byte(`c1 = c1
+c2 = 42
+c3 = 666.666
+c4 = c4
+c5 = 42
+c6 = 42
+c7 = 666.666
+k1 = 1
+k2 = 2
+`),
+	})
+}
+
+func TestBindVars(t *testing.T) {
+	t.Parallel()
+	testPkg(t, pkg{
+		path: "_examples/vars",
+		want: []byte(`v1 = v1
+v2 = 42
+v3 = 666.666
+v4 = c4
+v5 = 42
+v6 = 42
+v7 = 666.666
+k1 = 1
+k2 = 2
+`),
+	})
+}
