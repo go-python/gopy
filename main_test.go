@@ -280,7 +280,10 @@ func TestBindNamed(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/named",
-		want: []byte(`v = named.Float()
+		want: []byte(`doc(named): 'package named tests various aspects of named types.\n'
+doc(named.Float): ''
+doc(named.Float.Value): 'Value() float\n\nValue returns a float32 value\n'
+v = named.Float()
 v = 0
 v.Value() = 0.0
 x = named.X()

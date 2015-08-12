@@ -7,6 +7,11 @@ from __future__ import print_function
 
 import named
 
+### test docs
+print("doc(named): %r" % (named.__doc__,))
+print("doc(named.Float): %r" % (named.Float.__doc__,))
+print("doc(named.Float.Value): %r" % (named.Float.Value.__doc__,))
+
 print("v = named.Float()")
 v = named.Float()
 print("v = %s" % (v,))
