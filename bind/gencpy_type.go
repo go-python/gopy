@@ -190,46 +190,43 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 	)
 	g.impl.Indent()
 
-	genNargCheck := func(nargs int) {
-		g.impl.Printf("Py_ssize_t nkwds = (kwds != NULL) ? PyDict_Size(kwds) : 0;\n")
-		g.impl.Printf("Py_ssize_t nargs = (args != NULL) ? PySequence_Size(args) : 0;\n")
-		g.impl.Printf("if ((nkwds + nargs) > %d) {\n", nargs)
-		g.impl.Indent()
-		g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
-		g.impl.Printf("\"%s.__init__ takes at most %d argument(s)\");\n",
-			sym.goname,
-			nargs,
-		)
-		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
-		g.impl.Outdent()
-		g.impl.Printf("}\n\n")
+	g.impl.Printf("static char *kwlist[] = {\n")
+	g.impl.Indent()
+	g.impl.Printf("%q,\n", "")
+	g.impl.Printf("NULL\n")
+	g.impl.Outdent()
+	g.impl.Printf("};\n")
 
-	}
+	nargs := 1
+	g.impl.Printf("PyObject *arg = NULL;\n\n")
+	g.impl.Printf("Py_ssize_t nkwds = (kwds != NULL) ? PyDict_Size(kwds) : 0;\n")
+	g.impl.Printf("Py_ssize_t nargs = (args != NULL) ? PySequence_Size(args) : 0;\n")
+	g.impl.Printf("if ((nkwds + nargs) > %d) {\n", nargs)
+	g.impl.Indent()
+	g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
+	g.impl.Printf("\"%s.__init__ takes at most %d argument(s)\");\n",
+		sym.goname,
+		nargs,
+	)
+	g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
+
+	g.impl.Printf("if (!PyArg_ParseTupleAndKeywords(args, kwds, ")
+	format := []string{"|O"}
+	addrs := []string{"&arg"}
+	g.impl.Printf("%q, kwlist, %s)) {\n",
+		strings.Join(format, ""),
+		strings.Join(addrs, ", "),
+	)
+	g.impl.Indent()
+	g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+	g.impl.Outdent()
+	g.impl.Printf("}\n\n")
 
 	// FIXME(sbinet) handle slices, arrays and funcs
 	switch {
 	case sym.isBasic():
-		g.impl.Printf("static char *kwlist[] = {\n")
-		g.impl.Indent()
-		g.impl.Printf("%q,\n", "v")
-		g.impl.Printf("NULL\n")
-		g.impl.Outdent()
-		g.impl.Printf("};\n")
-
-		g.impl.Printf("PyObject *arg = NULL;\n\n")
-		genNargCheck(1)
-		g.impl.Printf("if (!PyArg_ParseTupleAndKeywords(args, kwds, ")
-		format := []string{"|O"}
-		addrs := []string{"&arg"}
-		g.impl.Printf("%q, kwlist, %s)) {\n",
-			strings.Join(format, ""),
-			strings.Join(addrs, ", "),
-		)
-		g.impl.Indent()
-		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
-		g.impl.Outdent()
-		g.impl.Printf("}\n\n")
-
 		g.impl.Printf("if (arg != NULL) {\n")
 		g.impl.Indent()
 		bsym := g.pkg.syms.symtype(sym.GoType().Underlying())
@@ -238,7 +235,6 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 			bsym.py2c,
 		)
 		g.impl.Indent()
-		g.impl.Printf("Py_XDECREF(arg);\n")
 		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
@@ -247,7 +243,142 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 		g.impl.Printf("}\n\n")
 
 	case sym.isArray():
+		g.impl.Printf("if (arg != NULL) {\n")
+		g.impl.Indent()
+
+		g.impl.Printf("if (!PySequence_Check(arg)) {\n")
+		g.impl.Indent()
+		g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
+		g.impl.Printf("\"%s.__init__ takes a sequence as argument\");\n", sym.goname)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+
+		typ := sym.GoType().Underlying().(*types.Array)
+		esym := g.pkg.syms.symtype(typ.Elem())
+		if esym == nil {
+			panic(fmt.Errorf(
+				"gopy: could not find symbol for element of %q",
+				sym.gofmt(),
+			))
+		}
+
+		g.impl.Printf("Py_ssize_t len = PySequence_Size(arg);\n")
+		g.impl.Printf("if (len == -1) {\n")
+		g.impl.Indent()
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+
+		g.impl.Printf("if (len > %d) {\n", typ.Len())
+		g.impl.Indent()
+		g.impl.Printf("PyErr_SetString(PyExc_ValueError, ")
+		g.impl.Printf("\"%s.__init__ takes a sequence of size at most %d\");\n",
+			sym.goname,
+			typ.Len(),
+		)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+
+		g.impl.Printf("for (Py_ssize_t i = 0; i < len; i++) {\n")
+		g.impl.Indent()
+		g.impl.Printf("PyObject *elt = PySequence_GetItem(arg, i);\n")
+		g.impl.Printf("if (cpy_func_%[1]s_ass_item(self, i, elt)) {\n", sym.id)
+		g.impl.Indent()
+		g.impl.Printf("Py_XDECREF(elt);\n")
+		g.impl.Printf(
+			"PyErr_SetString(PyExc_TypeError, \"invalid type (expected a %s)\");\n",
+			esym.goname,
+		)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+		g.impl.Printf("Py_XDECREF(elt);\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n") // for-loop
+
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n") // if-arg
+
 	case sym.isSlice():
+		g.impl.Printf("if (arg != NULL) {\n")
+		g.impl.Indent()
+
+		if false {
+			g.impl.Printf("if (!PyIter_Check(arg)) {\n")
+			g.impl.Indent()
+			g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
+			g.impl.Printf("\"%s.__init__ takes an iterable as argument\");\n", sym.goname)
+			g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+		} else {
+			g.impl.Printf("if (!PySequence_Check(arg)) {\n")
+			g.impl.Indent()
+			g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
+			g.impl.Printf("\"%s.__init__ takes a sequence as argument\");\n", sym.goname)
+			g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+		}
+
+		typ := sym.GoType().Underlying().(*types.Slice)
+		esym := g.pkg.syms.symtype(typ.Elem())
+		if esym == nil {
+			panic(fmt.Errorf(
+				"gopy: could not find symbol for element of %q",
+				sym.gofmt(),
+			))
+		}
+
+		if false {
+			g.impl.Printf("PyObject *item = NULL;\n")
+			g.impl.Printf("while (item = PyIter_Next(arg)) {\n")
+			g.impl.Indent()
+			g.impl.Printf("if (cpy_func_%[1]s_append(self, item)) {\n", sym.id)
+			g.impl.Printf("Py_DECREF(item);\n")
+			g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+			g.impl.Printf("Py_DECREF(item);\n")
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n") // while-loop
+
+			g.impl.Printf("if (PyErr_Occurred()) {\n")
+			g.impl.Indent()
+			g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+		} else {
+			g.impl.Printf("Py_ssize_t len = PySequence_Size(arg);\n")
+			g.impl.Printf("if (len == -1) {\n")
+			g.impl.Indent()
+			g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+
+			g.impl.Printf("for (Py_ssize_t i = 0; i < len; i++) {\n")
+			g.impl.Indent()
+			g.impl.Printf("PyObject *elt = PySequence_GetItem(arg, i);\n")
+			g.impl.Printf("if (cpy_func_%[1]s_append(self, elt)) {\n", sym.id)
+			g.impl.Indent()
+			g.impl.Printf("Py_XDECREF(elt);\n")
+			g.impl.Printf(
+				"PyErr_SetString(PyExc_TypeError, \"invalid type (expected a %s)\");\n",
+				esym.goname,
+			)
+			g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+			g.impl.Printf("Py_XDECREF(elt);\n")
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n") // for-loop
+
+		}
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n") // if-arg
+
 	case sym.isSignature():
 	default:
 		panic(fmt.Errorf(
@@ -261,6 +392,7 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 
 	g.impl.Printf("\ncpy_label_%s_init_fail:\n", sym.cpyname)
 	g.impl.Indent()
+	g.impl.Printf("Py_XDECREF(arg);\n")
 	g.impl.Printf("return -1;\n")
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
@@ -517,6 +649,33 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 		g.impl.Printf("(ssizeargfunc)0\n")          //array_inplace_repeat          /*sq_inplace_repeat
 		g.impl.Outdent()
 		g.impl.Printf("};\n\n")
+
+		// append
+		if sym.isSlice() {
+			g.decl.Printf("\n/* append-item */\n")
+			g.decl.Printf("static int\n")
+			g.decl.Printf("cpy_func_%[1]s_append(%[2]s *self, PyObject *v);\n",
+				sym.id,
+				sym.cpyname,
+			)
+
+			g.impl.Printf("\n/* append-item */\n")
+			g.impl.Printf("static int\n")
+			g.impl.Printf("cpy_func_%[1]s_append(%[2]s *self, PyObject *v) {\n",
+				sym.id,
+				sym.cpyname,
+			)
+			g.impl.Indent()
+			g.impl.Printf("%[1]s c_v;\n", esym.cgoname)
+			g.impl.Printf("GoSlice *slice = (GoSlice*)(self->cgopy);\n")
+			g.impl.Printf("if (v == NULL) { return 0; }\n") // FIXME(sbinet): semantics?
+			g.impl.Printf("if (!%[1]s(v, &c_v)) { return -1; }\n", esym.py2c)
+			g.impl.Printf("cgo_func_%[1]s_append(self->cgopy, c_v);\n", sym.id)
+			g.impl.Printf("return 0;\n")
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+
+		}
 
 	case 3:
 	}

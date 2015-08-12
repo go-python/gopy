@@ -627,6 +627,39 @@ func (g *goGen) genType(sym *symbol) {
 		g.Printf("}\n\n")
 	}
 
+	if sym.isSlice() {
+		etyp := sym.GoType().Underlying().(*types.Slice).Elem()
+		esym := g.pkg.syms.symtype(etyp)
+		if esym == nil {
+			panic(fmt.Errorf("gopy: could not retrieve element type of %#v",
+				sym,
+			))
+		}
+
+		// support for __append__
+		g.Printf("//export cgo_func_%[1]s_append\n", sym.id)
+		g.Printf("func cgo_func_%[1]s_append(self %[2]s, v %[3]s) {\n",
+			sym.id,
+			sym.cgoname,
+			esym.cgotypename(),
+		)
+		g.Indent()
+		g.Printf("slice := (*%[1]s)(unsafe.Pointer(self))\n", sym.gofmt())
+		g.Printf("*slice = append(*slice, ")
+		if !esym.isBasic() {
+			g.Printf("*(*%[1]s)(unsafe.Pointer(v))", esym.gofmt())
+		} else {
+			if esym.isNamed() {
+				g.Printf("%[1]s(v)", esym.gofmt())
+			} else {
+				g.Printf("v")
+			}
+		}
+		g.Printf(")\n")
+		g.Outdent()
+		g.Printf("}\n\n")
+	}
+
 	g.genTypeTPCall(sym)
 
 	g.genTypeMethods(sym)
