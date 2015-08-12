@@ -264,6 +264,32 @@ func (p *Package) process() error {
 		p.addFunc(fct)
 	}
 
+	// attach docstrings to methods
+	for _, n := range p.syms.names() {
+		sym := p.syms.syms[n]
+		if !sym.isNamed() {
+			continue
+		}
+		switch typ := sym.GoType().(type) {
+		case *types.Named:
+			for i := 0; i < typ.NumMethods(); i++ {
+				m := typ.Method(i)
+				if !m.Exported() {
+					continue
+				}
+				doc := p.getDoc(sym.goname, m)
+				mname := types.ObjectString(m, nil)
+				msym := p.syms.sym(mname)
+				if msym == nil {
+					panic(fmt.Errorf(
+						"gopy: could not retrieve symbol for %q",
+						m.FullName(),
+					))
+				}
+				msym.doc = doc
+			}
+		}
+	}
 	return err
 }
 
