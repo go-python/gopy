@@ -30,6 +30,10 @@ def load(pkg, output=""):
 
     print("gopy> inferring package name...")
     pkg = check_output(["go", "list", pkg]).strip()
+    if pkg in sys.modules:
+        print("gopy> package '%s' already wrapped and loaded!" % (pkg,))
+        print("gopy> NOT recompiling it again (see issue #27)")
+        return sys.modules[pkg]
     print("gopy> loading '%s'..." % pkg)
 
     check_call(["gopy","bind", "-output=%s" % output, pkg])
