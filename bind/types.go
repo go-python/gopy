@@ -21,7 +21,7 @@ type Type interface {
 }
 
 func needWrapType(typ types.Type) bool {
-	switch typ.(type) {
+	switch typ := typ.(type) {
 	case *types.Basic:
 		return false
 	case *types.Struct:
@@ -45,6 +45,8 @@ func needWrapType(typ types.Type) bool {
 		return wrap
 	case *types.Signature:
 		return true
+	case *types.Pointer:
+		return needWrapType(typ.Elem())
 	}
 	return false
 }
