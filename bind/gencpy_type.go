@@ -208,7 +208,7 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 		sym.goname,
 		nargs,
 	)
-	g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+	g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.id)
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 
@@ -220,7 +220,7 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 		strings.Join(addrs, ", "),
 	)
 	g.impl.Indent()
-	g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+	g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.id)
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 
@@ -235,7 +235,7 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 			bsym.py2c,
 		)
 		g.impl.Indent()
-		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.id)
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
@@ -250,7 +250,7 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 		g.impl.Indent()
 		g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
 		g.impl.Printf("\"%s.__init__ takes a sequence as argument\");\n", sym.goname)
-		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.id)
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
@@ -266,7 +266,7 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 		g.impl.Printf("Py_ssize_t len = PySequence_Size(arg);\n")
 		g.impl.Printf("if (len == -1) {\n")
 		g.impl.Indent()
-		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.id)
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
@@ -277,7 +277,7 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 			sym.goname,
 			typ.Len(),
 		)
-		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.id)
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
@@ -292,7 +292,7 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 			"PyErr_SetString(PyExc_TypeError, \"invalid type (expected a %s)\");\n",
 			esym.goname,
 		)
-		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.id)
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 		g.impl.Printf("Py_XDECREF(elt);\n")
@@ -310,44 +310,15 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 		g.impl.Indent()
 		g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
 		g.impl.Printf("\"%s.__init__ takes a sequence as argument\");\n", sym.goname)
-		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.id)
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
-		typ := sym.GoType().Underlying().(*types.Slice)
-		esym := g.pkg.syms.symtype(typ.Elem())
-		if esym == nil {
-			panic(fmt.Errorf(
-				"gopy: could not find symbol for element of %q",
-				sym.gofmt(),
-			))
-		}
-
-		g.impl.Printf("Py_ssize_t len = PySequence_Size(arg);\n")
-		g.impl.Printf("if (len == -1) {\n")
+		g.impl.Printf("if (!cpy_func_%[1]s_inplace_concat(self, arg)) {\n", sym.id)
 		g.impl.Indent()
-		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.id)
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
-
-		g.impl.Printf("Py_ssize_t i = 0;\n")
-		g.impl.Printf("for (i = 0; i < len; i++) {\n")
-		g.impl.Indent()
-		g.impl.Printf("PyObject *elt = PySequence_GetItem(arg, i);\n")
-		g.impl.Printf("if (cpy_func_%[1]s_append(self, elt)) {\n", sym.id)
-		g.impl.Indent()
-		g.impl.Printf("Py_XDECREF(elt);\n")
-		g.impl.Printf(
-			"PyErr_SetString(PyExc_TypeError, \"invalid type (expected a %s)\");\n",
-			esym.goname,
-		)
-		g.impl.Printf("goto cpy_label_%s_init_fail;\n", sym.cpyname)
-		g.impl.Outdent()
-		g.impl.Printf("}\n\n")
-		g.impl.Printf("Py_XDECREF(elt);\n")
-		g.impl.Outdent()
-		g.impl.Printf("}\n\n") // for-loop
-
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n") // if-arg
 
@@ -362,7 +333,7 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 	g.impl.Printf("return 0;\n")
 	g.impl.Outdent()
 
-	g.impl.Printf("\ncpy_label_%s_init_fail:\n", sym.cpyname)
+	g.impl.Printf("\ncpy_label_%s_init_fail:\n", sym.id)
 	g.impl.Indent()
 	g.impl.Printf("Py_XDECREF(arg);\n")
 	g.impl.Printf("return -1;\n")
@@ -606,24 +577,14 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
-		g.impl.Printf("\n/* tp_as_sequence */\n")
-		g.impl.Printf("static PySequenceMethods %[1]s_tp_as_sequence = {\n", sym.cpyname)
-		g.impl.Indent()
-		g.impl.Printf("(lenfunc)cpy_func_%[1]s_len,\n", sym.id)
-		g.impl.Printf("(binaryfunc)0,\n")   // array_concat,               sq_concat
-		g.impl.Printf("(ssizeargfunc)0,\n") //array_repeat,                 /*sq_repeat
-		g.impl.Printf("(ssizeargfunc)cpy_func_%[1]s_item,\n", sym.id)
-		g.impl.Printf("(ssizessizeargfunc)0,\n") // array_slice,             /*sq_slice
-		g.impl.Printf("(ssizeobjargproc)cpy_func_%[1]s_ass_item,\n", sym.id)
-		g.impl.Printf("(ssizessizeobjargproc)0,\n") //array_ass_slice,      /*sq_ass_slice
-		g.impl.Printf("(objobjproc)0,\n")           //array_contains,                 /*sq_contains
-		g.impl.Printf("(binaryfunc)0,\n")           //array_inplace_concat,           /*sq_inplace_concat
-		g.impl.Printf("(ssizeargfunc)0\n")          //array_inplace_repeat          /*sq_inplace_repeat
-		g.impl.Outdent()
-		g.impl.Printf("};\n\n")
-
+		sq_inplace_concat := "0"
 		// append
 		if sym.isSlice() {
+			sq_inplace_concat = fmt.Sprintf(
+				"cpy_func_%[1]s_inplace_concat",
+				sym.id,
+			)
+
 			g.decl.Printf("\n/* append-item */\n")
 			g.decl.Printf("static int\n")
 			g.decl.Printf("cpy_func_%[1]s_append(%[2]s *self, PyObject *v);\n",
@@ -647,7 +608,80 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
 
+			g.decl.Printf("\n/* inplace-concat */\n")
+			g.decl.Printf("static PyObject*\n")
+			g.decl.Printf("cpy_func_%[1]s_inplace_concat(%[2]s *self, PyObject *v);\n",
+				sym.id,
+				sym.cpyname,
+			)
+
+			g.impl.Printf("\n/* inplace-item */\n")
+			g.impl.Printf("static PyObject*\n")
+			g.impl.Printf("cpy_func_%[1]s_inplace_concat(%[2]s *self, PyObject *v) {\n",
+				sym.id,
+				sym.cpyname,
+			)
+			g.impl.Indent()
+			// FIXME(sbinet) do the append in one go?
+			g.impl.Printf("if (!PySequence_Check(v)) {\n")
+			g.impl.Indent()
+			g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
+			g.impl.Printf("\"%s.__iadd__ takes a sequence as argument\");\n", sym.goname)
+			g.impl.Printf("goto cpy_label_%s_inplace_concat_fail;\n", sym.id)
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+
+			g.impl.Printf("Py_ssize_t len = PySequence_Size(v);\n")
+			g.impl.Printf("if (len == -1) {\n")
+			g.impl.Indent()
+			g.impl.Printf("goto cpy_label_%s_inplace_concat_fail;\n", sym.id)
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+
+			g.impl.Printf("Py_ssize_t i = 0;\n")
+			g.impl.Printf("for (i = 0; i < len; i++) {\n")
+			g.impl.Indent()
+			g.impl.Printf("PyObject *elt = PySequence_GetItem(v, i);\n")
+			g.impl.Printf("if (cpy_func_%[1]s_append(self, elt)) {\n", sym.id)
+			g.impl.Indent()
+			g.impl.Printf("Py_XDECREF(elt);\n")
+			g.impl.Printf(
+				"PyErr_Format(PyExc_TypeError, \"invalid type (got=%%s, expected a %s)\", Py_TYPE(elt)->tp_name);\n",
+				esym.goname,
+			)
+			g.impl.Printf("goto cpy_label_%s_inplace_concat_fail;\n", sym.id)
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+			g.impl.Printf("Py_XDECREF(elt);\n")
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n") // for-loop
+
+			g.impl.Printf("return (PyObject*)self;\n")
+			g.impl.Outdent()
+
+			g.impl.Printf("\ncpy_label_%s_inplace_concat_fail:\n", sym.id)
+			g.impl.Indent()
+			g.impl.Printf("return NULL;\n")
+			g.impl.Outdent()
+			g.impl.Printf("}\n\n")
+
 		}
+
+		g.impl.Printf("\n/* tp_as_sequence */\n")
+		g.impl.Printf("static PySequenceMethods %[1]s_tp_as_sequence = {\n", sym.cpyname)
+		g.impl.Indent()
+		g.impl.Printf("(lenfunc)cpy_func_%[1]s_len,\n", sym.id)
+		g.impl.Printf("(binaryfunc)0,\n")   // array_concat,               sq_concat
+		g.impl.Printf("(ssizeargfunc)0,\n") //array_repeat,                 /*sq_repeat
+		g.impl.Printf("(ssizeargfunc)cpy_func_%[1]s_item,\n", sym.id)
+		g.impl.Printf("(ssizessizeargfunc)0,\n") // array_slice,             /*sq_slice
+		g.impl.Printf("(ssizeobjargproc)cpy_func_%[1]s_ass_item,\n", sym.id)
+		g.impl.Printf("(ssizessizeobjargproc)0,\n") //array_ass_slice,      /*sq_ass_slice
+		g.impl.Printf("(objobjproc)0,\n")           //array_contains,                 /*sq_contains
+		g.impl.Printf("(binaryfunc)%s,\n", sq_inplace_concat)
+		g.impl.Printf("(ssizeargfunc)0\n") //array_inplace_repeat          /*sq_inplace_repeat
+		g.impl.Outdent()
+		g.impl.Printf("};\n\n")
 
 	case 3:
 	}
