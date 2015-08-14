@@ -25,6 +25,7 @@ func (g *cpyGen) genStruct(cpy Struct) {
 		cpy.sym.cgoname,
 		cpy.ID(),
 	)
+	g.decl.Printf("gopy_efacefunc eface;\n")
 	g.decl.Outdent()
 	g.decl.Printf("} %s;\n", cpy.sym.cpyname)
 	g.decl.Printf("\n\n")

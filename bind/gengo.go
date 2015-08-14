@@ -360,6 +360,23 @@ func (g *goGen) genStruct(s Struct) {
 	g.Outdent()
 	g.Printf("}\n\n")
 
+	// empty interface converter
+	g.Printf("//export cgo_func_%[1]s_eface\n", s.ID())
+	g.Printf("func cgo_func_%[1]s_eface(self %[2]s) interface{} {\n",
+		s.sym.id,
+		s.sym.cgoname,
+	)
+	g.Indent()
+	g.Printf("var v interface{} = ")
+	if s.sym.isBasic() {
+		g.Printf("%[1]s(self)\n", s.sym.gofmt())
+	} else {
+		g.Printf("*(*%[1]s)(unsafe.Pointer(self))\n", s.sym.gofmt())
+	}
+	g.Printf("return v\n")
+	g.Outdent()
+	g.Printf("}\n\n")
+
 	// support for __str__
 	g.Printf("//export cgo_func_%[1]s_str\n", s.ID())
 	g.Printf(
@@ -534,6 +551,23 @@ func (g *goGen) genType(sym *symbol) {
 		g.Printf("cgopy_incref(unsafe.Pointer(&o))\n")
 		g.Printf("return (%[1]s)(unsafe.Pointer(&o))\n", sym.cgoname)
 	}
+	g.Outdent()
+	g.Printf("}\n\n")
+
+	// empty interface converter
+	g.Printf("//export cgo_func_%[1]s_eface\n", sym.id)
+	g.Printf("func cgo_func_%[1]s_eface(self %[2]s) interface{} {\n",
+		sym.id,
+		sym.cgoname,
+	)
+	g.Indent()
+	g.Printf("var v interface{} = ")
+	if sym.isBasic() {
+		g.Printf("%[1]s(self)\n", sym.gofmt())
+	} else {
+		g.Printf("*(*%[1]s)(unsafe.Pointer(self))\n", sym.gofmt())
+	}
+	g.Printf("return v\n")
 	g.Outdent()
 	g.Printf("}\n\n")
 

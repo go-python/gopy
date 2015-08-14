@@ -45,6 +45,7 @@ func (g *cpyGen) genType(sym *symbol) {
 			sym.id,
 		)
 	}
+	g.decl.Printf("gopy_efacefunc eface;\n")
 	g.decl.Outdent()
 	g.decl.Printf("} %s;\n", sym.cpyname)
 	g.decl.Printf("\n\n")
@@ -152,6 +153,7 @@ func (g *cpyGen) genTypeNew(sym *symbol) {
 	g.impl.Printf("%s *self;\n", sym.cpyname)
 	g.impl.Printf("self = (%s *)type->tp_alloc(type, 0);\n", sym.cpyname)
 	g.impl.Printf("self->cgopy = cgo_func_%s_new();\n", sym.id)
+	g.impl.Printf("self->eface = (gopy_efacefunc)cgo_func_%s_eface;\n", sym.id)
 	g.impl.Printf("return (PyObject*)self;\n")
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")

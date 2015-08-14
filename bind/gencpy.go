@@ -29,6 +29,31 @@ const (
 // header exported from 'go tool cgo'
 #include "%[3]s.h"
 
+#if PY_VERSION_HEX > 0x03000000
+#error "Python-3 is not yet supported by gopy"
+#endif
+
+
+// --- gopy object model ---
+
+struct _gopy_object;
+
+// empty interface converter
+typedef GoInterface (*gopy_efacefunc)(struct _gopy_object *);
+
+
+// proxy for all go values
+struct _gopy_object {
+	PyObject_HEAD
+	void *go; /* handle to address of go value */
+	gopy_efacefunc eface;
+};
+
+typedef struct _gopy_object gopy_object;
+
+// --- gopy object model ---
+
+
 // helpers for cgopy
 
 #define def_cnv(name, c2py, py2c, gotype) \

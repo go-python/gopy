@@ -4,18 +4,25 @@
 
 package pointers
 
-import (
-	"github.com/go-python/gopy/_examples/cpkg"
-)
-
 //type SPtr *S
+
 type S struct {
 	Value int
 }
 
 // Inc increments the value of s
 func Inc(s *S) {
-	cpkg.Printf("==> go: s.Value==%d\n", s.Value)
 	s.Value++
-	cpkg.Printf("<== go: s.Value==%d\n", s.Value)
+}
+
+type MyInt int
+
+// IncInt increments an integer
+func IncMyInt(i *MyInt) {
+	(*i)++
+}
+
+// IncInt increments an integer
+func IncInt(i *int) {
+	(*i)++
 }
