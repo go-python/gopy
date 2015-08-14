@@ -216,6 +216,7 @@ func cgo_func_%[1]s%[4]v%[5]v{
 
 func (g *goGen) genFuncBody(f Func) {
 	sig := f.Signature()
+	tsig := f.GoType().Underlying().(*types.Signature)
 	results := sig.Results()
 	for i := range results {
 		if i > 0 {
@@ -237,14 +238,43 @@ func (g *goGen) genFuncBody(f Func) {
 		}
 		head := arg.Name()
 		if arg.needWrap() {
-			head = fmt.Sprintf(
-				"*(*%s)(unsafe.Pointer(%s))",
-				types.TypeString(
-					arg.GoType(),
-					func(*types.Package) string { return g.pkg.Name() },
-				),
-				arg.Name(),
-			)
+			switch arg.GoType().(type) {
+			case *types.Pointer:
+				head = fmt.Sprintf(
+					"(%s)(unsafe.Pointer(%s))",
+					types.TypeString(
+						arg.GoType(),
+						func(*types.Package) string { return g.pkg.Name() },
+					),
+					arg.Name(),
+				)
+			default:
+				head = fmt.Sprintf(
+					"*(*%s)(unsafe.Pointer(%s))",
+					types.TypeString(
+						arg.GoType(),
+						func(*types.Package) string { return g.pkg.Name() },
+					),
+					arg.Name(),
+				)
+			}
+		} else {
+			targ := tsig.Params().At(i)
+			switch targ.Type().(type) {
+			case *types.Pointer:
+				head = "&" + head + fmt.Sprintf(
+					" /* kind=%v */",
+					arg.sym.kind,
+				)
+				if arg.sym.isBuiltin() {
+					head = "&" + arg.Name()
+				} else {
+					head = fmt.Sprintf("(%s)(unsafe.Pointer(&%s))",
+						arg.sym.gofmt(),
+						arg.Name(),
+					)
+				}
+			}
 		}
 		g.Printf("%s%s", head, tail)
 	}
@@ -526,6 +556,11 @@ func (g *goGen) genType(sym *symbol) {
 		return
 	}
 	if sym.isBasic() && !sym.isNamed() {
+		return
+	}
+
+	_, isptr := sym.GoType().(*types.Pointer)
+	if isptr {
 		return
 	}
 
@@ -813,11 +848,10 @@ func (g *goGen) genTypeTPCall(sym *symbol) {
 }
 
 func (g *goGen) genTypeMethods(sym *symbol) {
-	if !sym.isNamed() {
+	typ, ok := sym.GoType().(*types.Named)
+	if !ok {
 		return
 	}
-
-	typ := sym.GoType().(*types.Named)
 	for imeth := 0; imeth < typ.NumMethods(); imeth++ {
 		m := typ.Method(imeth)
 		if !m.Exported() {

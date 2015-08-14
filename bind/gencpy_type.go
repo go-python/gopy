@@ -21,6 +21,10 @@ func (g *cpyGen) genType(sym *symbol) {
 	if sym.isBasic() && !sym.isNamed() {
 		return
 	}
+	_, isptr := sym.GoType().(*types.Pointer)
+	if isptr {
+		return
+	}
 
 	g.decl.Printf("\n/* --- decls for type %v --- */\n", sym.gofmt())
 	if sym.isBasic() {
@@ -368,8 +372,7 @@ func (g *cpyGen) genTypeMembers(sym *symbol) {
 
 func (g *cpyGen) genTypeMethods(sym *symbol) {
 	g.decl.Printf("\n/* methods for %s */\n", sym.gofmt())
-	if sym.isNamed() {
-		typ := sym.GoType().(*types.Named)
+	if typ, ok := sym.GoType().(*types.Named); ok {
 		for imeth := 0; imeth < typ.NumMethods(); imeth++ {
 			m := typ.Method(imeth)
 			if !m.Exported() {
@@ -390,8 +393,7 @@ func (g *cpyGen) genTypeMethods(sym *symbol) {
 	g.impl.Printf("\n/* methods for %s */\n", sym.gofmt())
 	g.impl.Printf("static PyMethodDef %s_methods[] = {\n", sym.cpyname)
 	g.impl.Indent()
-	if sym.isNamed() {
-		typ := sym.GoType().(*types.Named)
+	if typ, ok := sym.GoType().(*types.Named); ok {
 		for imeth := 0; imeth < typ.NumMethods(); imeth++ {
 			m := typ.Method(imeth)
 			if !m.Exported() {

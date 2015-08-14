@@ -264,7 +264,7 @@ func (g *cpyGen) gen() error {
 
 	for _, n := range g.pkg.syms.names() {
 		sym := g.pkg.syms.sym(n)
-		if !sym.isType() {
+		if !sym.isType() || sym.isBuiltin() {
 			continue
 		}
 		g.impl.Printf(
@@ -280,7 +280,7 @@ func (g *cpyGen) gen() error {
 
 	for _, n := range g.pkg.syms.names() {
 		sym := g.pkg.syms.sym(n)
-		if !sym.isType() {
+		if !sym.isType() || sym.isBuiltin() {
 			continue
 		}
 		g.impl.Printf("Py_INCREF(&%sType);\n", sym.cpyname)
