@@ -213,6 +213,9 @@ func (p *Package) process() error {
 			case *types.Array:
 				// ok. handled by p.syms-types
 
+			case *types.Interface:
+				// ok. handled by p.syms-types
+
 			case *types.Signature:
 				// ok. handled by p.syms-types
 

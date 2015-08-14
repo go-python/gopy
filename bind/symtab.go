@@ -115,6 +115,10 @@ func (s symbol) isArray() bool {
 	return (s.kind & skArray) != 0
 }
 
+func (s symbol) isInterface() bool {
+	return (s.kind & skInterface) != 0
+}
+
 func (s symbol) isSignature() bool {
 	return (s.kind & skSignature) != 0
 }
@@ -405,6 +409,9 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 		case *types.Pointer:
 			sym.addPointerType(pkg, obj, t, kind, id, n)
 
+		case *types.Interface:
+			sym.addInterfaceType(pkg, obj, t, kind, id, n)
+
 		default:
 			panic(fmt.Errorf("unhandled named-type: [%T]\n%#v\n", obj, t))
 		}
@@ -631,6 +638,34 @@ func (sym *symtab) addPointerType(pkg *types.Package, obj types.Object, t types.
 			pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
 		}
 	}
+}
+
+func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+	fn := sym.typename(t, nil)
+	typ := t.Underlying().(*types.Interface)
+	kind |= skInterface
+	// special handling of 'error'
+	if isErrorType(typ) {
+		return
+	}
+
+	sym.syms[fn] = &symbol{
+		gopkg:   pkg,
+		goobj:   obj,
+		gotyp:   t,
+		kind:    kind,
+		id:      id,
+		goname:  n,
+		cgoname: "cgo_type_" + id,
+		cpyname: "cpy_type_" + id,
+		pyfmt:   "O&",
+		pybuf:   "P",
+		pysig:   "object",
+		c2py:    "cgopy_cnv_c2py_" + id,
+		py2c:    "cgopy_cnv_py2c_" + id,
+		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
+	}
+
 }
 
 func (sym *symtab) print() {

@@ -325,6 +325,11 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 		g.impl.Printf("}\n\n") // if-arg
 
 	case sym.isSignature():
+		//TODO(sbinet)
+
+	case sym.isInterface():
+		//TODO(sbinet): check the argument implements the interface.
+
 	default:
 		panic(fmt.Errorf(
 			"gopy: tp_init for %s not handled",
@@ -1046,9 +1051,22 @@ func (g *cpyGen) genTypeConverter(sym *symbol) {
 	)
 	g.impl.Indent()
 	g.impl.Printf("%s *self = NULL;\n", sym.cpyname)
-	g.impl.Printf("self = (%s *)o;\n", sym.cpyname)
-	g.impl.Printf("*addr = self->cgopy;\n")
-	g.impl.Printf("return 1;\n")
+	if sym.isInterface() {
+		g.impl.Printf("if (%s) {\n", fmt.Sprintf(sym.pychk, "o"))
+		g.impl.Indent()
+		g.impl.Printf("self = (%s *)o;\n", sym.cpyname)
+		g.impl.Printf("*addr = self->cgopy;\n")
+		g.impl.Printf("return 1;\n")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n")
+		g.impl.Printf("GoInterface *iface = (GoInterface*)(addr);\n")
+		g.impl.Printf("*iface = ((gopy_object*)o)->eface((gopy_object*)o);\n")
+		g.impl.Printf("return 1;\n")
+	} else {
+		g.impl.Printf("self = (%s *)o;\n", sym.cpyname)
+		g.impl.Printf("*addr = self->cgopy;\n")
+		g.impl.Printf("return 1;\n")
+	}
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 

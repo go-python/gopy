@@ -431,3 +431,13 @@ s = seqs.Slice{1, 2, 10, 20}
 `),
 	})
 }
+
+func TestBindInterfaces(t *testing.T) {
+	t.Skip("not ready")
+	t.Parallel()
+	testPkg(t, pkg{
+		path: "_examples/iface",
+		want: []byte(`
+`),
+	})
+}
