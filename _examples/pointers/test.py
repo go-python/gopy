@@ -13,4 +13,20 @@ print("s = %s" % (s,))
 print("s.Value = %s" % (s.Value,))
 
 print("pointers.Inc(s)")
+pointers.Inc(s)
 print("s.Value = %s" % (s.Value,))
+
+## FIXME(sbinet)
+#i = int(42)
+#print("i = %s" % (i,))
+#print("pointers.IncInt(i)")
+#pointers.IncInt(i)
+#print("i = %s" % (i,))
+
+## FIXME(sbinet)
+#i = pointers.MyInt(3)
+#print("i = %s" % (i,))
+#print("pointers.IncMyInt(i)")
+#pointers.IncMyInt(i)
+#print("i = %s" % (i,))
+

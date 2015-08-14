@@ -277,7 +277,6 @@ doc(pkg):
 }
 
 func TestBindPointers(t *testing.T) {
-	t.Skip("not ready yet")
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/pointers",
@@ -285,8 +284,6 @@ func TestBindPointers(t *testing.T) {
 s = pointers.S{Value:2}
 s.Value = 2
 pointers.Inc(s)
-==> go: s.Value==2
-<== go: s.Value==3
 s.Value = 3
 `),
 	})
