@@ -324,6 +324,14 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n") // if-arg
 
+
+	case sym.isMap():
+		g.impl.Printf("if (arg != NULL) {\n")
+		g.impl.Indent()
+		//g.impl.Printf("//put map __init__ functions here")
+		g.impl.Outdent()
+		g.impl.Printf("}\n\n") // if-arg
+
 	case sym.isSignature():
 		//TODO(sbinet)
 

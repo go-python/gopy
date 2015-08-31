@@ -123,6 +123,10 @@ func (s symbol) isSignature() bool {
 	return (s.kind & skSignature) != 0
 }
 
+func (s symbol) isMap() bool {
+	return (s.kind & skMap) != 0
+}
+
 func (s symbol) isSlice() bool {
 	return (s.kind & skSlice) != 0
 }
@@ -432,6 +436,9 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 	case *types.Pointer:
 		sym.addPointerType(pkg, obj, t, kind, id, n)
 
+	case *types.Map:
+		sym.addMapType(pkg, obj, t, kind, id, n)
+
 	default:
 		panic(fmt.Errorf("unhandled obj [%T]\ntype [%#v]", obj, t))
 	}
@@ -476,6 +483,45 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
 	}
 }
+
+func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+	fn := sym.typename(t, nil)
+	typ := t.Underlying().(*types.Map)
+	kind |= skMap
+	enam := sym.typename(typ.Elem(), nil)
+	elt := sym.sym(enam)
+	if elt == nil || elt.goname == "" {
+		eltname := sym.typename(typ.Elem(), pkg)
+		eobj := sym.pkg.Scope().Lookup(eltname)
+		if eobj == nil {
+			panic(fmt.Errorf("could not look-up %q!\n", enam))
+		}
+		sym.addSymbol(eobj)
+		elt = sym.sym(enam)
+		if elt == nil {
+			panic(fmt.Errorf(
+				"gopy: could not retrieve map-elt symbol for %q",
+				enam,
+			))
+		}
+	}
+	id = hash(id)
+	sym.syms[fn] = &symbol{
+		gopkg:   pkg,
+		goobj:   obj,
+		gotyp:   t,
+		kind:    kind,
+		id:      id,
+		goname:  n,
+		cgoname: "cgo_type_" + id,
+		cpyname: "cpy_type_" + id,
+		pyfmt:   "O&",
+		pybuf:   elt.pybuf,//fmt.Sprintf("%d%s", typ.Len(), elt.pybuf),
+		pysig:   "object",
+		c2py:    "cgopy_cnv_c2py_" + id,
+		py2c:    "cgopy_cnv_py2c_" + id,
+		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
+	}}
 
 func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
 	fn := sym.typename(t, nil)
