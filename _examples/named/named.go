@@ -39,3 +39,8 @@ func (s Slice) At(i int) float64 { return s[i] }
 type Array [2]float64
 
 func (a Array) At(i int) float64 { return a[i] }
+
+type T int
+
+func (t T) PublicMethod()  {}
+func (t T) privateMethod() {}

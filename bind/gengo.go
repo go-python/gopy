@@ -822,6 +822,10 @@ func (g *goGen) genTypeMethods(sym *symbol) {
 	typ := sym.GoType().(*types.Named)
 	for imeth := 0; imeth < typ.NumMethods(); imeth++ {
 		m := typ.Method(imeth)
+		if !m.Exported() {
+			continue
+		}
+
 		mname := types.ObjectString(m, nil)
 		msym := g.pkg.syms.sym(mname)
 		if msym == nil {
