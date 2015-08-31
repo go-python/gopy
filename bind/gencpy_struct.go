@@ -115,13 +115,25 @@ func (g *cpyGen) genStructInit(cpy Struct) {
 	)
 	g.impl.Indent()
 
-	nfields := cpy.Struct().NumFields()
-	if nfields > 0 {
+	numFields := cpy.Struct().NumFields()
+	numPublic := numFields
+	for i := 0; i < cpy.Struct().NumFields(); i++ {
+		f := cpy.Struct().Field(i)
+		if !f.Exported() {
+			numPublic--
+			continue
+		}
+	}
+
+	if numPublic > 0 {
 		kwds := make(map[string]int)
 		g.impl.Printf("static char *kwlist[] = {\n")
 		g.impl.Indent()
-		for i := 0; i < nfields; i++ {
+		for i := 0; i < numFields; i++ {
 			field := cpy.Struct().Field(i)
+			if !field.Exported() {
+				continue
+			}
 			kwds[field.Name()] = i
 			g.impl.Printf("%q, /* py_kwd_%03d */\n", field.Name(), i)
 		}
@@ -129,18 +141,22 @@ func (g *cpyGen) genStructInit(cpy Struct) {
 		g.impl.Outdent()
 		g.impl.Printf("};\n")
 
-		for i := 0; i < nfields; i++ {
+		for i := 0; i < numFields; i++ {
+			field := cpy.Struct().Field(i)
+			if !field.Exported() {
+				continue
+			}
 			g.impl.Printf("PyObject *py_kwd_%03d = NULL;\n", i)
 		}
 
 		g.impl.Printf("Py_ssize_t nkwds = (kwds != NULL) ? PyDict_Size(kwds) : 0;\n")
 		g.impl.Printf("Py_ssize_t nargs = (args != NULL) ? PySequence_Size(args) : 0;\n")
-		g.impl.Printf("if ((nkwds + nargs) > %d) {\n", nfields)
+		g.impl.Printf("if ((nkwds + nargs) > %d) {\n", numPublic)
 		g.impl.Indent()
 		g.impl.Printf("PyErr_SetString(PyExc_TypeError, ")
 		g.impl.Printf("\"%s.__init__ takes at most %d argument(s)\");\n",
 			cpy.GoName(),
-			nfields,
+			numPublic,
 		)
 		g.impl.Printf("goto cpy_label_%s_init_fail;\n", cpy.sym.cpyname)
 		g.impl.Outdent()
@@ -149,7 +165,11 @@ func (g *cpyGen) genStructInit(cpy Struct) {
 		g.impl.Printf("if (!PyArg_ParseTupleAndKeywords(args, kwds, ")
 		format := []string{"|"}
 		addrs := []string{}
-		for i := 0; i < nfields; i++ {
+		for i := 0; i < numFields; i++ {
+			field := cpy.Struct().Field(i)
+			if !field.Exported() {
+				continue
+			}
 			format = append(format, "O")
 			addrs = append(addrs, fmt.Sprintf("&py_kwd_%03d", i))
 		}
@@ -162,7 +182,11 @@ func (g *cpyGen) genStructInit(cpy Struct) {
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
-		for i := 0; i < nfields; i++ {
+		for i := 0; i < numFields; i++ {
+			field := cpy.Struct().Field(i)
+			if !field.Exported() {
+				continue
+			}
 			g.impl.Printf("if (py_kwd_%03d != NULL) {\n", i)
 			g.impl.Indent()
 			g.impl.Printf(
@@ -184,7 +208,11 @@ func (g *cpyGen) genStructInit(cpy Struct) {
 	g.impl.Outdent()
 	g.impl.Printf("\ncpy_label_%s_init_fail:\n", cpy.sym.cpyname)
 	g.impl.Indent()
-	for i := 0; i < nfields; i++ {
+	for i := 0; i < numFields; i++ {
+		field := cpy.Struct().Field(i)
+		if !field.Exported() {
+			continue
+		}
 		g.impl.Printf("Py_XDECREF(py_kwd_%03d);\n", i)
 	}
 	g.impl.Printf("\nreturn -1;\n")

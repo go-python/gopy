@@ -369,6 +369,17 @@ func TestBindStructs(t *testing.T) {
 s = structs.S{}
 s.Init()
 s.Upper('boo')= 'BOO'
+s1 = structs.S1()
+s1 = structs.S1{private:0}
+caught error: 'structs.S1' object has no attribute 'private'
+s2 = structs.S2()
+s2 = structs.S2{Public:0, private:0}
+s2 = structs.S2(1)
+s2 = structs.S2{Public:1, private:0}
+caught error: S2.__init__ takes at most 1 argument(s)
+s2 = structs.S2{Public:42, private:0}
+s2.Public = 42
+caught error: 'structs.S2' object has no attribute 'private'
 `),
 	})
 }

@@ -14,3 +14,12 @@ func (S) Init() {}
 func (S) Upper(s string) string {
 	return strings.ToUpper(s)
 }
+
+type S1 struct {
+	private int
+}
+
+type S2 struct {
+	Public  int
+	private int
+}
