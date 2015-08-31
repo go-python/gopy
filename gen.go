@@ -40,6 +40,18 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 		// no-op
 	}
 
+	pyvers := 2
+	switch lang {
+	case "python2", "py2":
+		pyvers = 2
+	case "python3", "py3":
+		pyvers = 3
+	}
+
+	if err != nil {
+		return err
+	}
+
 	switch lang {
 	case "python2", "py2":
 		o, err = os.Create(filepath.Join(odir, p.Name()+".c"))
@@ -62,7 +74,7 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 		}
 		defer o.Close()
 
-		err = bind.GenGo(o, fset, p)
+		err = bind.GenGo(o, fset, p, pyvers)
 		if err != nil {
 			return err
 		}

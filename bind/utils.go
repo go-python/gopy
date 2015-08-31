@@ -5,7 +5,13 @@
 package bind
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"io"
+	"os/exec"
+	"regexp"
+	"sort"
 
 	"golang.org/x/tools/go/types"
 )
@@ -78,4 +84,68 @@ func hasError(sig *types.Signature) bool {
 func isConstructor(sig *types.Signature) bool {
 	//TODO(sbinet)
 	return false
+}
+
+// getPkgConfig returns the name of the pkg-config python's pc file
+func getPkgConfig(vers int) (string, error) {
+	bin, err := exec.LookPath("pkg-config")
+	if err != nil {
+		return "", fmt.Errorf(
+			"gopy: could not locate 'pkg-config' executable (err: %v)",
+			err,
+		)
+	}
+
+	out, err := exec.Command(bin, "--list-all").Output()
+	if err != nil {
+		return "", fmt.Errorf(
+			"gopy: error retrieving the list of packages known to pkg-config (err: %v)",
+			err,
+		)
+	}
+
+	pkgs := []string{}
+	re := regexp.MustCompile(fmt.Sprintf(`^python(\s|-|\.|)%d.*?`, vers))
+	s := bufio.NewScanner(bytes.NewReader(out))
+	for s.Scan() {
+		err = s.Err()
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+			break
+		}
+
+		line := s.Bytes()
+		if !bytes.HasPrefix(line, []byte("python")) {
+			continue
+		}
+
+		if !re.Match(line) {
+			continue
+		}
+
+		pkg := bytes.Split(line, []byte(" "))
+		pkgs = append(pkgs, string(pkg[0]))
+	}
+
+	if err != nil {
+		return "", fmt.Errorf(
+			"gopy: error scanning pkg-config output (err: %v)",
+			err,
+		)
+	}
+
+	if len(pkgs) <= 0 {
+		return "", fmt.Errorf(
+			"gopy: could not find pkg-config file (no python.pc installed?)",
+		)
+	}
+
+	sort.Strings(pkgs)
+
+	// FIXME(sbinet): make sure we take the latest version?
+	pkgcfg := pkgs[0]
+
+	return pkgcfg, nil
 }
