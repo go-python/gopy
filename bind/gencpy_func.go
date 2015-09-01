@@ -150,9 +150,9 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 	if hasError(sig) {
 		switch nres {
 		case 1:
-			g.impl.Printf("if (!_cgopy_ErrorIsNil(ret)) {\n")
+			g.impl.Printf("if (!_cgopy_ErrorIsNil(*(GoInterface*)(ret))) {\n")
 			g.impl.Indent()
-			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(ret);\n")
+			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(*(GoInterface*)(ret));\n")
 			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
 			g.impl.Printf("free((void*)c_err_str);\n")
 			g.impl.Printf("return NULL;\n")
@@ -164,9 +164,9 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 			return
 
 		case 2:
-			g.impl.Printf("if (!_cgopy_ErrorIsNil(ret.r1)) {\n")
+			g.impl.Printf("if (!_cgopy_ErrorIsNil(*(GoInterface*)(ret.r1))) {\n")
 			g.impl.Indent()
-			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(ret.r1);\n")
+			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(*(GoInterface*)(ret.r1));\n")
 			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
 			g.impl.Printf("free((void*)c_err_str);\n")
 			g.impl.Printf("return NULL;\n")
@@ -286,9 +286,9 @@ func (g *cpyGen) genFuncBody(f Func) {
 	if f.err {
 		switch len(res) {
 		case 1:
-			g.impl.Printf("if (!_cgopy_ErrorIsNil(c_gopy_ret)) {\n")
+			g.impl.Printf("if (!_cgopy_ErrorIsNil(*(GoInterface*)(c_gopy_ret))) {\n")
 			g.impl.Indent()
-			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(c_gopy_ret);\n")
+			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(*(GoInterface*)(c_gopy_ret));\n")
 			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
 			g.impl.Printf("free((void*)c_err_str);\n")
 			g.impl.Printf("return NULL;\n")
@@ -298,9 +298,9 @@ func (g *cpyGen) genFuncBody(f Func) {
 			return
 
 		case 2:
-			g.impl.Printf("if (!_cgopy_ErrorIsNil(c_gopy_ret.r1)) {\n")
+			g.impl.Printf("if (!_cgopy_ErrorIsNil(*(GoInterface*)(c_gopy_ret.r1))) {\n")
 			g.impl.Indent()
-			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(c_gopy_ret.r1);\n")
+			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(*(GoInterface*)(c_gopy_ret.r1));\n")
 			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
 			g.impl.Printf("free((void*)c_err_str);\n")
 			g.impl.Printf("return NULL;\n")

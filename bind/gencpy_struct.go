@@ -263,14 +263,12 @@ func (g *cpyGen) genStructMemberGetter(cpy Struct, i int, f types.Object) {
 		results      = []*Var{ifield}
 	)
 
-	if needWrapType(ft) {
-		g.decl.Printf("\n/* wrapper for field %s.%s.%s */\n",
-			pkg.Name(),
-			cpy.GoName(),
-			f.Name(),
-		)
-		g.decl.Printf("typedef void* %[1]s_field_%d;\n", cpy.sym.cgoname, i+1)
-	}
+	g.decl.Printf("\n/* wrapper for field %s.%s.%s */\n",
+		pkg.Name(),
+		cpy.GoName(),
+		f.Name(),
+	)
+	g.decl.Printf("typedef void* %[1]s_field_%d;\n", cpy.sym.cgoname, i+1)
 
 	g.decl.Printf("\n/* getter for %[1]s.%[2]s.%[3]s */\n",
 		pkg.Name(), cpy.sym.goname, f.Name(),
@@ -297,9 +295,7 @@ func (g *cpyGen) genStructMemberGetter(cpy Struct, i int, f types.Object) {
 
 	g.impl.Printf("PyObject *o = NULL;\n")
 	ftname := g.pkg.syms.symtype(ft).cgoname
-	if needWrapType(ft) {
-		ftname = fmt.Sprintf("%[1]s_field_%d", cpy.sym.cgoname, i+1)
-	}
+	ftname = fmt.Sprintf("%[1]s_field_%d", cpy.sym.cgoname, i+1)
 	g.impl.Printf(
 		"%[1]s c_ret = %[2]s(self->cgopy); /*wrap*/\n",
 		ftname,

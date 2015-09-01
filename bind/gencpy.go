@@ -53,19 +53,43 @@ typedef struct _gopy_object gopy_object;
 
 // --- gopy object model ---
 
+typedef GoUint8 *cgo_type_bool;
+typedef GoUint8 *cgo_type_byte;
+
+typedef GoInt   *cgo_type_int;
+typedef GoInt8  *cgo_type_int8;
+typedef GoInt16 *cgo_type_int16;
+typedef GoInt32 *cgo_type_int32;
+typedef GoInt64 *cgo_type_int64;
+
+typedef GoUint   *cgo_type_uint;
+typedef GoUint8  *cgo_type_uint8;
+typedef GoUint16 *cgo_type_uint16;
+typedef GoUint32 *cgo_type_uint32;
+typedef GoUint64 *cgo_type_uint64;
+
+typedef GoFloat32    *cgo_type_float32;
+typedef GoFloat64    *cgo_type_float64;
+typedef GoComplex64  *cgo_type_complex64;
+typedef GoComplex128 *cgo_type_complex128;
+
+typedef GoString *cgo_type_string;
+typedef void     *cgo_type_rune; /* FIXME */
+
+typedef GoInterface *cgo_type_interface;
 
 // helpers for cgopy
 
 #define def_cnv(name, c2py, py2c, gotype) \
 	static int \
-	cgopy_cnv_py2c_ ## name(PyObject *o, gotype *addr) { \
-		*addr = py2c(o); \
+	cgopy_cnv_py2c_ ## name(PyObject *o, cgo_type_ ## name *addr) { \
+		**((gotype**)addr) = py2c(o); \
 		return 1;	\
 	} \
 	\
 	static PyObject* \
-	cgopy_cnv_c2py_ ## name(gotype *addr) { \
-		return c2py(*addr); \
+	cgopy_cnv_c2py_ ## name(cgo_type_ ## name *addr) { \
+		return c2py(**((gotype**)addr)); \
 	} 
 
 #if (GOINTBITS == 4)
@@ -76,11 +100,12 @@ typedef struct _gopy_object gopy_object;
 	def_cnv(uint,  PyInt_FromLong, PyInt_AsLong, GoUint)
 #endif
 
-def_cnv(  int8, PyInt_FromLong, PyInt_AsLong, GoInt8)
-def_cnv( int16, PyInt_FromLong, PyInt_AsLong, GoInt16)
-def_cnv( int32, PyInt_FromLong, PyInt_AsLong, GoInt32)
+def_cnv(  int8,  PyInt_FromLong,  PyInt_AsLong,  GoInt8)
+def_cnv( int16,  PyInt_FromLong,  PyInt_AsLong, GoInt16)
+def_cnv( int32,  PyInt_FromLong,  PyInt_AsLong, GoInt32)
 def_cnv( int64, PyLong_FromLong, PyLong_AsLong, GoInt64)
-def_cnv(uint8,  PyInt_FromLong, PyInt_AsLong, GoUint8)
+
+def_cnv( uint8, PyInt_FromLong, PyInt_AsLong,  GoUint8)
 def_cnv(uint16, PyInt_FromLong, PyInt_AsLong, GoUint16)
 def_cnv(uint32, PyInt_FromLong, PyInt_AsLong, GoUint32)
 def_cnv(uint64, PyLong_FromUnsignedLong, PyLong_AsUnsignedLong, GoUint64)
@@ -90,70 +115,72 @@ def_cnv(float64, PyFloat_FromDouble, PyFloat_AsDouble, GoFloat64)
 #undef def_cnv
 
 static int
-cgopy_cnv_py2c_bool(PyObject *o, GoUint8 *addr) {
-	*addr = (o == Py_True) ? 1 : 0;
+cgopy_cnv_py2c_bool(PyObject *o, cgo_type_bool *addr) {
+	**(GoUint8**)addr = (o == Py_True) ? 1 : 0;
 	return 1;
 }
 
 static PyObject*
-cgopy_cnv_c2py_bool(GoUint8 *addr) {
-	long v = *addr;
+cgopy_cnv_c2py_bool(cgo_type_bool *addr) {
+	long v = **(GoUint8**)addr;
 	return PyBool_FromLong(v);
 }
 
 static int
-cgopy_cnv_py2c_string(PyObject *o, GoString *addr) {
+cgopy_cnv_py2c_string(PyObject *o, cgo_type_string *addr) {
 	const char *str = PyString_AsString(o);
 	if (str == NULL) {
 		return 0;
 	}
-	*addr = _cgopy_GoString((char*)str);
+	**((GoString**)addr) = _cgopy_GoString((char*)str);
 	return 1;
 }
 
 static PyObject*
-cgopy_cnv_c2py_string(GoString *addr) {
-	const char *str = _cgopy_CString(*addr);
+cgopy_cnv_c2py_string(cgo_type_string *addr) {
+	const char *str = _cgopy_CString(**(GoString**)addr);
 	PyObject *pystr = PyString_FromString(str);
 	free((void*)str);
 	return pystr;
 }
 
 static int
-cgopy_cnv_py2c_float32(PyObject *o, GoFloat32 *addr) {
-	GoFloat32 v = PyFloat_AsDouble(o);
-	*addr = v;
+cgopy_cnv_py2c_float32(PyObject *o, cgo_type_float32 *addr) {
+	GoFloat64 v = PyFloat_AsDouble(o);
+	**(GoFloat32**)addr = v;
 	return 1;
 }
 
 static PyObject*
-cgopy_cnv_c2py_float32(GoFloat32 *addr) {
-	GoFloat64 v = *addr;
+cgopy_cnv_c2py_float32(cgo_type_float32 *addr) {
+	GoFloat64 v = **(GoFloat32**)addr;
 	return PyFloat_FromDouble(v);
 }
 
 static int
-cgopy_cnv_py2c_complex64(PyObject *o, GoComplex64 *addr) {
+cgopy_cnv_py2c_complex64(PyObject *o, cgo_type_complex64 *addr) {
 	Py_complex v = PyComplex_AsCComplex(o);
-	*addr = v.real + v.imag * _Complex_I;
+	**(GoComplex64**)addr = v.real + v.imag * _Complex_I;
 	return 1;
 }
 
 static PyObject*
-cgopy_cnv_c2py_complex64(GoComplex64 *addr) {
-	return PyComplex_FromDoubles(creal(*addr), cimag(*addr));
+cgopy_cnv_c2py_complex64(cgo_type_complex64 *addr) {
+	GoComplex64 v = **(GoComplex64**)addr;
+	return PyComplex_FromDoubles(creal(v), cimag(v));
 }
 
 static int
-cgopy_cnv_py2c_complex128(PyObject *o, GoComplex128 *addr) {
+cgopy_cnv_py2c_complex128(PyObject *o, cgo_type_complex128 *addr) {
 	Py_complex v = PyComplex_AsCComplex(o);
-	*addr = v.real + v.imag * _Complex_I;
+	**(GoComplex128**)addr = v.real + v.imag * _Complex_I;
 	return 1;
 }
 
 static PyObject*
-cgopy_cnv_c2py_complex128(GoComplex128 *addr) {
-	return PyComplex_FromDoubles(creal(*addr), cimag(*addr));
+cgopy_cnv_c2py_complex128(cgo_type_complex128 *addr) {
+	GoComplex128 v = **(GoComplex128**)addr;
+	return PyComplex_FromDoubles(creal(v), cimag(v));
 }
 `
 )

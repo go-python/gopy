@@ -324,7 +324,6 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n") // if-arg
 
-
 	case sym.isMap():
 		g.impl.Printf("if (arg != NULL) {\n")
 		g.impl.Indent()
@@ -449,7 +448,7 @@ func (g *cpyGen) genTypeTPStr(sym *symbol) {
 		sym.cgoname,
 		sym.cpyname,
 	)
-	g.impl.Printf("GoString str = cgo_func_%[1]s_str(c_self);\n",
+	g.impl.Printf("cgo_type_string str = cgo_func_%[1]s_str(c_self);\n",
 		sym.id,
 	)
 	g.impl.Printf("return cgopy_cnv_c2py_string(&str);\n")
@@ -992,9 +991,9 @@ func (g *cpyGen) genTypeTPCall(sym *symbol) {
 	if hasError(sig) {
 		switch len(res) {
 		case 1:
-			g.impl.Printf("if (!_cgopy_ErrorIsNil(c_gopy_ret)) {\n")
+			g.impl.Printf("if (!_cgopy_ErrorIsNil(*(GoInterface*)(c_gopy_ret))) {\n")
 			g.impl.Indent()
-			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(c_gopy_ret);\n")
+			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(*(GoInterface*)(c_gopy_ret));\n")
 			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
 			g.impl.Printf("free((void*)c_err_str);\n")
 			g.impl.Printf("return NULL;\n")
@@ -1006,9 +1005,9 @@ func (g *cpyGen) genTypeTPCall(sym *symbol) {
 			return
 
 		case 2:
-			g.impl.Printf("if (!_cgopy_ErrorIsNil(c_gopy_ret.r1)) {\n")
+			g.impl.Printf("if (!_cgopy_ErrorIsNil(*(GoInterface*)(c_gopy_ret.r1))) {\n")
 			g.impl.Indent()
-			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(c_gopy_ret.r1);\n")
+			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(*(GoInterface*)(c_gopy_ret.r1));\n")
 			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
 			g.impl.Printf("free((void*)c_err_str);\n")
 			g.impl.Printf("return NULL;\n")

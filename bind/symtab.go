@@ -154,25 +154,6 @@ func (s symbol) GoType() types.Type {
 }
 
 func (s symbol) cgotypename() string {
-	typ := s.gotyp
-	switch typ := typ.(type) {
-	case *types.Basic:
-		n := typ.Name()
-		if strings.HasPrefix(n, "untyped ") {
-			n = string(n[len("untyped "):])
-		}
-		return n
-	case *types.Named:
-		obj := s.goobj
-		switch typ.Underlying().(type) {
-		case *types.Struct:
-			return s.cgoname
-		case *types.Interface:
-			if obj.Name() == "error" {
-				return "error"
-			}
-		}
-	}
 	return s.cgoname
 }
 
@@ -516,12 +497,13 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		cgoname: "cgo_type_" + id,
 		cpyname: "cpy_type_" + id,
 		pyfmt:   "O&",
-		pybuf:   elt.pybuf,//fmt.Sprintf("%d%s", typ.Len(), elt.pybuf),
+		pybuf:   elt.pybuf, //fmt.Sprintf("%d%s", typ.Len(), elt.pybuf),
 		pysig:   "object",
 		c2py:    "cgopy_cnv_c2py_" + id,
 		py2c:    "cgopy_cnv_py2c_" + id,
 		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
-	}}
+	}
+}
 
 func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
 	fn := sym.typename(t, nil)
@@ -732,7 +714,7 @@ func init() {
 			gotyp:   look("bool").Type(),
 			kind:    skType | skBasic,
 			goname:  "bool",
-			cgoname: "GoUint8",
+			cgoname: "cgo_type_bool",
 			cpyname: "GoUint8",
 			pyfmt:   "O&",
 			pybuf:   "?",
@@ -748,9 +730,9 @@ func init() {
 			gotyp:   look("byte").Type(),
 			kind:    skType | skBasic,
 			goname:  "byte",
-			cpyname: "uint8_t",
-			cgoname: "GoUint8",
-			pyfmt:   "b",
+			cgoname: "cgo_type_byte",
+			cpyname: "GoUint8",
+			pyfmt:   "O&",
 			pybuf:   "B",
 			pysig:   "int", // FIXME(sbinet) py2/py3
 			pychk:   "PyByte_Check(%s)",
@@ -763,8 +745,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "int",
 			cpyname: "int",
-			cgoname: "GoInt",
-			pyfmt:   "i",
+			cgoname: "cgo_type_int",
+			pyfmt:   "O&",
 			pybuf:   "i",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int",
@@ -779,8 +761,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "int8",
 			cpyname: "int8_t",
-			cgoname: "GoInt8",
-			pyfmt:   "b",
+			cgoname: "cgo_type_int8",
+			pyfmt:   "O&",
 			pybuf:   "b",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int8",
@@ -795,8 +777,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "int16",
 			cpyname: "int16_t",
-			cgoname: "GoInt16",
-			pyfmt:   "h",
+			cgoname: "cgo_type_int16",
+			pyfmt:   "O&",
 			pybuf:   "h",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int16",
@@ -811,8 +793,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "int32",
 			cpyname: "int32_t",
-			cgoname: "GoInt32",
-			pyfmt:   "i",
+			cgoname: "cgo_type_int32",
+			pyfmt:   "O&",
 			pybuf:   "i",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int32",
@@ -827,8 +809,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "int64",
 			cpyname: "int64_t",
-			cgoname: "GoInt64",
-			pyfmt:   "k",
+			cgoname: "cgo_type_int64",
+			pyfmt:   "O&",
 			pybuf:   "q",
 			pysig:   "long",
 			c2py:    "cgopy_cnv_c2py_int64",
@@ -843,8 +825,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "uint",
 			cpyname: "unsigned int",
-			cgoname: "GoUint",
-			pyfmt:   "I",
+			cgoname: "cgo_type_uint",
+			pyfmt:   "O&",
 			pybuf:   "I",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_uint",
@@ -859,8 +841,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "uint8",
 			cpyname: "uint8_t",
-			cgoname: "GoUint8",
-			pyfmt:   "B",
+			cgoname: "cgo_type_uint8",
+			pyfmt:   "O&",
 			pybuf:   "B",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_uint8",
@@ -875,8 +857,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "uint16",
 			cpyname: "uint16_t",
-			cgoname: "GoUint16",
-			pyfmt:   "H",
+			cgoname: "cgo_type_uint16",
+			pyfmt:   "O&",
 			pybuf:   "H",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_uint16",
@@ -891,8 +873,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "uint32",
 			cpyname: "uint32_t",
-			cgoname: "GoUint32",
-			pyfmt:   "I",
+			cgoname: "cgo_type_uint32",
+			pyfmt:   "O&",
 			pybuf:   "I",
 			pysig:   "long",
 			c2py:    "cgopy_cnv_c2py_uint32",
@@ -907,8 +889,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "uint64",
 			cpyname: "uint64_t",
-			cgoname: "GoUint64",
-			pyfmt:   "K",
+			cgoname: "cgo_type_uint64",
+			pyfmt:   "O&",
 			pybuf:   "Q",
 			pysig:   "long",
 			c2py:    "cgopy_cnv_c2py_uint64",
@@ -923,8 +905,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "float32",
 			cpyname: "float",
-			cgoname: "GoFloat32",
-			pyfmt:   "f",
+			cgoname: "cgo_type_float32",
+			pyfmt:   "O&",
 			pybuf:   "f",
 			pysig:   "float",
 			c2py:    "cgopy_cnv_c2py_float32",
@@ -939,8 +921,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "float64",
 			cpyname: "double",
-			cgoname: "GoFloat64",
-			pyfmt:   "d",
+			cgoname: "cgo_type_float64",
+			pyfmt:   "O&",
 			pybuf:   "d",
 			pysig:   "float",
 			c2py:    "cgopy_cnv_c2py_float64",
@@ -955,8 +937,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "complex64",
 			cpyname: "float complex",
-			cgoname: "GoComplex64",
-			pyfmt:   "D",
+			cgoname: "cgo_type_complex64",
+			pyfmt:   "O&",
 			pybuf:   "ff",
 			pysig:   "complex",
 			c2py:    "cgopy_cnv_c2py_complex64",
@@ -971,8 +953,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "complex128",
 			cpyname: "double complex",
-			cgoname: "GoComplex128",
-			pyfmt:   "D",
+			cgoname: "cgo_type_complex128",
+			pyfmt:   "O&",
 			pybuf:   "dd",
 			pysig:   "complex",
 			c2py:    "cgopy_cnv_c2py_complex128",
@@ -986,8 +968,8 @@ func init() {
 			gotyp:   look("string").Type(),
 			kind:    skType | skBasic,
 			goname:  "string",
-			cpyname: "GoString",
-			cgoname: "GoString",
+			cpyname: "cgo_type_string",
+			cgoname: "cgo_type_string",
 			pyfmt:   "O&",
 			pybuf:   "s",
 			pysig:   "str",
@@ -1003,7 +985,7 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "rune",
 			cpyname: "GoRune",
-			cgoname: "GoRune",
+			cgoname: "cgo_type_rune",
 			pyfmt:   "O&",
 			pybuf:   "p",
 			pysig:   "str",
@@ -1018,7 +1000,7 @@ func init() {
 			gotyp:   look("error").Type(),
 			kind:    skType | skInterface,
 			goname:  "error",
-			cgoname: "GoInterface",
+			cgoname: "cgo_type_interface",
 			cpyname: "GoInterface",
 			pyfmt:   "O&",
 			pybuf:   "PP",
@@ -1036,8 +1018,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "int",
 			cpyname: "int64_t",
-			cgoname: "GoInt",
-			pyfmt:   "k",
+			cgoname: "cgo_type_int",
+			pyfmt:   "O&",
 			pybuf:   "q",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_int",
@@ -1051,8 +1033,8 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "uint",
 			cpyname: "uint64_t",
-			cgoname: "GoUint",
-			pyfmt:   "K",
+			cgoname: "cgo_type_uint",
+			pyfmt:   "O&",
 			pybuf:   "Q",
 			pysig:   "int",
 			c2py:    "cgopy_cnv_c2py_uint",

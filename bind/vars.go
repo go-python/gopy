@@ -125,8 +125,3 @@ func (v *Var) genFuncPreamble(g *printer) {
 func (v *Var) getFuncArg() string {
 	return "c_" + v.Name()
 }
-
-func (v *Var) needWrap() bool {
-	typ := v.GoType()
-	return needWrapType(typ)
-}
