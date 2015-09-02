@@ -158,8 +158,6 @@ func (g *goGen) gen() error {
 	}
 
 	// expose ctors at module level
-	// FIXME(sbinet): attach them to structs?
-	// -> problem is if one has 2 or more ctors with exactly the same signature.
 	for _, s := range g.pkg.structs {
 		for _, ctor := range s.ctors {
 			g.genFunc(ctor)
