@@ -99,6 +99,10 @@ type symbol struct {
 	pychk string
 }
 
+func isPrivate(s string) bool {
+	return (strings.ToLower(s[0:1]) == s[0:1])
+}
+
 func (s symbol) isType() bool {
 	return (s.kind & skType) != 0
 }
@@ -569,6 +573,7 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 	kind |= skStruct
 	pybuf := make([]string, 0, typ.NumFields())
 	for i := 0; i < typ.NumFields(); i++ {
+		if isPrivate(typ.Field(i).Name()) { continue }
 		ftyp := typ.Field(i).Type()
 		fsym := sym.symtype(ftyp)
 		if fsym == nil {
