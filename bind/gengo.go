@@ -29,11 +29,16 @@ import (
 	"sync"
 	"unsafe"
 
+	"golang.org/x/mobile/bind/seq"
+
 	%[3]s
 )
 
-var _ = unsafe.Pointer(nil)
-var _ = fmt.Sprintf
+var (
+	_ = unsafe.Pointer(nil)
+	_ = fmt.Sprintf
+	_ = seq.Delete
+)
 
 // --- begin cgo helpers ---
 
@@ -189,22 +194,14 @@ func (g *goGen) genPackage() {
 }
 
 func (g *goGen) genFunc(f Func) {
-	sig := f.Signature()
-
-	params := "(" + g.tupleString(sig.Params()) + ")"
-	ret := " (" + g.tupleString(sig.Results()) + ") "
-
-	//funcName := o.Name()
 	g.Printf(`
 //export cgo_func_%[1]s
 // cgo_func_%[1]s wraps %[2]s.%[3]s
-func cgo_func_%[1]s%[4]v%[5]v{
+func cgo_func_%[1]s(out, in *seq.Buffer) {
 `,
 		f.ID(),
 		f.Package().Name(),
 		f.GoName(),
-		params,
-		ret,
 	)
 
 	g.Indent()
@@ -215,6 +212,12 @@ func cgo_func_%[1]s%[4]v%[5]v{
 
 func (g *goGen) genFuncBody(f Func) {
 	sig := f.Signature()
+
+	args := sig.Params()
+	for i, arg := range args {
+		g.genRead(fmt.Sprintf("_gopy_%03d", i), "in", arg.GoType())
+	}
+
 	results := sig.Results()
 	for i := range results {
 		if i > 0 {
@@ -228,7 +231,6 @@ func (g *goGen) genFuncBody(f Func) {
 
 	g.Printf("%s.%s(", g.pkg.Name(), f.GoName())
 
-	args := sig.Params()
 	for i, arg := range args {
 		tail := ""
 		if i+1 < len(args) {
@@ -989,4 +991,12 @@ func (g *goGen) tupleString(tuple []*Var) string {
 	}
 
 	return strings.Join(str, ", ")
+}
+
+func (g *goGen) genRead(valName, seqName string, typ types.Type) {
+	if isErrorType(typ) {
+		g.Printf("%s := %s.ReadError()\n", valName, seqName)
+		return
+	}
+
 }
