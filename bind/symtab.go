@@ -520,12 +520,13 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		cgoname: "cgo_type_" + id,
 		cpyname: "cpy_type_" + id,
 		pyfmt:   "O&",
-		pybuf:   elt.pybuf,//fmt.Sprintf("%d%s", typ.Len(), elt.pybuf),
+		pybuf:   elt.pybuf, //fmt.Sprintf("%d%s", typ.Len(), elt.pybuf),
 		pysig:   "object",
 		c2py:    "cgopy_cnv_c2py_" + id,
 		py2c:    "cgopy_cnv_py2c_" + id,
 		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
-	}}
+	}
+}
 
 func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
 	fn := sym.typename(t, nil)
@@ -573,7 +574,9 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 	kind |= skStruct
 	pybuf := make([]string, 0, typ.NumFields())
 	for i := 0; i < typ.NumFields(); i++ {
-		if isPrivate(typ.Field(i).Name()) { continue }
+		if isPrivate(typ.Field(i).Name()) {
+			continue
+		}
 		ftyp := typ.Field(i).Type()
 		fsym := sym.symtype(ftyp)
 		if fsym == nil {
@@ -1017,7 +1020,7 @@ func init() {
 			pychk:   "PyUnicode_Check(%s)",
 		},
 
-		"error": &symbol{
+		"error": {
 			gopkg:   look("error").Pkg(),
 			goobj:   look("error"),
 			gotyp:   look("error").Type(),

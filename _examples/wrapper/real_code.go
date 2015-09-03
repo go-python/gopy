@@ -4,10 +4,9 @@
 
 package wrapper
 
-
 type RealStruct struct {
 	pointers map[string]*RealStruct
-	Channel   chan int
+	Channel  chan int
 }
 
 func PointerTest() *RealStruct {

@@ -4,14 +4,13 @@
 
 package maps
 
-
 func MapsFunc(t map[string]int) {
 
 }
 
 func MapsFunc2() map[int]string {
 	return map[int]string{
-		1 : "hello",
-		2 : "world",
+		1: "hello",
+		2: "world",
 	}
 }

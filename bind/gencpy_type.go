@@ -324,7 +324,6 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n") // if-arg
 
-
 	case sym.isMap():
 		g.impl.Printf("if (arg != NULL) {\n")
 		g.impl.Indent()
