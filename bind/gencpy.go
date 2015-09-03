@@ -33,6 +33,8 @@ const (
 #error "Python-3 is not yet supported by gopy"
 #endif
 
+// descriptor for calls placed to the wrapped go package
+#define cgopy_seq_DESCRIPTOR %[1]q
 
 // --- gopy object model ---
 

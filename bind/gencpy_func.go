@@ -270,6 +270,18 @@ func (g *cpyGen) genFuncBody(f Func) {
 		g.impl.Printf("\n")
 	}
 
+	// create in/out seq-buffers
+	g.impl.Printf("cgopy_seq_buffer_t ibuf = cgopy_seq_buffer_new();\n")
+	g.impl.Printf("cgopy_seq_buffer_t obuf = cgopy_seq_buffer_new();\n")
+	g.impl.Printf("\n")
+
+	// fill input seq-buffer
+	if len(args) > 0 {
+		for i, arg := range args {
+			g.genWrite(fmt.Sprintf("arg%03d", i), "ibuf", arg.sym)
+		}
+	}
+
 	if len(res) > 0 {
 		g.impl.Printf("c_gopy_ret = ")
 	}
@@ -373,4 +385,14 @@ func (g *cpyGen) genFuncBody(f Func) {
 		strings.Join(format, ""),
 		strings.Join(funcArgs, ", "),
 	)
+}
+
+func (g *cpyGen) genWrite(valName, seqName string, sym *symbol) {
+	if isErrorType(sym.GoType()) {
+		g.impl.Printf("cgopy_seq_write_error(%s, %s);\n", seqName, valName)
+	}
+
+	switch sym.GoType() {
+
+	}
 }

@@ -195,7 +195,6 @@ func (g *goGen) genPackage() {
 
 func (g *goGen) genFunc(f Func) {
 	g.Printf(`
-//export cgo_func_%[1]s
 // cgo_func_%[1]s wraps %[2]s.%[3]s
 func cgo_func_%[1]s(out, in *seq.Buffer) {
 `,
