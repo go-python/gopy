@@ -30,6 +30,7 @@ import (
 	"unsafe"
 
 	"golang.org/x/mobile/bind/seq"
+	_ "github.com/go-python/gopy/bind/cpy"
 
 	%[3]s
 )
@@ -64,73 +65,19 @@ func _cgopy_ErrorString(err error) *C.char {
 
 // --- end cgo helpers ---
 
-// --- begin cref helpers ---
-
-type cobject struct {
-	ptr unsafe.Pointer
-	cnt int32
-}
-
-// refs stores Go objects that have been passed to another language.
-var refs struct {
-	sync.Mutex
-	next int32 // next reference number to use for Go object, always negative
-	refs map[unsafe.Pointer]int32
-	ptrs map[int32]cobject
-}
-
-//export cgopy_incref
-func cgopy_incref(ptr unsafe.Pointer) {
-	refs.Lock()
-	num, ok := refs.refs[ptr]
-	if ok {
-		s := refs.ptrs[num]
-		refs.ptrs[num] = cobject{s.ptr, s.cnt + 1}
-	} else {
-		num = refs.next
-		refs.next--
-		if refs.next > 0 {
-			panic("refs.next underflow")
-		}
-		refs.refs[ptr] = num
-		refs.ptrs[num] = cobject{ptr, 1}
-	}
-	refs.Unlock()
-}
-
-//export cgopy_decref
-func cgopy_decref(ptr unsafe.Pointer) {
-	refs.Lock()
-	num, ok := refs.refs[ptr]
-	if !ok {
-		panic("cgopy: decref untracked object")
-	}
-	s := refs.ptrs[num]
-	if s.cnt - 1 <= 0 {
-		delete(refs.ptrs, num)
-		delete(refs.refs, ptr)
-		refs.Unlock()
-		return
-	}
-	refs.ptrs[num] = cobject{s.ptr, s.cnt - 1}
-	refs.Unlock()
-}
-
 func init() {
-	refs.Lock()
-	refs.next = -24 // Go objects get negative reference numbers. Arbitrary starting point.
-	refs.refs = make(map[unsafe.Pointer]int32)
-	refs.ptrs = make(map[int32]cobject)
-	refs.Unlock()
-
 	// make sure cgo is used and cgo hooks are run
 	str := C.CString(%[1]q)
 	C.free(unsafe.Pointer(str))
 }
-
-// --- end cref helpers ---
 `
 )
+
+type goReg struct {
+	Descriptor string
+	ID         uint32
+	Func       string
+}
 
 type goGen struct {
 	*printer
@@ -139,6 +86,8 @@ type goGen struct {
 	pkg  *Package
 	lang int // python's version API (2 or 3)
 	err  ErrorList
+
+	regs []goReg
 }
 
 func (g *goGen) gen() error {
@@ -180,6 +129,20 @@ func (g *goGen) gen() error {
 		g.genVar(v)
 	}
 
+	g.Printf("func init() {\n")
+	g.Indent()
+
+	for _, reg := range g.regs {
+		g.Printf(
+			"seq.Register(%[1]q, %[2]d, cgo_func_%[3]s)\n",
+			reg.Descriptor,
+			reg.ID,
+			reg.Func,
+		)
+	}
+	g.Outdent()
+	g.Printf("}\n\n")
+
 	g.Printf("// buildmode=c-shared needs a 'main'\nfunc main() {}\n")
 	if len(g.err) > 0 {
 		return g.err
@@ -191,6 +154,8 @@ func (g *goGen) gen() error {
 func (g *goGen) genPackage() {
 	g.Printf("\n//export cgo_pkg_%[1]s_init\n", g.pkg.Name())
 	g.Printf("func cgo_pkg_%[1]s_init() {}\n\n", g.pkg.Name())
+	g.Printf("const cgopy_seq_pkg_DESCRIPTOR string = %q\n\n", g.pkg.ImportPath())
+
 }
 
 func (g *goGen) genFunc(f Func) {
@@ -207,6 +172,12 @@ func cgo_func_%[1]s(out, in *seq.Buffer) {
 	g.genFuncBody(f)
 	g.Outdent()
 	g.Printf("}\n\n")
+
+	g.regs = append(g.regs, goReg{
+		Descriptor: g.pkg.ImportPath() + "." + f.GoName(),
+		ID:         uhash(f.GoName()),
+		Func:       f.ID(),
+	})
 }
 
 func (g *goGen) genFuncBody(f Func) {

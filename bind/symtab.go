@@ -18,9 +18,13 @@ var (
 )
 
 func hash(s string) string {
+	return fmt.Sprintf("0x%d", uhash(s))
+}
+
+func uhash(s string) uint32 {
 	h := fnv.New32a()
 	h.Write([]byte(s))
-	return fmt.Sprintf("0x%d", h.Sum32())
+	return h.Sum32()
 }
 
 // symkind describes the kinds of symbol
