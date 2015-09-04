@@ -20,18 +20,17 @@ package main
 
 //#cgo pkg-config: %[2]s --cflags --libs
 //#include <stdlib.h>
+//#include <stdint.h>
 //#include <string.h>
 //#include <complex.h>
 import "C"
 
 import (
 	"fmt"
-	"sync"
 	"unsafe"
 
 	"golang.org/x/mobile/bind/seq"
-	_ "github.com/go-python/gopy/bind/cpy"
-
+	
 	%[3]s
 )
 
@@ -185,39 +184,28 @@ func (g *goGen) genFuncBody(f Func) {
 
 	args := sig.Params()
 	for i, arg := range args {
-		g.genRead(fmt.Sprintf("_gopy_%03d", i), "in", arg.GoType())
+		g.genRead(fmt.Sprintf("_arg_%03d", i), "in", arg.GoType())
 	}
 
 	results := sig.Results()
-	for i := range results {
-		if i > 0 {
-			g.Printf(", ")
-		}
-		g.Printf("_gopy_%03d", i)
-	}
 	if len(results) > 0 {
+		for i := range results {
+			if i > 0 {
+				g.Printf(", ")
+			}
+			g.Printf("_res_%03d", i)
+		}
 		g.Printf(" := ")
 	}
 
 	g.Printf("%s.%s(", g.pkg.Name(), f.GoName())
 
-	for i, arg := range args {
+	for i := range args {
 		tail := ""
 		if i+1 < len(args) {
 			tail = ", "
 		}
-		head := arg.Name()
-		if arg.needWrap() {
-			head = fmt.Sprintf(
-				"*(*%s)(unsafe.Pointer(%s))",
-				types.TypeString(
-					arg.GoType(),
-					func(*types.Package) string { return g.pkg.Name() },
-				),
-				arg.Name(),
-			)
-		}
-		g.Printf("%s%s", head, tail)
+		g.Printf("_arg_%03d%s", i, tail)
 	}
 	g.Printf(")\n")
 
@@ -226,28 +214,9 @@ func (g *goGen) genFuncBody(f Func) {
 	}
 
 	for i, res := range results {
-		if !res.needWrap() {
-			continue
-		}
-		g.Printf("cgopy_incref(unsafe.Pointer(&_gopy_%03d))\n", i)
+		g.genWrite(fmt.Sprintf("_res_%03d", i), "out", res.GoType())
 	}
 
-	g.Printf("return ")
-	for i, res := range results {
-		if i > 0 {
-			g.Printf(", ")
-		}
-		// if needWrap(res.GoType()) {
-		// 	g.Printf("")
-		// }
-		if res.needWrap() {
-			g.Printf("%s(unsafe.Pointer(&", res.sym.cgoname)
-		}
-		g.Printf("_gopy_%03d", i)
-		if res.needWrap() {
-			g.Printf("))")
-		}
-	}
 	g.Printf("\n")
 }
 
@@ -969,4 +938,119 @@ func (g *goGen) genRead(valName, seqName string, typ types.Type) {
 		return
 	}
 
+	switch typ := typ.(type) {
+	case *types.Basic:
+		g.Printf("%s := %s.Read%s()\n", valName, seqName, g.seqType(typ))
+
+	case *types.Named:
+	default:
+		panic(fmt.Errorf("gopy: unhandled type %#T", typ))
+	}
+}
+
+func (g *goGen) genWrite(valName, seqName string, T types.Type) {
+	if isErrorType(T) {
+		g.Printf("if %s == nil {\n", valName)
+		g.Printf("\t%s.WriteString(\"\");\n", seqName)
+		g.Printf("} else {\n")
+		g.Printf("\t%s.WriteString(%s.Error());\n", seqName, valName)
+		g.Printf("}\n")
+		return
+	}
+	switch T := T.(type) {
+	case *types.Pointer:
+		// TODO(crawshaw): test *int
+		// TODO(crawshaw): test **Generator
+		switch T := T.Elem().(type) {
+		case *types.Named:
+			obj := T.Obj()
+			if obj.Pkg() != g.pkg.pkg {
+				panic(fmt.Errorf("type %s not defined in package %s", T, g.pkg))
+				return
+			}
+			g.Printf("%s.WriteGoRef(%s)\n", seqName, valName)
+		default:
+			panic(fmt.Errorf("unsupported type %s", T))
+		}
+	case *types.Named:
+		switch u := T.Underlying().(type) {
+		case *types.Interface, *types.Pointer:
+			g.Printf("%s.WriteGoRef(%s)\n", seqName, valName)
+		default:
+			panic(fmt.Errorf("unsupported, direct named type %s: %s", T, u))
+		}
+	default:
+		g.Printf("%s.Write%s(%s);\n", seqName, seqType(T), valName)
+	}
+}
+
+func (g *goGen) seqType(typ types.Type) string {
+	return seqType(typ)
+}
+
+// seqType returns a string that can be used for reading and writing a
+// type using the seq library.
+// TODO(hyangah): avoid panic; gobind needs to output the problematic code location.
+func seqType(t types.Type) string {
+	if isErrorType(t) {
+		return "String"
+	}
+	switch t := t.(type) {
+	case *types.Basic:
+		switch t.Kind() {
+		case types.Bool:
+			return "Bool"
+		case types.Int:
+			return "Int"
+		case types.Int8:
+			return "Int8"
+		case types.Int16:
+			return "Int16"
+		case types.Int32:
+			return "Int32"
+		case types.Int64:
+			return "Int64"
+		case types.Uint8: // Byte.
+			// TODO(crawshaw): questionable, but vital?
+			return "Byte"
+		// TODO(crawshaw): case types.Uint, types.Uint16, types.Uint32, types.Uint64:
+		case types.Float32:
+			return "Float32"
+		case types.Float64:
+			return "Float64"
+		case types.String:
+			return "String"
+		default:
+			// Should be caught earlier in processing.
+			panic(fmt.Sprintf("unsupported basic seqType: %s", t))
+		}
+	case *types.Named:
+		switch u := t.Underlying().(type) {
+		case *types.Interface:
+			return "Ref"
+		default:
+			panic(fmt.Sprintf("unsupported named seqType: %s / %T", u, u))
+		}
+	case *types.Slice:
+		switch e := t.Elem().(type) {
+		case *types.Basic:
+			switch e.Kind() {
+			case types.Uint8: // Byte.
+				return "ByteArray"
+			default:
+				panic(fmt.Sprintf("unsupported seqType: %s(%s) / %T(%T)", t, e, t, e))
+			}
+		default:
+			panic(fmt.Sprintf("unsupported seqType: %s(%s) / %T(%T)", t, e, t, e))
+		}
+	// TODO: let the types.Array case handled like types.Slice?
+	case *types.Pointer:
+		if _, ok := t.Elem().(*types.Named); ok {
+			return "Ref"
+		}
+		panic(fmt.Sprintf("not supported yet, pointer type: %s / %T", t, t))
+
+	default:
+		panic(fmt.Sprintf("unsupported seqType: %s / %T", t, t))
+	}
 }
