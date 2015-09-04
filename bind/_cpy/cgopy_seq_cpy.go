@@ -6,7 +6,7 @@
 // golang.org/x/mobile/bind/seq.
 //
 // See the design document (http://golang.org/s/gobind).
-package cpy
+package main
 
 //#include <stdint.h>
 //#include <stddef.h>
@@ -16,6 +16,7 @@ import "C"
 
 import (
 	"fmt"
+	"os"
 	"sync"
 	"unsafe"
 
@@ -28,10 +29,12 @@ const debug = false
 
 // cgopy_seq_send is called by CPython to send a request to run a Go function.
 //export cgopy_seq_send
-func cgopy_seq_send(descriptor string, code int, req *C.uint8_t, reqlen C.size_t, res **C.uint8_t, reslen *C.size_t) {
-	fn := seq.Registry[descriptor][code]
+func cgopy_seq_send(descriptor *C.char, code int, req *C.uint8_t, reqlen C.uint32_t, res **C.uint8_t, reslen *C.uint32_t) {
+	descr := C.GoString(descriptor)
+	fmt.Fprintf(os.Stderr, "descr=%q, code=%d, req=%p, len=%d...\n", descr, code, req, reqlen)
+	fn := seq.Registry[descr][code]
 	if fn == nil {
-		panic(fmt.Sprintf("gopy: invalid descriptor(%s) and code(0x%x)", descriptor, code))
+		panic(fmt.Sprintf("gopy: invalid descriptor(%s) and code(0x%x)", descr, code))
 	}
 	in := new(seq.Buffer)
 	if reqlen > 0 {
@@ -81,7 +84,7 @@ func init() {
 	res.out = make(map[int32]*seq.Buffer)
 }
 
-func seqToBuf(bufptr **C.uint8_t, lenptr *C.size_t, buf *seq.Buffer) {
+func seqToBuf(bufptr **C.uint8_t, lenptr *C.uint32_t, buf *seq.Buffer) {
 	if debug {
 		fmt.Printf("gopy: seqToBuf tag 1, len(buf.Data)=%d, *lenptr=%d\n", len(buf.Data), *lenptr)
 	}
@@ -97,7 +100,7 @@ func seqToBuf(bufptr **C.uint8_t, lenptr *C.size_t, buf *seq.Buffer) {
 			panic(fmt.Sprintf("gopy: malloc failed, size=%d", len(buf.Data)))
 		}
 		*bufptr = (*C.uint8_t)(m)
-		*lenptr = C.size_t(len(buf.Data))
+		*lenptr = C.uint32_t(len(buf.Data))
 	}
 	C.memcpy(unsafe.Pointer(*bufptr), unsafe.Pointer(&buf.Data[0]), C.size_t(len(buf.Data)))
 }
