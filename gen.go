@@ -14,6 +14,7 @@ import (
 	"go/scanner"
 	"go/token"
 	"go/types"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -75,6 +76,43 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 		}
 		defer o.Close()
 
+		cwd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+
+		bindpkg, err := build.Import("github.com/go-python/gopy/bind", cwd, 0)
+		if err != nil {
+			return err
+		}
+
+		for _, fname := range []string{
+			"cgopy_seq_cpy.h",
+			"cgopy_seq_cpy.c",
+			"cgopy_seq_cpy.go",
+		} {
+			ftmpl, err := os.Open(filepath.Join(bindpkg.Dir, "_cpy", fname))
+			if err != nil {
+				return err
+			}
+			defer ftmpl.Close()
+
+			fout, err := os.Create(filepath.Join(odir, fname))
+			if err != nil {
+				return err
+			}
+			defer fout.Close()
+
+			_, err = io.Copy(fout, ftmpl)
+			if err != nil {
+				return err
+			}
+			err = fout.Close() // explicit to catch filesystem errors
+			if err != nil {
+				return err
+			}
+		}
+
 		err = bind.GenGo(o, fset, p, pyvers)
 		if err != nil {
 			return err
@@ -92,6 +130,21 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 			"go", "tool", "cgo",
 			"-exportheader", hdr,
 			o.Name(),
+		)
+		cmd.Dir = tmpdir
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+
+		seqhdr := filepath.Join(odir, "_cgopy_seq_export.h")
+		cmd = exec.Command(
+			"go", "tool", "cgo",
+			"-exportheader", seqhdr,
+			filepath.Join(odir, "cgopy_seq_cpy.go"),
 		)
 		cmd.Dir = tmpdir
 		cmd.Stdin = os.Stdin

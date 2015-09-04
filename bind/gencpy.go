@@ -26,6 +26,10 @@ const (
 #include "memoryobject.h"
 #include "bufferobject.h"
 
+// cpy-seq support
+#include "cgopy_seq_cpy.h"
+#include "_cgopy_seq_export.h"
+
 // header exported from 'go tool cgo'
 #include "%[3]s.h"
 
