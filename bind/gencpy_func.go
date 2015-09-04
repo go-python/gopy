@@ -232,6 +232,7 @@ func (g *cpyGen) genFuncBody(f Func) {
 	}
 
 	if len(res) > 0 {
+		g.impl.Printf("PyObject *pyout = NULL;\n")
 		switch len(res) {
 		case 1:
 			ret := res[0]
@@ -271,8 +272,8 @@ func (g *cpyGen) genFuncBody(f Func) {
 	}
 
 	// create in/out seq-buffers
-	g.impl.Printf("cgopy_seq_buffer_t ibuf = cgopy_seq_buffer_new();\n")
-	g.impl.Printf("cgopy_seq_buffer_t obuf = cgopy_seq_buffer_new();\n")
+	g.impl.Printf("cgopy_seq_buffer ibuf = cgopy_seq_buffer_new();\n")
+	g.impl.Printf("cgopy_seq_buffer obuf = cgopy_seq_buffer_new();\n")
 	g.impl.Printf("\n")
 
 	// fill input seq-buffer
@@ -282,14 +283,14 @@ func (g *cpyGen) genFuncBody(f Func) {
 		}
 	}
 
-	if len(res) > 0 {
-		g.impl.Printf("c_gopy_ret = ")
-	}
-	g.impl.Printf("cgo_func_%[1]s(%[2]s);\n", id, strings.Join(funcArgs, ", "))
-
-	g.impl.Printf("\n")
+	g.impl.Printf("cgopy_seq_send(%q, %d, ibuf->buf, ibuf->len, &obuf->buf, &obuf->len);\n\n",
+		g.pkg.ImportPath()+"."+f.GoName(),
+		uhash(f.GoName()),
+	)
 
 	if len(res) <= 0 {
+		g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+		g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 		g.impl.Printf("Py_INCREF(Py_None);\nreturn Py_None;\n")
 		return
 	}
@@ -302,6 +303,8 @@ func (g *cpyGen) genFuncBody(f Func) {
 			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(c_gopy_ret);\n")
 			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
 			g.impl.Printf("free((void*)c_err_str);\n")
+			g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+			g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 			g.impl.Printf("return NULL;\n")
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
@@ -314,6 +317,8 @@ func (g *cpyGen) genFuncBody(f Func) {
 			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(c_gopy_ret.r1);\n")
 			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
 			g.impl.Printf("free((void*)c_err_str);\n")
+			g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+			g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 			g.impl.Printf("return NULL;\n")
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
@@ -325,17 +330,24 @@ func (g *cpyGen) genFuncBody(f Func) {
 				)
 				g.impl.Printf("if (o == NULL) {\n")
 				g.impl.Indent()
+				g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+				g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 				g.impl.Printf("return NULL;\n")
 				g.impl.Outdent()
 				g.impl.Printf("}\n")
 				g.impl.Printf("((%[1]s*)o)->cgopy = c_gopy_ret.r0;\n",
 					ret.sym.cpyname,
 				)
+				g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+				g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 				g.impl.Printf("return o;\n")
 				return
 			}
 			pyfmt, _ := res[0].getArgBuildValue()
-			g.impl.Printf("return Py_BuildValue(%q, c_gopy_ret.r0);\n", pyfmt)
+			g.impl.Printf("pyout = Py_BuildValue(%q, c_gopy_ret.r0);\n", pyfmt)
+			g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+			g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
+			g.impl.Printf("return pyout;\n")
 			return
 
 		default:
@@ -354,12 +366,16 @@ func (g *cpyGen) genFuncBody(f Func) {
 		)
 		g.impl.Printf("if (o == NULL) {\n")
 		g.impl.Indent()
+		g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+		g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 		g.impl.Printf("return NULL;\n")
 		g.impl.Outdent()
 		g.impl.Printf("}\n")
 		g.impl.Printf("((%[1]s*)o)->cgopy = c_gopy_ret;\n",
 			ret.sym.cpyname,
 		)
+		g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+		g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 		g.impl.Printf("return o;\n")
 		return
 	}
@@ -381,10 +397,13 @@ func (g *cpyGen) genFuncBody(f Func) {
 		}
 	}
 
-	g.impl.Printf("return Py_BuildValue(%q, %s);\n",
+	g.impl.Printf("pyout = Py_BuildValue(%q, %s);\n",
 		strings.Join(format, ""),
 		strings.Join(funcArgs, ", "),
 	)
+	g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+	g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
+	g.impl.Printf("return pyout;\n")
 }
 
 func (g *cpyGen) genWrite(valName, seqName string, sym *symbol) {
