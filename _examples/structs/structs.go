@@ -15,6 +15,10 @@ func (S) Upper(s string) string {
 	return strings.ToUpper(s)
 }
 
+func FuncTest(item S) {}
+
+func (this S) MethodTest(item S1) {}
+
 type S1 struct {
 	private int
 }
