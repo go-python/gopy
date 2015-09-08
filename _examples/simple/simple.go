@@ -7,3 +7,8 @@ package simple
 
 // Func is a simple func
 func Func() {}
+
+// Add is a (less) simple func
+func Add(i, j int) int {
+	return i + j
+}

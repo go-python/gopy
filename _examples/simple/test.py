@@ -15,3 +15,5 @@ fct = pkg.Func
 print("fct()...")
 fct()
 
+print("pkg.Add(1,2)= %s" % (pkg.Add(1,2),))
+
