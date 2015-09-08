@@ -440,7 +440,11 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 		if i+1 < len(args) {
 			tail = ", "
 		}
-		g.Printf("%s%s", arg.Name(), tail)
+		if arg.sym.isStruct() {
+			g.Printf("*(*%s)(unsafe.Pointer(%s))%s", arg.sym.gofmt(), arg.Name(), tail)
+		} else {
+			g.Printf("%s%s", arg.Name(), tail)
+		}
 	}
 	g.Printf(")\n")
 
