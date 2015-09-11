@@ -41,7 +41,7 @@ ex:
  $ gopy gen github.com/go-python/gopy/_examples/hi
 
 Options:
-  -lang="python": target language for bindings
+  -lang="py2": target language for bindings
   -output="": output directory for bindings
 
 
@@ -55,8 +55,8 @@ ex:
  $ gopy bind github.com/go-python/gopy/_examples/hi
 
 Options:
+  -lang="py2": python version to use for bindings (python2|py2|python3|py3)
   -output="": output directory for bindings
-
 ```
 
 
