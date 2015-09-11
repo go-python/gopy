@@ -29,7 +29,7 @@ ex:
 		Flag: *flag.NewFlagSet("gopy-gen", flag.ExitOnError),
 	}
 
-	cmd.Flag.String("lang", "python", "target language for bindings")
+	cmd.Flag.String("lang", defaultPyVersion, "target language for bindings")
 	cmd.Flag.String("output", "", "output directory for bindings")
 	return cmd
 }

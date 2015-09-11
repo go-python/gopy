@@ -12,6 +12,10 @@ import (
 	"github.com/gonuts/flag"
 )
 
+const (
+	defaultPyVersion = "py2"
+)
+
 var (
 	app *commander.Command
 )
