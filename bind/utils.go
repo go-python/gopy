@@ -8,12 +8,11 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"go/types"
 	"io"
 	"os/exec"
 	"regexp"
 	"sort"
-
-	"golang.org/x/tools/go/types"
 )
 
 func isErrorType(typ types.Type) bool {

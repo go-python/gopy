@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"golang.org/x/tools/go/types"
+	"go/types"
 )
 
 func (g *cpyGen) genStruct(cpy Struct) {

@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"strings"
 
-	"golang.org/x/tools/go/types"
+	"go/types"
 )
 
 // Package ties types.Package and ast.Package together.
