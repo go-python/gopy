@@ -12,7 +12,12 @@ gopy
 $ go get github.com/go-python/gopy
 ```
 
+You will need `Go >= 1.5`.
+
 ## Documentation
+
+A presentation was given at [dotgo-2015](http://talks.godoc.org/github.com/sbinet/talks/2015/20151109-gopy-dotgo/gopy-dotgo.slide).
+A longer version of that talk is also available [here](http://talks.godoc.org/github.com/sbinet/talks/2015/20150929-gopy-lyon/gopy-lyon.slide#17).
 
 Documentation is available on [godoc](https://godoc.org):
  https://godoc.org/github.com/go-python/gopy
