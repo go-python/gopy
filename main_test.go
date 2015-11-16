@@ -453,3 +453,14 @@ func TestBindInterfaces(t *testing.T) {
 `),
 	})
 }
+
+func TestBindCgoPackage(t *testing.T) {
+	t.Parallel()
+	testPkg(t, pkg{
+		path: "_examples/cgo",
+		want: []byte(`cgo.doc: 'Package cgo tests bindings of CGo-based packages.\n'
+cgo.Hi()= 'hi from go\n'
+cgo.Hello(you)= 'hello you from go\n'
+`),
+	})
+}
