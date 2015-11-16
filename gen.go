@@ -9,6 +9,7 @@ import (
 	"go/ast"
 	"go/build"
 	"go/doc"
+	"go/importer"
 	"go/parser"
 	"go/scanner"
 	"go/token"
@@ -20,7 +21,6 @@ import (
 	"path/filepath"
 
 	"github.com/go-python/gopy/bind"
-	"golang.org/x/tools/go/loader"
 )
 
 var (
@@ -160,24 +160,40 @@ func newPackage(path string) (*bind.Package, error) {
 		return nil, err
 	}
 
-	pkg, err := build.Import(path, cwd, 0)
-	pkgfiles := make([]string, 0, len(pkg.GoFiles)+len(pkg.CgoFiles))
-	pkgfiles = append(pkgfiles, pkg.GoFiles...)
-	pkgfiles = append(pkgfiles, pkg.CgoFiles...)
-	files, err := parseFiles(pkg.Dir, pkgfiles)
+	cmd := exec.Command("go", "install", path)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir = cwd
+
+	err = cmd.Run()
 	if err != nil {
+		log.Printf("error installing [%s]: %v\n",
+			path,
+			err,
+		)
 		return nil, err
 	}
 
-	conf := loader.Config{
-		Fset: fset,
-	}
-	conf.TypeChecker.Error = func(e error) {
-		log.Printf("%v\n", e)
-		err = e
+	bpkg, err := build.Import(path, cwd, 0)
+	if err != nil {
+		log.Printf("error resolving import path [%s]: %v\n",
+			path,
+			err,
+		)
+		return nil, err
 	}
 
-	p, err := newPackageFrom(files, &conf, pkg)
+	pkg, err := importer.Default().Import(bpkg.ImportPath)
+	if err != nil {
+		log.Printf("error importing package [%v]: %v\n",
+			bpkg.ImportPath,
+			err,
+		)
+		return nil, err
+	}
+
+	p, err := newPackageFrom(bpkg, pkg)
 	if err != nil {
 		log.Printf("%v\n", err)
 		return nil, err
@@ -186,17 +202,10 @@ func newPackage(path string) (*bind.Package, error) {
 	return p, err
 }
 
-func newPackageFrom(files []*ast.File, conf *loader.Config, pkg *build.Package) (*bind.Package, error) {
-
-	conf.CreateFromFiles(pkg.ImportPath, files...)
-	program, err := conf.Load()
-	if err != nil {
-		return nil, err
-	}
-	p := program.Created[0].Pkg
+func newPackageFrom(bpkg *build.Package, p *types.Package) (*bind.Package, error) {
 
 	var pkgast *ast.Package
-	pkgs, err := parser.ParseDir(fset, pkg.Dir, nil, parser.ParseComments)
+	pkgs, err := parser.ParseDir(fset, bpkg.Dir, nil, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +214,7 @@ func newPackageFrom(files []*ast.File, conf *loader.Config, pkg *build.Package) 
 		return nil, fmt.Errorf("gopy: could not find AST for package %q", p.Name())
 	}
 
-	pkgdoc := doc.New(pkgast, pkg.ImportPath, 0)
+	pkgdoc := doc.New(pkgast, bpkg.ImportPath, 0)
 
 	return bind.NewPackage(p, pkgdoc)
 }
