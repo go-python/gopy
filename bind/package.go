@@ -7,10 +7,9 @@ package bind
 import (
 	"fmt"
 	"go/doc"
+	"go/types"
 	"reflect"
 	"strings"
-
-	"golang.org/x/tools/go/types"
 )
 
 // Package ties types.Package and ast.Package together.

@@ -12,6 +12,7 @@ import (
 	"go/parser"
 	"go/scanner"
 	"go/token"
+	"go/types"
 	"io/ioutil"
 	"log"
 	"os"

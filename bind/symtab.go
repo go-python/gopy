@@ -6,12 +6,11 @@ package bind
 
 import (
 	"fmt"
+	"go/types"
 	"hash/fnv"
 	"reflect"
 	"sort"
 	"strings"
-
-	"golang.org/x/tools/go/types"
 )
 
 var (

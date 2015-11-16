@@ -6,9 +6,8 @@ package bind
 
 import (
 	"fmt"
+	"go/types"
 	"strings"
-
-	"golang.org/x/tools/go/types"
 )
 
 func (g *cpyGen) genStruct(cpy Struct) {
