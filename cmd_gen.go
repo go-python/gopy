@@ -75,7 +75,7 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 	pkg, err := newPackage(path)
 	if err != nil {
 		return fmt.Errorf(
-			"gopy-gen: go/build.Inport failed with path=%q: %v\n",
+			"gopy-gen: go/build.Import failed with path=%q: %v\n",
 			path,
 			err,
 		)
