@@ -150,7 +150,7 @@ ok  	github.com/go-python/gopy	2.135s
 
 ```
 $ cd github.com/go-python/gopy/_examples/hi
-$ docker run -it --rm -v `pwd`:/go/src/in -v `pwd`:/out xlab/gopy app bind -output=/out in
+$ docker run --rm -v `pwd`:/go/src/in -v `pwd`:/out gopy/gopy app bind -output=/out in
 $ file hi.so
 hi.so: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, not stripped
 ```
