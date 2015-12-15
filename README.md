@@ -146,6 +146,23 @@ PASS
 ok  	github.com/go-python/gopy	2.135s
 ```
 
+## Binding generation using Docker (for cross-platform builds)
+
+```
+$ cd github.com/go-python/gopy/_examples/hi
+$ docker run -it --rm -v `pwd`:/go/src/in -v `pwd`:/out xlab/gopy app bind -output=/out in
+$ file hi.so
+hi.so: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, not stripped
+```
+
+The docker image can also be built on local machine:
+
+```
+$ cd $GOPATH/src/github.com/go-python/gopy
+$ docker build -t go-python/gopy .
+$ docker run -it --rm go-python/gopy
+```
+
 ## Limitations
 
 - wrap `go` structs into `python` classes **[DONE]**
