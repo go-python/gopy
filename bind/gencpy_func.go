@@ -278,8 +278,8 @@ func (g *cpyGen) genFuncBody(f Func) {
 
 	// fill input seq-buffer
 	if len(args) > 0 {
-		for i, arg := range args {
-			g.genWrite(fmt.Sprintf("arg%03d", i), "ibuf", arg.sym)
+		for _, arg := range args {
+			g.genWrite(fmt.Sprintf("c_%s", arg.Name()), "ibuf", arg.sym)
 		}
 	}
 
@@ -389,6 +389,8 @@ func (g *cpyGen) genFuncBody(f Func) {
 		pyfmt, pyaddrs := ret.getArgBuildValue()
 		format = append(format, pyfmt)
 		funcArgs = append(funcArgs, pyaddrs...)
+		g.genRead("c_gopy_ret", "obuf", ret.sym)
+
 	default:
 		for _, ret := range res {
 			pyfmt, pyaddrs := ret.getArgBuildValue()
@@ -411,7 +413,29 @@ func (g *cpyGen) genWrite(valName, seqName string, sym *symbol) {
 		g.impl.Printf("cgopy_seq_write_error(%s, %s);\n", seqName, valName)
 	}
 
-	switch sym.GoType() {
+	switch t := sym.GoType().(type) {
+	case *types.Basic:
+		switch t.Kind() {
+		case types.Bool:
+			log.Fatalf("unhandled type [bool]")
+		case types.Int, types.Int64:
+			g.impl.Printf("cgopy_seq_buffer_write_int64(%s, %s);\n", seqName, valName)
+		}
+	}
+}
 
+func (g *cpyGen) genRead(valName, seqName string, sym *symbol) {
+	if isErrorType(sym.GoType()) {
+		g.impl.Printf("cgopy_seq_read_error(%s, %s);\n", seqName, valName)
+	}
+
+	switch t := sym.GoType().(type) {
+	case *types.Basic:
+		switch t.Kind() {
+		case types.Bool:
+			log.Fatalf("unhandled type [bool]")
+		case types.Int, types.Int64:
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_int64(%[1]s);\n", seqName, valName)
+		}
 	}
 }
