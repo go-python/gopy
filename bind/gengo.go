@@ -451,6 +451,13 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 		return
 	}
 
+	for i, res := range results {
+		if !res.needWrap() {
+			continue
+		}
+		g.Printf("cgopy_incref(unsafe.Pointer(&_gopy_%03d))\n", i)
+	}
+
 	g.Printf("return ")
 	for i, res := range results {
 		if i > 0 {
