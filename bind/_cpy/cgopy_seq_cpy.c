@@ -261,6 +261,26 @@ cgopy_seq_buffer_write_int64(cgopy_seq_buffer buf, int64_t v) {
 }
 
 void
+cgopy_seq_buffer_write_uint8(cgopy_seq_buffer buf, uint8_t v) {
+	MEM_WRITE(uint8_t) = v;
+}
+
+void
+cgopy_seq_buffer_write_uint16(cgopy_seq_buffer buf, uint16_t v) {
+	MEM_WRITE(uint16_t) = v;
+}
+
+void
+cgopy_seq_buffer_write_uint32(cgopy_seq_buffer buf, uint32_t v) {
+	MEM_WRITE(uint32_t) = v;
+}
+
+void
+cgopy_seq_buffer_write_uint64(cgopy_seq_buffer buf, uint64_t v) {
+	MEM_WRITE(uint64_t) = v;
+}
+
+void
 cgopy_seq_buffer_write_float32(cgopy_seq_buffer buf, float v) {
 	MEM_WRITE(float) = v;
 }
