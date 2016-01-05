@@ -29,7 +29,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"golang.org/x/mobile/bind/seq"
+	"github.com/go-python/gopy/bind/seq"
 	
 	%[3]s
 )
@@ -1013,6 +1013,14 @@ func seqType(t types.Type) string {
 		case types.Uint8: // Byte.
 			// TODO(crawshaw): questionable, but vital?
 			return "Byte"
+		case types.Uint:
+			return "Uint"
+		case types.Uint16:
+			return "Uint16"
+		case types.Uint32:
+			return "Uint32"
+		case types.Uint64:
+			return "Uint64"
 		// TODO(crawshaw): case types.Uint, types.Uint16, types.Uint32, types.Uint64:
 		case types.Float32:
 			return "Float32"

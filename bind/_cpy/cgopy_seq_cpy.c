@@ -177,6 +177,30 @@ cgopy_seq_buffer_read_int64(cgopy_seq_buffer buf) {
 	return v == NULL ? 0 : *v;
 }
 
+uint8_t
+cgopy_seq_buffer_read_uint8(cgopy_seq_buffer buf) {
+	uint8_t *v = MEM_READ(buf, uint8_t);
+	return v == NULL ? 0 : *v;
+}
+
+uint16_t
+cgopy_seq_buffer_read_uint16(cgopy_seq_buffer buf) {
+	uint16_t *v = MEM_READ(buf, uint16_t);
+	return v == NULL ? 0 : *v;
+}
+
+uint32_t
+cgopy_seq_buffer_read_uint32(cgopy_seq_buffer buf) {
+	uint32_t *v = MEM_READ(buf, uint32_t);
+	return v == NULL ? 0 : *v;
+}
+
+uint64_t
+cgopy_seq_buffer_read_uint64(cgopy_seq_buffer buf) {
+	uint64_t *v = MEM_READ(buf, uint64_t);
+	return v == NULL ? 0 : *v;
+}
+
 float
 cgopy_seq_buffer_read_float32(cgopy_seq_buffer buf) {
 	float *v = MEM_READ(buf, float);
@@ -202,6 +226,11 @@ cgopy_seq_buffer_read_bytearray(cgopy_seq_buffer buf) {
 	int64_t ptr = cgopy_seq_buffer_read_int64(buf);
 	arr.Data = (uint8_t*)(intptr_t)(ptr);
 	return arr;
+}
+
+cgopy_seq_bytearray
+cgopy_seq_buffer_read_string(cgopy_seq_buffer buf) {
+	return cgopy_seq_buffer_read_bytearray(buf);
 }
 
 #define MEM_WRITE(ty) (*(ty*)mem_write((mem*)buf, sizeof(ty), sizeof(ty)))
@@ -255,4 +284,7 @@ cgopy_seq_buffer_write_bytearray(cgopy_seq_buffer buf, cgopy_seq_bytearray v) {
 	MEM_WRITE(int64_t) = (int64_t)(uintptr_t)v.Data;
 }
 
-
+void
+cgopy_seq_buffer_write_string(cgopy_seq_buffer buf, cgopy_seq_bytearray v) {
+	cgopy_seq_buffer_write_bytearray(buf, v);
+}

@@ -100,12 +100,56 @@ func (b *Buffer) ReadInt64() int64 {
 	return v
 }
 
+func (b *Buffer) ReadUint8() uint8 {
+	offset := b.Offset
+	if len(b.Data)-offset < 1 {
+		b.panic(1)
+	}
+	v := *(*uint8)(unsafe.Pointer(&b.Data[offset]))
+	b.Offset++
+	return v
+}
+
+func (b *Buffer) ReadUint16() uint16 {
+	offset := align(b.Offset, 2)
+	if len(b.Data)-offset < 2 {
+		b.panic(2)
+	}
+	v := *(*uint16)(unsafe.Pointer(&b.Data[offset]))
+	b.Offset = offset + 2
+	return v
+}
+
+func (b *Buffer) ReadUint32() uint32 {
+	offset := align(b.Offset, 4)
+	if len(b.Data)-offset < 4 {
+		b.panic(4)
+	}
+	v := *(*uint32)(unsafe.Pointer(&b.Data[offset]))
+	b.Offset = offset + 4
+	return v
+}
+
+func (b *Buffer) ReadUint64() uint64 {
+	offset := align(b.Offset, 8)
+	if len(b.Data)-offset < 8 {
+		b.panic(8)
+	}
+	v := *(*uint64)(unsafe.Pointer(&b.Data[offset]))
+	b.Offset = offset + 8
+	return v
+}
+
 func (b *Buffer) ReadBool() bool {
 	return b.ReadInt8() != 0
 }
 
 func (b *Buffer) ReadInt() int {
 	return int(b.ReadInt64())
+}
+
+func (b *Buffer) ReadUint() uint {
+	return uint(b.ReadUint64())
 }
 
 func (b *Buffer) ReadFloat32() float32 {
@@ -194,6 +238,42 @@ func (b *Buffer) WriteInt64(v int64) {
 	b.Offset = offset + 8
 }
 
+func (b *Buffer) WriteUint8(v uint8) {
+	offset := b.Offset
+	if len(b.Data)-offset < 1 {
+		b.grow(offset + 1 - len(b.Data))
+	}
+	*(*uint8)(unsafe.Pointer(&b.Data[offset])) = v
+	b.Offset++
+}
+
+func (b *Buffer) WriteUint16(v uint16) {
+	offset := align(b.Offset, 2)
+	if len(b.Data)-offset < 2 {
+		b.grow(offset + 2 - len(b.Data))
+	}
+	*(*uint16)(unsafe.Pointer(&b.Data[offset])) = v
+	b.Offset = offset + 2
+}
+
+func (b *Buffer) WriteUint32(v uint32) {
+	offset := align(b.Offset, 4)
+	if len(b.Data)-offset < 4 {
+		b.grow(offset + 4 - len(b.Data))
+	}
+	*(*uint32)(unsafe.Pointer(&b.Data[offset])) = v
+	b.Offset = offset + 4
+}
+
+func (b *Buffer) WriteUint64(v uint64) {
+	offset := align(b.Offset, 8)
+	if len(b.Data)-offset < 8 {
+		b.grow(offset + 8 - len(b.Data))
+	}
+	*(*uint64)(unsafe.Pointer(&b.Data[offset])) = v
+	b.Offset = offset + 8
+}
+
 func (b *Buffer) WriteBool(v bool) {
 	if v {
 		b.WriteInt8(1)
@@ -204,6 +284,10 @@ func (b *Buffer) WriteBool(v bool) {
 
 func (b *Buffer) WriteInt(v int) {
 	b.WriteInt64(int64(v))
+}
+
+func (b *Buffer) WriteUint(v uint) {
+	b.WriteUint64(uint64(v))
 }
 
 func (b *Buffer) WriteFloat32(v float32) {

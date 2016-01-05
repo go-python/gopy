@@ -20,7 +20,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"golang.org/x/mobile/bind/seq"
+	"github.com/go-python/gopy/bind/seq"
 )
 
 const maxSliceLen = 1<<31 - 1

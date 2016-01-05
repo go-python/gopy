@@ -89,6 +89,22 @@ int64_t
 cgopy_seq_buffer_read_int64(cgopy_seq_buffer buf);
 
 CGOPY_API
+uint8_t
+cgopy_seq_buffer_read_uint8(cgopy_seq_buffer buf);
+
+CGOPY_API
+uint16_t
+cgopy_seq_buffer_read_uint16(cgopy_seq_buffer buf);
+
+CGOPY_API
+uint32_t
+cgopy_seq_buffer_read_uint32(cgopy_seq_buffer buf);
+
+CGOPY_API
+uint64_t
+cgopy_seq_buffer_read_uint64(cgopy_seq_buffer buf);
+
+CGOPY_API
 float
 cgopy_seq_buffer_read_float32(cgopy_seq_buffer buf);
 
@@ -99,6 +115,10 @@ cgopy_seq_buffer_read_float64(cgopy_seq_buffer buf);
 CGOPY_API
 cgopy_seq_bytearray
 cgopy_seq_buffer_read_bytearray(cgopy_seq_buffer buf);
+
+CGOPY_API
+cgopy_seq_bytearray
+cgopy_seq_buffer_read_string(cgopy_seq_buffer buf);
 
 CGOPY_API
 void
@@ -122,6 +142,22 @@ cgopy_seq_buffer_write_int64(cgopy_seq_buffer buf, int64_t v);
 
 CGOPY_API
 void
+cgopy_seq_buffer_write_uint8(cgopy_seq_buffer buf, uint8_t v);
+
+CGOPY_API
+void
+cgopy_seq_buffer_write_uint16(cgopy_seq_buffer buf, uint16_t v);
+
+CGOPY_API
+void
+cgopy_seq_buffer_write_uint32(cgopy_seq_buffer buf, uint32_t v);
+
+CGOPY_API
+void
+cgopy_seq_buffer_write_uint64(cgopy_seq_buffer buf, uint64_t v);
+
+CGOPY_API
+void
 cgopy_seq_buffer_write_float32(cgopy_seq_buffer buf, float v);
 
 CGOPY_API
@@ -132,6 +168,8 @@ CGOPY_API
 void
 cgopy_seq_buffer_write_bytearray(cgopy_seq_buffer buf, cgopy_seq_bytearray v);
 
-
+CGOPY_API
+void
+cgopy_seq_buffer_write_string(cgopy_seq_buffer buf, cgopy_seq_bytearray v);
 
 #endif /* !CGOPY_SEQ_CPY_H */

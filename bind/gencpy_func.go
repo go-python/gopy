@@ -418,8 +418,28 @@ func (g *cpyGen) genWrite(valName, seqName string, sym *symbol) {
 		switch t.Kind() {
 		case types.Bool:
 			log.Fatalf("unhandled type [bool]")
+		case types.Int8:
+			g.impl.Printf("cgopy_seq_buffer_write_int8(%s, %s);\n", seqName, valName)
+		case types.Int16:
+			g.impl.Printf("cgopy_seq_buffer_write_int16(%s, %s);\n", seqName, valName)
+		case types.Int32:
+			g.impl.Printf("cgopy_seq_buffer_write_int32(%s, %s);\n", seqName, valName)
 		case types.Int, types.Int64:
 			g.impl.Printf("cgopy_seq_buffer_write_int64(%s, %s);\n", seqName, valName)
+		case types.Uint8:
+			g.impl.Printf("cgopy_seq_buffer_write_uint8(%s, %s);\n", seqName, valName)
+		case types.Uint16:
+			g.impl.Printf("cgopy_seq_buffer_write_uint16(%s, %s);\n", seqName, valName)
+		case types.Uint32:
+			g.impl.Printf("cgopy_seq_buffer_write_uint32(%s, %s);\n", seqName, valName)
+		case types.Uint, types.Uint64:
+			g.impl.Printf("cgopy_seq_buffer_write_uint64(%s, %s);\n", seqName, valName)
+		case types.Float32:
+			g.impl.Printf("cgopy_seq_buffer_write_float32(%s, %s);\n", seqName, valName)
+		case types.Float64:
+			g.impl.Printf("cgopy_seq_buffer_write_float64(%s, %s);\n", seqName, valName)
+		case types.String:
+			g.impl.Printf("cgopy_seq_buffer_write_string(%s, %s);\n", seqName, valName)
 		}
 	}
 }
@@ -434,8 +454,28 @@ func (g *cpyGen) genRead(valName, seqName string, sym *symbol) {
 		switch t.Kind() {
 		case types.Bool:
 			log.Fatalf("unhandled type [bool]")
+		case types.Int8:
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_int8(%[1]s);\n", seqName, valName)
+		case types.Int16:
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_int16(%[1]s);\n", seqName, valName)
+		case types.Int32:
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_int32(%[1]s);\n", seqName, valName)
 		case types.Int, types.Int64:
 			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_int64(%[1]s);\n", seqName, valName)
+		case types.Uint8:
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_uint8(%[1]s);\n", seqName, valName)
+		case types.Uint16:
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_uint16(%[1]s);\n", seqName, valName)
+		case types.Uint32:
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_uint32(%[1]s);\n", seqName, valName)
+		case types.Uint, types.Uint64:
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_uint64(%[1]s);\n", seqName, valName)
+		case types.Float32:
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_float32(%[1]s);\n", seqName, valName)
+		case types.Float64:
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_float64(%[1]s);\n", seqName, valName)
+		case types.String:
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_string(%[1]s);\n", seqName, valName)
 		}
 	}
 }
