@@ -285,8 +285,8 @@ func (g *cpyGen) genFuncBody(f Func) {
 	}
 
 	g.impl.Printf("cgopy_seq_send(%q, %d, ibuf->buf, ibuf->len, &obuf->buf, &obuf->len);\n\n",
-		g.pkg.ImportPath()+"."+f.GoName(),
-		uhash(f.GoName()),
+		f.Package().ImportPath()+"."+f.GoName(),
+		uhash(f.ID()),
 	)
 
 	if len(res) <= 0 {

@@ -163,8 +163,8 @@ func cgo_func_%[1]s(out, in *seq.Buffer) {
 	g.Printf("}\n\n")
 
 	g.regs = append(g.regs, goReg{
-		Descriptor: g.pkg.ImportPath() + "." + f.GoName(),
-		ID:         uhash(f.GoName()),
+		Descriptor: f.Package().ImportPath() + "." + f.GoName(),
+		ID:         uhash(f.ID()),
 		Func:       f.ID(),
 	})
 }
