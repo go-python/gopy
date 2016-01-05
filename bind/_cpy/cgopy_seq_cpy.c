@@ -223,7 +223,8 @@ cgopy_seq_buffer_read_bytearray(cgopy_seq_buffer buf) {
 		return arr;
 	}
 	arr = cgopy_seq_bytearray_new(size);
-	for (int64_t i = 0; i < size; i++) {
+	int64_t i = 0;
+	for (i = 0; i < size; i++) {
 		arr.Data[i] = cgopy_seq_buffer_read_uint8(buf);
 	}
 	return arr;
@@ -300,7 +301,8 @@ cgopy_seq_buffer_write_bytearray(cgopy_seq_buffer buf, cgopy_seq_bytearray v) {
 	}
 
 	MEM_WRITE(int64_t) = v.Len;
-	for (int64_t i = 0; i < v.Len; i++) {
+	int64_t i = 0;
+	for (i = 0; i < v.Len; i++) {
 		cgopy_seq_buffer_write_uint8(buf, v.Data[i]);
 	}
 }
