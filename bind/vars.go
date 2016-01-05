@@ -51,6 +51,11 @@ func getTypeString(t types.Type) string {
 	return types.TypeString(t, func(*types.Package) string { return " " })
 }
 
+func (v *Var) Package() *Package { return v.pkg }
+func (v *Var) ID() string        { return v.id }
+func (v *Var) Doc() string       { return v.doc }
+func (v *Var) GoName() string    { return v.name }
+
 func (v *Var) GoType() types.Type {
 	return v.sym.goobj.Type()
 }
