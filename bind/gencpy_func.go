@@ -7,6 +7,7 @@ package bind
 import (
 	"fmt"
 	"go/types"
+	"log"
 	"strings"
 )
 
@@ -279,7 +280,7 @@ func (g *cpyGen) genFuncBody(f Func) {
 	// fill input seq-buffer
 	if len(args) > 0 {
 		for _, arg := range args {
-			g.genWrite(fmt.Sprintf("c_%s", arg.Name()), "ibuf", arg.sym)
+			g.genWrite(fmt.Sprintf("c_%s", arg.Name()), "ibuf", arg.sym.GoType())
 		}
 	}
 
@@ -389,7 +390,7 @@ func (g *cpyGen) genFuncBody(f Func) {
 		pyfmt, pyaddrs := ret.getArgBuildValue()
 		format = append(format, pyfmt)
 		funcArgs = append(funcArgs, pyaddrs...)
-		g.genRead("c_gopy_ret", "obuf", ret.sym)
+		g.genRead("c_gopy_ret", "obuf", ret.sym.GoType())
 
 	default:
 		for _, ret := range res {
@@ -408,14 +409,14 @@ func (g *cpyGen) genFuncBody(f Func) {
 	g.impl.Printf("return pyout;\n")
 }
 
-func (g *cpyGen) genWrite(valName, seqName string, sym *symbol) {
-	if isErrorType(sym.GoType()) {
+func (g *cpyGen) genWrite(valName, seqName string, T types.Type) {
+	if isErrorType(T) {
 		g.impl.Printf("cgopy_seq_write_error(%s, %s);\n", seqName, valName)
 	}
 
-	switch t := sym.GoType().(type) {
+	switch T := T.(type) {
 	case *types.Basic:
-		switch t.Kind() {
+		switch T.Kind() {
 		case types.Bool:
 			log.Fatalf("unhandled type [bool]")
 		case types.Int8:
@@ -441,17 +442,19 @@ func (g *cpyGen) genWrite(valName, seqName string, sym *symbol) {
 		case types.String:
 			g.impl.Printf("cgopy_seq_buffer_write_string(%s, %s);\n", seqName, valName)
 		}
+	default:
+		g.impl.Printf("/* not implemented %#T */\n", T)
 	}
 }
 
-func (g *cpyGen) genRead(valName, seqName string, sym *symbol) {
-	if isErrorType(sym.GoType()) {
+func (g *cpyGen) genRead(valName, seqName string, T types.Type) {
+	if isErrorType(T) {
 		g.impl.Printf("cgopy_seq_read_error(%s, %s);\n", seqName, valName)
 	}
 
-	switch t := sym.GoType().(type) {
+	switch T := T.(type) {
 	case *types.Basic:
-		switch t.Kind() {
+		switch T.Kind() {
 		case types.Bool:
 			log.Fatalf("unhandled type [bool]")
 		case types.Int8:
@@ -477,5 +480,16 @@ func (g *cpyGen) genRead(valName, seqName string, sym *symbol) {
 		case types.String:
 			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_string(%[1]s);\n", seqName, valName)
 		}
+	case *types.Named:
+		switch u := T.Underlying().(type) {
+		case *types.Interface, *types.Pointer, *types.Struct:
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_int32(%[1]s)\n", seqName, valName)
+		case *types.Basic:
+			g.genRead(valName, seqName, u)
+		default:
+			panic(fmt.Errorf("unsupported, direct named type %s: %s", T, u))
+		}
+	default:
+		g.impl.Printf("/* not implemented %#T */\n", T)
 	}
 }

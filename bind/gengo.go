@@ -937,19 +937,27 @@ func (g *goGen) tupleString(tuple []*Var) string {
 	return strings.Join(str, ", ")
 }
 
-func (g *goGen) genRead(valName, seqName string, typ types.Type) {
-	if isErrorType(typ) {
+func (g *goGen) genRead(valName, seqName string, T types.Type) {
+	if isErrorType(T) {
 		g.Printf("%s := %s.ReadError()\n", valName, seqName)
 		return
 	}
 
-	switch typ := typ.(type) {
+	switch T := T.(type) {
 	case *types.Basic:
-		g.Printf("%s := %s.Read%s()\n", valName, seqName, g.seqType(typ))
+		g.Printf("%s := %s.Read%s()\n", valName, seqName, g.seqType(T))
 
 	case *types.Named:
+		switch u := T.Underlying().(type) {
+		case *types.Interface, *types.Pointer, *types.Struct:
+			g.Printf("%[2]s := %[1]s.ReadGoRef()\n", seqName, valName)
+		case *types.Basic:
+			g.Printf("%[3]s := %[1]s.Read%[2]s();\n", seqName, seqType(u), valName)
+		default:
+			panic(fmt.Errorf("unsupported, direct named type %s: %s", T, u))
+		}
 	default:
-		panic(fmt.Errorf("gopy: unhandled type %#T", typ))
+		panic(fmt.Errorf("gopy: unhandled type %#T", T))
 	}
 }
 
