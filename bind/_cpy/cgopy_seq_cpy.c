@@ -223,8 +223,9 @@ cgopy_seq_buffer_read_bytearray(cgopy_seq_buffer buf) {
 		return arr;
 	}
 	arr = cgopy_seq_bytearray_new(size);
-	int64_t ptr = cgopy_seq_buffer_read_int64(buf);
-	arr.Data = (uint8_t*)(intptr_t)(ptr);
+	for (int64_t i = 0; i < size; i++) {
+		arr.Data[i] = cgopy_seq_buffer_read_uint8(buf);
+	}
 	return arr;
 }
 
@@ -292,8 +293,6 @@ cgopy_seq_buffer_write_float64(cgopy_seq_buffer buf, double v) {
 
 void
 cgopy_seq_buffer_write_bytearray(cgopy_seq_buffer buf, cgopy_seq_bytearray v) {
-	// for bytearray, we pass only the (array-length, pointer) pair
-	// encoded as 2 int64 values.
 	// if the array length is 0, the pointer value is omitted.
 	if (v.Len == 0) {
 		MEM_WRITE(int64_t) = 0;
@@ -301,7 +300,9 @@ cgopy_seq_buffer_write_bytearray(cgopy_seq_buffer buf, cgopy_seq_bytearray v) {
 	}
 
 	MEM_WRITE(int64_t) = v.Len;
-	MEM_WRITE(int64_t) = (int64_t)(uintptr_t)v.Data;
+	for (int64_t i = 0; i < v.Len; i++) {
+		cgopy_seq_buffer_write_uint8(buf, v.Data[i]);
+	}
 }
 
 void

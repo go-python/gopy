@@ -178,13 +178,12 @@ func (b *Buffer) ReadByteArray() []byte {
 		return nil
 	}
 
-	ptr := b.ReadInt64()
-	org := (*[1 << 30]byte)(unsafe.Pointer(uintptr(ptr)))[:sz]
-
-	// Make a copy managed by Go, so the returned byte array can be
+	// Create a new slice, managed by Go, so the returned byte array can be
 	// used safely in Go.
-	slice := make([]byte, sz)
-	copy(slice, org)
+	slice := make([]byte, 0, sz)
+	for i := int64(0); i < sz; i++ {
+		slice = append(slice, byte(b.ReadUint8()))
+	}
 	return slice
 }
 
@@ -315,9 +314,10 @@ func (b *Buffer) WriteByteArray(byt []byte) {
 		return
 	}
 
-	ptr := uintptr(unsafe.Pointer(&byt[0]))
 	b.WriteInt64(int64(sz))
-	b.WriteInt64(int64(ptr))
+	for _, v := range byt {
+		b.WriteUint8(uint8(v))
+	}
 	return
 }
 
