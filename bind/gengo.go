@@ -42,16 +42,6 @@ var (
 
 // --- begin cgo helpers ---
 
-//export _cgopy_GoString
-func _cgopy_GoString(str *C.char) string {
-	return C.GoString(str)
-}
-
-//export _cgopy_CString
-func _cgopy_CString(s string) *C.char {
-	return C.CString(s)
-}
-
 //export _cgopy_ErrorIsNil
 func _cgopy_ErrorIsNil(err error) bool {
 	return err == nil
@@ -216,8 +206,6 @@ func (g *goGen) genFuncBody(f Func) {
 	for i, res := range results {
 		g.genWrite(fmt.Sprintf("_res_%03d", i), "out", res.GoType())
 	}
-
-	g.Printf("\n")
 }
 
 func (g *goGen) genStruct(s Struct) {
@@ -421,12 +409,29 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 
 func (g *goGen) genConst(o Const) {
 	sym := o.sym
-	g.Printf("//export cgo_func_%s_get\n", o.id)
-	g.Printf("func cgo_func_%[1]s_get() %[2]s {\n", o.id, sym.cgotypename())
+	g.Printf("// cgo_func_%s wraps %[2]s.%[3]s\n",
+		o.f.ID(), o.pkg.Name(), o.GoName(),
+	)
+	g.Printf("func cgo_func_%[1]s(out, in *seq.Buffer) {\n", o.f.ID())
 	g.Indent()
-	g.Printf("return %s(%s.%s)\n", sym.cgotypename(), o.pkg.Name(), o.obj.Name())
+	g.genWrite(
+		fmt.Sprintf(
+			"%s(%s.%s)",
+			sym.GoType().Underlying().String(),
+			o.pkg.Name(), o.obj.Name(),
+		),
+		"out",
+		sym.GoType(),
+	)
+	//g.Printf("return %s(%s.%s)\n", sym.cgotypename(), o.pkg.Name(), o.obj.Name())
 	g.Outdent()
 	g.Printf("}\n\n")
+
+	g.regs = append(g.regs, goReg{
+		Descriptor: g.pkg.ImportPath() + "." + o.GoName(),
+		ID:         uhash(o.f.GoName()),
+		Func:       o.f.ID(),
+	})
 }
 
 func (g *goGen) genVar(o Var) {
@@ -974,8 +979,10 @@ func (g *goGen) genWrite(valName, seqName string, T types.Type) {
 		}
 	case *types.Named:
 		switch u := T.Underlying().(type) {
-		case *types.Interface, *types.Pointer:
+		case *types.Interface, *types.Pointer, *types.Struct:
 			g.Printf("%s.WriteGoRef(%s)\n", seqName, valName)
+		case *types.Basic:
+			g.Printf("%s.Write%s(%s);\n", seqName, seqType(u), valName)
 		default:
 			panic(fmt.Errorf("unsupported, direct named type %s: %s", T, u))
 		}
@@ -1036,6 +1043,8 @@ func seqType(t types.Type) string {
 		switch u := t.Underlying().(type) {
 		case *types.Interface:
 			return "Ref"
+		case *types.Basic:
+			return seqType(u)
 		default:
 			panic(fmt.Sprintf("unsupported named seqType: %s / %T", u, u))
 		}

@@ -108,20 +108,24 @@ cgopy_cnv_c2py_bool(GoUint8 *addr) {
 }
 
 static int
-cgopy_cnv_py2c_string(PyObject *o, GoString *addr) {
+cgopy_cnv_py2c_string(PyObject *o, cgopy_seq_bytearray *addr) {
 	const char *str = PyString_AsString(o);
 	if (str == NULL) {
 		return 0;
 	}
-	*addr = _cgopy_GoString((char*)str);
+	Py_ssize_t len = PyString_Size(o);
+
+	*addr = cgopy_seq_bytearray_new(len);
+	addr->Data = (uint8_t*)strncpy((char*)(addr->Data), str, (size_t)(len));
+
 	return 1;
 }
 
 static PyObject*
-cgopy_cnv_c2py_string(GoString *addr) {
-	const char *str = _cgopy_CString(*addr);
-	PyObject *pystr = PyString_FromString(str);
-	free((void*)str);
+cgopy_cnv_c2py_string(cgopy_seq_bytearray *addr) {
+	uint8_t *data = addr->Data;
+	int64_t len = addr->Len;
+	PyObject *pystr = PyString_FromStringAndSize((const char*)(data), (Py_ssize_t)(len));
 	return pystr;
 }
 
