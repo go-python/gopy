@@ -432,6 +432,8 @@ type Func struct {
 	typ  types.Type
 	name string
 
+	generated bool // whether we generated/synthesized that func
+
 	id   string
 	doc  string
 	ret  types.Type // return type, if any
@@ -531,14 +533,15 @@ func newConst(p *Package, o *types.Const) Const {
 	res := []*Var{newVar(p, o.Type(), "ret", o.Name(), doc)}
 	sig := newSignature(p, nil, nil, res)
 	fct := Func{
-		pkg:  p,
-		sig:  sig,
-		typ:  nil,
-		name: o.Name(),
-		id:   id + "_get",
-		doc:  doc,
-		ret:  o.Type(),
-		err:  false,
+		pkg:       p,
+		sig:       sig,
+		typ:       nil,
+		name:      o.Name(),
+		generated: true,
+		id:        id + "_get",
+		doc:       doc,
+		ret:       o.Type(),
+		err:       false,
 	}
 
 	return Const{
@@ -551,6 +554,7 @@ func newConst(p *Package, o *types.Const) Const {
 	}
 }
 
+func (c Const) Package() *Package  { return c.pkg }
 func (c Const) ID() string         { return c.id }
 func (c Const) Doc() string        { return c.doc }
 func (c Const) GoName() string     { return c.obj.Name() }

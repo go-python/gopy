@@ -188,7 +188,11 @@ func (g *goGen) genFuncBody(f Func) {
 		g.Printf(" := ")
 	}
 
-	g.Printf("%s.%s(", g.pkg.Name(), f.GoName())
+	if f.generated {
+		g.Printf("cgo_func_%s_(", f.ID())
+	} else {
+		g.Printf("%s.%s(", g.pkg.Name(), f.GoName())
+	}
 
 	for i := range args {
 		tail := ""
@@ -408,30 +412,9 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 }
 
 func (g *goGen) genConst(o Const) {
-	sym := o.sym
-	g.Printf("// cgo_func_%s wraps %[2]s.%[3]s\n",
-		o.f.ID(), o.pkg.Name(), o.GoName(),
-	)
-	g.Printf("func cgo_func_%[1]s(out, in *seq.Buffer) {\n", o.f.ID())
-	g.Indent()
-	g.genWrite(
-		fmt.Sprintf(
-			"%s(%s.%s)",
-			sym.GoType().Underlying().String(),
-			o.pkg.Name(), o.obj.Name(),
-		),
-		"out",
-		sym.GoType(),
-	)
-	//g.Printf("return %s(%s.%s)\n", sym.cgotypename(), o.pkg.Name(), o.obj.Name())
-	g.Outdent()
-	g.Printf("}\n\n")
-
-	g.regs = append(g.regs, goReg{
-		Descriptor: g.pkg.ImportPath() + "." + o.GoName(),
-		ID:         uhash(o.f.GoName()),
-		Func:       o.f.ID(),
-	})
+	g.genFuncGetter(o.f, o, o.sym)
+	g.genFunc(o.f)
+	return
 }
 
 func (g *goGen) genVar(o Var) {
@@ -935,6 +918,26 @@ func (g *goGen) tupleString(tuple []*Var) string {
 	}
 
 	return strings.Join(str, ", ")
+}
+
+func (g *goGen) genFuncGetter(f Func, o Object, sym *symbol) {
+	g.Printf("// cgo_func_%[1]s_ wraps access to %[2]s.%[3]s\n",
+		f.ID(),
+		o.Package().Name(),
+		o.GoName(),
+	)
+	g.Printf("func cgo_func_%[1]s_() %[2]s {\n",
+		f.ID(),
+		sym.GoType().Underlying().String(),
+	)
+	g.Indent()
+	g.Printf("return %s(%s.%s)\n",
+		sym.GoType().Underlying().String(),
+		o.Package().Name(),
+		o.GoName(),
+	)
+	g.Outdent()
+	g.Printf("}\n")
 }
 
 func (g *goGen) genRead(valName, seqName string, T types.Type) {
