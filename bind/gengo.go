@@ -418,43 +418,33 @@ func (g *goGen) genConst(o Const) {
 }
 
 func (g *goGen) genVar(o Var) {
-	pkgname := o.pkg.Name()
-	typ := o.GoType()
-	ret := o.sym.cgotypename()
+	fget := Func{
+		pkg:       o.pkg,
+		sig:       newSignature(o.pkg, nil, nil, []*Var{&o}),
+		typ:       nil,
+		name:      o.Name(),
+		generated: true,
+		id:        o.id + "_get",
+		doc:       o.doc,
+		ret:       o.GoType(),
+		err:       false,
+	}
+	g.genFuncGetter(fget, &o, o.sym)
+	g.genFunc(fget)
 
-	g.Printf("//export cgo_func_%s_get\n", o.id)
-	g.Printf("func cgo_func_%[1]s_get() %[2]s {\n", o.id, ret)
-	g.Indent()
-	if o.needWrap() {
-		g.Printf("cgopy_incref(unsafe.Pointer(&%s.%s))\n", pkgname, o.Name())
+	fset := Func{
+		pkg:       o.pkg,
+		sig:       newSignature(o.pkg, nil, []*Var{&o}, nil),
+		typ:       nil,
+		name:      o.Name(),
+		generated: true,
+		id:        o.id + "_set",
+		doc:       o.doc,
+		ret:       nil,
+		err:       false,
 	}
-	g.Printf("return ")
-	if o.needWrap() {
-		g.Printf("%s(unsafe.Pointer(&%s.%s))",
-			ret, pkgname, o.Name(),
-		)
-	} else {
-		g.Printf("%s(%s.%s)", ret, pkgname, o.Name())
-	}
-	g.Printf("\n")
-	g.Outdent()
-	g.Printf("}\n\n")
-
-	g.Printf("//export cgo_func_%s_set\n", o.id)
-	g.Printf("func cgo_func_%[1]s_set(v %[2]s) {\n", o.id, ret)
-	g.Indent()
-	vset := "v"
-	if needWrapType(typ) {
-		vset = fmt.Sprintf("*(*%s)(unsafe.Pointer(v))", o.sym.gofmt())
-	} else {
-		vset = fmt.Sprintf("%s(v)", o.sym.gofmt())
-	}
-	g.Printf(
-		"%[1]s.%[2]s = %[3]s\n",
-		pkgname, o.Name(), vset,
-	)
-	g.Outdent()
-	g.Printf("}\n\n")
+	g.genFuncSetter(fset, &o, o.sym)
+	g.genFunc(fset)
 }
 
 func (g *goGen) genType(sym *symbol) {
@@ -921,7 +911,7 @@ func (g *goGen) tupleString(tuple []*Var) string {
 }
 
 func (g *goGen) genFuncGetter(f Func, o Object, sym *symbol) {
-	g.Printf("// cgo_func_%[1]s_ wraps access to %[2]s.%[3]s\n",
+	g.Printf("// cgo_func_%[1]s_ wraps read-access to %[2]s.%[3]s\n",
 		f.ID(),
 		o.Package().Name(),
 		o.GoName(),
@@ -935,6 +925,26 @@ func (g *goGen) genFuncGetter(f Func, o Object, sym *symbol) {
 		sym.GoType().Underlying().String(),
 		o.Package().Name(),
 		o.GoName(),
+	)
+	g.Outdent()
+	g.Printf("}\n")
+}
+
+func (g *goGen) genFuncSetter(f Func, o Object, sym *symbol) {
+	g.Printf("// cgo_func_%[1]s_ wraps write-access to %[2]s.%[3]s\n",
+		f.ID(),
+		o.Package().Name(),
+		o.GoName(),
+	)
+	g.Printf("func cgo_func_%[1]s_(v %[2]s) {\n",
+		f.ID(),
+		sym.GoType().Underlying().String(),
+	)
+	g.Indent()
+	g.Printf("%s.%s = %s(v)\n",
+		o.Package().Name(),
+		o.GoName(),
+		sym.gofmt(),
 	)
 	g.Outdent()
 	g.Printf("}\n")

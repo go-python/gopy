@@ -442,6 +442,15 @@ func (g *cpyGen) genWrite(valName, seqName string, T types.Type) {
 		case types.String:
 			g.impl.Printf("cgopy_seq_buffer_write_string(%s, %s);\n", seqName, valName)
 		}
+	case *types.Named:
+		switch u := T.Underlying().(type) {
+		case *types.Interface, *types.Pointer, *types.Struct:
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_int32(%[1]s)\n", seqName, valName)
+		case *types.Basic:
+			g.genWrite(valName, seqName, u)
+		default:
+			panic(fmt.Errorf("unsupported, direct named type %s: %s", T, u))
+		}
 	default:
 		g.impl.Printf("/* not implemented %#T */\n", T)
 	}
