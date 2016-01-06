@@ -343,6 +343,9 @@ type Struct struct {
 	doc   string
 	ctors []Func
 	meths []Func
+	fnew  Func
+	fdel  Func
+	finit Func
 
 	prots Protocol
 }
@@ -357,6 +360,20 @@ func newStruct(p *Package, obj *types.TypeName) (Struct, error) {
 		pkg: p,
 		sym: sym,
 		obj: obj,
+		fnew: Func{
+			pkg: p,
+			sig: newSignature(
+				p, nil, nil,
+				[]*Var{newVar(p, obj.Type(), "ret", obj.Name(), sym.doc)},
+			),
+			typ:       nil,
+			name:      obj.Name(),
+			generated: true,
+			id:        sym.id + "_new",
+			doc:       sym.doc,
+			ret:       obj.Type(),
+			err:       false,
+		},
 	}
 	return s, nil
 }
