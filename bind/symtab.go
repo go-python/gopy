@@ -398,7 +398,7 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 				kind:    kind | skBasic,
 				id:      id,
 				goname:  n,
-				cgoname: "cgo_type_" + id,
+				cgoname: bsym.cgoname, // FIXME(sbinet) ?
 				cpyname: "cpy_type_" + id,
 				pyfmt:   bsym.pyfmt,
 				pybuf:   bsym.pybuf,
@@ -480,7 +480,7 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "cgo_type_" + id,
+		cgoname: "int32_t", // FIXME(sbinet) define a proper C-type for refs?
 		cpyname: "cpy_type_" + id,
 		pyfmt:   "O&",
 		pybuf:   fmt.Sprintf("%d%s", typ.Len(), elt.pybuf),
@@ -520,7 +520,7 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "cgo_type_" + id,
+		cgoname: "int32_t", // FIXME(sbinet) define a proper C-type for refs?
 		cpyname: "cpy_type_" + id,
 		pyfmt:   "O&",
 		pybuf:   elt.pybuf, //fmt.Sprintf("%d%s", typ.Len(), elt.pybuf),
@@ -560,7 +560,7 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "cgo_type_" + id,
+		cgoname: "int32_t", // FIXME(sbinet) define a proper C-type for refs?
 		cpyname: "cpy_type_" + id,
 		pyfmt:   "O&",
 		pybuf:   elt.pybuf,
@@ -601,7 +601,7 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "cgo_type_" + id,
+		cgoname: "int32_t", // FIXME(sbinet) define a proper C-type for refs?
 		cpyname: "cpy_type_" + id,
 		pyfmt:   "O&",
 		pybuf:   strings.Join(pybuf, ""),
