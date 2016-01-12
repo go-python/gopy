@@ -142,36 +142,63 @@ func (g *goGen) genFuncSetter(f Func, o Object, sym *symbol) {
 	g.Printf("}\n\n")
 }
 
-func (g *goGen) genFuncNew(f Func, o Object, sym *symbol) {
+func (g *goGen) genFuncNew(f Func, typ Type) {
+	sym := typ.sym
 	g.Printf("// cgo_func_%[1]s_ wraps new-alloc of %[2]s.%[3]s\n",
 		f.ID(),
-		o.Package().Name(),
-		o.GoName(),
+		typ.Package().Name(),
+		typ.GoName(),
 	)
-	g.Printf("func cgo_func_%[1]s_() *%[2]s {\n",
-		f.ID(),
-		sym.gofmt(),
-	)
-	g.Indent()
-	g.Printf("var o %[1]s\n", sym.gofmt())
-	g.Printf("return &o;\n")
+	if typ := typ.Struct(); typ != nil {
+		g.Printf("func cgo_func_%[1]s_() *%[2]s {\n",
+			f.ID(),
+			sym.gofmt(),
+		)
+		g.Indent()
+		g.Printf("var o %[1]s\n", sym.gofmt())
+		g.Printf("return &o;\n")
+	} else {
+		g.Printf("func cgo_func_%[1]s_() %[2]s {\n",
+			f.ID(),
+			sym.gofmt(),
+		)
+		g.Indent()
+		g.Printf("var o %[1]s\n", sym.gofmt())
+		g.Printf("return o;\n")
+	}
 	g.Outdent()
 	g.Printf("}\n\n")
 }
 
-func (g *goGen) genFuncTPStr(o Object, sym *symbol, stringer bool) {
-	id := o.ID()
+func (g *goGen) genFuncTPStr(typ Type) {
+	stringer := typ.prots&ProtoStringer == 1
+	sym := typ.sym
+	id := typ.ID()
 	g.Printf("// cgo_func_%[1]s_str_ wraps Stringer\n", id)
-	g.Printf(
-		"func cgo_func_%[1]s_str_(o *%[2]s) string {\n",
-		id,
-		sym.gofmt(),
-	)
-	g.Indent()
-	if !stringer {
-		g.Printf("str := fmt.Sprintf(\"%%#v\", *o)\n")
+	if typ := typ.Struct(); typ != nil {
+		g.Printf(
+			"func cgo_func_%[1]s_str_(o *%[2]s) string {\n",
+			id,
+			sym.gofmt(),
+		)
+		g.Indent()
+		if !stringer {
+			g.Printf("str := fmt.Sprintf(\"%%#v\", *o)\n")
+		} else {
+			g.Printf("str := o.String()\n")
+		}
 	} else {
-		g.Printf("str := o.String()\n")
+		g.Printf(
+			"func cgo_func_%[1]s_str_(o %[2]s) string {\n",
+			id,
+			sym.gofmt(),
+		)
+		g.Indent()
+		if !stringer {
+			g.Printf("str := fmt.Sprintf(\"%%#v\", o)\n")
+		} else {
+			g.Printf("str := o.String()\n")
+		}
 	}
 	g.Printf("return str\n")
 	g.Outdent()

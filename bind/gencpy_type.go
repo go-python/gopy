@@ -453,7 +453,7 @@ func (g *cpyGen) genTypeTPStr(typ Type) {
 	sym := typ.sym
 	f := typ.funcs.str
 	g.decl.Printf("\n/* __str__ support for %[1]s.%[2]s */\n",
-		g.pkg.pkg.Name(), // FIXME(sbinet). use:  f.Package().Name(),
+		f.Package().Name(),
 		sym.goname,
 	)
 	g.decl.Printf(

@@ -59,7 +59,7 @@ func (g *goGen) genStruct(s Type) {
 		g.genMethod(s, m)
 	}
 
-	g.genFuncNew(s.funcs.new, s, s.sym)
+	g.genFuncNew(s.funcs.new, s)
 	g.genFunc(s.funcs.new)
 
 	/*
@@ -82,7 +82,7 @@ func (g *goGen) genStruct(s Type) {
 	*/
 
 	// support for __str__
-	g.genFuncTPStr(s, s.sym, s.prots&ProtoStringer == 1)
+	g.genFuncTPStr(s)
 	g.genMethod(s, s.funcs.str)
 }
 
@@ -174,57 +174,32 @@ func (g *goGen) genType(typ Type) {
 	}
 
 	g.Printf("\n// --- wrapping %s ---\n\n", sym.gofmt())
-	g.Printf("//export %[1]s\n", sym.cgoname)
-	g.Printf("// %[1]s wraps %[2]s\n", sym.cgoname, sym.gofmt())
-	if sym.isBasic() {
-		// we need to reach at the underlying type
-		btyp := sym.GoType().Underlying().String()
-		g.Printf("type %[1]s %[2]s\n\n", sym.cgoname, btyp)
-	} else {
-		g.Printf("type %[1]s unsafe.Pointer\n\n", sym.cgoname)
-	}
-	g.Printf("//export cgo_func_%[1]s_new\n", sym.id)
-	g.Printf("func cgo_func_%[1]s_new() %[2]s {\n", sym.id, sym.cgoname)
-	g.Indent()
-	g.Printf("var o %[1]s\n", sym.gofmt())
-	if sym.isBasic() {
-		g.Printf("return %[1]s(o)\n", sym.cgoname)
-	} else {
-		g.Printf("cgopy_incref(unsafe.Pointer(&o))\n")
-		g.Printf("return (%[1]s)(unsafe.Pointer(&o))\n", sym.cgoname)
-	}
-	g.Outdent()
-	g.Printf("}\n\n")
 
-	// empty interface converter
-	g.Printf("//export cgo_func_%[1]s_eface\n", sym.id)
-	g.Printf("func cgo_func_%[1]s_eface(self %[2]s) interface{} {\n",
-		sym.id,
-		sym.cgoname,
-	)
-	g.Indent()
-	g.Printf("var v interface{} = ")
-	if sym.isBasic() {
-		g.Printf("%[1]s(self)\n", sym.gofmt())
-	} else {
-		g.Printf("*(*%[1]s)(unsafe.Pointer(self))\n", sym.gofmt())
-	}
-	g.Printf("return v\n")
-	g.Outdent()
-	g.Printf("}\n\n")
+	g.genFuncNew(typ.funcs.new, typ)
+	g.genFunc(typ.funcs.new)
+
+	/*
+		// empty interface converter
+		g.Printf("//export cgo_func_%[1]s_eface\n", sym.id)
+		g.Printf("func cgo_func_%[1]s_eface(self %[2]s) interface{} {\n",
+			sym.id,
+			sym.cgoname,
+		)
+		g.Indent()
+		g.Printf("var v interface{} = ")
+		if sym.isBasic() {
+			g.Printf("%[1]s(self)\n", sym.gofmt())
+		} else {
+			g.Printf("*(*%[1]s)(unsafe.Pointer(self))\n", sym.gofmt())
+		}
+		g.Printf("return v\n")
+		g.Outdent()
+		g.Printf("}\n\n")
+	*/
 
 	// support for __str__
-	g.Printf("// cgo_func_%[1]s_str wraps Stringer\n", sym.id)
-	g.Printf(
-		"func cgo_func_%[1]s_str(out, in *seq.Buffer) {\n",
-		sym.id,
-	)
-	g.Indent()
-	g.genRead("o", "in", sym.GoType())
-	g.Printf("str := fmt.Sprintf(\"%%#v\", o)\n")
-	g.Printf("out.WriteString(str)\n")
-	g.Outdent()
-	g.Printf("}\n\n")
+	g.genFuncTPStr(typ)
+	g.genMethod(typ, typ.funcs.str)
 
 	if sym.isArray() || sym.isSlice() {
 		var etyp types.Type
