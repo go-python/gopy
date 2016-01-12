@@ -16,7 +16,6 @@ import "C"
 
 import (
 	"fmt"
-	"os"
 	"sync"
 	"unsafe"
 
@@ -31,7 +30,6 @@ const debug = false
 //export cgopy_seq_send
 func cgopy_seq_send(descriptor *C.char, code int, req *C.uint8_t, reqlen C.uint32_t, res **C.uint8_t, reslen *C.uint32_t) {
 	descr := C.GoString(descriptor)
-	fmt.Fprintf(os.Stderr, "descr=%q, code=%d, req=%p, len=%d...\n", descr, code, req, reqlen)
 	fn := seq.Registry[descr][code]
 	if fn == nil {
 		panic(fmt.Sprintf("gopy: invalid descriptor(%s) and code(0x%x)", descr, code))
