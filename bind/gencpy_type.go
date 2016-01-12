@@ -10,25 +10,17 @@ import (
 	"strings"
 )
 
-func (g *cpyGen) genType(sym *symbol) {
+func (g *cpyGen) genType(typ Type) {
+	sym := typ.sym
 	if !sym.isType() {
-		return
-	}
-	if sym.isStruct() {
 		return
 	}
 	if sym.isBasic() && !sym.isNamed() {
 		return
 	}
 
-	g.decl.Printf("\n/* --- decls for type %v --- */\n", sym.gofmt())
-	if sym.isBasic() {
-		// reach at the underlying type
-		btyp := g.pkg.syms.symtype(sym.GoType().Underlying())
-		g.decl.Printf("typedef %s %s;\n\n", btyp.cgoname, sym.cgoname)
-	} else {
-		g.decl.Printf("typedef void* %s;\n\n", sym.cgoname)
-	}
+	g.decl.Printf("\n/* --- decls for type %v --- */\n\n", sym.gofmt())
+
 	g.decl.Printf("/* Python type for %v\n", sym.gofmt())
 	g.decl.Printf(" */\ntypedef struct {\n")
 	g.decl.Indent()
@@ -36,12 +28,12 @@ func (g *cpyGen) genType(sym *symbol) {
 	if sym.isBasic() {
 		g.decl.Printf("%[1]s cgopy; /* value of %[2]s */\n",
 			sym.cgoname,
-			sym.id,
+			sym.gofmt(),
 		)
 	} else {
-		g.decl.Printf("%[1]s cgopy; /* unsafe.Pointer to %[2]s */\n",
+		g.decl.Printf("%[1]s cgopy; /* handle to %[2]s */\n",
 			sym.cgoname,
-			sym.id,
+			sym.gofmt(),
 		)
 	}
 	g.decl.Printf("gopy_efacefunc eface;\n")
@@ -51,13 +43,13 @@ func (g *cpyGen) genType(sym *symbol) {
 
 	g.impl.Printf("\n\n/* --- impl for %s */\n\n", sym.gofmt())
 
-	g.genTypeNew(sym)
-	g.genTypeDealloc(sym)
-	g.genTypeInit(sym)
-	g.genTypeMembers(sym)
-	g.genTypeMethods(sym)
+	g.genTypeNew(typ)
+	g.genTypeDealloc(typ)
+	g.genTypeInit(typ)
+	g.genTypeMembers(typ)
+	g.genTypeMethods(typ)
 
-	g.genTypeProtocols(sym)
+	g.genTypeProtocols(typ)
 
 	tpAsBuffer := "0"
 	tpAsSequence := "0"
@@ -95,7 +87,7 @@ func (g *cpyGen) genType(sym *symbol) {
 	g.impl.Printf("\"%s\",\t/*tp_name*/\n", sym.gofmt())
 	g.impl.Printf("sizeof(%s),\t/*tp_basicsize*/\n", sym.cpyname)
 	g.impl.Printf("0,\t/*tp_itemsize*/\n")
-	g.impl.Printf("(destructor)%s_dealloc,\t/*tp_dealloc*/\n", sym.cpyname)
+	g.impl.Printf("(destructor)cpy_func_%s_dealloc,\t/*tp_dealloc*/\n", sym.id)
 	g.impl.Printf("0,\t/*tp_print*/\n")
 	g.impl.Printf("0,\t/*tp_getattr*/\n")
 	g.impl.Printf("0,\t/*tp_setattr*/\n")
@@ -126,17 +118,20 @@ func (g *cpyGen) genType(sym *symbol) {
 	g.impl.Printf("0,\t/* tp_descr_get */\n")
 	g.impl.Printf("0,\t/* tp_descr_set */\n")
 	g.impl.Printf("0,\t/* tp_dictoffset */\n")
-	g.impl.Printf("(initproc)%s_init,      /* tp_init */\n", sym.cpyname)
+	g.impl.Printf("(initproc)cpy_func_%s_init,      /* tp_init */\n", sym.id)
 	g.impl.Printf("0,                         /* tp_alloc */\n")
 	g.impl.Printf("cpy_func_%s_new,\t/* tp_new */\n", sym.id)
 	g.impl.Outdent()
 	g.impl.Printf("};\n\n")
 
-	g.genTypeConverter(sym)
-	g.genTypeTypeCheck(sym)
+	g.genTypeConverter(typ)
+	g.genTypeTypeCheck(typ)
 }
 
-func (g *cpyGen) genTypeNew(sym *symbol) {
+func (g *cpyGen) genTypeNew(typ Type) {
+	f := typ.funcs.new
+	sym := typ.sym
+
 	g.decl.Printf("\n/* tp_new for %s */\n", sym.gofmt())
 	g.decl.Printf(
 		"static PyObject*\ncpy_func_%s_new(PyTypeObject *type, PyObject *args, PyObject *kwds);\n",
@@ -150,43 +145,62 @@ func (g *cpyGen) genTypeNew(sym *symbol) {
 	)
 	g.impl.Indent()
 	g.impl.Printf("%s *self;\n", sym.cpyname)
+	g.impl.Printf("cgopy_seq_buffer ibuf = cgopy_seq_buffer_new();\n")
+	g.impl.Printf("cgopy_seq_buffer obuf = cgopy_seq_buffer_new();\n")
+	g.impl.Printf("\n")
 	g.impl.Printf("self = (%s *)type->tp_alloc(type, 0);\n", sym.cpyname)
-	g.impl.Printf("self->cgopy = cgo_func_%s_new();\n", sym.id)
-	g.impl.Printf("self->eface = (gopy_efacefunc)cgo_func_%s_eface;\n", sym.id)
+
+	g.impl.Printf("cgopy_seq_send(%q, %d, ibuf->buf, ibuf->len, &obuf->buf, &obuf->len);\n\n",
+		f.Descriptor(),
+		uhash(f.ID()),
+	)
+	g.impl.Printf("self->cgopy = cgopy_seq_buffer_read_int32(obuf);\n")
+	//g.impl.Printf("self->eface = (gopy_efacefunc)cgo_func_%s_eface;\n", sym.id)
 	g.impl.Printf("return (PyObject*)self;\n")
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }
 
-func (g *cpyGen) genTypeDealloc(sym *symbol) {
+func (g *cpyGen) genTypeDealloc(typ Type) {
+	sym := typ.sym
 	g.decl.Printf("\n/* tp_dealloc for %s */\n", sym.gofmt())
-	g.decl.Printf("static void\n%[1]s_dealloc(%[1]s *self);\n",
+	g.decl.Printf("static void\ncpy_func_%[1]s_dealloc(%[2]s *self);\n",
+		sym.id,
 		sym.cpyname,
 	)
 
 	g.impl.Printf("\n/* tp_dealloc for %s */\n", sym.gofmt())
-	g.impl.Printf("static void\n%[1]s_dealloc(%[1]s *self) {\n",
+	g.impl.Printf("static void\ncpy_func_%[1]s_dealloc(%[2]s *self) {\n",
+		sym.id,
 		sym.cpyname,
 	)
 	g.impl.Indent()
 	if !sym.isBasic() {
-		g.impl.Printf("cgopy_decref((%[1]s)(self->cgopy));\n", sym.cgoname)
+		g.impl.Printf("cgopy_seq_destroy_ref(self->cgopy);\n")
 	}
 	g.impl.Printf("self->ob_type->tp_free((PyObject*)self);\n")
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }
 
-func (g *cpyGen) genTypeInit(sym *symbol) {
+func (g *cpyGen) genTypeInit(typ Type) {
+	sym := typ.sym
+	if sym.isStruct() {
+		g.genStructInit(typ)
+		return
+	}
+
 	g.decl.Printf("\n/* tp_init for %s */\n", sym.gofmt())
 	g.decl.Printf(
-		"static int\n%[1]s_init(%[1]s *self, PyObject *args, PyObject *kwds);\n",
+		"static int\ncpy_func_%[1]s_init(%[2]s *self, PyObject *args, PyObject *kwds);\n",
+		sym.id,
 		sym.cpyname,
 	)
 
 	g.impl.Printf("\n/* tp_init */\n")
 	g.impl.Printf(
-		"static int\n%[1]s_init(%[1]s *self, PyObject *args, PyObject *kwds) {\n",
+		"static int\ncpy_func_%[1]s_init(%[2]s *self, PyObject *args, PyObject *kwds) {\n",
+		sym.id,
 		sym.cpyname,
 	)
 	g.impl.Indent()
@@ -354,7 +368,13 @@ func (g *cpyGen) genTypeInit(sym *symbol) {
 	g.impl.Printf("}\n\n")
 }
 
-func (g *cpyGen) genTypeMembers(sym *symbol) {
+func (g *cpyGen) genTypeMembers(typ Type) {
+	sym := typ.sym
+	if sym.isStruct() {
+		g.genStructMembers(typ)
+		return
+	}
+
 	g.decl.Printf("\n/* tp_getset for %s */\n", sym.gofmt())
 	g.impl.Printf("\n/* tp_getset for %s */\n", sym.gofmt())
 	g.impl.Printf("static PyGetSetDef %s_getsets[] = {\n", sym.cpyname)
@@ -364,7 +384,8 @@ func (g *cpyGen) genTypeMembers(sym *symbol) {
 	g.impl.Printf("};\n\n")
 }
 
-func (g *cpyGen) genTypeMethods(sym *symbol) {
+func (g *cpyGen) genTypeMethods(typ Type) {
+	sym := typ.sym
 	g.decl.Printf("\n/* methods for %s */\n", sym.gofmt())
 	if sym.isNamed() {
 		typ := sym.GoType().(*types.Named)
@@ -416,20 +437,23 @@ func (g *cpyGen) genTypeMethods(sym *symbol) {
 	g.impl.Printf("};\n\n")
 }
 
-func (g *cpyGen) genTypeProtocols(sym *symbol) {
-	g.genTypeTPStr(sym)
+func (g *cpyGen) genTypeProtocols(typ Type) {
+	sym := typ.sym
+	g.genTypeTPStr(typ)
 	if sym.isSlice() || sym.isArray() {
-		g.genTypeTPAsSequence(sym)
-		g.genTypeTPAsBuffer(sym)
+		g.genTypeTPAsSequence(typ)
+		g.genTypeTPAsBuffer(typ)
 	}
 	if sym.isSignature() {
-		g.genTypeTPCall(sym)
+		g.genTypeTPCall(typ)
 	}
 }
 
-func (g *cpyGen) genTypeTPStr(sym *symbol) {
+func (g *cpyGen) genTypeTPStr(typ Type) {
+	sym := typ.sym
+	f := typ.funcs.str
 	g.decl.Printf("\n/* __str__ support for %[1]s.%[2]s */\n",
-		g.pkg.pkg.Name(),
+		g.pkg.pkg.Name(), // FIXME(sbinet). use:  f.Package().Name(),
 		sym.goname,
 	)
 	g.decl.Printf(
@@ -443,19 +467,30 @@ func (g *cpyGen) genTypeTPStr(sym *symbol) {
 	)
 
 	g.impl.Indent()
-	g.impl.Printf("%[1]s c_self = ((%[2]s*)self)->cgopy;\n",
-		sym.cgoname,
-		sym.cpyname,
-	)
-	g.impl.Printf("GoString str = cgo_func_%[1]s_str(c_self);\n",
-		sym.id,
-	)
-	g.impl.Printf("return cgopy_cnv_c2py_string(&str);\n")
+	if f != (Func{}) {
+		g.genFuncBody(f)
+	} else {
+		g.impl.Printf("PyObject *pystr = NULL;\n")
+		g.impl.Printf("cgopy_seq_bytearray str;\n")
+		g.impl.Printf("\n")
+		g.impl.Printf("cgopy_seq_buffer ibuf = cgopy_seq_buffer_new();\n")
+		g.impl.Printf("cgopy_seq_buffer obuf = cgopy_seq_buffer_new();\n")
+		g.impl.Printf("\n")
+
+		g.impl.Printf("int32_t c_self = ((%[1]s*)self)->cgopy;\n", sym.cpyname)
+		g.impl.Printf("pystr = cgopy_cnv_c2py_string(&str);\n")
+		g.impl.Printf("\n")
+		g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+		g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
+		g.impl.Printf("\n")
+		g.impl.Printf("return pystr;\n")
+	}
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
 }
 
-func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
+func (g *cpyGen) genTypeTPAsSequence(typ Type) {
+	sym := typ.sym
 	g.decl.Printf("\n/* sequence support for %s */\n", sym.gofmt())
 
 	var arrlen int64
@@ -700,7 +735,8 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 	}
 }
 
-func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
+func (g *cpyGen) genTypeTPAsBuffer(typ Type) {
+	sym := typ.sym
 	g.decl.Printf("\n/* buffer support for %s */\n", sym.gofmt())
 
 	g.decl.Printf("\n/* __get_buffer__ impl for %s */\n", sym.gofmt())
@@ -895,7 +931,8 @@ func (g *cpyGen) genTypeTPAsBuffer(sym *symbol) {
 	}
 }
 
-func (g *cpyGen) genTypeTPCall(sym *symbol) {
+func (g *cpyGen) genTypeTPCall(typ Type) {
+	sym := typ.sym
 
 	if !sym.isSignature() {
 		return
@@ -1034,26 +1071,24 @@ func (g *cpyGen) genTypeTPCall(sym *symbol) {
 	g.impl.Printf("}\n\n")
 }
 
-func (g *cpyGen) genTypeConverter(sym *symbol) {
+func (g *cpyGen) genTypeConverter(typ Type) {
+	sym := typ.sym
 	g.decl.Printf("\n/* converters for %s - %s */\n",
 		sym.id,
 		sym.goname,
 	)
 	g.decl.Printf("static int\n")
-	g.decl.Printf("cgopy_cnv_py2c_%[1]s(PyObject *o, %[2]s *addr);\n",
+	g.decl.Printf("cgopy_cnv_py2c_%[1]s(PyObject *o, int32_t *addr);\n",
 		sym.id,
-		sym.cgoname,
 	)
 	g.decl.Printf("static PyObject*\n")
-	g.decl.Printf("cgopy_cnv_c2py_%[1]s(%[2]s *addr);\n\n",
+	g.decl.Printf("cgopy_cnv_c2py_%[1]s(int32_t *addr);\n\n",
 		sym.id,
-		sym.cgoname,
 	)
 
 	g.impl.Printf("static int\n")
-	g.impl.Printf("cgopy_cnv_py2c_%[1]s(PyObject *o, %[2]s *addr) {\n",
+	g.impl.Printf("cgopy_cnv_py2c_%[1]s(PyObject *o, int32_t *addr) {\n",
 		sym.id,
-		sym.cgoname,
 	)
 	g.impl.Indent()
 	g.impl.Printf("%s *self = NULL;\n", sym.cpyname)
@@ -1077,7 +1112,7 @@ func (g *cpyGen) genTypeConverter(sym *symbol) {
 	g.impl.Printf("}\n\n")
 
 	g.impl.Printf("static PyObject*\n")
-	g.impl.Printf("cgopy_cnv_c2py_%[1]s(%[2]s *addr) {\n", sym.id, sym.cgoname)
+	g.impl.Printf("cgopy_cnv_c2py_%[1]s(int32_t *addr) {\n", sym.id)
 	g.impl.Indent()
 	g.impl.Printf("PyObject *o = cpy_func_%[1]s_new(&%[2]sType, 0, 0);\n",
 		sym.id,
@@ -1095,7 +1130,8 @@ func (g *cpyGen) genTypeConverter(sym *symbol) {
 
 }
 
-func (g *cpyGen) genTypeTypeCheck(sym *symbol) {
+func (g *cpyGen) genTypeTypeCheck(typ Type) {
+	sym := typ.sym
 	g.decl.Printf(
 		"\n/* check-type function for %[1]s */\n",
 		sym.gofmt(),

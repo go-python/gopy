@@ -87,21 +87,13 @@ func (g *goGen) gen() error {
 	g.genPackage()
 
 	// process slices, arrays, ...
-	for _, n := range g.pkg.syms.names() {
-		sym := g.pkg.syms.sym(n)
-		if !sym.isType() {
-			continue
-		}
-		g.genType(sym)
-	}
-
-	for _, s := range g.pkg.structs {
-		g.genStruct(s)
+	for _, t := range g.pkg.types {
+		g.genType(t)
 	}
 
 	// expose ctors at module level
-	for _, s := range g.pkg.structs {
-		for _, ctor := range s.ctors {
+	for _, t := range g.pkg.types {
+		for _, ctor := range t.ctors {
 			g.genFunc(ctor)
 		}
 	}
@@ -155,29 +147,29 @@ func (g *goGen) genConst(o Const) {
 
 func (g *goGen) genVar(o Var) {
 	fget := Func{
-		pkg:       o.pkg,
-		sig:       newSignature(o.pkg, nil, nil, []*Var{&o}),
-		typ:       nil,
-		name:      o.Name(),
-		generated: true,
-		id:        o.id + "_get",
-		doc:       o.doc,
-		ret:       o.GoType(),
-		err:       false,
+		pkg:  o.pkg,
+		sig:  newSignature(o.pkg, nil, nil, []*Var{&o}),
+		typ:  nil,
+		name: o.Name(),
+		desc: o.pkg.ImportPath() + "." + o.Name() + ".get",
+		id:   o.id + "_get",
+		doc:  o.doc,
+		ret:  o.GoType(),
+		err:  false,
 	}
 	g.genFuncGetter(fget, &o, o.sym)
 	g.genFunc(fget)
 
 	fset := Func{
-		pkg:       o.pkg,
-		sig:       newSignature(o.pkg, nil, []*Var{&o}, nil),
-		typ:       nil,
-		name:      o.Name(),
-		generated: true,
-		id:        o.id + "_set",
-		doc:       o.doc,
-		ret:       nil,
-		err:       false,
+		pkg:  o.pkg,
+		sig:  newSignature(o.pkg, nil, []*Var{&o}, nil),
+		typ:  nil,
+		name: o.Name(),
+		desc: o.pkg.ImportPath() + "." + o.Name() + ".set",
+		id:   o.id + "_set",
+		doc:  o.doc,
+		ret:  nil,
+		err:  false,
 	}
 	g.genFuncSetter(fset, &o, o.sym)
 	g.genFunc(fset)
@@ -232,12 +224,14 @@ func (g *goGen) genRead(valName, seqName string, T types.Type) {
 		case *types.Interface, *types.Pointer, *types.Struct,
 			*types.Array, *types.Slice:
 			g.Printf(
-				"%[2]s := %[1]s.ReadRef().(*%[3]s)\n",
+				"%[2]s := %[1]s.ReadRef().Get().(*%[3]s)\n",
 				seqName, valName,
 				g.pkg.syms.symtype(T).gofmt(),
 			)
 		case *types.Basic:
-			g.Printf("%[3]s := %[1]s.Read%[2]s();\n", seqName, seqType(u), valName)
+			fctName := seqType(u)
+			typName := gofmt(g.pkg.Name(), T)
+			g.Printf("%[4]s := %[3]s(%[1]s.Read%[2]s());\n", seqName, fctName, typName, valName)
 		default:
 			panic(fmt.Errorf("unsupported, direct named type %s: %s", T, u))
 		}
@@ -276,7 +270,9 @@ func (g *goGen) genWrite(valName, seqName string, T types.Type) {
 			*types.Array, *types.Slice:
 			g.Printf("%s.WriteGoRef(%s)\n", seqName, valName)
 		case *types.Basic:
-			g.Printf("%s.Write%s(%s);\n", seqName, seqType(u), valName)
+			fctName := seqType(u)
+			typName := strings.ToLower(fctName)
+			g.Printf("%s.Write%s(%s(%s));\n", seqName, fctName, typName, valName)
 		default:
 			panic(fmt.Errorf("unsupported, direct named type %s: %s", T, u))
 		}
@@ -364,4 +360,27 @@ func seqType(t types.Type) string {
 	default:
 		panic(fmt.Sprintf("unsupported seqType: %s / %T", t, t))
 	}
+}
+
+// cnv applies the needed conversion to go from src to dst.
+func (g *goGen) cnv(dst, src types.Type, n string) string {
+	if types.Identical(dst, src) {
+		return n
+	}
+
+	if types.ConvertibleTo(src, dst) {
+		return g.pkg.syms.symtype(dst).gofmt() + "(" + n + ")"
+	}
+
+	pdst := types.NewPointer(dst)
+	if types.Identical(pdst, src) {
+		return "*" + n
+	}
+
+	psrc := types.NewPointer(src)
+	if types.Identical(dst, psrc) {
+		return "&" + n
+	}
+
+	panic(fmt.Errorf("bind: can not convert %#v to %#v", src, dst))
 }

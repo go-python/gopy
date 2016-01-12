@@ -51,7 +51,7 @@ typedef GoInterface (*gopy_efacefunc)(struct _gopy_object *);
 // proxy for all go values
 struct _gopy_object {
 	PyObject_HEAD
-	void *go; /* handle to address of go value */
+	int32_t        cgopy; /* handle to a go value */
 	gopy_efacefunc eface;
 };
 
@@ -183,26 +183,18 @@ func (g *cpyGen) gen() error {
 
 	g.genPreamble()
 
-	// first, process slices, arrays
-	{
-		names := g.pkg.syms.names()
-		for _, n := range names {
-			sym := g.pkg.syms.sym(n)
-			if !sym.isType() {
-				continue
-			}
-			g.genType(sym)
+	// first, process types
+	for _, t := range g.pkg.types {
+		sym := t.sym
+		if !sym.isType() {
+			continue
 		}
-	}
-
-	// then, process structs
-	for _, s := range g.pkg.structs {
-		g.genStruct(s)
+		g.genType(t)
 	}
 
 	// expose ctors at module level
-	for _, s := range g.pkg.structs {
-		for _, ctor := range s.ctors {
+	for _, t := range g.pkg.types {
+		for _, ctor := range t.ctors {
 			g.genFunc(ctor)
 		}
 	}
@@ -230,10 +222,10 @@ func (g *cpyGen) gen() error {
 		)
 	}
 	// expose ctors at module level
-	// FIXME(sbinet): attach them to structs?
+	// FIXME(sbinet): attach them to types/structs?
 	// -> problem is if one has 2 or more ctors with exactly the same signature.
-	for _, s := range g.pkg.structs {
-		for _, f := range s.ctors {
+	for _, t := range g.pkg.types {
+		for _, f := range t.ctors {
 			name := f.GoName()
 			//obj := scope.Lookup(name)
 			g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
@@ -313,6 +305,7 @@ func (g *cpyGen) genConst(o Const) {
 
 func (g *cpyGen) genVar(v Var) {
 
+	desc := g.pkg.ImportPath() + "." + v.Name()
 	id := g.pkg.Name() + "_" + v.Name()
 	doc := v.doc
 	{
@@ -323,6 +316,7 @@ func (g *cpyGen) genVar(v Var) {
 			sig:  sig,
 			typ:  nil,
 			name: v.Name(),
+			desc: desc + ".get",
 			id:   id + "_get",
 			doc:  "returns " + g.pkg.Name() + "." + v.Name(),
 			ret:  v.GoType(),
@@ -338,6 +332,7 @@ func (g *cpyGen) genVar(v Var) {
 			sig:  sig,
 			typ:  nil,
 			name: v.Name(),
+			desc: desc + ".set",
 			id:   id + "_set",
 			doc:  "sets " + g.pkg.Name() + "." + v.Name(),
 			ret:  nil,

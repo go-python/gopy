@@ -20,12 +20,12 @@ type Package struct {
 	sz  types.Sizes
 	doc *doc.Package
 
-	syms    *symtab
-	objs    map[string]Object
-	consts  []Const
-	vars    []Var
-	structs []Struct
-	funcs   []Func
+	syms   *symtab
+	objs   map[string]Object
+	consts []Const
+	vars   []Var
+	types  []Type
+	funcs  []Func
 }
 
 // NewPackage creates a new Package, tying types.Package and ast.Package together.
@@ -165,7 +165,7 @@ func (p *Package) process() error {
 	var err error
 
 	funcs := make(map[string]Func)
-	structs := make(map[string]Struct)
+	typs := make(map[string]Type)
 
 	scope := p.pkg.Scope()
 	for _, name := range scope.Names() {
@@ -198,32 +198,9 @@ func (p *Package) process() error {
 			}
 
 		case *types.TypeName:
-			named := obj.Type().(*types.Named)
-			switch typ := named.Underlying().(type) {
-			case *types.Struct:
-				structs[name], err = newStruct(p, obj)
-				if err != nil {
-					return err
-				}
-
-			case *types.Basic:
-				// ok. handled by p.syms-types
-
-			case *types.Array:
-				// ok. handled by p.syms-types
-
-			case *types.Interface:
-				// ok. handled by p.syms-types
-
-			case *types.Signature:
-				// ok. handled by p.syms-types
-
-			case *types.Slice:
-				// ok. handled by p.syms-types
-
-			default:
-				//TODO(sbinet)
-				panic(fmt.Errorf("not yet supported: %v (%T)", typ, obj))
+			typs[name], err = newType(p, obj)
+			if err != nil {
+				return err
 			}
 
 		default:
@@ -235,21 +212,21 @@ func (p *Package) process() error {
 
 	// remove ctors from funcs.
 	// add methods.
-	for sname, s := range structs {
+	for tname, t := range typs {
 		for name, fct := range funcs {
 			if fct.Return() == nil {
 				continue
 			}
-			if fct.Return() == s.GoType() {
+			if fct.Return() == t.GoType() {
 				delete(funcs, name)
-				fct.doc = p.getDoc(sname, scope.Lookup(name))
+				fct.doc = p.getDoc(tname, scope.Lookup(name))
 				fct.ctor = true
-				s.ctors = append(s.ctors, fct)
-				structs[sname] = s
+				t.ctors = append(t.ctors, fct)
+				typs[tname] = t
 			}
 		}
 
-		ptyp := types.NewPointer(s.GoType())
+		ptyp := types.NewPointer(t.GoType())
 		p.syms.addType(nil, ptyp)
 		mset := types.NewMethodSet(ptyp)
 		for i := 0; i < mset.Len(); i++ {
@@ -257,16 +234,16 @@ func (p *Package) process() error {
 			if !meth.Obj().Exported() {
 				continue
 			}
-			m, err := newFuncFrom(p, sname, meth.Obj(), meth.Type().(*types.Signature))
+			m, err := newFuncFrom(p, tname, meth.Obj(), meth.Type().(*types.Signature))
 			if err != nil {
 				return err
 			}
-			s.meths = append(s.meths, m)
+			t.meths = append(t.meths, m)
 			if isStringer(meth.Obj()) {
-				s.prots |= ProtoStringer
+				t.prots |= ProtoStringer
 			}
 		}
-		p.addStruct(s)
+		p.addType(t)
 	}
 
 	for _, fct := range funcs {
@@ -310,9 +287,9 @@ func (p *Package) addVar(obj *types.Var) {
 	p.vars = append(p.vars, *newVarFrom(p, obj))
 }
 
-func (p *Package) addStruct(s Struct) {
-	p.structs = append(p.structs, s)
-	p.objs[s.GoName()] = s
+func (p *Package) addType(t Type) {
+	p.types = append(p.types, t)
+	p.objs[t.GoName()] = t
 }
 
 func (p *Package) addFunc(f Func) {
@@ -333,8 +310,8 @@ const (
 	ProtoStringer Protocol = 1 << iota
 )
 
-// Struct collects informations about a go struct.
-type Struct struct {
+// Type collects informations about a go type (struct, named-type, ...)
+type Type struct {
 	pkg *Package
 	sym *symbol
 	obj *types.TypeName
@@ -343,63 +320,91 @@ type Struct struct {
 	doc   string
 	ctors []Func
 	meths []Func
-	fnew  Func
-	fdel  Func
-	finit Func
+	funcs struct {
+		new  Func
+		del  Func
+		init Func
+		str  Func
+	}
 
 	prots Protocol
 }
 
-func newStruct(p *Package, obj *types.TypeName) (Struct, error) {
+func newType(p *Package, obj *types.TypeName) (Type, error) {
 	sym := p.syms.symtype(obj.Type())
 	if sym == nil {
 		panic(fmt.Errorf("no such object [%s] in symbols table", obj.Id()))
 	}
 	sym.doc = p.getDoc("", obj)
-	s := Struct{
+	typ := Type{
 		pkg: p,
 		sym: sym,
 		obj: obj,
-		fnew: Func{
-			pkg: p,
-			sig: newSignature(
-				p, nil, nil,
-				[]*Var{newVar(p, obj.Type(), "ret", obj.Name(), sym.doc)},
-			),
-			typ:       nil,
-			name:      obj.Name(),
-			generated: true,
-			id:        sym.id + "_new",
-			doc:       sym.doc,
-			ret:       obj.Type(),
-			err:       false,
-		},
 	}
-	return s, nil
+
+	desc := p.ImportPath() + "." + obj.Name()
+	recv := newVar(p, obj.Type(), "recv", obj.Name(), sym.doc)
+
+	typ.funcs.new = Func{
+		pkg: p,
+		sig: newSignature(
+			p, nil, nil,
+			[]*Var{newVar(p, obj.Type(), "ret", obj.Name(), sym.doc)},
+		),
+		typ:  nil,
+		name: obj.Name(),
+		desc: desc + ".new",
+		id:   sym.id + "_new",
+		doc:  sym.doc,
+		ret:  obj.Type(),
+		err:  false,
+	}
+
+	styp := universe.sym("string")
+	typ.funcs.str = Func{
+		pkg: p,
+		sig: newSignature(
+			p, recv, nil,
+			[]*Var{newVar(p, styp.GoType(), "ret", "string", "")},
+		),
+		typ:  nil,
+		name: obj.Name(),
+		desc: desc + ".str",
+		id:   sym.id + "_str",
+		doc:  "",
+		ret:  styp.GoType(),
+		err:  false,
+	}
+
+	return typ, nil
 }
 
-func (s Struct) Package() *Package {
-	return s.pkg
+func (t Type) Package() *Package {
+	return t.pkg
 }
 
-func (s Struct) ID() string {
-	return s.sym.id
+func (t Type) ID() string {
+	return t.sym.id
 }
 
-func (s Struct) Doc() string {
-	return s.sym.doc
+func (t Type) Doc() string {
+	return t.sym.doc
 }
 
-func (s Struct) GoType() types.Type {
-	return s.sym.GoType()
+func (t Type) GoType() types.Type {
+	return t.sym.GoType()
 }
 
-func (s Struct) GoName() string {
-	return s.sym.goname
+func (t Type) GoName() string {
+	return t.sym.goname
 }
 
-func (s Struct) Struct() *types.Struct {
-	return s.sym.GoType().Underlying().(*types.Struct)
+func (t Type) Struct() *types.Struct {
+	s, ok := t.sym.GoType().Underlying().(*types.Struct)
+	if ok {
+		return s
+	}
+	return nil
 }
 
 // A Signature represents a (non-builtin) function or method type.
@@ -446,11 +451,10 @@ func (sig *Signature) Recv() *Var {
 type Func struct {
 	pkg  *Package
 	sig  *Signature
-	typ  types.Type
+	typ  types.Type // if nil, Func was generated
 	name string
 
-	generated bool // whether we generated/synthesized that func
-
+	desc string // bind/seq descriptor
 	id   string
 	doc  string
 	ret  types.Type // return type, if any
@@ -487,9 +491,11 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 		return Func{}, fmt.Errorf("bind: too many results to return: %v", obj)
 	}
 
+	desc := obj.Pkg().Path() + "." + obj.Name()
 	id := obj.Pkg().Name() + "_" + obj.Name()
 	if parent != "" {
 		id = obj.Pkg().Name() + "_" + parent + "_" + obj.Name()
+		desc = obj.Pkg().Path() + "." + parent + "." + obj.Name()
 	}
 
 	return Func{
@@ -497,6 +503,7 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 		sig:  newSignatureFrom(p, sig),
 		typ:  obj.Type(),
 		name: obj.Name(),
+		desc: desc,
 		id:   id,
 		doc:  p.getDoc(parent, obj),
 		ret:  ret,
@@ -506,6 +513,10 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 
 func (f Func) Package() *Package {
 	return f.pkg
+}
+
+func (f Func) Descriptor() string {
+	return f.desc
 }
 
 func (f Func) ID() string {
@@ -550,15 +561,15 @@ func newConst(p *Package, o *types.Const) Const {
 	res := []*Var{newVar(p, o.Type(), "ret", o.Name(), doc)}
 	sig := newSignature(p, nil, nil, res)
 	fct := Func{
-		pkg:       p,
-		sig:       sig,
-		typ:       nil,
-		name:      o.Name(),
-		generated: true,
-		id:        id + "_get",
-		doc:       doc,
-		ret:       o.Type(),
-		err:       false,
+		pkg:  p,
+		sig:  sig,
+		typ:  nil,
+		name: o.Name(),
+		desc: p.ImportPath() + "." + o.Name() + ".get",
+		id:   id + "_get",
+		doc:  doc,
+		ret:  o.Type(),
+		err:  false,
 	}
 
 	return Const{

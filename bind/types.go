@@ -15,11 +15,6 @@ type Object interface {
 	GoName() string
 }
 
-type Type interface {
-	Object
-	GoType() types.Type
-}
-
 func needWrapType(typ types.Type) bool {
 	switch typ := typ.(type) {
 	case *types.Basic:
@@ -51,4 +46,11 @@ func needWrapType(typ types.Type) bool {
 		return needWrapType(typ.Elem())
 	}
 	return false
+}
+
+func gofmt(pkgname string, t types.Type) string {
+	return types.TypeString(
+		t,
+		func(*types.Package) string { return pkgname },
+	)
 }

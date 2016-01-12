@@ -55,17 +55,13 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 		)
 	}
 	g.impl.Indent()
+
 	sig := fsym.GoType().Underlying().(*types.Signature)
 	args := sig.Params()
 	res := sig.Results()
 
 	nargs := 0
 	nres := 0
-
-	funcArgs := []string{}
-	if isMethod {
-		funcArgs = append(funcArgs, "self->cgopy")
-	}
 
 	if args != nil {
 		nargs = args.Len()
@@ -78,11 +74,10 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 					arg.String(),
 				))
 			}
-			g.impl.Printf("%[1]s arg%03d;\n",
+			g.impl.Printf("%[1]s _arg%03d;\n",
 				sarg.cgoname,
 				i,
 			)
-			funcArgs = append(funcArgs, fmt.Sprintf("arg%03d", i))
 		}
 	}
 
@@ -119,7 +114,7 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 		pyaddrs := []string{}
 		for i := 0; i < nargs; i++ {
 			sarg := g.pkg.syms.symtype(args.At(i).Type())
-			vname := fmt.Sprintf("arg%03d", i)
+			vname := fmt.Sprintf("_arg%03d", i)
 			pyfmt, addr := sarg.getArgParse(vname)
 			format = append(format, pyfmt)
 			pyaddrs = append(pyaddrs, addr...)
@@ -131,16 +126,40 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 		g.impl.Printf("}\n\n")
 	}
 
-	if nres > 0 {
-		g.impl.Printf("ret = ")
+	/*
+		if nargs > 0 {
+			for i := 0; i < nargs; i++ {
+				arg := args.At(i)
+				sarg := g.pkg.syms.symtype(arg.Type())
+				sarg.genFuncPreamble(g.impl)
+			}
+			g.impl.Printf("\n")
+		}
+	*/
+
+	// create in/out seq-buffers
+	g.impl.Printf("cgopy_seq_buffer ibuf = cgopy_seq_buffer_new();\n")
+	g.impl.Printf("cgopy_seq_buffer obuf = cgopy_seq_buffer_new();\n")
+	g.impl.Printf("\n")
+
+	// fill input seq-buffer
+	if isMethod {
+		g.genWrite("self->cgopy", "ibuf", sym.GoType())
 	}
 
-	g.impl.Printf("cgo_func_%[1]s(%[2]s);\n\n",
-		fsym.id,
-		strings.Join(funcArgs, ", "),
+	for i := 0; i < nargs; i++ {
+		sarg := g.pkg.syms.symtype(args.At(i).Type())
+		g.genWrite(fmt.Sprintf("_arg%03d", i), "ibuf", sarg.GoType())
+	}
+
+	g.impl.Printf("cgopy_seq_send(%q, %d, ibuf->buf, ibuf->len, &obuf->buf,	&obuf->len);\n\n",
+		fsym.gopkg.Path()+"."+sym.goname+"."+fsym.goname,
+		uhash(fsym.id),
 	)
 
 	if nres <= 0 {
+		g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+		g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 		g.impl.Printf("Py_INCREF(Py_None);\nreturn Py_None;\n")
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
@@ -155,9 +174,13 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(ret);\n")
 			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
 			g.impl.Printf("free((void*)c_err_str);\n")
+			g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+			g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 			g.impl.Printf("return NULL;\n")
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
+			g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+			g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 			g.impl.Printf("Py_INCREF(Py_None);\nreturn Py_None;\n")
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
@@ -169,11 +192,15 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 			g.impl.Printf("const char* c_err_str = _cgopy_ErrorString(ret.r1);\n")
 			g.impl.Printf("PyErr_SetString(PyExc_RuntimeError, c_err_str);\n")
 			g.impl.Printf("free((void*)c_err_str);\n")
+			g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+			g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 			g.impl.Printf("return NULL;\n")
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
 			ret := res.At(0)
 			sret := g.pkg.syms.symtype(ret.Type())
+			g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+			g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 			g.impl.Printf("return %s(&ret.r0);\n", sret.c2py)
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
@@ -189,6 +216,10 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 
 	ret := res.At(0)
 	sret := g.pkg.syms.symtype(ret.Type())
+	g.genRead("ret", "obuf", sret.GoType())
+
+	g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+	g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 	g.impl.Printf("return %s(&ret);\n", sret.c2py)
 	g.impl.Outdent()
 	g.impl.Printf("}\n\n")
@@ -216,20 +247,16 @@ func (g *cpyGen) genFuncBody(f Func) {
 	id := f.ID()
 	sig := f.Signature()
 
-	funcArgs := []string{}
-
 	res := sig.Results()
 	args := sig.Params()
 	var recv *Var
 	if sig.Recv() != nil {
 		recv = sig.Recv()
 		recv.genRecvDecl(g.impl)
-		funcArgs = append(funcArgs, recv.getFuncArg())
 	}
 
 	for _, arg := range args {
 		arg.genDecl(g.impl)
-		funcArgs = append(funcArgs, arg.getFuncArg())
 	}
 
 	if len(res) > 0 {
@@ -277,6 +304,10 @@ func (g *cpyGen) genFuncBody(f Func) {
 	g.impl.Printf("cgopy_seq_buffer obuf = cgopy_seq_buffer_new();\n")
 	g.impl.Printf("\n")
 
+	if recv != nil {
+		g.genWrite(fmt.Sprintf("c_%s", recv.Name()), "ibuf", recv.GoType())
+	}
+
 	// fill input seq-buffer
 	if len(args) > 0 {
 		for _, arg := range args {
@@ -285,7 +316,7 @@ func (g *cpyGen) genFuncBody(f Func) {
 	}
 
 	g.impl.Printf("cgopy_seq_send(%q, %d, ibuf->buf, ibuf->len, &obuf->buf, &obuf->len);\n\n",
-		f.Package().ImportPath()+"."+f.GoName(),
+		f.Descriptor(),
 		uhash(f.ID()),
 	)
 
@@ -309,6 +340,8 @@ func (g *cpyGen) genFuncBody(f Func) {
 			g.impl.Printf("return NULL;\n")
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
+			g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
+			g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
 			g.impl.Printf("Py_INCREF(Py_None);\nreturn Py_None;\n")
 			return
 
@@ -382,7 +415,7 @@ func (g *cpyGen) genFuncBody(f Func) {
 	}
 
 	format := []string{}
-	funcArgs = []string{}
+	funcArgs := []string{}
 	switch len(res) {
 	case 1:
 		ret := res[0]
@@ -445,7 +478,7 @@ func (g *cpyGen) genWrite(valName, seqName string, T types.Type) {
 	case *types.Named:
 		switch u := T.Underlying().(type) {
 		case *types.Interface, *types.Pointer, *types.Struct:
-			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_int32(%[1]s)\n", seqName, valName)
+			g.impl.Printf("cgopy_seq_buffer_write_int32(%[1]s, %[2]s);\n", seqName, valName)
 		case *types.Basic:
 			g.genWrite(valName, seqName, u)
 		default:
@@ -492,7 +525,7 @@ func (g *cpyGen) genRead(valName, seqName string, T types.Type) {
 	case *types.Named:
 		switch u := T.Underlying().(type) {
 		case *types.Interface, *types.Pointer, *types.Struct:
-			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_int32(%[1]s)\n", seqName, valName)
+			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_int32(%[1]s);\n", seqName, valName)
 		case *types.Basic:
 			g.genRead(valName, seqName, u)
 		default:
