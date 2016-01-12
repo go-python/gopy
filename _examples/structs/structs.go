@@ -11,13 +11,14 @@ import (
 type S struct{}
 
 func (S) Init() {}
+
 func (S) Upper(s string) string {
 	return strings.ToUpper(s)
 }
 
-func FuncTest(item S) {}
+func FuncTest(S) {}
 
-func (this S) MethodTest(item S1) {}
+func (S) MethodTest(item S1) {}
 
 type S1 struct {
 	private int
