@@ -477,7 +477,8 @@ func (g *cpyGen) genWrite(valName, seqName string, T types.Type) {
 		}
 	case *types.Named:
 		switch u := T.Underlying().(type) {
-		case *types.Interface, *types.Pointer, *types.Struct:
+		case *types.Interface, *types.Pointer, *types.Struct,
+			*types.Array, *types.Slice:
 			g.impl.Printf("cgopy_seq_buffer_write_int32(%[1]s, %[2]s);\n", seqName, valName)
 		case *types.Basic:
 			g.genWrite(valName, seqName, u)
@@ -524,7 +525,8 @@ func (g *cpyGen) genRead(valName, seqName string, T types.Type) {
 		}
 	case *types.Named:
 		switch u := T.Underlying().(type) {
-		case *types.Interface, *types.Pointer, *types.Struct:
+		case *types.Interface, *types.Pointer, *types.Struct,
+			*types.Array, *types.Slice:
 			g.impl.Printf("%[2]s = cgopy_seq_buffer_read_int32(%[1]s);\n", seqName, valName)
 		case *types.Basic:
 			g.genRead(valName, seqName, u)
