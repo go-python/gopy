@@ -14,7 +14,7 @@ func (g *goGen) genStruct(s Type) {
 	typ := s.Struct()
 	g.Printf("\n// --- wrapping %s ---\n\n", s.sym.gofmt())
 
-	recv := newVar(s.pkg, s.GoType(), "self", s.GoName(), "")
+	recv := newVar(s.pkg, types.NewPointer(s.GoType()), "self", s.GoName(), "")
 
 	for i := 0; i < typ.NumFields(); i++ {
 		f := typ.Field(i)
@@ -55,10 +55,6 @@ func (g *goGen) genStruct(s Type) {
 		g.genMethod(s, fset)
 	}
 
-	for _, m := range s.meths {
-		g.genMethod(s, m)
-	}
-
 	g.genFuncNew(s.funcs.new, s)
 	g.genFunc(s.funcs.new)
 
@@ -84,6 +80,9 @@ func (g *goGen) genStruct(s Type) {
 	// support for __str__
 	g.genFuncTPStr(s)
 	g.genMethod(s, s.funcs.str)
+
+	// g.genTypeTPCall(sym) // FIXME(sbinet)
+	g.genTypeMethods(s)
 }
 
 func (g *goGen) genMethod(s Type, m Func) {
@@ -126,9 +125,10 @@ func (g *goGen) genMethodBody(s Type, m Func) {
 	}
 
 	if m.typ == nil {
-		src := s.sym.GoType() // FIXME(sbinet)
-		cnv := g.cnv(src, src, "o")
-		g.Printf("cgo_func_%s_(%s", m.ID(), cnv)
+		src := s.sym.GoType()
+		dst := m.Signature().Recv().GoType()
+		cnv := g.cnv(dst, src, "o")
+		g.Printf("/*\nsrc: %s\ndst: %s */cgo_func_%s_(%s", src.String(), dst.String(), m.ID(), cnv)
 		if len(args) > 0 {
 			g.Printf(", ")
 		}
@@ -200,6 +200,52 @@ func (g *goGen) genType(typ Type) {
 	// support for __str__
 	g.genFuncTPStr(typ)
 	g.genMethod(typ, typ.funcs.str)
+
+	if sym.isBasic() {
+		pkg := typ.Package()
+		t := typ.GoType()
+		ptr := types.NewPointer(t)
+		recv := newVar(pkg, ptr, "self", typ.GoName(), "")
+		ut := t.Underlying()
+
+		// -- getter --
+		fget := Func{
+			pkg: pkg,
+			sig: newSignature(
+				pkg,
+				recv, nil, []*Var{newVar(pkg, ut, "ret", ut.String(), "")},
+			),
+			typ:  nil,
+			name: "get",
+			desc: pkg.ImportPath() + "." + typ.GoName() + ".get",
+			id:   typ.ID() + "_get",
+			doc:  "",
+			ret:  ut,
+			err:  false,
+		}
+		g.genFuncGetter(fget, typ, typ.sym)
+		g.genMethod(typ, fget)
+		fmt.Printf("=== %v\ntyp: %s\nptr: %s\n", typ.sym.gofmt(), t.String(), ptr.String())
+		fmt.Printf("recv: %s\n", recv.sym.gofmt())
+
+		// -- setter --
+		fset := Func{
+			pkg: pkg,
+			sig: newSignature(
+				pkg,
+				recv, []*Var{newVar(pkg, ut, "v", ut.String(), "")}, nil,
+			),
+			typ:  nil,
+			name: "set",
+			desc: pkg.ImportPath() + "." + typ.GoName() + ".set",
+			id:   typ.ID() + "_set",
+			doc:  "",
+			ret:  nil,
+			err:  false,
+		}
+		g.genFuncSetter(fset, typ, typ.sym)
+		g.genMethod(typ, fset)
+	}
 
 	if sym.isArray() || sym.isSlice() {
 		var etyp types.Type
@@ -309,7 +355,7 @@ func (g *goGen) genType(typ Type) {
 
 	g.genTypeTPCall(sym)
 
-	g.genTypeMethods(sym)
+	g.genTypeMethods(typ)
 
 }
 
@@ -427,10 +473,18 @@ func (g *goGen) genTypeTPCall(sym *symbol) {
 
 }
 
-func (g *goGen) genTypeMethods(sym *symbol) {
+func (g *goGen) genTypeMethods(T Type) {
+	sym := T.sym
 	if !sym.isNamed() {
 		return
 	}
+
+	for _, m := range T.meths {
+		g.genMethod(T, m)
+	}
+	return
+
+	// FIXME(sbinet): remove all of this ?
 
 	typ := sym.GoType().(*types.Named)
 	for imeth := 0; imeth < typ.NumMethods(); imeth++ {

@@ -25,17 +25,9 @@ func (g *cpyGen) genType(typ Type) {
 	g.decl.Printf(" */\ntypedef struct {\n")
 	g.decl.Indent()
 	g.decl.Printf("PyObject_HEAD\n")
-	if sym.isBasic() {
-		g.decl.Printf("%[1]s cgopy; /* value of %[2]s */\n",
-			sym.cgoname,
-			sym.gofmt(),
-		)
-	} else {
-		g.decl.Printf("%[1]s cgopy; /* handle to %[2]s */\n",
-			sym.cgoname,
-			sym.gofmt(),
-		)
-	}
+	g.decl.Printf("int32_t cgopy; /* handle to %[1]s */\n",
+		sym.gofmt(),
+	)
 	g.decl.Printf("gopy_efacefunc eface;\n")
 	g.decl.Outdent()
 	g.decl.Printf("} %s;\n", sym.cpyname)
@@ -175,7 +167,7 @@ func (g *cpyGen) genTypeDealloc(typ Type) {
 		sym.cpyname,
 	)
 	g.impl.Indent()
-	if !sym.isBasic() {
+	if sym.isNamed() {
 		g.impl.Printf("cgopy_seq_destroy_ref(self->cgopy);\n")
 	}
 	g.impl.Printf("self->ob_type->tp_free((PyObject*)self);\n")
@@ -245,8 +237,9 @@ func (g *cpyGen) genTypeInit(typ Type) {
 		g.impl.Printf("if (arg != NULL) {\n")
 		g.impl.Indent()
 		bsym := g.pkg.syms.symtype(sym.GoType().Underlying())
+		g.impl.Printf("%s c_value;\n", bsym.cgoname)
 		g.impl.Printf(
-			"if (!%s(arg, &self->cgopy)) {\n",
+			"if (!%s(arg, &c_value)) {\n",
 			bsym.py2c,
 		)
 		g.impl.Indent()

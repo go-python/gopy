@@ -32,6 +32,7 @@ type Str string
 // Value returns a string value
 func (s Str) Value() string { return string(s) }
 
+/*
 type Slice []float64
 
 func (s Slice) At(i int) float64 { return s[i] }
@@ -44,3 +45,4 @@ type T int
 
 func (t T) PublicMethod()  {}
 func (t T) privateMethod() {}
+*/

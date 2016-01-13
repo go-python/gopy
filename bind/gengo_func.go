@@ -91,6 +91,10 @@ func (g *goGen) genFuncGetter(f Func, o Object, sym *symbol) {
 		arg = "recv *" + recv.sym.gofmt()
 		doc = "." + ret.GoName()
 		get = "recv." + ret.GoName()
+		if sym.isBasic() {
+			get = "*recv"
+			doc = ""
+		}
 	}
 
 	g.Printf("// cgo_func_%[1]s_ wraps read-access to %[2]s.%[3]s%[4]s\n",
@@ -124,6 +128,11 @@ func (g *goGen) genFuncSetter(f Func, o Object, sym *symbol) {
 		doc = "." + fset.GoName()
 		typ = fset.sym.gofmt()
 		arg = "recv *" + recv.sym.gofmt() + ", v " + typ
+		if sym.isBasic() {
+			set = "*recv"
+			doc = ""
+			typ = sym.gofmt()
+		}
 	}
 
 	g.Printf("// cgo_func_%[1]s_ wraps write-access to %[2]s.%[3]s%[4]s\n",

@@ -296,7 +296,6 @@ s.Value = 3
 }
 
 func TestBindNamed(t *testing.T) {
-	t.Skip("bind/seq") // FIXME(sbinet)
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/named",
