@@ -120,7 +120,7 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 			}
 			for i := 0; i < tup.Len(); i++ {
 				paramVar := tup.At(i)
-				paramType := p.syms.symtype(paramVar.Type()).pysig
+				paramType := p.pysig(paramVar.Type())
 				if paramVar.Name() != "" {
 					paramType = fmt.Sprintf("%s %s", paramType, paramVar.Name())
 				}
@@ -301,6 +301,48 @@ func (p *Package) addFunc(f Func) {
 func (p *Package) Lookup(o types.Object) (Object, bool) {
 	obj, ok := p.objs[o.Name()]
 	return obj, ok
+}
+
+// pysig returns the doc-string corresponding to the given type, for pydoc.
+func (p *Package) pysig(t types.Type) string {
+	switch t := t.(type) {
+	case *types.Basic:
+		switch k := t.Kind(); k {
+		case types.Bool:
+			return "bool"
+		case types.Int, types.Int8, types.Int16, types.Int32:
+			return "int"
+		case types.Int64:
+			return "long"
+		case types.Uint, types.Uint8, types.Uint16, types.Uint32:
+			return "int"
+		case types.Uint64:
+			return "long"
+		case types.Float32, types.Float64:
+			return "float"
+		case types.Complex64, types.Complex128:
+			return "complex"
+		case types.String:
+			return "str"
+		}
+	case *types.Array:
+		return fmt.Sprintf("[%d]%s", t.Len(), p.pysig(t.Elem()))
+	case *types.Slice:
+		return "[]" + p.pysig(t.Elem())
+	case *types.Signature:
+		return "callable" // FIXME(sbinet): give the exact pydoc equivalent signature ?
+	case *types.Named:
+		return "object" // FIXME(sbinet): give the exact python class name ?
+	case *types.Map:
+		return "dict" // FIXME(sbinet): give exact dict-k/v ?
+	case *types.Pointer:
+		return "object"
+	case *types.Chan:
+		return "object"
+	default:
+		panic(fmt.Errorf("unhandled type [%T]\n%#v\n", t, t))
+	}
+	panic(fmt.Errorf("unhandled type [%T]\n%#v\n", t, t))
 }
 
 // Protocol encodes the various protocols a python type may implement
