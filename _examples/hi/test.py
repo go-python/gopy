@@ -46,6 +46,17 @@ print hi.Add(1,41)
 print "--- hi.Concat('4', '2')..."
 print hi.Concat("4","2")
 
+print "--- hi.LookupQuestion(42)..."
+print hi.LookupQuestion(42)
+
+print "--- hi.LookupQuestion(12)..."
+try:
+    hi.LookupQuestion(12)
+    print "*ERROR* no exception raised!"
+except Exception, err:
+    print "caught:", err
+    pass
+
 print "--- doc(hi.Person):"
 print hi.Person.__doc__
 

@@ -323,7 +323,11 @@ func (g *cpyGen) genFuncBody(f Func) {
 				return
 			}
 			pyfmt, _ := res[0].getArgBuildValue()
-			g.impl.Printf("return Py_BuildValue(%q, c_gopy_ret.r0);\n", pyfmt)
+			if res[0].sym.hasConverter() {
+				g.impl.Printf("return Py_BuildValue(%q, %s, &c_gopy_ret.r0);\n", pyfmt, res[0].sym.c2py)
+			} else {
+				g.impl.Printf("return Py_BuildValue(%q, c_gopy_ret.r0);\n", pyfmt)
+			}
 			return
 
 		default:

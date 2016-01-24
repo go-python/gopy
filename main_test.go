@@ -142,6 +142,10 @@ Add returns the sum of its arguments.
 42
 --- hi.Concat('4', '2')...
 42
+--- hi.LookupQuestion(42)...
+Life, the Universe and Everything
+--- hi.LookupQuestion(12)...
+caught: Wrong answer: 12 != 42
 --- doc(hi.Person):
 Person is a simple struct
 

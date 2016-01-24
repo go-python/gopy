@@ -38,6 +38,15 @@ func Concat(s1, s2 string) string {
 	return s1 + s2
 }
 
+// LookupQuestion returns question for given answer.
+func LookupQuestion(n int) (string, error) {
+	if n == 42 {
+		return "Life, the Universe and Everything", nil
+	} else {
+		return "", fmt.Errorf("Wrong answer: %v != 42", n)
+	}
+}
+
 // Add returns the sum of its arguments.
 func Add(i, j int) int {
 	return i + j
