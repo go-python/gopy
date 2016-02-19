@@ -6,15 +6,16 @@ package bind
 
 import (
 	"fmt"
+	"go/token"
 	"go/types"
 )
 
 func (g *goGen) genStruct(s Type) {
 	//fmt.Printf("obj: %#v\ntyp: %#v\n", obj, typ)
 	typ := s.Struct()
-	g.Printf("\n// --- wrapping %s ---\n\n", s.sym.gofmt())
+	g.Printf("\n// --- wrapping %s ---\n\n", s.gofmt())
 
-	recv := newVar(s.pkg, s.GoType(), "self", s.GoName(), "")
+	recv := types.NewVar(token.NoPos, s.Package().pkg, "recv", s.GoType())
 
 	for i := 0; i < typ.NumFields(); i++ {
 		f := typ.Field(i)
@@ -27,31 +28,31 @@ func (g *goGen) genStruct(s Type) {
 		// -- getter --
 		fget := Func{
 			pkg:  s.pkg,
-			sig:  newSignature(s.pkg, recv, nil, []*Var{newVarFrom(s.pkg, f)}),
+			sig:  types.NewSignature(recv, nil, types.NewTuple(f), false),
 			typ:  nil,
 			name: f.Name(),
-			desc: s.pkg.ImportPath() + "." + s.GoName() + "." + f.Name() + ".get",
+			desc: s.Descriptor() + "." + f.Name() + ".get",
 			id:   s.ID() + "_" + f.Name() + "_get",
 			doc:  "",
 			ret:  ft,
 			err:  false,
 		}
-		g.genFuncGetter(fget, s, s.sym)
+		g.genFuncGetter(fget, s)
 		g.genMethod(s, fget)
 
 		// -- setter --
 		fset := Func{
 			pkg:  s.pkg,
-			sig:  newSignature(s.pkg, recv, []*Var{newVarFrom(s.pkg, f)}, nil),
+			sig:  types.NewSignature(recv, types.NewTuple(f), nil, false),
 			typ:  nil,
 			name: f.Name(),
-			desc: s.pkg.ImportPath() + "." + s.GoName() + "." + f.Name() + ".set",
+			desc: s.Descriptor() + "." + f.Name() + ".set",
 			id:   s.ID() + "_" + f.Name() + "_set",
 			doc:  "",
 			ret:  nil,
 			err:  false,
 		}
-		g.genFuncSetter(fset, s, s.sym)
+		g.genFuncSetter(fset, s)
 		g.genMethod(s, fset)
 	}
 
@@ -89,7 +90,7 @@ func (g *goGen) genStruct(s Type) {
 func (g *goGen) genMethod(s Type, m Func) {
 	g.Printf("\n// cgo_func_%[1]s wraps %[2]s.%[3]s\n",
 		m.ID(),
-		s.sym.gofmt(), m.GoName(),
+		s.gofmt(), m.GoName(),
 	)
 	g.Printf("func cgo_func_%[1]s(out, in *seq.Buffer) {\n", m.ID())
 	g.Indent()
@@ -105,18 +106,21 @@ func (g *goGen) genMethod(s Type, m Func) {
 }
 
 func (g *goGen) genMethodBody(s Type, m Func) {
-	g.genRead("o", "in", s.sym.GoType())
+	g.genRead("o", "in", s.GoType())
 
 	sig := m.Signature()
 	args := sig.Params()
-	for i, arg := range args {
-		g.Printf("// arg-%03d: %v\n", i, gofmt(g.pkg.Name(), arg.GoType()))
-		g.genRead(fmt.Sprintf("_arg_%03d", i), "in", arg.GoType())
+	if args != nil {
+		for i := 0; i < args.Len(); i++ {
+			arg := args.At(i)
+			g.Printf("// arg-%03d: %v\n", i, gofmt(g.pkg.Name(), arg.Type()))
+			g.genRead(fmt.Sprintf("_arg_%03d", i), "in", arg.Type())
+		}
 	}
 
 	results := sig.Results()
-	if len(results) > 0 {
-		for i := range results {
+	if results != nil {
+		for i := 0; i < results.Len(); i++ {
 			if i > 0 {
 				g.Printf(", ")
 			}
@@ -126,54 +130,54 @@ func (g *goGen) genMethodBody(s Type, m Func) {
 	}
 
 	if m.typ == nil {
-		src := s.sym.GoType() // FIXME(sbinet)
+		src := s.GoType() // FIXME(sbinet)
 		cnv := g.cnv(src, src, "o")
 		g.Printf("cgo_func_%s_(%s", m.ID(), cnv)
-		if len(args) > 0 {
+		if args != nil && args.Len() > 0 {
 			g.Printf(", ")
 		}
 	} else {
 		g.Printf("o.%s(", m.GoName())
 	}
 
-	for i, arg := range args {
-		tail := ""
-		if i+1 < len(args) {
-			tail = ", "
-		}
-		switch typ := arg.GoType().Underlying().(type) {
-		case *types.Struct:
-			ptr := types.NewPointer(typ)
-			g.Printf("%s%s", g.cnv(typ, ptr, fmt.Sprintf("_arg_%03d", i)), tail)
-		default:
-			g.Printf("_arg_%03d%s", i, tail)
+	if args != nil {
+		for i := 0; i < args.Len(); i++ {
+			tail := ""
+			if i+1 < args.Len() {
+				tail = ", "
+			}
+			arg := args.At(i)
+			switch typ := arg.Type().Underlying().(type) {
+			case *types.Struct:
+				ptr := types.NewPointer(typ)
+				g.Printf("%s%s", g.cnv(typ, ptr, fmt.Sprintf("_arg_%03d", i)), tail)
+			default:
+				g.Printf("_arg_%03d%s", i, tail)
+			}
 		}
 	}
 	g.Printf(")\n")
 
-	if len(results) <= 0 {
+	if results == nil {
 		return
 	}
 
-	for i, res := range results {
-		g.genWrite(fmt.Sprintf("_res_%03d", i), "out", res.GoType())
+	for i := 0; i < results.Len(); i++ {
+		res := results.At(i)
+		g.genWrite(fmt.Sprintf("_res_%03d", i), "out", res.Type())
 	}
 }
 
 func (g *goGen) genType(typ Type) {
-	sym := typ.sym
-	if !sym.isType() {
-		return
-	}
-	if sym.isStruct() {
+	if typ.isStruct() {
 		g.genStruct(typ)
 		return
 	}
-	if sym.isBasic() && !sym.isNamed() {
+	if typ.isBasic() && !typ.isNamed() {
 		return
 	}
 
-	g.Printf("\n// --- wrapping %s ---\n\n", sym.gofmt())
+	g.Printf("\n// --- wrapping %s ---\n\n", typ.gofmt())
 
 	g.genFuncNew(typ.funcs.new, typ)
 	g.genFunc(typ.funcs.new)
@@ -201,19 +205,19 @@ func (g *goGen) genType(typ Type) {
 	g.genFuncTPStr(typ)
 	g.genMethod(typ, typ.funcs.str)
 
-	if sym.isArray() || sym.isSlice() {
+	if typ.isArray() || typ.isSlice() {
 		var etyp types.Type
-		switch typ := sym.GoType().(type) {
+		switch t := typ.GoType().(type) {
 		case *types.Array:
-			etyp = typ.Elem()
+			etyp = t.Elem()
 		case *types.Slice:
-			etyp = typ.Elem()
+			etyp = t.Elem()
 		case *types.Named:
-			switch typ := typ.Underlying().(type) {
+			switch tn := t.Underlying().(type) {
 			case *types.Array:
-				etyp = typ.Elem()
+				etyp = tn.Elem()
 			case *types.Slice:
-				etyp = typ.Elem()
+				etyp = tn.Elem()
 			default:
 				panic(fmt.Errorf("gopy: unhandled type [%#v]", typ))
 			}
@@ -223,20 +227,20 @@ func (g *goGen) genType(typ Type) {
 		esym := g.pkg.syms.symtype(etyp)
 		if esym == nil {
 			panic(fmt.Errorf("gopy: could not retrieve element type of %#v",
-				sym,
+				typ,
 			))
 		}
 
 		// support for __getitem__
-		g.Printf("//export cgo_func_%[1]s_item\n", sym.id)
+		g.Printf("//export cgo_func_%[1]s_item\n", typ.ID())
 		g.Printf(
 			"func cgo_func_%[1]s_item(self %[2]s, i int) %[3]s {\n",
-			sym.id,
-			sym.cgoname,
+			typ.ID(),
+			typ.CGoName(),
 			esym.cgotypename(),
 		)
 		g.Indent()
-		g.Printf("arr := (*%[1]s)(unsafe.Pointer(self))\n", sym.gofmt())
+		g.Printf("arr := (*%[1]s)(unsafe.Pointer(self))\n", typ.gofmt())
 		g.Printf("elt := (*arr)[i]\n")
 		if !esym.isBasic() {
 			g.Printf("cgopy_incref(unsafe.Pointer(&elt))\n")
@@ -252,14 +256,14 @@ func (g *goGen) genType(typ Type) {
 		g.Printf("}\n\n")
 
 		// support for __setitem__
-		g.Printf("//export cgo_func_%[1]s_ass_item\n", sym.id)
+		g.Printf("//export cgo_func_%[1]s_ass_item\n", typ.ID())
 		g.Printf("func cgo_func_%[1]s_ass_item(self %[2]s, i int, v %[3]s) {\n",
-			sym.id,
-			sym.cgoname,
+			typ.ID(),
+			typ.CGoName(),
 			esym.cgotypename(),
 		)
 		g.Indent()
-		g.Printf("arr := (*%[1]s)(unsafe.Pointer(self))\n", sym.gofmt())
+		g.Printf("arr := (*%[1]s)(unsafe.Pointer(self))\n", typ.gofmt())
 		g.Printf("(*arr)[i] = ")
 		if !esym.isBasic() {
 			g.Printf("*(*%[1]s)(unsafe.Pointer(v))\n", esym.gofmt())
@@ -274,24 +278,24 @@ func (g *goGen) genType(typ Type) {
 		g.Printf("}\n\n")
 	}
 
-	if sym.isSlice() {
-		etyp := sym.GoType().Underlying().(*types.Slice).Elem()
+	if typ.isSlice() {
+		etyp := typ.GoType().Underlying().(*types.Slice).Elem()
 		esym := g.pkg.syms.symtype(etyp)
 		if esym == nil {
 			panic(fmt.Errorf("gopy: could not retrieve element type of %#v",
-				sym,
+				typ,
 			))
 		}
 
 		// support for __append__
-		g.Printf("//export cgo_func_%[1]s_append\n", sym.id)
+		g.Printf("//export cgo_func_%[1]s_append\n", typ.ID())
 		g.Printf("func cgo_func_%[1]s_append(self %[2]s, v %[3]s) {\n",
-			sym.id,
-			sym.cgoname,
+			typ.ID(),
+			typ.CGoName(),
 			esym.cgotypename(),
 		)
 		g.Indent()
-		g.Printf("slice := (*%[1]s)(unsafe.Pointer(self))\n", sym.gofmt())
+		g.Printf("slice := (*%[1]s)(unsafe.Pointer(self))\n", typ.gofmt())
 		g.Printf("*slice = append(*slice, ")
 		if !esym.isBasic() {
 			g.Printf("*(*%[1]s)(unsafe.Pointer(v))", esym.gofmt())
@@ -307,26 +311,26 @@ func (g *goGen) genType(typ Type) {
 		g.Printf("}\n\n")
 	}
 
-	g.genTypeTPCall(sym)
+	g.genTypeTPCall(typ)
 
-	g.genTypeMethods(sym)
+	g.genTypeMethods(typ)
 
 }
 
-func (g *goGen) genTypeTPCall(sym *symbol) {
-	if !sym.isSignature() {
+func (g *goGen) genTypeTPCall(typ Type) {
+	if !typ.isSignature() {
 		return
 	}
 
-	sig := sym.GoType().Underlying().(*types.Signature)
+	sig := typ.GoType().Underlying().(*types.Signature)
 	if sig.Recv() != nil {
 		// don't generate tp_call for methods.
 		return
 	}
 
 	// support for __call__
-	g.Printf("//export cgo_func_%[1]s_call\n", sym.id)
-	g.Printf("func cgo_func_%[1]s_call(self %[2]s", sym.id, sym.cgotypename())
+	g.Printf("//export cgo_func_%[1]s_call\n", typ.ID())
+	g.Printf("func cgo_func_%[1]s_call(self %[2]s", typ.ID(), typ.CGoTypeName())
 	params := sig.Params()
 	res := sig.Results()
 	if params != nil && params.Len() > 0 {
@@ -373,7 +377,7 @@ func (g *goGen) genTypeTPCall(sym *symbol) {
 		}
 		g.Printf(" := ")
 	}
-	g.Printf("(*(*%[1]s)(unsafe.Pointer(self)))(", sym.gofmt())
+	g.Printf("(*(*%[1]s)(unsafe.Pointer(self)))(", typ.gofmt())
 	if params != nil && params.Len() > 0 {
 		for i := 0; i < params.Len(); i++ {
 			comma := ", "
@@ -427,14 +431,14 @@ func (g *goGen) genTypeTPCall(sym *symbol) {
 
 }
 
-func (g *goGen) genTypeMethods(sym *symbol) {
-	if !sym.isNamed() {
+func (g *goGen) genTypeMethods(typ Type) {
+	if !typ.isNamed() {
 		return
 	}
 
-	typ := sym.GoType().(*types.Named)
-	for imeth := 0; imeth < typ.NumMethods(); imeth++ {
-		m := typ.Method(imeth)
+	tn := typ.GoType().(*types.Named)
+	for imeth := 0; imeth < tn.NumMethods(); imeth++ {
+		m := tn.Method(imeth)
 		if !m.Exported() {
 			continue
 		}
@@ -451,7 +455,7 @@ func (g *goGen) genTypeMethods(sym *symbol) {
 		g.Printf("//export cgo_func_%[1]s\n", msym.id)
 		g.Printf("func cgo_func_%[1]s(self %[2]s",
 			msym.id,
-			sym.cgoname,
+			typ.CGoName(),
 		)
 		sig := m.Type().(*types.Signature)
 		params := sig.Params()
@@ -502,14 +506,14 @@ func (g *goGen) genTypeMethods(sym *symbol) {
 				g.Printf(" := ")
 			}
 		}
-		if sym.isBasic() {
+		if typ.isBasic() {
 			g.Printf("(*%s)(unsafe.Pointer(&self)).%s(",
-				sym.gofmt(),
+				typ.gofmt(),
 				msym.goname,
 			)
 		} else {
 			g.Printf("(*%s)(unsafe.Pointer(self)).%s(",
-				sym.gofmt(),
+				typ.gofmt(),
 				msym.goname,
 			)
 		}

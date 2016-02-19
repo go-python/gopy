@@ -8,12 +8,9 @@ import (
 	"fmt"
 	"go/ast"
 	"go/build"
-	"go/doc"
-	"go/importer"
 	"go/parser"
 	"go/scanner"
 	"go/token"
-	"go/types"
 	"io"
 	"io/ioutil"
 	"log"
@@ -208,66 +205,5 @@ func parseFiles(dir string, fnames []string) ([]*ast.File, error) {
 }
 
 func newPackage(path string) (*bind.Package, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	cmd := exec.Command("go", "install", path)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Dir = cwd
-
-	err = cmd.Run()
-	if err != nil {
-		log.Printf("error installing [%s]: %v\n",
-			path,
-			err,
-		)
-		return nil, err
-	}
-
-	bpkg, err := build.Import(path, cwd, 0)
-	if err != nil {
-		log.Printf("error resolving import path [%s]: %v\n",
-			path,
-			err,
-		)
-		return nil, err
-	}
-
-	pkg, err := importer.Default().Import(bpkg.ImportPath)
-	if err != nil {
-		log.Printf("error importing package [%v]: %v\n",
-			bpkg.ImportPath,
-			err,
-		)
-		return nil, err
-	}
-
-	p, err := newPackageFrom(bpkg, pkg)
-	if err != nil {
-		log.Printf("%v\n", err)
-		return nil, err
-	}
-
-	return p, err
-}
-
-func newPackageFrom(bpkg *build.Package, p *types.Package) (*bind.Package, error) {
-
-	var pkgast *ast.Package
-	pkgs, err := parser.ParseDir(fset, bpkg.Dir, nil, parser.ParseComments)
-	if err != nil {
-		return nil, err
-	}
-	pkgast = pkgs[p.Name()]
-	if pkgast == nil {
-		return nil, fmt.Errorf("gopy: could not find AST for package %q", p.Name())
-	}
-
-	pkgdoc := doc.New(pkgast, bpkg.ImportPath, 0)
-
-	return bind.NewPackage(p, pkgdoc)
+	return bind.Binder.Import(path)
 }

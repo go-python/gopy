@@ -5,33 +5,29 @@
 package bind
 
 import (
-	"fmt"
+	"go/token"
 	"go/types"
 )
 
 type Var struct {
 	pkg  *Package
-	sym  *symbol // symbol associated with var's type
 	id   string
 	doc  string
 	name string
+	tvar *types.Var
 }
 
 func (v *Var) Name() string {
 	return v.name
 }
 
-func newVar(p *Package, typ types.Type, objname, name, doc string) *Var {
-	sym := p.syms.symtype(typ)
-	if sym == nil {
-		panic(fmt.Errorf("could not find symbol for type [%s]!", typ.String()))
-	}
+func newVar(p *Package, typ types.Type, name, doc string) *Var {
 	return &Var{
 		pkg:  p,
-		sym:  sym,
-		id:   p.Name() + "_" + objname,
+		id:   p.Name() + "_" + name,
 		doc:  doc,
 		name: name,
+		tvar: types.NewVar(token.NoPos, p.pkg, name, typ),
 	}
 }
 
@@ -44,29 +40,20 @@ func newVarsFrom(p *Package, tuple *types.Tuple) []*Var {
 }
 
 func newVarFrom(p *Package, v *types.Var) *Var {
-	return newVar(p, v.Type(), v.Name(), v.Name(), p.getDoc("", v))
+	return newVar(p, v.Type(), v.Name(), p.getDoc("", v))
 }
 
 func getTypeString(t types.Type) string {
 	return types.TypeString(t, func(*types.Package) string { return " " })
 }
 
-func (v *Var) Package() *Package { return v.pkg }
-func (v *Var) ID() string        { return v.id }
-func (v *Var) Doc() string       { return v.doc }
-func (v *Var) GoName() string    { return v.name }
-
-func (v *Var) GoType() types.Type {
-	return v.sym.goobj.Type()
-}
-
-func (v *Var) CType() string {
-	return v.sym.cpyname
-}
-
-func (v *Var) CGoType() string {
-	return v.sym.cgoname
-}
+func (v *Var) Package() *Package  { return v.pkg }
+func (v *Var) ID() string         { return v.id }
+func (v *Var) Doc() string        { return v.doc }
+func (v *Var) GoName() string     { return v.name }
+func (v *Var) GoType() types.Type { return v.tvar.Type() }
+func (v *Var) CType() string      { return v.sym.cpyname }
+func (v *Var) CGoType() string    { return v.sym.cgoname }
 
 func (v *Var) PyCode() string {
 	return v.sym.pyfmt
@@ -133,4 +120,8 @@ func (v *Var) getFuncArg() string {
 func (v *Var) needWrap() bool {
 	typ := v.GoType()
 	return needWrapType(typ)
+}
+
+func (v *Var) gofmt() string {
+	return v.sym.gofmt()
 }

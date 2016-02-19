@@ -7,6 +7,7 @@ package bind
 import (
 	"fmt"
 	"go/doc"
+	"go/token"
 	"go/types"
 	"reflect"
 	"strings"
@@ -345,154 +346,20 @@ func (p *Package) pysig(t types.Type) string {
 	panic(fmt.Errorf("unhandled type [%T]\n%#v\n", t, t))
 }
 
-// Protocol encodes the various protocols a python type may implement
-type Protocol int
-
-const (
-	ProtoStringer Protocol = 1 << iota
-)
-
-// Type collects informations about a go type (struct, named-type, ...)
-type Type struct {
-	pkg *Package
-	sym *symbol
-	obj *types.TypeName
-
-	id    string
-	doc   string
-	ctors []Func
-	meths []Func
-	funcs struct {
-		new  Func
-		del  Func
-		init Func
-		str  Func
-	}
-
-	prots Protocol
+// idFrom generates a new ID from a types.Object.
+func idFrom(obj types.Object) string {
+	return obj.Pkg().Name() + "_" + obj.Name()
 }
 
-func newType(p *Package, obj *types.TypeName) (Type, error) {
-	sym := p.syms.symtype(obj.Type())
-	if sym == nil {
-		panic(fmt.Errorf("no such object [%s] in symbols table", obj.Id()))
-	}
-	sym.doc = p.getDoc("", obj)
-	typ := Type{
-		pkg: p,
-		sym: sym,
-		obj: obj,
-	}
-
-	desc := p.ImportPath() + "." + obj.Name()
-	recv := newVar(p, obj.Type(), "recv", obj.Name(), sym.doc)
-
-	typ.funcs.new = Func{
-		pkg: p,
-		sig: newSignature(
-			p, nil, nil,
-			[]*Var{newVar(p, obj.Type(), "ret", obj.Name(), sym.doc)},
-		),
-		typ:  nil,
-		name: obj.Name(),
-		desc: desc + ".new",
-		id:   sym.id + "_new",
-		doc:  sym.doc,
-		ret:  obj.Type(),
-		err:  false,
-	}
-
-	styp := universe.sym("string")
-	typ.funcs.str = Func{
-		pkg: p,
-		sig: newSignature(
-			p, recv, nil,
-			[]*Var{newVar(p, styp.GoType(), "ret", "string", "")},
-		),
-		typ:  nil,
-		name: obj.Name(),
-		desc: desc + ".str",
-		id:   sym.id + "_str",
-		doc:  "",
-		ret:  styp.GoType(),
-		err:  false,
-	}
-
-	return typ, nil
-}
-
-func (t Type) Package() *Package {
-	return t.pkg
-}
-
-func (t Type) ID() string {
-	return t.sym.id
-}
-
-func (t Type) Doc() string {
-	return t.sym.doc
-}
-
-func (t Type) GoType() types.Type {
-	return t.sym.GoType()
-}
-
-func (t Type) GoName() string {
-	return t.sym.goname
-}
-
-func (t Type) Struct() *types.Struct {
-	s, ok := t.sym.GoType().Underlying().(*types.Struct)
-	if ok {
-		return s
-	}
-	return nil
-}
-
-// A Signature represents a (non-builtin) function or method type.
-type Signature struct {
-	ret  []*Var
-	args []*Var
-	recv *Var
-}
-
-func newSignatureFrom(pkg *Package, sig *types.Signature) *Signature {
-	var recv *Var
-	if sig.Recv() != nil {
-		recv = newVarFrom(pkg, sig.Recv())
-	}
-
-	return &Signature{
-		ret:  newVarsFrom(pkg, sig.Results()),
-		args: newVarsFrom(pkg, sig.Params()),
-		recv: recv,
-	}
-}
-
-func newSignature(pkg *Package, recv *Var, params, results []*Var) *Signature {
-	return &Signature{
-		ret:  results,
-		args: params,
-		recv: recv,
-	}
-}
-
-func (sig *Signature) Results() []*Var {
-	return sig.ret
-}
-
-func (sig *Signature) Params() []*Var {
-	return sig.args
-}
-
-func (sig *Signature) Recv() *Var {
-	return sig.recv
+// descFrom generates a new bind/seq description from a types.Object.
+func descFrom(obj types.Object) string {
+	return obj.Pkg().Path() + "." + obj.Name()
 }
 
 // Func collects informations about a go func/method.
 type Func struct {
 	pkg  *Package
-	sig  *Signature
+	sig  *types.Signature
 	typ  types.Type // if nil, Func was generated
 	name string
 
@@ -542,7 +409,7 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 
 	return Func{
 		pkg:  p,
-		sig:  newSignatureFrom(p, sig),
+		sig:  sig,
 		typ:  obj.Type(),
 		name: obj.Name(),
 		desc: desc,
@@ -577,7 +444,7 @@ func (f Func) GoName() string {
 	return f.name
 }
 
-func (f Func) Signature() *Signature {
+func (f Func) Signature() *types.Signature {
 	return f.sig
 }
 
@@ -585,9 +452,23 @@ func (f Func) Return() types.Type {
 	return f.ret
 }
 
+func (f Func) gofmt() string {
+	if f.typ != nil {
+		return gofmt(f.Package().Name(), f.GoType())
+	}
+	return f.Descriptor() // FIXME(sbinet)
+}
+
+func (f Func) CPyName() string {
+	return "cpy_func_" + f.id
+}
+
+func (f Func) CGoName() string {
+	return "cgo_func_" + f.id
+}
+
 type Const struct {
 	pkg *Package
-	sym *symbol
 	obj *types.Const
 	id  string
 	doc string
@@ -596,12 +477,11 @@ type Const struct {
 
 func newConst(p *Package, o *types.Const) Const {
 	pkg := o.Pkg()
-	sym := p.syms.symtype(o.Type())
 	id := pkg.Name() + "_" + o.Name()
 	doc := p.getDoc("", o)
 
-	res := []*Var{newVar(p, o.Type(), "ret", o.Name(), doc)}
-	sig := newSignature(p, nil, nil, res)
+	res := types.NewVar(token.NoPos, o.Pkg(), "ret", o.Type())
+	sig := types.NewSignature(nil, nil, types.NewTuple(res), false)
 	fct := Func{
 		pkg:  p,
 		sig:  sig,
@@ -616,7 +496,6 @@ func newConst(p *Package, o *types.Const) Const {
 
 	return Const{
 		pkg: p,
-		sym: sym,
 		obj: o,
 		id:  id,
 		doc: doc,
@@ -629,3 +508,5 @@ func (c Const) ID() string         { return c.id }
 func (c Const) Doc() string        { return c.doc }
 func (c Const) GoName() string     { return c.obj.Name() }
 func (c Const) GoType() types.Type { return c.obj.Type() }
+func (c Const) CPyName() string    { return "cpy_const_" + c.id }
+func (c Const) CGoName() string    { return "cgo_const_" + c.id }

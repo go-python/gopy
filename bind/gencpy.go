@@ -6,6 +6,7 @@ package bind
 
 import (
 	"go/token"
+	"go/types"
 	"path/filepath"
 )
 
@@ -185,10 +186,6 @@ func (g *cpyGen) gen() error {
 
 	// first, process types
 	for _, t := range g.pkg.types {
-		sym := t.sym
-		if !sym.isType() {
-			continue
-		}
 		g.genType(t)
 	}
 
@@ -307,10 +304,11 @@ func (g *cpyGen) genVar(v Var) {
 
 	desc := g.pkg.ImportPath() + "." + v.Name()
 	id := g.pkg.Name() + "_" + v.Name()
-	doc := v.doc
 	{
-		res := []*Var{newVar(g.pkg, v.GoType(), "ret", v.Name(), doc)}
-		sig := newSignature(g.pkg, nil, nil, res)
+		res := types.NewTuple(
+			types.NewVar(token.NoPos, g.pkg.pkg, v.Name(), v.GoType()),
+		)
+		sig := types.NewSignature(nil, nil, res, false)
 		fget := Func{
 			pkg:  g.pkg,
 			sig:  sig,
@@ -325,8 +323,10 @@ func (g *cpyGen) genVar(v Var) {
 		g.genFunc(fget)
 	}
 	{
-		params := []*Var{newVar(g.pkg, v.GoType(), "arg", v.Name(), doc)}
-		sig := newSignature(g.pkg, nil, params, nil)
+		params := types.NewTuple(
+			types.NewVar(token.NoPos, g.pkg.pkg, v.Name(), v.GoType()),
+		)
+		sig := types.NewSignature(nil, params, nil, false)
 		fset := Func{
 			pkg:  g.pkg,
 			sig:  sig,

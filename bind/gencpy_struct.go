@@ -6,6 +6,7 @@ package bind
 
 import (
 	"fmt"
+	"go/token"
 	"go/types"
 	"strings"
 )
@@ -16,15 +17,15 @@ func (g *cpyGen) genStructInit(cpy Type) {
 	g.decl.Printf("\n/* tp_init for %s.%v */\n", pkgname, cpy.GoName())
 	g.decl.Printf(
 		"static int\ncpy_func_%[1]s_init(%[2]s *self, PyObject *args, PyObject *kwds);\n",
-		cpy.sym.id,
-		cpy.sym.cpyname,
+		cpy.ID(),
+		cpy.CPyName(),
 	)
 
 	g.impl.Printf("\n/* tp_init */\n")
 	g.impl.Printf(
 		"static int\ncpy_func_%[1]s_init(%[2]s *self, PyObject *args, PyObject *kwds) {\n",
-		cpy.sym.id,
-		cpy.sym.cpyname,
+		cpy.ID(),
+		cpy.CPyName(),
 	)
 	g.impl.Indent()
 
@@ -71,7 +72,7 @@ func (g *cpyGen) genStructInit(cpy Type) {
 			cpy.GoName(),
 			numPublic,
 		)
-		g.impl.Printf("goto cpy_label_%s_init_fail;\n", cpy.sym.cpyname)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", cpy.CPyName())
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
@@ -91,7 +92,7 @@ func (g *cpyGen) genStructInit(cpy Type) {
 			strings.Join(addrs, ", "),
 		)
 		g.impl.Indent()
-		g.impl.Printf("goto cpy_label_%s_init_fail;\n", cpy.sym.cpyname)
+		g.impl.Printf("goto cpy_label_%s_init_fail;\n", cpy.CPyName())
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
 
@@ -104,12 +105,12 @@ func (g *cpyGen) genStructInit(cpy Type) {
 			g.impl.Indent()
 			g.impl.Printf(
 				"if (cpy_func_%[1]s_setter_%[2]d(self, py_kwd_%03[3]d, NULL)) {\n",
-				cpy.sym.id,
+				cpy.ID(),
 				i+1,
 				i,
 			)
 			g.impl.Indent()
-			g.impl.Printf("goto cpy_label_%s_init_fail;\n", cpy.sym.cpyname)
+			g.impl.Printf("goto cpy_label_%s_init_fail;\n", cpy.CPyName())
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
 
@@ -119,7 +120,7 @@ func (g *cpyGen) genStructInit(cpy Type) {
 	}
 	g.impl.Printf("return 0;\n")
 	g.impl.Outdent()
-	g.impl.Printf("\ncpy_label_%s_init_fail:\n", cpy.sym.cpyname)
+	g.impl.Printf("\ncpy_label_%s_init_fail:\n", cpy.CPyName())
 	g.impl.Indent()
 	for i := 0; i < numFields; i++ {
 		field := cpy.Struct().Field(i)
@@ -148,7 +149,7 @@ func (g *cpyGen) genStructMembers(cpy Type) {
 	}
 
 	g.impl.Printf("\n/* tp_getset for %s.%v */\n", pkgname, cpy.GoName())
-	g.impl.Printf("static PyGetSetDef %s_getsets[] = {\n", cpy.sym.cpyname)
+	g.impl.Printf("static PyGetSetDef %s_getsets[] = {\n", cpy.CPyName())
 	g.impl.Indent()
 	for i := 0; i < typ.NumFields(); i++ {
 		f := typ.Field(i)
@@ -157,8 +158,8 @@ func (g *cpyGen) genStructMembers(cpy Type) {
 		}
 		doc := "doc for " + f.Name() // FIXME(sbinet) retrieve doc for fields
 		g.impl.Printf("{%q, ", f.Name())
-		g.impl.Printf("(getter)cpy_func_%[1]s_getter_%[2]d, ", cpy.sym.id, i+1)
-		g.impl.Printf("(setter)cpy_func_%[1]s_setter_%[2]d, ", cpy.sym.id, i+1)
+		g.impl.Printf("(getter)cpy_func_%[1]s_getter_%[2]d, ", cpy.ID(), i+1)
+		g.impl.Printf("(setter)cpy_func_%[1]s_setter_%[2]d, ", cpy.ID(), i+1)
 		g.impl.Printf("%q, NULL},\n", doc)
 	}
 	g.impl.Printf("{NULL} /* Sentinel */\n")
@@ -170,19 +171,19 @@ func (g *cpyGen) genStructMemberGetter(cpy Type, i int, f types.Object) {
 	pkg := cpy.Package()
 	ft := f.Type()
 	var (
-		cpy_fgetname = fmt.Sprintf("cpy_func_%[1]s_getter_%[2]d", cpy.sym.id, i+1)
-		ifield       = newVar(pkg, ft, f.Name(), "ret", "")
-		results      = []*Var{ifield}
+		cpy_fgetname = fmt.Sprintf("cpy_func_%[1]s_getter_%[2]d", cpy.ID(), i+1)
+		ifield       = types.NewVar(token.NoPos, pkg.pkg, "ret", ft)
+		results      = types.NewTuple(ifield)
 	)
 
-	recv := newVar(cpy.pkg, cpy.GoType(), "self", cpy.GoName(), "")
+	recv := types.NewVar(token.NoPos, pkg.pkg, "recv", cpy.GoType())
 
 	fget := Func{
 		pkg:  cpy.pkg,
-		sig:  newSignature(cpy.pkg, recv, nil, results),
+		sig:  types.NewSignature(recv, nil, results, false),
 		typ:  nil,
 		name: f.Name(),
-		desc: pkg.ImportPath() + "." + cpy.GoName() + "." + f.Name() + ".get",
+		desc: cpy.Descriptor() + "." + f.Name() + ".get",
 		id:   cpy.ID() + "_" + f.Name() + "_get",
 		doc:  "",
 		ret:  ft,
@@ -190,23 +191,23 @@ func (g *cpyGen) genStructMemberGetter(cpy Type, i int, f types.Object) {
 	}
 
 	g.decl.Printf("\n/* getter for %[1]s.%[2]s.%[3]s */\n",
-		pkg.Name(), cpy.sym.goname, f.Name(),
+		pkg.Name(), cpy.GoName(), f.Name(),
 	)
 	g.decl.Printf("static PyObject*\n")
 	g.decl.Printf(
 		"%[2]s(%[1]s *self, void *closure); /* %[3]s */\n",
-		cpy.sym.cpyname,
+		cpy.CPyName(),
 		cpy_fgetname,
 		f.Name(),
 	)
 
 	g.impl.Printf("\n/* getter for %[1]s.%[2]s.%[3]s */\n",
-		pkg.Name(), cpy.sym.goname, f.Name(),
+		pkg.Name(), cpy.GoName(), f.Name(),
 	)
 	g.impl.Printf("static PyObject*\n")
 	g.impl.Printf(
 		"%[2]s(%[1]s *self, void *closure) /* %[3]s */ {\n",
-		cpy.sym.cpyname,
+		cpy.CPyName(),
 		cpy_fgetname,
 		f.Name(),
 	)
@@ -220,18 +221,18 @@ func (g *cpyGen) genStructMemberSetter(cpy Type, i int, f types.Object) {
 	var (
 		pkg          = cpy.Package()
 		ft           = f.Type()
-		ifield       = newVar(pkg, ft, f.Name(), "ret", "")
-		cpy_fsetname = fmt.Sprintf("cpy_func_%[1]s_setter_%[2]d", cpy.sym.id, i+1)
-		params       = []*Var{ifield}
-		recv         = newVar(cpy.pkg, cpy.GoType(), "self", cpy.GoName(), "")
+		ifield       = newVar(pkg, ft, f.Name(), "")
+		cpy_fsetname = fmt.Sprintf("cpy_func_%[1]s_setter_%[2]d", cpy.ID(), i+1)
+		params       = types.NewTuple(types.NewVar(token.NoPos, pkg.pkg, "ret", ft))
+		recv         = types.NewVar(token.NoPos, pkg.pkg, "recv", cpy.GoType())
 	)
 
 	fset := Func{
 		pkg:  cpy.pkg,
-		sig:  newSignature(cpy.pkg, recv, params, nil),
+		sig:  types.NewSignature(recv, params, nil, false),
 		typ:  nil,
 		name: f.Name(),
-		desc: pkg.ImportPath() + "." + cpy.GoName() + "." + f.Name() + ".set",
+		desc: cpy.Descriptor() + ".set",
 		id:   cpy.ID() + "_" + f.Name() + "_set",
 		doc:  "",
 		ret:  nil,
@@ -239,23 +240,23 @@ func (g *cpyGen) genStructMemberSetter(cpy Type, i int, f types.Object) {
 	}
 
 	g.decl.Printf("\n/* setter for %[1]s.%[2]s.%[3]s */\n",
-		pkg.Name(), cpy.sym.goname, f.Name(),
+		pkg.Name(), cpy.GoName(), f.Name(),
 	)
 
 	g.decl.Printf("static int\n")
 	g.decl.Printf(
 		"%[2]s(%[1]s *self, PyObject *value, void *closure);\n",
-		cpy.sym.cpyname,
+		cpy.CPyName(),
 		cpy_fsetname,
 	)
 
 	g.impl.Printf("\n/* setter for %[1]s.%[2]s.%[3]s */\n",
-		pkg.Name(), cpy.sym.goname, f.Name(),
+		pkg.Name(), cpy.GoName(), f.Name(),
 	)
 	g.impl.Printf("static int\n")
 	g.impl.Printf(
 		"%[2]s(%[1]s *self, PyObject *value, void *closure) {\n",
-		cpy.sym.cpyname,
+		cpy.CPyName(),
 		cpy_fsetname,
 	)
 	g.impl.Indent()
@@ -293,13 +294,13 @@ func (g *cpyGen) genStructMemberSetter(cpy Type, i int, f types.Object) {
 	g.impl.Printf("\n")
 
 	// fill input seq-buffer
-	g.genWrite("self->cgopy", "ibuf", cpy.sym.GoType())
+	g.genWrite("self->cgopy", "ibuf", cpy.GoType())
 	g.genWrite("c_"+ifield.Name(), "ibuf", ifield.GoType())
 	g.impl.Printf("\n")
 
 	g.impl.Printf("cgopy_seq_send(%q, %d, ibuf->buf, ibuf->len, &obuf->buf, &obuf->len);\n\n",
 		fset.Descriptor(),
-		uhash(fset.id),
+		uhash(fset.ID()),
 	)
 
 	g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")

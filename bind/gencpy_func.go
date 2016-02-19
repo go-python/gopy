@@ -11,52 +11,53 @@ import (
 	"strings"
 )
 
-func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
-	isMethod := (sym != nil)
+func (g *cpyGen) _genFunc(f Func) {
+	recv := f.Signature().Recv()
+	isMethod := (recv != nil)
 
 	switch {
 	case isMethod:
-		g.decl.Printf("\n/* wrapping %s.%s */\n", sym.gofmt(), fsym.goname)
+		g.decl.Printf("\n/* wrapping %s.%s */\n", f.gofmt(), f.GoName())
 		g.decl.Printf("static PyObject*\n")
 		g.decl.Printf(
 			"cpy_func_%[1]s(%[2]s *self, PyObject *args, PyObject *kwds);\n",
-			fsym.id,
-			sym.cpyname,
+			f.ID(),
+			f.CPyName(),
 		)
 
 		g.impl.Printf(
 			"\n/* wrapping %s.%s */\n",
-			sym.gofmt(),
-			fsym.goname,
+			f.gofmt(),
+			f.GoName(),
 		)
 		g.impl.Printf("static PyObject*\n")
 		g.impl.Printf(
 			"cpy_func_%[1]s(%[2]s *self, PyObject *args, PyObject *kwds) {\n",
-			fsym.id,
-			sym.cpyname,
+			f.ID(),
+			f.CPyName(),
 		)
 
 	default:
-		g.decl.Printf("\n/* wrapping %s */\n", fsym.goname)
+		g.decl.Printf("\n/* wrapping %s */\n", f.GoName())
 		g.decl.Printf("static PyObject*\n")
 		g.decl.Printf(
 			"cpy_func_%[1]s(PyObject *self, PyObject *args, PyObject *kwds);\n",
-			fsym.id,
+			f.ID(),
 		)
 
 		g.impl.Printf(
 			"\n/* wrapping %s */\n",
-			fsym.goname,
+			f.GoName(),
 		)
 		g.impl.Printf("static PyObject*\n")
 		g.impl.Printf(
 			"cpy_func_%[1]s(PyObject *self, PyObject *args, PyObject *kwds) {\n",
-			fsym.id,
+			f.ID(),
 		)
 	}
 	g.impl.Indent()
 
-	sig := fsym.GoType().Underlying().(*types.Signature)
+	sig := f.Signature()
 	args := sig.Params()
 	res := sig.Results()
 
@@ -66,12 +67,12 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 	if args != nil {
 		nargs = args.Len()
 		for i := 0; i < nargs; i++ {
-			arg := args.At(i)
+			arg := args.At(0)
 			sarg := g.pkg.syms.symtype(arg.Type())
 			if sarg == nil {
 				panic(fmt.Errorf(
-					"gopy: could not find symbol for %q",
-					arg.String(),
+					"gopy: could not find symbol for %v",
+					arg,
 				))
 			}
 			g.impl.Printf("%[1]s _arg%03d;\n",
@@ -83,27 +84,28 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 
 	if res != nil {
 		nres = res.Len()
-		switch nres {
-		case 0:
-			// no-op
+	}
 
-		case 1:
-			ret := res.At(0)
-			sret := g.pkg.syms.symtype(ret.Type())
-			if sret == nil {
-				panic(fmt.Errorf(
-					"gopy: could not find symbol for %q",
-					ret.String(),
-				))
-			}
-			g.impl.Printf("%[1]s ret;\n", sret.cgoname)
+	switch nres {
+	case 0:
+		// no-op
 
-		default:
-			g.impl.Printf(
-				"struct cgo_func_%[1]s_return ret;\n",
-				fsym.id,
-			)
+	case 1:
+		ret := res.At(0)
+		sret := g.pkg.syms.symtype(ret.Type())
+		if sret == nil {
+			panic(fmt.Errorf(
+				"gopy: could not find symbol for %v",
+				ret,
+			))
 		}
+		g.impl.Printf("%[1]s ret;\n", sret.cgoname)
+
+	default:
+		g.impl.Printf(
+			"struct cgo_func_%[1]s_return ret;\n",
+			f.ID(),
+		)
 	}
 
 	g.impl.Printf("\n")
@@ -144,7 +146,7 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 
 	// fill input seq-buffer
 	if isMethod {
-		g.genWrite("self->cgopy", "ibuf", sym.GoType())
+		g.genWrite("self->cgopy", "ibuf", recv.Type())
 	}
 
 	for i := 0; i < nargs; i++ {
@@ -153,8 +155,8 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 	}
 
 	g.impl.Printf("cgopy_seq_send(%q, %d, ibuf->buf, ibuf->len, &obuf->buf,	&obuf->len);\n\n",
-		fsym.gopkg.Path()+"."+sym.goname+"."+fsym.goname,
-		uhash(fsym.id),
+		f.Descriptor(),
+		uhash(f.ID()),
 	)
 
 	if nres <= 0 {
@@ -166,7 +168,7 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 		return
 	}
 
-	if hasError(sig) {
+	if hasError(f.Signature()) {
 		switch nres {
 		case 1:
 			g.impl.Printf("if (!_cgopy_ErrorIsNil(ret)) {\n")
@@ -209,7 +211,7 @@ func (g *cpyGen) _genFunc(sym *symbol, fsym *symbol) {
 		default:
 			panic(fmt.Errorf(
 				"bind: function/method with more than 2 results not supported! (%s)",
-				fsym.id,
+				f.ID(),
 			))
 		}
 	}
@@ -247,11 +249,11 @@ func (g *cpyGen) genFuncBody(f Func) {
 	id := f.ID()
 	sig := f.Signature()
 
-	res := sig.Results()
-	args := sig.Params()
+	res := newVarsFrom(g.pkg, sig.Results()) // FIXME(sbinet) this assumes same g.pkg for all!
+	args := newVarsFrom(g.pkg, sig.Params()) // FIXME(sbinet) this assumes same g.pkg for all!
 	var recv *Var
-	if sig.Recv() != nil {
-		recv = sig.Recv()
+	if v := sig.Recv(); v != nil {
+		recv = newVarFrom(g.pkg, v) // FIXME(sbinet) this assumes same g.pkg for all!
 		recv.genRecvDecl(g.impl)
 	}
 
@@ -311,7 +313,7 @@ func (g *cpyGen) genFuncBody(f Func) {
 	// fill input seq-buffer
 	if len(args) > 0 {
 		for _, arg := range args {
-			g.genWrite(fmt.Sprintf("c_%s", arg.Name()), "ibuf", arg.sym.GoType())
+			g.genWrite(fmt.Sprintf("c_%s", arg.Name()), "ibuf", arg.GoType())
 		}
 	}
 
@@ -357,10 +359,10 @@ func (g *cpyGen) genFuncBody(f Func) {
 			g.impl.Outdent()
 			g.impl.Printf("}\n\n")
 			if f.ctor {
-				ret := res[0]
+				ret := typeFrom(res[0].GoType())
 				g.impl.Printf("PyObject *o = cpy_func_%[1]s_new(&%[2]sType, 0, 0);\n",
-					ret.sym.id,
-					ret.sym.cpyname,
+					ret.ID(),
+					ret.CPyName(),
 				)
 				g.impl.Printf("if (o == NULL) {\n")
 				g.impl.Indent()
@@ -370,7 +372,7 @@ func (g *cpyGen) genFuncBody(f Func) {
 				g.impl.Outdent()
 				g.impl.Printf("}\n")
 				g.impl.Printf("((%[1]s*)o)->cgopy = c_gopy_ret.r0;\n",
-					ret.sym.cpyname,
+					ret.CPyName(),
 				)
 				g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
 				g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
@@ -393,10 +395,10 @@ func (g *cpyGen) genFuncBody(f Func) {
 	}
 
 	if f.ctor {
-		ret := res[0]
+		ret := typeFrom(res[0].GoType())
 		g.impl.Printf("PyObject *o = cpy_func_%[1]s_new(&%[2]sType, 0, 0);\n",
-			ret.sym.id,
-			ret.sym.cpyname,
+			ret.ID(),
+			ret.CPyName(),
 		)
 		g.impl.Printf("if (o == NULL) {\n")
 		g.impl.Indent()
@@ -406,7 +408,7 @@ func (g *cpyGen) genFuncBody(f Func) {
 		g.impl.Outdent()
 		g.impl.Printf("}\n")
 		g.impl.Printf("((%[1]s*)o)->cgopy = c_gopy_ret;\n",
-			ret.sym.cpyname,
+			ret.CPyName(),
 		)
 		g.impl.Printf("cgopy_seq_buffer_free(ibuf);\n")
 		g.impl.Printf("cgopy_seq_buffer_free(obuf);\n")
@@ -423,7 +425,7 @@ func (g *cpyGen) genFuncBody(f Func) {
 		pyfmt, pyaddrs := ret.getArgBuildValue()
 		format = append(format, pyfmt)
 		funcArgs = append(funcArgs, pyaddrs...)
-		g.genRead("c_gopy_ret", "obuf", ret.sym.GoType())
+		g.genRead("c_gopy_ret", "obuf", ret.GoType())
 
 	default:
 		for _, ret := range res {

@@ -35,13 +35,16 @@ func (g *goGen) genFuncBody(f Func) {
 	sig := f.Signature()
 
 	args := sig.Params()
-	for i, arg := range args {
-		g.genRead(fmt.Sprintf("_arg_%03d", i), "in", arg.GoType())
+	if args != nil {
+		for i := 0; i < args.Len(); i++ {
+			arg := args.At(i)
+			g.genRead(fmt.Sprintf("_arg_%03d", i), "in", arg.Type())
+		}
 	}
 
 	results := sig.Results()
-	if len(results) > 0 {
-		for i := range results {
+	if results != nil {
+		for i := 0; i < results.Len(); i++ {
 			if i > 0 {
 				g.Printf(", ")
 			}
@@ -56,39 +59,43 @@ func (g *goGen) genFuncBody(f Func) {
 		g.Printf("%s.%s(", g.pkg.Name(), f.GoName())
 	}
 
-	for i, arg := range args {
-		tail := ""
-		if i+1 < len(args) {
-			tail = ", "
-		}
-		switch typ := arg.GoType().Underlying().(type) {
-		case *types.Struct:
-			ptr := types.NewPointer(typ)
-			g.Printf("%s%s", g.cnv(typ, ptr, fmt.Sprintf("_arg_%03d", i)), tail)
-		default:
-			g.Printf("_arg_%03d%s", i, tail)
+	if args != nil {
+		for i := 0; i < args.Len(); i++ {
+			arg := args.At(i)
+			tail := ""
+			if i+1 < args.Len() {
+				tail = ", "
+			}
+			switch typ := arg.Type().Underlying().(type) {
+			case *types.Struct:
+				ptr := types.NewPointer(typ)
+				g.Printf("%s%s", g.cnv(typ, ptr, fmt.Sprintf("_arg_%03d", i)), tail)
+			default:
+				g.Printf("_arg_%03d%s", i, tail)
+			}
 		}
 	}
 	g.Printf(")\n")
 
-	if len(results) <= 0 {
+	if results == nil {
 		return
 	}
 
-	for i, res := range results {
-		g.genWrite(fmt.Sprintf("_res_%03d", i), "out", res.GoType())
+	for i := 0; i < results.Len(); i++ {
+		res := results.At(i)
+		g.genWrite(fmt.Sprintf("_res_%03d", i), "out", res.Type())
 	}
 }
 
-func (g *goGen) genFuncGetter(f Func, o Object, sym *symbol) {
-	recv := f.Signature().Recv()
-	ret := f.Signature().Results()[0]
+func (g *goGen) genFuncGetter(f Func, o Object) {
+	recv := newVarFrom(f.Package(), f.Signature().Recv())
+	ret := newVarFrom(f.Package(), f.Signature().Results().At(0))
 	arg := ""
 	doc := ""
 	get := o.Package().Name() + "." + o.GoName()
 
 	if recv != nil {
-		arg = "recv *" + recv.sym.gofmt()
+		arg = "recv *" + recv.gofmt()
 		doc = "." + ret.GoName()
 		get = "recv." + ret.GoName()
 	}
@@ -103,27 +110,27 @@ func (g *goGen) genFuncGetter(f Func, o Object, sym *symbol) {
 	g.Printf("func cgo_func_%[1]s_(%[2]s) %[3]s {\n",
 		f.ID(),
 		arg,
-		ret.sym.gofmt(),
+		ret.gofmt(),
 	)
 	g.Indent()
-	g.Printf("return %s(%s)\n", ret.sym.gofmt(), get)
+	g.Printf("return %s(%s)\n", ret.gofmt(), get)
 	g.Outdent()
 	g.Printf("}\n\n")
 }
 
-func (g *goGen) genFuncSetter(f Func, o Object, sym *symbol) {
-	recv := f.Signature().Recv()
+func (g *goGen) genFuncSetter(f Func, o Object) {
+	recv := newVarFrom(f.Package(), f.Signature().Recv())
 	doc := ""
 	set := o.Package().Name() + "." + o.GoName()
-	typ := sym.gofmt()
+	typ := gofmt(o.Package().Name(), o.GoType())
 	arg := "v " + typ
 
 	if recv != nil {
-		fset := f.Signature().Params()[0]
+		fset := newVarFrom(f.Package(), f.Signature().Params().At(0))
 		set = "recv." + fset.GoName()
 		doc = "." + fset.GoName()
-		typ = fset.sym.gofmt()
-		arg = "recv *" + recv.sym.gofmt() + ", v " + typ
+		typ = fset.gofmt()
+		arg = "recv *" + recv.gofmt() + ", v " + typ
 	}
 
 	g.Printf("// cgo_func_%[1]s_ wraps write-access to %[2]s.%[3]s%[4]s\n",
@@ -143,27 +150,26 @@ func (g *goGen) genFuncSetter(f Func, o Object, sym *symbol) {
 }
 
 func (g *goGen) genFuncNew(f Func, typ Type) {
-	sym := typ.sym
 	g.Printf("// cgo_func_%[1]s_ wraps new-alloc of %[2]s.%[3]s\n",
 		f.ID(),
 		typ.Package().Name(),
 		typ.GoName(),
 	)
-	if typ := typ.Struct(); typ != nil {
+	if t := typ.Struct(); t != nil { // FIXME(sbinet): take this from the signature of f
 		g.Printf("func cgo_func_%[1]s_() *%[2]s {\n",
 			f.ID(),
-			sym.gofmt(),
+			typ.gofmt(),
 		)
 		g.Indent()
-		g.Printf("var o %[1]s\n", sym.gofmt())
+		g.Printf("var o %[1]s\n", typ.gofmt())
 		g.Printf("return &o;\n")
 	} else {
 		g.Printf("func cgo_func_%[1]s_() %[2]s {\n",
 			f.ID(),
-			sym.gofmt(),
+			typ.gofmt(),
 		)
 		g.Indent()
-		g.Printf("var o %[1]s\n", sym.gofmt())
+		g.Printf("var o %[1]s\n", typ.gofmt())
 		g.Printf("return o;\n")
 	}
 	g.Outdent()
@@ -172,14 +178,13 @@ func (g *goGen) genFuncNew(f Func, typ Type) {
 
 func (g *goGen) genFuncTPStr(typ Type) {
 	stringer := typ.prots&ProtoStringer == 1
-	sym := typ.sym
 	id := typ.ID()
 	g.Printf("// cgo_func_%[1]s_str_ wraps Stringer\n", id)
-	if typ := typ.Struct(); typ != nil {
+	if t := typ.Struct(); t != nil { // FIXME(sbinet): take this from the signature of f
 		g.Printf(
 			"func cgo_func_%[1]s_str_(o *%[2]s) string {\n",
 			id,
-			sym.gofmt(),
+			typ.gofmt(),
 		)
 		g.Indent()
 		if !stringer {
@@ -191,7 +196,7 @@ func (g *goGen) genFuncTPStr(typ Type) {
 		g.Printf(
 			"func cgo_func_%[1]s_str_(o %[2]s) string {\n",
 			id,
-			sym.gofmt(),
+			typ.gofmt(),
 		)
 		g.Indent()
 		if !stringer {

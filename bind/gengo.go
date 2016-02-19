@@ -140,15 +140,17 @@ func (g *goGen) genPackage() {
 }
 
 func (g *goGen) genConst(o Const) {
-	g.genFuncGetter(o.f, o, o.sym)
+	g.genFuncGetter(o.f, o)
 	g.genFunc(o.f)
 	return
 }
 
 func (g *goGen) genVar(o Var) {
 	fget := Func{
-		pkg:  o.pkg,
-		sig:  newSignature(o.pkg, nil, nil, []*Var{&o}),
+		pkg: o.pkg,
+		sig: types.NewSignature(nil, nil, types.NewTuple(
+			types.NewVar(token.NoPos, o.pkg.pkg, o.Name(), o.GoType()),
+		), false),
 		typ:  nil,
 		name: o.Name(),
 		desc: o.pkg.ImportPath() + "." + o.Name() + ".get",
@@ -157,12 +159,14 @@ func (g *goGen) genVar(o Var) {
 		ret:  o.GoType(),
 		err:  false,
 	}
-	g.genFuncGetter(fget, &o, o.sym)
+	g.genFuncGetter(fget, &o)
 	g.genFunc(fget)
 
 	fset := Func{
-		pkg:  o.pkg,
-		sig:  newSignature(o.pkg, nil, []*Var{&o}, nil),
+		pkg: o.pkg,
+		sig: types.NewSignature(nil, types.NewTuple(
+			types.NewVar(token.NoPos, o.pkg.pkg, o.Name(), o.GoType()),
+		), nil, false),
 		typ:  nil,
 		name: o.Name(),
 		desc: o.pkg.ImportPath() + "." + o.Name() + ".set",
@@ -171,7 +175,7 @@ func (g *goGen) genVar(o Var) {
 		ret:  nil,
 		err:  false,
 	}
-	g.genFuncSetter(fset, &o, o.sym)
+	g.genFuncSetter(fset, &o)
 	g.genFunc(fset)
 }
 
