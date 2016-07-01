@@ -6,6 +6,8 @@ gopy
 
 `gopy` generates (and compiles) a `CPython` extension module from a `go` package.
 
+**WARNING** `gopy` is currently not compatible with `Go>=1.6` and its improved `CGo` rules as documented in [cmd/cgo](https://golang.org/cmd/cgo/#hdr-Passing_pointers).
+
 ## Installation
 
 ```sh
