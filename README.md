@@ -17,6 +17,10 @@ $ go get github.com/go-python/gopy
 
 You will need `Go >= 1.5`.
 
+## Community
+
+The `go-python` community can be reached out at [go-python@googlegroups.com](mailto:go-python@googlegroups.com) or via the web forum: [go-python group](https://groups.google.com/forum/#!forum/go-python).
+
 ## Documentation
 
 A presentation was given at [dotgo-2015](http://talks.godoc.org/github.com/sbinet/talks/2015/20151109-gopy-dotgo/gopy-dotgo.slide).
