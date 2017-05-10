@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -126,32 +127,111 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	}
 	defer os.RemoveAll(wbind)
 
-	cmd = exec.Command(
-		"go", "build", "-buildmode=c-shared",
-		"-o", filepath.Join(wbind, pkg.Name())+".so",
-		".",
-	)
-	cmd.Dir = work
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
+	buildname := pkg.Name()
+	switch lang {
+	case "cffi":
+		buildname = "_" + buildname
+		cmd = exec.Command(
+			"go", "build", "-buildmode=c-shared",
+			"-o", filepath.Join(wbind, buildname)+".so",
+			".",
+		)
+		cmd.Dir = work
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+		err = processCFFI(pkg.Name(), buildname, odir, work, wbind)
+	case "python2", "py2":
+		cmd = exec.Command(
+			"go", "build", "-buildmode=c-shared",
+			"-o", filepath.Join(wbind, buildname)+".so",
+			".",
+		)
+		cmd.Dir = work
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+
+		cmd = exec.Command(
+			"/bin/cp",
+			filepath.Join(wbind, buildname)+".so",
+			filepath.Join(odir, buildname)+".so",
+		)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+	case "python3", "py3":
+		return fmt.Errorf("gopy: python-3 support not yet implemented")
+	default:
+		return fmt.Errorf("unknown target language: %q\n", lang)
+	}
+	return err
+}
+
+func processCFFI(pkgname string, buildname string, odir string, work string, wbind string) error {
+	cffipath := filepath.Join(odir, "gopy")
+	os.MkdirAll(cffipath, os.ModePerm)
+
+	err := copyFile(filepath.Join(wbind, buildname)+".so", filepath.Join(cffipath, buildname)+".so")
 	if err != nil {
 		return err
 	}
 
-	cmd = exec.Command(
-		"/bin/cp",
-		filepath.Join(wbind, pkg.Name())+".so",
-		filepath.Join(odir, pkg.Name())+".so",
+	err = copyFile(filepath.Join(work, pkgname)+".py", filepath.Join(odir, pkgname)+".py")
+	if err != nil {
+		return err
+	}
+
+	err = copyFile(filepath.Join(work, "build_"+pkgname)+".py", filepath.Join(odir, "build_"+pkgname)+".py")
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.Command(
+		"python",
+		filepath.Join(odir, "build_"+pkgname)+".py",
+		"",
 	)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
+	return err
+}
+
+func copyFile(src string, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
 	if err != nil {
 		return err
 	}
 
+	err = dstFile.Sync()
+	if err != nil {
+		return err
+	}
 	return err
 }
