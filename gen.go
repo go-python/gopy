@@ -54,6 +54,30 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 	}
 
 	switch lang {
+	case "cffi":
+		o, err = os.Create(filepath.Join(odir, p.Name()+".py"))
+		if err != nil {
+			return err
+		}
+		defer o.Close()
+
+		// File for builder.py
+		var b *os.File
+		b, err = os.Create(filepath.Join(odir, "build_"+p.Name()+".py"))
+		if err != nil {
+			return err
+		}
+		defer b.Close()
+		err = bind.GenCFFI(b, o, fset, p, 2)
+		if err != nil {
+			return err
+		}
+
+		err = b.Close()
+		if err != nil {
+			return err
+		}
+
 	case "python2", "py2":
 		o, err = os.Create(filepath.Join(odir, p.Name()+".c"))
 		if err != nil {

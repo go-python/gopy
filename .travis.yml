@@ -5,10 +5,13 @@ go:
   - 1.6.x
   - 1.7.x
   - 1.8.x
+  - master
 
-sudo: false
+sudo: required
 
 before_install:
+   - sudo apt-get install libffi-dev
+   - sudo pip install cffi
    - export PATH=$HOME/gopath/bin:$PATH
    # temporary workaround for go-python/gopy#83
    - export GODEBUG=cgocheck=0

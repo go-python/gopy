@@ -129,6 +129,87 @@ func testPkg(t *testing.T, table pkg) {
 
 }
 
+func testPkgWithCFFI(t *testing.T, table pkg) {
+	workdir, err := ioutil.TempDir("", "gopy-")
+	if err != nil {
+		t.Fatalf("[%s]: could not create workdir: %v\n", table.path, err)
+	}
+	err = os.MkdirAll(workdir, 0644)
+	if err != nil {
+		t.Fatalf("[%s]: could not create workdir: %v\n", table.path, err)
+	}
+	defer os.RemoveAll(workdir)
+
+	cmd := exec.Command("gopy", "bind", "--lang=cffi", "-output="+workdir, "./"+table.path)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		t.Fatalf("[%s]: error running gopy-bind: %v\n", table.path, err)
+	}
+
+	cmd = exec.Command(
+		"/bin/cp", "./"+table.path+"/test.py",
+		filepath.Join(workdir, "test.py"),
+	)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		t.Fatalf("[%s]: error copying 'test.py': %v\n", table.path, err)
+	}
+
+	buf := new(bytes.Buffer)
+	cmd = exec.Command("python", "./test.py")
+	cmd.Dir = workdir
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = buf
+	cmd.Stderr = buf
+	err = cmd.Run()
+	if err != nil {
+		t.Fatalf(
+			"[%s]: error running python module: %v\n%v\n",
+			table.path,
+			err,
+			string(buf.Bytes()),
+		)
+	}
+
+	if !reflect.DeepEqual(string(buf.Bytes()), string(table.want)) {
+		diffTxt := ""
+		diffBin, diffErr := exec.LookPath("diff")
+		if diffErr == nil {
+			wantFile, wantErr := os.Create(filepath.Join(workdir, "want.txt"))
+			if wantErr == nil {
+				wantFile.Write(table.want)
+				wantFile.Close()
+			}
+			gotFile, gotErr := os.Create(filepath.Join(workdir, "got.txt"))
+			if gotErr == nil {
+				gotFile.Write(buf.Bytes())
+				gotFile.Close()
+			}
+			if gotErr == nil && wantErr == nil {
+				cmd = exec.Command(diffBin, "-urN",
+					wantFile.Name(),
+					gotFile.Name(),
+				)
+				diff, _ := cmd.CombinedOutput()
+				diffTxt = string(diff) + "\n"
+			}
+		}
+
+		t.Fatalf("[%s]: error running python module:\nwant:\n%s\n\ngot:\n%s\n%s",
+			table.path,
+			string(table.want), string(buf.Bytes()),
+			diffTxt,
+		)
+	}
+
+}
+
 func TestHi(t *testing.T) {
 	t.Parallel()
 
@@ -288,6 +369,17 @@ s2.F1() = None
 func TestBindSimple(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
+		path: "_examples/simple",
+		want: []byte(`doc(pkg):
+'simple is a simple package.\n'
+pkg.Func()...
+fct = pkg.Func...
+fct()...
+pkg.Add(1,2)= 3
+`),
+	})
+
+	testPkgWithCFFI(t, pkg{
 		path: "_examples/simple",
 		want: []byte(`doc(pkg):
 'simple is a simple package.\n'

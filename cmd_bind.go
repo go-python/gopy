@@ -126,24 +126,86 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	}
 	defer os.RemoveAll(wbind)
 
-	cmd = exec.Command(
-		"go", "build", "-buildmode=c-shared",
-		"-o", filepath.Join(wbind, pkg.Name())+".so",
-		".",
+	buildname := pkg.Name()
+	switch lang {
+	case "cffi":
+		/*
+			Since Python importing module priority is XXXX.so > XXXX.py,
+			We need to change shared module name from  'XXXX.so' to '_XXXX.so'.
+			As the result, an user can import XXXX.py.
+		*/
+		buildname = "_" + buildname
+		cmd = exec.Command(
+			"go", "build", "-buildmode=c-shared",
+			"-o", filepath.Join(wbind, buildname)+".so",
+			".",
+		)
+		cmd.Dir = work
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+		err = processCFFI(pkg.Name(), buildname, odir, work, wbind)
+		if err != nil {
+			return err
+		}
+	case "python2", "py2":
+		cmd = exec.Command(
+			"go", "build", "-buildmode=c-shared",
+			"-o", filepath.Join(wbind, buildname)+".so",
+			".",
+		)
+		cmd.Dir = work
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+
+		cmd = exec.Command(
+			"/bin/cp",
+			filepath.Join(wbind, buildname)+".so",
+			filepath.Join(odir, buildname)+".so",
+		)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+	case "python3", "py3":
+		return fmt.Errorf("gopy: python-3 support not yet implemented")
+	default:
+		return fmt.Errorf("unknown target language: %q\n", lang)
+	}
+	return err
+}
+
+func processCFFI(pkgname string, buildname string, odir string, work string, wbind string) error {
+	cmd := exec.Command(
+		"/bin/cp",
+		filepath.Join(wbind, buildname)+".so",
+		filepath.Join(odir, buildname)+".so",
 	)
-	cmd.Dir = work
+
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err = cmd.Run()
+	err := cmd.Run()
 	if err != nil {
 		return err
 	}
 
 	cmd = exec.Command(
 		"/bin/cp",
-		filepath.Join(wbind, pkg.Name())+".so",
-		filepath.Join(odir, pkg.Name())+".so",
+		filepath.Join(work, "build_"+pkgname)+".py",
+		filepath.Join(odir, "build_"+pkgname)+".py",
 	)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -153,5 +215,36 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 		return err
 	}
 
+	cmd = exec.Command(
+		"python",
+		filepath.Join(odir, "build_"+pkgname)+".py",
+		"",
+	)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir = odir
+	err = cmd.Run()
+
+	if err != nil {
+		return err
+	}
+
+	// FIXME: This sections should be handled by genPy function.
+	wrappedPy, err := ioutil.ReadFile(filepath.Join(work, pkgname) + ".py")
+	if err != nil {
+		return err
+	}
+
+	f, err := os.OpenFile(filepath.Join(odir, pkgname)+".py", os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(string(wrappedPy))
+	if err != nil {
+		return err
+	}
 	return err
 }
