@@ -1,7 +1,6 @@
 language: go
 
 go:
-  - 1.5.x
   - 1.6.x
   - 1.7.x
   - 1.8.x
@@ -9,6 +8,7 @@ go:
 sudo: false
 
 before_install:
+   - pip install --user cffi
    - export PATH=$HOME/gopath/bin:$PATH
    # temporary workaround for go-python/gopy#83
    - export GODEBUG=cgocheck=0
