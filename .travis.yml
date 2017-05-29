@@ -1,12 +1,17 @@
 language: go
 
 go:
-  - 1.5.2
+  - 1.5.x
+  - 1.6.x
+  - 1.7.x
+  - 1.8.x
 
 sudo: false
 
 before_install:
    - export PATH=$HOME/gopath/bin:$PATH
+   # temporary workaround for go-python/gopy#83
+   - export GODEBUG=cgocheck=0
 
 notifications:
   email:
