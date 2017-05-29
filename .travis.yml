@@ -1,3 +1,4 @@
+dist: trusty
 language: go
 
 go:
@@ -8,10 +9,19 @@ go:
 
 sudo: false
 
+virtualenv:
+  system_site_packages: true
+
+addons:
+  apt:
+    packages:
+    - python-cffi
+
 before_install:
    - export PATH=$HOME/gopath/bin:$PATH
    # temporary workaround for go-python/gopy#83
    - export GODEBUG=cgocheck=0
+   - python -c 'import cffi; print(cffi.__version__)'
 
 notifications:
   email:
