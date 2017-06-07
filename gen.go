@@ -61,19 +61,7 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 		}
 		defer o.Close()
 
-		// File for builder.py
-		var b *os.File
-		b, err = os.Create(filepath.Join(odir, "build_"+p.Name()+".py"))
-		if err != nil {
-			return err
-		}
-		defer b.Close()
-		err = bind.GenCFFI(b, o, fset, p, 2)
-		if err != nil {
-			return err
-		}
-
-		err = b.Close()
+		err = bind.GenCFFI(o, fset, p, 2)
 		if err != nil {
 			return err
 		}

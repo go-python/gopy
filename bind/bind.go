@@ -55,16 +55,13 @@ func GenCPython(w io.Writer, fset *token.FileSet, pkg *Package, lang int) error 
 
 // GenCFFI generates a CFFI package from a Go package
 // Use 4spaces indentation for Python codes, aka PEP8.
-// b is an io.Writer for a builder python script.
 // w is an io.Writer for a wrapper python script which will be executed by a user.
 //
-// GenCFFI generates a builder python script and a wrapper python script by 3 steps.
-// First, GenCFFI analyze which interfaces should be exposed from the Go package.
-// Second, Then GenCFFI writes a CFFI builder package with writing exposed interfaces
-// Third, The GenCFFI writes a wrapper python script.
-func GenCFFI(b io.Writer, w io.Writer, fset *token.FileSet, pkg *Package, lang int) error {
+// GenCFFI generates a wrapper python script by 2 steps.
+// First, GenCFFI analyzes which interfaces should be exposed from the Go package.
+// Then, GenCFFI writes a wrapper python script.
+func GenCFFI(w io.Writer, fset *token.FileSet, pkg *Package, lang int) error {
 	gen := &cffiGen{
-		builder: &printer{buf: new(bytes.Buffer), indentEach: []byte("    ")},
 		wrapper: &printer{buf: new(bytes.Buffer), indentEach: []byte("    ")},
 		fset:    fset,
 		pkg:     pkg,
@@ -72,11 +69,6 @@ func GenCFFI(b io.Writer, w io.Writer, fset *token.FileSet, pkg *Package, lang i
 	}
 
 	err := gen.gen()
-	if err != nil {
-		return err
-	}
-
-	_, err = io.Copy(b, gen.builder)
 	if err != nil {
 		return err
 	}

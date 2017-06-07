@@ -400,6 +400,14 @@ doc(pkg):
 'Package empty does not expose anything.\nWe may want to wrap and import it just for its side-effects.\n'
 `),
 	})
+
+	testPkgWithCFFI(t, pkg{
+		path: "_examples/empty",
+		want: []byte(`empty.init()... [CALLED]
+doc(pkg):
+'Package empty does not expose anything.\nWe may want to wrap and import it just for its side-effects.\n'
+`),
+	})
 }
 
 func TestBindPointers(t *testing.T) {
@@ -525,13 +533,34 @@ k1 = 1
 k2 = 2
 `),
 	})
+
+	testPkgWithCFFI(t, pkg{
+		path: "_examples/consts",
+		want: []byte(`c1 = c1
+c2 = 42
+c3 = 666.666
+c4 = c4
+c5 = 42
+c6 = 42
+c7 = 666.666
+k1 = 1
+k2 = 2
+`),
+	})
 }
 
 func TestBindVars(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/vars",
-		want: []byte(`v1 = v1
+		want: []byte(`doc(vars):
+''
+doc(vars.GetV1()):
+''
+doc(vars.SetV1()):
+''
+Initial values
+v1 = v1
 v2 = 42
 v3 = 666.666
 v4 = c4
@@ -540,6 +569,47 @@ v6 = 42
 v7 = 666.666
 k1 = 1
 k2 = 2
+New values
+v1 = test1
+v2 = 90
+v3 = 1111.1111
+v4 = test2
+v5 = 50
+v6 = 50
+v7 = 1111.1111
+k1 = 123
+k2 = 456
+`),
+	})
+
+	testPkgWithCFFI(t, pkg{
+		path: "_examples/vars",
+		want: []byte(`doc(vars):
+''
+doc(vars.GetV1()):
+'returns vars.V1'
+doc(vars.SetV1()):
+'sets vars.V1'
+Initial values
+v1 = v1
+v2 = 42
+v3 = 666.666
+v4 = c4
+v5 = 42
+v6 = 42
+v7 = 666.666
+k1 = 1
+k2 = 2
+New values
+v1 = test1
+v2 = 90
+v3 = 1111.1111
+v4 = test2
+v5 = 50
+v6 = 50
+v7 = 1111.1111
+k1 = 123
+k2 = 456
 `),
 	})
 }
@@ -586,6 +656,14 @@ func TestBindCgoPackage(t *testing.T) {
 		want: []byte(`cgo.doc: 'Package cgo tests bindings of CGo-based packages.\n'
 cgo.Hi()= 'hi from go\n'
 cgo.Hello(you)= 'hello you from go\n'
+`),
+	})
+
+	testPkgWithCFFI(t, pkg{
+		path: "_examples/empty",
+		want: []byte(`empty.init()... [CALLED]
+doc(pkg):
+'Package empty does not expose anything.\nWe may want to wrap and import it just for its side-effects.\n'
 `),
 	})
 }

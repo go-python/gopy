@@ -9,7 +9,28 @@ import (
 	"strings"
 )
 
-func (g *cffiGen) genCdef(f Func) {
+func (g *cffiGen) genCdefType(sym *symbol) {
+	if !sym.isType() {
+		return
+	}
+
+	if sym.isStruct() {
+		return
+	}
+
+	if sym.isBasic() && !sym.isNamed() {
+		return
+	}
+
+	if sym.isBasic() {
+		btyp := g.pkg.syms.symtype(sym.GoType().Underlying())
+		g.wrapper.Printf("typedef %s %s;\n\n", btyp.cgoname, sym.cgoname)
+	} else {
+		g.wrapper.Printf("typedef void* %s;\n\n", sym.cgoname)
+	}
+}
+
+func (g *cffiGen) genCdefFunc(f Func) {
 	var params []string
 	var cdef_ret string
 	sig := f.sig
@@ -31,5 +52,5 @@ func (g *cffiGen) genCdef(f Func) {
 	}
 
 	paramString := strings.Join(params, ", ")
-	g.builder.Printf("extern %[1]s cgo_func_%[2]s_%[3]s(%[4]s);\n", cdef_ret, g.pkg.Name(), f.name, paramString)
+	g.wrapper.Printf("extern %[1]s cgo_func_%[2]s(%[3]s);\n", cdef_ret, f.id, paramString)
 }

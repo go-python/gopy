@@ -148,10 +148,33 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		err = processCFFI(pkg.Name(), buildname, odir, work, wbind)
+
+		cmd = exec.Command(
+			"/bin/cp",
+			filepath.Join(wbind, buildname)+".so",
+			filepath.Join(odir, buildname)+".so",
+		)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
 		if err != nil {
 			return err
 		}
+
+		cmd = exec.Command(
+			"/bin/cp",
+			filepath.Join(work, pkg.Name())+".py",
+			filepath.Join(odir, pkg.Name())+".py",
+		)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+
 	case "python2", "py2":
 		cmd = exec.Command(
 			"go", "build", "-buildmode=c-shared",
@@ -183,68 +206,6 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 		return fmt.Errorf("gopy: python-3 support not yet implemented")
 	default:
 		return fmt.Errorf("unknown target language: %q\n", lang)
-	}
-	return err
-}
-
-func processCFFI(pkgname string, buildname string, odir string, work string, wbind string) error {
-	cmd := exec.Command(
-		"/bin/cp",
-		filepath.Join(wbind, buildname)+".so",
-		filepath.Join(odir, buildname)+".so",
-	)
-
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		return err
-	}
-
-	cmd = exec.Command(
-		"/bin/cp",
-		filepath.Join(work, "build_"+pkgname)+".py",
-		filepath.Join(odir, "build_"+pkgname)+".py",
-	)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		return err
-	}
-
-	cmd = exec.Command(
-		"python",
-		filepath.Join(odir, "build_"+pkgname)+".py",
-		"",
-	)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Dir = odir
-	err = cmd.Run()
-
-	if err != nil {
-		return err
-	}
-
-	// FIXME: This sections should be handled by genPy function.
-	wrappedPy, err := ioutil.ReadFile(filepath.Join(work, pkgname) + ".py")
-	if err != nil {
-		return err
-	}
-
-	f, err := os.OpenFile(filepath.Join(odir, pkgname)+".py", os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.WriteString(string(wrappedPy))
-	if err != nil {
-		return err
 	}
 	return err
 }
