@@ -53,6 +53,35 @@ func GenCPython(w io.Writer, fset *token.FileSet, pkg *Package, lang int) error 
 	return err
 }
 
+// GenCFFI generate a cffi package from a Go package
+// Use 4spaces indentation for Python codes, aka PEP8.
+func GenCFFI(b io.Writer, w io.Writer, fset *token.FileSet, pkg *Package, lang int) error {
+	gen := &cffiGen{
+		builder: &printer{buf: new(bytes.Buffer), indentEach: []byte("    ")},
+		wrapper: &printer{buf: new(bytes.Buffer), indentEach: []byte("    ")},
+		fset: fset,
+		pkg: pkg,
+		lang: lang,
+	}
+
+	err := gen.gen()
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(b, gen.builder)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(w, gen.wrapper)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
 // GenGo generates a cgo package from a Go package
 func GenGo(w io.Writer, fset *token.FileSet, pkg *Package, lang int) error {
 	buf := new(bytes.Buffer)
