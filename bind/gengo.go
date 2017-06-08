@@ -17,7 +17,7 @@ const (
 	"strings"
 	"os"
 `
-	checkGoVersion= "_cgopy_CheckGoVersion()"
+	checkGoVersion    = "_cgopy_CheckGoVersion()"
 	checkGoVersionDef = `
 func _cgopy_CheckGoVersion() {
         godebug := os.Getenv("GODEBUG")

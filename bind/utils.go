@@ -161,4 +161,4 @@ func getGoVersion(version string) (int64, int64, error) {
 	major, _ := strconv.ParseInt(version_info[0], 10, 0)
 	minor, _ := strconv.ParseInt(version_info[1], 10, 0)
 	return major, minor, nil
- }
+}

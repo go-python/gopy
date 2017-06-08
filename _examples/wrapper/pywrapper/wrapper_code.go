@@ -6,6 +6,7 @@ package pywrapper
 
 import (
 	"fmt"
+
 	"github.com/go-python/gopy/_examples/wrapper"
 )
 
