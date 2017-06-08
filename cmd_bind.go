@@ -6,14 +6,17 @@ package main
 
 import (
 	"fmt"
+	"github.com/gonuts/commander"
+	"github.com/gonuts/flag"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
-
-	"github.com/gonuts/commander"
-	"github.com/gonuts/flag"
+	"regexp"
+	"runtime"
+	"strconv"
+	"strings"
 )
 
 func gopyMakeCmdBind() *commander.Command {
@@ -48,6 +51,20 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 
 	odir := cmdr.Flag.Lookup("output").Value.Get().(string)
 	lang := cmdr.Flag.Lookup("lang").Value.Get().(string)
+
+	version := runtime.Version()
+	major, minor, err := getGoVersion(version)
+	if err != nil {
+		return fmt.Errorf("Failed to get the Go version information.")
+	}
+
+	if major >= 1 && minor >= 6 {
+		godebug := os.Getenv("GODEBUG")
+		cgo_check, err := getCgoCheck(godebug)
+		if err != nil || cgo_check != 0 {
+			return fmt.Errorf("GODEBUG=cgocheck=0 should be set for Go>=1.6")
+		}
+	}
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -247,4 +264,31 @@ func processCFFI(pkgname string, buildname string, odir string, work string, wbi
 		return err
 	}
 	return err
+}
+
+func getGoVersion(version string) (int64, int64, error) {
+	version_regex := regexp.MustCompile(`^go((\d+)(\.(\d+))*)`)
+	match := version_regex.FindStringSubmatch(version)
+	if match == nil {
+		return -1, -1, fmt.Errorf("Invalid Go version information: %s", version)
+	}
+	version_info := strings.Split(match[1], ".")
+	major, _ := strconv.ParseInt(version_info[0], 10, 0)
+	minor, _ := strconv.ParseInt(version_info[1], 10, 0)
+	return major, minor, nil
+}
+
+func getCgoCheck(godebug string) (int, error) {
+	if godebug != "" {
+		for _, option := range strings.Split(godebug, ",") {
+			if strings.HasPrefix(option, "cgocheck=") {
+				cgocheck, err := strconv.Atoi(option[9:])
+				if err != nil {
+					return -1, fmt.Errorf("Invalid cgocheck: %s", option)
+				}
+				return cgocheck, nil
+			}
+		}
+	}
+	return -1, nil
 }
