@@ -42,6 +42,7 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 
 extern GoString _cgopy_GoString(char* p0);
 extern char* _cgopy_CString(GoString p0);
+extern void _cgopy_FreeCString(char* p0);
 extern GoUint8 _cgopy_ErrorIsNil(GoInterface p0);
 extern char* _cgopy_ErrorString(GoInterface p0);
 extern void cgopy_incref(void* p0);
@@ -81,7 +82,9 @@ class _cffi_helper(object):
     @staticmethod
     def cffi_cgopy_cnv_c2py_string(c):
         s = _cffi_helper.lib._cgopy_CString(c)
-        return ffi.string(s)
+        pystr = ffi.string(s)
+        _cffi_helper.lib._cgopy_FreeCString(s)
+        return pystr
 
     @staticmethod
     def cffi_cgopy_cnv_c2py_int(c):
@@ -98,6 +101,7 @@ class _cffi_helper(object):
     @staticmethod
     def cffi_cgopy_cnv_c2py_uint(c):
         return int(c)
+
 # make sure Cgo is loaded and initialized
 _cffi_helper.lib.cgo_pkg_%[1]s_init()
 `

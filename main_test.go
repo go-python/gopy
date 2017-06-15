@@ -667,3 +667,20 @@ doc(pkg):
 `),
 	})
 }
+
+func TestPyErrors(t *testing.T) {
+	t.Parallel()
+	testPkg(t, pkg{
+		path: "_examples/pyerrors",
+		want: []byte(`Divide by zero.
+pyerrors.Div(5, 2) = 2
+`),
+	})
+
+	testPkgWithCFFI(t, pkg{
+		path: "_examples/pyerrors",
+		want: []byte(`Divide by zero.
+pyerrors.Div(5, 2) = 2
+`),
+	})
+}

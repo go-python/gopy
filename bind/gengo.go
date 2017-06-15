@@ -89,6 +89,11 @@ func _cgopy_ErrorString(err error) *C.char {
 	return C.CString(err.Error())
 }
 
+//export _cgopy_FreeCString
+func _cgopy_FreeCString(cs *C.char) {
+	C.free(unsafe.Pointer(cs))
+}
+
 // --- end cgo helpers ---
 
 // --- begin cref helpers ---
