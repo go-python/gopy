@@ -143,8 +143,6 @@ class _cffi_helper(object):
     def cffi_cgopy_cnv_c2py_uint(c):
         return int(c)
 
-# make sure Cgo is loaded and initialized
-_cffi_helper.lib.cgo_pkg_%[1]s_init()
 `
 )
 
@@ -186,6 +184,35 @@ func (g *cffiGen) genCffiCdef() {
 		}
 	}
 
+	// Register struct type defintions
+	for _, s := range g.pkg.structs {
+		g.genCdefStruct(s)
+	}
+
+	for _, s := range g.pkg.structs {
+		for _, ctor := range s.ctors {
+			g.genCdefFunc(ctor)
+		}
+	}
+
+	for _, s := range g.pkg.structs {
+		for _, m := range s.meths {
+			g.genCdefMethod(m)
+		}
+
+		typ := s.Struct()
+		for i := 0; i < typ.NumFields(); i++ {
+			f := typ.Field(i)
+			if !f.Exported() {
+				continue
+			}
+			g.genCdefStructMemberGetter(s, i, f)
+			g.genCdefStructMemberSetter(s, i, f)
+		}
+
+		g.genCdefStructTPStr(s)
+	}
+
 	for _, f := range g.pkg.funcs {
 		g.genCdefFunc(f)
 	}
@@ -202,6 +229,26 @@ func (g *cffiGen) genCffiCdef() {
 func (g *cffiGen) genWrappedPy() {
 	n := g.pkg.pkg.Name()
 	g.wrapper.Printf(cffiHelperPreamble, n)
+	g.wrapper.Indent()
+	for _, s := range g.pkg.structs {
+		g.genStructConversion(s)
+	}
+	g.wrapper.Outdent()
+
+	// After generating all of the stuff for the preamble (includes struct, interface.. etc)
+	// then call a function which checks Cgo is successfully loaded and initialized.
+	g.wrapper.Printf("# make sure Cgo is loaded and initialized\n")
+	g.wrapper.Printf("_cffi_helper.lib.cgo_pkg_%[1]s_init()\n", n)
+
+	for _, s := range g.pkg.structs {
+		g.genStruct(s)
+	}
+
+	for _, s := range g.pkg.structs {
+		for _, ctor := range s.ctors {
+			g.genFunc(ctor)
+		}
+	}
 
 	for _, f := range g.pkg.funcs {
 		g.genFunc(f)
