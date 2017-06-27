@@ -59,6 +59,10 @@ class _cffi_helper(object):
     lib = ffi.dlopen(os.path.join(here, "_%[1]s.so"))
 
     @staticmethod
+    def cffi_cgopy_cnv_py2c_bool(o):
+        return ffi.cast('_Bool', o)
+
+    @staticmethod
     def cffi_cgopy_cnv_py2c_string(o):
         s = ffi.new("char[]", o)
         return _cffi_helper.lib._cgopy_GoString(s)
@@ -78,6 +82,10 @@ class _cffi_helper(object):
     @staticmethod
     def cffi_cgopy_cnv_py2c_uint(o):
         return ffi.cast('uint', o)
+
+    @staticmethod
+    def cffi_cgopy_cnv_c2py_bool(c):
+        return bool(c)
 
     @staticmethod
     def cffi_cgopy_cnv_c2py_string(c):
