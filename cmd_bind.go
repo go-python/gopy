@@ -82,8 +82,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	// go-get it to tickle the GOPATH cache (and make sure it compiles
 	// correctly)
 	cmd := exec.Command(
-		"go", "get", "-buildmode=c-shared",
-		pkg.ImportPath(),
+		"go", "get", pkg.ImportPath(),
 	)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
