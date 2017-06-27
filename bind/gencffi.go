@@ -80,6 +80,10 @@ class _cffi_helper(object):
         return ffi.cast('uint', o)
 
     @staticmethod
+    def cffi_cgopy_cnv_py2c_bool(o):
+        return ffi.cast('_Bool', o)
+
+    @staticmethod
     def cffi_cgopy_cnv_c2py_string(c):
         s = _cffi_helper.lib._cgopy_CString(c)
         pystr = ffi.string(s)
@@ -101,6 +105,10 @@ class _cffi_helper(object):
     @staticmethod
     def cffi_cgopy_cnv_c2py_uint(c):
         return int(c)
+
+    @staticmethod
+    def cffi_cgopy_cnv_c2py_bool(c):
+        return bool(c)
 
 # make sure Cgo is loaded and initialized
 _cffi_helper.lib.cgo_pkg_%[1]s_init()

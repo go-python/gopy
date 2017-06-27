@@ -12,3 +12,10 @@ func Func() {}
 func Add(i, j int) int {
 	return i + j
 }
+
+func Bool(b bool) bool {
+	if b {
+		return false
+	}
+	return true
+}
