@@ -17,7 +17,10 @@ const (
 	// discuss: https://github.com/go-python/gopy/pull/93#discussion_r119652220
 	cffiPreamble = `"""%[1]s"""
 import os
+import sys
 import cffi as _cffi_backend
+
+_PY3 = sys.version_info[0] == 3
 
 ffi = _cffi_backend.FFI()
 ffi.cdef("""
@@ -82,6 +85,8 @@ class _cffi_helper(object):
 
     @staticmethod
     def cffi_cgopy_cnv_py2c_string(o):
+        if _PY3:
+            o = o.encode('ascii')
         s = ffi.new("char[]", o)
         return _cffi_helper.lib._cgopy_GoString(s)
 
@@ -118,6 +123,8 @@ class _cffi_helper(object):
         s = _cffi_helper.lib._cgopy_CString(c)
         pystr = ffi.string(s)
         _cffi_helper.lib._cgopy_FreeCString(s)
+        if _PY3:
+            pystr = pystr.decode('ascii')
         return pystr
 
     @staticmethod
