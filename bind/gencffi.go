@@ -39,7 +39,11 @@ typedef void *GoMap;
 typedef void *GoChan;
 typedef struct { void *t; void *v; } GoInterface;
 typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
+typedef struct { GoFloat32 real; GoFloat32 imag; } GoComplex64;
+typedef struct { GoFloat64 real; GoFloat64 imag; } GoComplex128;
 
+extern GoComplex64 _cgopy_GoComplex64(GoFloat32 p0, GoFloat32 p1);
+extern GoComplex128 _cgopy_GoComplex128(GoFloat64 p0, GoFloat64 p1);
 extern GoString _cgopy_GoString(char* p0);
 extern char* _cgopy_CString(GoString p0);
 extern void _cgopy_FreeCString(char* p0);
@@ -61,6 +65,20 @@ class _cffi_helper(object):
     @staticmethod
     def cffi_cgopy_cnv_py2c_bool(o):
         return ffi.cast('_Bool', o)
+
+    @staticmethod
+    def cffi_cgopy_cnv_py2c_complex64(o):
+        real = o.real
+        imag = o.imag
+        complex64 = _cffi_helper.lib._cgopy_GoComplex64(real, imag)
+        return complex64
+
+    @staticmethod
+    def cffi_cgopy_cnv_py2c_complex128(o):
+        real = o.real
+        imag = o.imag
+        complex128 = _cffi_helper.lib._cgopy_GoComplex128(real, imag)
+        return complex128
 
     @staticmethod
     def cffi_cgopy_cnv_py2c_string(o):
@@ -86,6 +104,14 @@ class _cffi_helper(object):
     @staticmethod
     def cffi_cgopy_cnv_c2py_bool(c):
         return bool(c)
+
+    @staticmethod
+    def cffi_cgopy_cnv_c2py_complex64(c):
+         return complex(c.real, c.imag)
+
+    @staticmethod
+    def cffi_cgopy_cnv_c2py_complex128(c):
+         return complex(c.real, c.imag)
 
     @staticmethod
     def cffi_cgopy_cnv_c2py_string(c):

@@ -94,6 +94,16 @@ func _cgopy_FreeCString(cs *C.char) {
 	C.free(unsafe.Pointer(cs))
 }
 
+//export _cgopy_GoComplex64
+func _cgopy_GoComplex64(real, imag float32) complex64 {
+	return complex(real, imag)
+}
+
+//export _cgopy_GoComplex128
+func _cgopy_GoComplex128(real, imag float64) complex128 {
+	return complex(real, imag)
+}
+
 // --- end cgo helpers ---
 
 // --- begin cref helpers ---

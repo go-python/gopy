@@ -18,3 +18,7 @@ fct()
 print("pkg.Add(1,2)= %s" % (pkg.Add(1,2),))
 print("pkg.Bool(True)= %s" % pkg.Bool(True))
 print("pkg.Bool(False)= %s" % pkg.Bool(False))
+a = 3+4j
+b = 2+5j
+print("pkg.Comp64Add(%s, %s) = %s" % (a, b, pkg.Comp128Add(a, b)))
+print("pkg.Comp128Add(%s, %s) = %s" % (a, b, pkg.Comp128Add(a, b)))
