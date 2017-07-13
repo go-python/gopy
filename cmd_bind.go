@@ -33,6 +33,7 @@ ex:
 
 	cmd.Flag.String("lang", defaultPyVersion, "python version to use for bindings (python2|py2|python3|py3)")
 	cmd.Flag.String("output", "", "output directory for bindings")
+	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	return cmd
 }
 
@@ -48,6 +49,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 
 	odir := cmdr.Flag.Lookup("output").Value.Get().(string)
 	lang := cmdr.Flag.Lookup("lang").Value.Get().(string)
+	symbols := cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -134,15 +136,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 			As the result, an user can import XXXX.py.
 		*/
 		buildname = "_" + buildname
-		cmd = exec.Command(
-			"go", "build", "-buildmode=c-shared",
-			"-o", filepath.Join(wbind, buildname)+".so",
-			".",
-		)
-		cmd.Dir = work
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		cmd = getBuildCommand(wbind, buildname, work, symbols)
 		err = cmd.Run()
 		if err != nil {
 			return err
@@ -175,15 +169,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 		}
 
 	case "python2", "py2":
-		cmd = exec.Command(
-			"go", "build", "-buildmode=c-shared",
-			"-o", filepath.Join(wbind, buildname)+".so",
-			".",
-		)
-		cmd.Dir = work
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		cmd = getBuildCommand(wbind, buildname, work, symbols)
 		err = cmd.Run()
 		if err != nil {
 			return err
@@ -207,4 +193,24 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 		return fmt.Errorf("unknown target language: %q\n", lang)
 	}
 	return err
+}
+
+func getBuildCommand(wbind string, buildname string, work string, symbols bool) (cmd *exec.Cmd) {
+	args := []string{"build", "-buildmode=c-shared"}
+	if !symbols {
+		// These flags will omit the various symbol tables, thereby
+		// reducing the final size of the binary. From https://golang.org/cmd/link/
+		// -s Omit the symbol table and debug information
+		// -w Omit the DWARF symbol table
+		args = append(args, "-ldflags=-s -w")
+	}
+	args = append(args, "-o", filepath.Join(wbind, buildname)+".so", ".")
+	cmd = exec.Command(
+		"go", args...,
+	)
+	cmd.Dir = work
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd
 }
