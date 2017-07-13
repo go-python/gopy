@@ -16,6 +16,7 @@ const (
 	//       """)
 	// discuss: https://github.com/go-python/gopy/pull/93#discussion_r119652220
 	cffiPreamble = `"""%[1]s"""
+import collections
 import os
 import sys
 import cffi as _cffi_backend
@@ -56,6 +57,7 @@ extern void cgopy_incref(void* p0);
 extern void cgopy_decref(void* p0);
 
 extern void cgo_pkg_%[2]s_init();
+
 `
 	cffiHelperPreamble = `""")
 
@@ -230,6 +232,17 @@ func (g *cffiGen) genWrappedPy() {
 	n := g.pkg.pkg.Name()
 	g.wrapper.Printf(cffiHelperPreamble, n)
 	g.wrapper.Indent()
+
+	// first, process slices, arrays
+	names := g.pkg.syms.names()
+	for _, n := range names {
+		sym := g.pkg.syms.sym(n)
+		if !sym.isType() {
+			continue
+		}
+		g.genTypeConverter(sym)
+	}
+
 	for _, s := range g.pkg.structs {
 		g.genStructConversion(s)
 	}
@@ -239,6 +252,14 @@ func (g *cffiGen) genWrappedPy() {
 	// then call a function which checks Cgo is successfully loaded and initialized.
 	g.wrapper.Printf("# make sure Cgo is loaded and initialized\n")
 	g.wrapper.Printf("_cffi_helper.lib.cgo_pkg_%[1]s_init()\n", n)
+
+	for _, n := range names {
+		sym := g.pkg.syms.sym(n)
+		if !sym.isType() {
+			continue
+		}
+		g.genType(sym)
+	}
 
 	for _, s := range g.pkg.structs {
 		g.genStruct(s)

@@ -14,7 +14,7 @@ func (g *cffiGen) genStruct(s Struct) {
 	g.wrapper.Printf(`
 # Python type for struct %[1]s.%[2]s
 class %[2]s(object):
-    """%[3]s"""
+    ""%[3]q""
 `,
 		pkgname,
 		s.GoName(),

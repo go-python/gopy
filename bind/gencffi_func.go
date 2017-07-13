@@ -6,6 +6,7 @@ package bind
 
 import (
 	"fmt"
+	"go/types"
 	"strings"
 )
 
@@ -21,7 +22,7 @@ func (g *cffiGen) genMethod(s Struct, m Func) {
 	g.wrapper.Printf(`
 #  pythonization of: %[1]s.%[2]s
 def %[2]s(%[3]s):
-    """%[4]s"""
+    ""%[4]q""
 `,
 		g.pkg.pkg.Name(),
 		m.GoName(),
@@ -117,7 +118,7 @@ func (g *cffiGen) genFunc(o Func) {
 	g.wrapper.Printf(`
 # pythonization of: %[1]s.%[2]s 
 def %[2]s(%[3]s):
-    """%[4]s"""
+    ""%[4]q""
 `,
 		g.pkg.pkg.Name(),
 		o.GoName(),
@@ -251,5 +252,78 @@ func (g *cffiGen) genFuncBody(f Func) {
 		}
 	default:
 		panic(fmt.Errorf("gopy: Not yet implemeted for multiple return."))
+	}
+}
+
+func (g *cffiGen) genTypeFunc(sym *symbol, fsym *symbol) {
+	isMethod := (sym != nil)
+	sig := fsym.GoType().Underlying().(*types.Signature)
+	args := sig.Params()
+	nargs := 0
+	var funcArgs []string
+
+	if isMethod {
+		funcArgs = append(funcArgs, "self")
+	}
+
+	if args != nil {
+		nargs = args.Len()
+		for i := 0; i < nargs; i++ {
+			arg := args.At(i)
+			if args == nil {
+				panic(fmt.Errorf(
+					"gopy: could not find symbol for %q",
+					arg.String(),
+				))
+			}
+			funcArgs = append(funcArgs, arg.Name())
+		}
+	}
+
+	g.wrapper.Printf(
+		`def %[1]s(%[2]s):
+    ""%[3]q""
+`,
+		fsym.goname,
+		strings.Join(funcArgs, ", "),
+		fsym.doc,
+	)
+	g.wrapper.Indent()
+	g.genTypeFuncBody(sym, fsym)
+	g.wrapper.Outdent()
+}
+
+func (g *cffiGen) genTypeFuncBody(sym *symbol, fsym *symbol) {
+	isMethod := (sym != nil)
+	sig := fsym.GoType().Underlying().(*types.Signature)
+	args := sig.Params()
+	res := sig.Results()
+	nargs := 0
+	nres := 0
+	var funcArgs []string
+	if isMethod {
+		funcArgs = append(funcArgs, "self.cgopy")
+	}
+
+	if args != nil {
+		nargs = args.Len()
+		for i := 0; i < nargs; i++ {
+			arg := args.At(i)
+			funcArgs = append(funcArgs, arg.Name())
+		}
+	}
+
+	if res != nil {
+		nres = res.Len()
+	}
+
+	if nres > 0 {
+		g.wrapper.Printf("res = ")
+		g.wrapper.Printf("_cffi_helper.lib.cgo_func_%[1]s(%[2]s)\n", fsym.id, strings.Join(funcArgs, ", "))
+		ret := res.At(0)
+		sret := g.pkg.syms.symtype(ret.Type())
+		g.wrapper.Printf("return _cffi_helper.cffi_%[1]s(res)\n", sret.c2py)
+	} else {
+		g.wrapper.Printf("_cffi_helper.lib.cgo_func_%[1]s(%[2]s)\n", fsym.id, strings.Join(funcArgs, ", "))
 	}
 }
