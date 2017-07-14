@@ -194,9 +194,14 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	}
 	return err
 }
+
 func getBuildCommand(wbind string, buildname string, work string, symbols bool) (cmd *exec.Cmd) {
 	args := []string{"build", "-buildmode=c-shared"}
 	if !symbols {
+		// These flags will omit the various symbol tables, thereby
+		// reducing the final size of the binary. From https://golang.org/cmd/link/
+		// -s Omit the symbol table and debug information
+		// -w Omit the DWARF symbol table
 		args = append(args, "-ldflags=-s -w")
 	}
 	args = append(args, "-o", filepath.Join(wbind, buildname)+".so", ".")
