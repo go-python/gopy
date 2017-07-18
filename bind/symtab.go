@@ -130,6 +130,10 @@ func (s symbol) isMap() bool {
 	return (s.kind & skMap) != 0
 }
 
+func (s symbol) isPySequence() bool {
+	return s.isArray() || s.isSlice()
+}
+
 func (s symbol) isSlice() bool {
 	return (s.kind & skSlice) != 0
 }

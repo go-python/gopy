@@ -342,6 +342,136 @@ len(slice): 2
 mem(slice): 2
 `),
 	})
+
+	testPkgWithCFFI(t, pkg{
+		path: "_examples/hi",
+		want: []byte(`--- doc(hi)...
+package hi exposes a few Go functions to be wrapped and used from Python.
+
+--- hi.GetUniverse(): 42
+--- hi.GetVersion(): 0.1
+--- hi.GetDebug(): False
+--- hi.SetDebug(true)
+--- hi.GetDebug(): True
+--- hi.SetDebug(false)
+--- hi.GetDebug(): False
+--- hi.GetAnon(): hi.Person{Name="<nobody>", Age=1}
+--- new anon: hi.Person{Name="you", Age=24}
+--- hi.SetAnon(hi.NewPerson('you', 24))...
+--- hi.GetAnon(): hi.Person{Name="you", Age=24}
+--- doc(hi.Hi)...
+Hi() 
+
+Hi prints hi from Go
+
+--- hi.Hi()...
+hi from go
+--- doc(hi.Hello)...
+Hello(str s) 
+
+Hello prints a greeting from Go
+
+--- hi.Hello('you')...
+hello you from go
+--- doc(hi.Add)...
+Add(int i, int j) int
+
+Add returns the sum of its arguments.
+
+--- hi.Add(1, 41)...
+42
+--- hi.Concat('4', '2')...
+42
+--- hi.LookupQuestion(42)...
+Life, the Universe and Everything
+--- hi.LookupQuestion(12)...
+caught: Wrong answer: 12 != 42
+--- doc(hi.Person):
+Person is a simple struct
+
+--- p = hi.Person()...
+['Age', 'Greet', 'Name', 'Salary', 'String', 'Work', '__class__', '__delattr__', '__dict__', '__doc__', '__format__', '__getattribute__', '__hash__', '__init__', '__module__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'cgopy']
+--- p: hi.Person{Name="", Age=0}
+--- p.Name: 
+--- p.Age: 0
+--- doc(hi.Greet):
+Greet() str
+
+Greet sends greetings
+
+--- p.Greet()...
+Hello, I am 
+--- p.String()...
+hi.Person{Name="", Age=0}
+--- doc(p):
+Person is a simple struct
+
+--- p.Name = "foo"...
+--- p.Age = 42...
+--- p.String()...
+hi.Person{Name="foo", Age=42}
+--- p.Age: 42
+--- p.Name: foo
+--- p.Work(2)...
+working...
+worked for 2 hours
+--- p.Work(24)...
+working...
+caught: can't work for 24 hours!
+--- p.Salary(2): 20
+--- p.Salary(24): caught: can't work for 24 hours!
+--- Person.__init__
+caught: invalid type for 'Name' attribute | err-type: <type 'exceptions.TypeError'>
+caught: invalid type for 'Age' attribute | err-type: <type 'exceptions.TypeError'>
+caught: Person.__init__ takes at most 2 argument(s) | err-type: <type 'exceptions.TypeError'>
+hi.Person{Name="name", Age=0}
+hi.Person{Name="name", Age=42}
+hi.Person{Name="name", Age=42}
+hi.Person{Name="name", Age=42}
+--- hi.NewPerson('me', 666): hi.Person{Name="me", Age=666}
+--- hi.NewPersonWithAge(666): hi.Person{Name="stranger", Age=666}
+--- hi.NewActivePerson(4):working...
+worked for 4 hours
+ hi.Person{Name="", Age=0}
+--- c = hi.Couple()...
+hi.Couple{P1=hi.Person{Name="", Age=0}, P2=hi.Person{Name="", Age=0}}
+--- c.P1: hi.Person{Name="", Age=0}
+--- c: hi.Couple{P1=hi.Person{Name="tom", Age=5}, P2=hi.Person{Name="bob", Age=2}}
+--- c = hi.NewCouple(tom, bob)...
+hi.Couple{P1=hi.Person{Name="tom", Age=50}, P2=hi.Person{Name="bob", Age=41}}
+hi.Couple{P1=hi.Person{Name="mom", Age=50}, P2=hi.Person{Name="bob", Age=51}}
+--- Couple.__init__
+hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="", Age=0}}
+hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="p2", Age=52}}
+hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="p2", Age=52}}
+hi.Couple{P1=hi.Person{Name="p2", Age=52}, P2=hi.Person{Name="p1", Age=42}}
+caught: 'int' object has no attribute 'cgopy' | err-type: <type 'exceptions.AttributeError'>
+caught: 'int' object has no attribute 'cgopy' | err-type: <type 'exceptions.AttributeError'>
+caught: 'int' object has no attribute 'cgopy' | err-type: <type 'exceptions.AttributeError'>
+--- testing GC...
+--- len(objs): 100000
+--- len(vs): 100000
+--- testing GC... [ok]
+--- testing array...
+arr: [2]int{1, 2}
+len(arr): 2
+arr[0]: 1
+arr[1]: 2
+arr[2]: caught: array index out of range
+arr: [2]int{1, 42}
+len(arr): 2
+mem(arr): caught: cannot make memory view because object does not have the buffer interface
+--- testing slice...
+slice: []int{1, 2}
+len(slice): 2
+slice[0]: 1
+slice[1]: 2
+slice[2]: caught: slice index out of range
+slice: []int{1, 42}
+len(slice): 2
+mem(slice): caught: cannot make memory view because object does not have the buffer interface
+`),
+	})
 }
 
 func TestBindFuncs(t *testing.T) {
