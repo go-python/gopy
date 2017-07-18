@@ -24,6 +24,7 @@ class %[2]s(object):
 	g.genStructInit(s)
 	g.genStructMembers(s)
 	g.genStructMethods(s)
+	g.genStructTPRepr(s)
 	g.genStructTPStr(s)
 	g.wrapper.Outdent()
 }
@@ -103,6 +104,10 @@ func (g *cffiGen) genStructInit(s Struct) {
 		g.wrapper.Outdent()
 		g.wrapper.Printf("if %[1]s != None:\n", kwd_name)
 		g.wrapper.Indent()
+		g.wrapper.Printf("if not isinstance(%[1]s, %[2]s):\n", kwd_name, ifield.sym.pysig)
+		g.wrapper.Indent()
+		g.wrapper.Printf("raise TypeError(\"invalid type for '%[1]s' attribute\")\n", field.Name())
+		g.wrapper.Outdent()
 		if ifield.sym.hasConverter() {
 			g.wrapper.Printf("c_kwd_%03[1]d = _cffi_helper.cffi_%[2]s(py_kwd_%03[1]d)\n", i+1, ifield.sym.py2c)
 			g.wrapper.Printf("%[1]s(self.cgopy, c_kwd_%03d)\n", cgo_fsetname, i+1)
@@ -184,11 +189,22 @@ func (g *cffiGen) genStructMethods(s Struct) {
 	}
 }
 
+func (g *cffiGen) genStructTPRepr(s Struct) {
+	g.wrapper.Printf("def __repr__(self):\n")
+	g.wrapper.Indent()
+	g.wrapper.Printf("cret = _cffi_helper.lib.cgo_func_%[1]s_str(self.cgopy)\n", s.sym.id)
+	g.wrapper.Printf("ret = _cffi_helper.cffi_cgopy_cnv_c2py_string(cret)\n")
+	g.wrapper.Printf("return ret\n")
+	g.wrapper.Printf("\n")
+	g.wrapper.Outdent()
+}
+
 func (g *cffiGen) genStructTPStr(s Struct) {
 	g.wrapper.Printf("def __str__(self):\n")
 	g.wrapper.Indent()
 	g.wrapper.Printf("cret = _cffi_helper.lib.cgo_func_%[1]s_str(self.cgopy)\n", s.sym.id)
 	g.wrapper.Printf("ret = _cffi_helper.cffi_cgopy_cnv_c2py_string(cret)\n")
 	g.wrapper.Printf("return ret\n")
+	g.wrapper.Printf("\n")
 	g.wrapper.Outdent()
 }

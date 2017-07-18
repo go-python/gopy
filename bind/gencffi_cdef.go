@@ -75,10 +75,13 @@ func (g *cffiGen) genTypeCdefInit(sym *symbol) {
 		typ := sym.GoType().Underlying().(*types.Array)
 		elemType := g.pkg.syms.symtype(typ.Elem())
 		g.wrapper.Printf("extern void cgo_func_%[1]s_ass_item(void* p0, GoInt p1, %[2]s p2);\n", sym.id, elemType.cgoname)
+		g.wrapper.Printf("extern %[1]s cgo_func_%[2]s_item(void* p0, %[1]s p1);\n", elemType.cgoname, sym.id)
 	case sym.isSlice():
 		typ := sym.GoType().Underlying().(*types.Slice)
 		elemType := g.pkg.syms.symtype(typ.Elem())
+		g.wrapper.Printf("extern void cgo_func_%[1]s_ass_item(void* p0, GoInt p1, %[2]s p2);\n", sym.id, elemType.cgoname)
 		g.wrapper.Printf("extern void cgo_func_%[1]s_append(void* p0, %[2]s p1);\n", sym.id, elemType.cgoname)
+		g.wrapper.Printf("extern %[1]s cgo_func_%[2]s_item(void* p0, %[1]s p1);\n", elemType.cgoname, sym.id)
 	case sym.isMap():
 	case sym.isSignature():
 	case sym.isInterface():

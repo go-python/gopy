@@ -21,22 +21,39 @@ func (g *cffiGen) genType(sym *symbol) {
 		return
 	}
 
+	var typename string
+
+	if sym.isNamed() {
+		typename = sym.goname
+	} else {
+		typename = sym.cgoname
+	}
+
 	pkgname := g.pkg.pkg.Name()
 	g.wrapper.Printf(`
 # Python type for %[1]s.%[2]s
 class %[2]s(object):
     ""%[3]q""
 `, pkgname,
-		sym.goname,
+		typename,
 		sym.doc,
 	)
 	g.wrapper.Indent()
 	g.genTypeInit(sym)
 	g.genTypeMethod(sym)
+	g.genTypeTPRepr(sym)
 	g.genTypeTPStr(sym)
+
+	if sym.isPySequence() {
+		g.genTypeLen(sym)
+		g.genTypeGetItem(sym)
+		g.genTypeSetItem(sym)
+	}
+
 	if sym.isSlice() {
 		g.genTypeIAdd(sym)
 	}
+
 	g.wrapper.Outdent()
 }
 
@@ -68,7 +85,41 @@ func (g *cffiGen) genTypeIAdd(sym *symbol) {
 	g.wrapper.Printf("\n")
 }
 
-// genTypeInit generates Type __init__.
+// genTypeGetItem generates __getitem__ of a type.
+func (g *cffiGen) genTypeGetItem(sym *symbol) {
+	g.wrapper.Printf("def __getitem__(self, idx):\n")
+	g.wrapper.Indent()
+	switch {
+	case sym.isArray():
+		g.wrapper.Printf("if idx >= len(self):\n")
+		g.wrapper.Indent()
+		g.wrapper.Printf("raise IndexError('array index out of range')\n")
+		g.wrapper.Outdent()
+		typ := sym.GoType().Underlying().(*types.Array)
+		esym := g.pkg.syms.symtype(typ.Elem())
+		g.wrapper.Printf("item = _cffi_helper.lib.cgo_func_%[1]s_item(self.cgopy, idx)\n", sym.id)
+		g.wrapper.Printf("pyitem = _cffi_helper.cffi_%[1]s(item)\n", esym.c2py)
+	case sym.isSlice():
+		g.wrapper.Printf("if idx >= len(self):\n")
+		g.wrapper.Indent()
+		g.wrapper.Printf("raise IndexError('slice index out of range')\n")
+		g.wrapper.Outdent()
+		typ := sym.GoType().Underlying().(*types.Slice)
+		esym := g.pkg.syms.symtype(typ.Elem())
+		g.wrapper.Printf("item = _cffi_helper.lib.cgo_func_%[1]s_item(self.cgopy, idx)\n", sym.id)
+		g.wrapper.Printf("pyitem = _cffi_helper.cffi_%[1]s(item)\n", esym.c2py)
+	default:
+		panic(fmt.Errorf(
+			"gopy: __getitem__ for %s not handled",
+			sym.gofmt(),
+		))
+	}
+	g.wrapper.Printf("return pyitem\n")
+	g.wrapper.Outdent()
+	g.wrapper.Printf("\n")
+}
+
+// genTypeInit generates __init__ of a type.
 func (g *cffiGen) genTypeInit(sym *symbol) {
 	nargs := 1
 	g.wrapper.Printf("def __init__(self, *args, **kwargs):\n")
@@ -145,18 +196,46 @@ func (g *cffiGen) genTypeInit(sym *symbol) {
 }
 
 // genTypeConverter generates a Type converter between C and Python.
+func (g *cffiGen) genTypeLen(sym *symbol) {
+	g.wrapper.Printf("def __len__(self):\n")
+	g.wrapper.Indent()
+	switch {
+	case sym.isArray():
+		typ := sym.GoType().Underlying().(*types.Array)
+		g.wrapper.Printf("return %[1]d\n", typ.Len())
+	case sym.isSlice():
+		g.wrapper.Printf("return ffi.cast('GoSlice*', self.cgopy).len\n")
+	default:
+		panic(fmt.Errorf(
+			"gopy: len for %s not handled",
+			sym.gofmt(),
+		))
+	}
+	g.wrapper.Outdent()
+	g.wrapper.Printf("\n")
+}
+
+// genTypeConverter generates Type converter between C and Python.
 func (g *cffiGen) genTypeConverter(sym *symbol) {
+	var typename string
+	if sym.isNamed() {
+		typename = sym.goname
+	} else {
+		typename = sym.cgoname
+	}
 	g.wrapper.Printf("# converters for %s - %s\n", sym.id, sym.goname)
 	g.wrapper.Printf("@staticmethod\n")
 	g.wrapper.Printf("def cffi_cgopy_cnv_py2c_%[1]s(o):\n", sym.id)
 	g.wrapper.Indent()
-	g.wrapper.Printf("raise NotImplementedError\n")
+	g.wrapper.Printf("return o.cgopy\n")
 	g.wrapper.Outdent()
 	g.wrapper.Printf("\n")
 	g.wrapper.Printf("@staticmethod\n")
 	g.wrapper.Printf("def cffi_cgopy_cnv_c2py_%[1]s(c):\n", sym.id)
 	g.wrapper.Indent()
-	g.wrapper.Printf("raise NotImplementedError\n")
+	g.wrapper.Printf("o = %[1]s()\n", typename)
+	g.wrapper.Printf("o.cgopy = c\n")
+	g.wrapper.Printf("return o\n")
 	g.wrapper.Outdent()
 	g.wrapper.Printf("\n")
 }
@@ -187,12 +266,56 @@ func (g *cffiGen) genTypeMethod(sym *symbol) {
 }
 
 // genTypeTPStr generates Type __str__ method.
+func (g *cffiGen) genTypeTPRepr(sym *symbol) {
+	g.wrapper.Printf("def __repr__(self):\n")
+	g.wrapper.Indent()
+	g.wrapper.Printf("cret = _cffi_helper.lib.cgo_func_%[1]s_str(self.cgopy)\n", sym.id)
+	g.wrapper.Printf("ret = _cffi_helper.cffi_cgopy_cnv_c2py_string(cret)\n")
+	g.wrapper.Printf("return ret\n")
+	g.wrapper.Outdent()
+	g.wrapper.Printf("\n")
+}
+
+// genTypeTPStr generates __str__ method of a type.
 func (g *cffiGen) genTypeTPStr(sym *symbol) {
 	g.wrapper.Printf("def __str__(self):\n")
 	g.wrapper.Indent()
 	g.wrapper.Printf("cret = _cffi_helper.lib.cgo_func_%[1]s_str(self.cgopy)\n", sym.id)
 	g.wrapper.Printf("ret = _cffi_helper.cffi_cgopy_cnv_c2py_string(cret)\n")
 	g.wrapper.Printf("return ret\n")
+	g.wrapper.Outdent()
+	g.wrapper.Printf("\n")
+}
+
+// genTypeSetItem generates __setitem__ of a type.
+func (g *cffiGen) genTypeSetItem(sym *symbol) {
+	g.wrapper.Printf("def __setitem__(self, idx, item):\n")
+	g.wrapper.Indent()
+	switch {
+	case sym.isArray():
+		g.wrapper.Printf("if idx >= len(self):\n")
+		g.wrapper.Indent()
+		g.wrapper.Printf("raise IndexError('array index out of range')\n")
+		g.wrapper.Outdent()
+		typ := sym.GoType().Underlying().(*types.Array)
+		esym := g.pkg.syms.symtype(typ.Elem())
+		g.wrapper.Printf("pyitem = _cffi_helper.cffi_%[1]s(item)\n", esym.py2c)
+		g.wrapper.Printf("_cffi_helper.lib.cgo_func_%[1]s_ass_item(self.cgopy, idx, pyitem)\n", sym.id)
+	case sym.isSlice():
+		g.wrapper.Printf("if idx >= len(self):\n")
+		g.wrapper.Indent()
+		g.wrapper.Printf("raise IndexError('slice index out of range')\n")
+		g.wrapper.Outdent()
+		typ := sym.GoType().Underlying().(*types.Slice)
+		esym := g.pkg.syms.symtype(typ.Elem())
+		g.wrapper.Printf("pyitem = _cffi_helper.cffi_%[1]s(item)\n", esym.py2c)
+		g.wrapper.Printf("_cffi_helper.lib.cgo_func_%[1]s_ass_item(self.cgopy, idx, pyitem)\n", sym.id)
+	default:
+		panic(fmt.Errorf(
+			"gopy: __setitem__ for %s not handled",
+			sym.gofmt(),
+		))
+	}
 	g.wrapper.Outdent()
 	g.wrapper.Printf("\n")
 }
