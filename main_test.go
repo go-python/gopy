@@ -162,7 +162,7 @@ func testPkgWithCFFI(t *testing.T, table pkg) {
 	}
 
 	buf := new(bytes.Buffer)
-	cmd = exec.Command("python", "./test.py")
+	cmd = exec.Command("python2", "./test.py")
 	cmd.Dir = workdir
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = buf
