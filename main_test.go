@@ -300,9 +300,10 @@ hi.Person{Name="name", Age=42}
 hi.Person{Name="name", Age=42}
 --- hi.NewPerson('me', 666): hi.Person{Name="me", Age=666}
 --- hi.NewPersonWithAge(666): hi.Person{Name="stranger", Age=666}
---- hi.NewActivePerson(4):working...
+--- hi.NewActivePerson(4):
+working...
 worked for 4 hours
- hi.Person{Name="", Age=0}
+hi.Person{Name="", Age=0}
 --- c = hi.Couple()...
 hi.Couple{P1=hi.Person{Name="", Age=0}, P2=hi.Person{Name="", Age=0}}
 --- c.P1: hi.Person{Name="", Age=0}
@@ -430,9 +431,10 @@ hi.Person{Name="name", Age=42}
 hi.Person{Name="name", Age=42}
 --- hi.NewPerson('me', 666): hi.Person{Name="me", Age=666}
 --- hi.NewPersonWithAge(666): hi.Person{Name="stranger", Age=666}
---- hi.NewActivePerson(4):working...
+--- hi.NewActivePerson(4):
+working...
 worked for 4 hours
- hi.Person{Name="", Age=0}
+hi.Person{Name="", Age=0}
 --- c = hi.Couple()...
 hi.Couple{P1=hi.Person{Name="", Age=0}, P2=hi.Person{Name="", Age=0}}
 --- c.P1: hi.Person{Name="", Age=0}
