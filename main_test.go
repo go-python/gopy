@@ -782,9 +782,9 @@ func TestBindVars(t *testing.T) {
 		want: []byte(`doc(vars):
 ''
 doc(vars.GetV1()):
-''
+'returns vars.V1'
 doc(vars.SetV1()):
-''
+'sets vars.V1'
 Initial values
 v1 = v1
 v2 = 42

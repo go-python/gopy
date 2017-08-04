@@ -243,11 +243,17 @@ func (g *cpyGen) gen() error {
 
 	for _, v := range g.pkg.vars {
 		name := v.Name()
+		get := v.doc
+		set := v.doc
+		if v.doc == "" {
+			get = "returns " + g.pkg.Name() + "." + name
+			set = "sets " + g.pkg.Name() + "." + name
+		}
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
-			"Get"+name, "cpy_func_"+v.id+"_get", v.doc,
+			"Get"+name, "cpy_func_"+v.id+"_get", get,
 		)
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
-			"Set"+name, "cpy_func_"+v.id+"_set", v.doc,
+			"Set"+name, "cpy_func_"+v.id+"_set", set,
 		)
 	}
 
