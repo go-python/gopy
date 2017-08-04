@@ -43,7 +43,7 @@ func (g *cpyGen) genStruct(cpy Struct) {
 	g.impl.Indent()
 	g.impl.Printf("PyObject_HEAD_INIT(NULL)\n")
 	g.impl.Printf("0,\t/*ob_size*/\n")
-	g.impl.Printf("\"%s.%s\",\t/*tp_name*/\n", pkgname, cpy.GoName())
+	g.impl.Printf("\"%s\",\t/*tp_name*/\n", cpy.GoName())
 	g.impl.Printf("sizeof(%s),\t/*tp_basicsize*/\n", cpy.sym.cpyname)
 	g.impl.Printf("0,\t/*tp_itemsize*/\n")
 	g.impl.Printf("(destructor)%s_dealloc,\t/*tp_dealloc*/\n", cpy.sym.cpyname)
