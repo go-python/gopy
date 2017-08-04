@@ -64,7 +64,6 @@ print(hi.Person.__doc__)
 
 print("--- p = hi.Person()...")
 p = hi.Person()
-print(dir(p))
 print("--- p:", p)
 
 print("--- p.Name:", p.Name)
