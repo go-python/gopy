@@ -337,7 +337,7 @@ slice: []int{1, 2}
 len(slice): 2
 slice[0]: 1
 slice[1]: 2
-slice[2]: caught: array index out of range
+slice[2]: caught: slice index out of range
 slice: []int{1, 42}
 len(slice): 2
 mem(slice): 2

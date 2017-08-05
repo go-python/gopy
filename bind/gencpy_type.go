@@ -543,7 +543,11 @@ func (g *cpyGen) genTypeTPAsSequence(sym *symbol) {
 		}
 		g.impl.Indent()
 		g.impl.Printf("PyErr_SetString(PyExc_IndexError, ")
-		g.impl.Printf("\"array index out of range\");\n")
+		if sym.isArray() {
+			g.impl.Printf("\"array index out of range\");\n")
+		} else {
+			g.impl.Printf("\"slice index out of range\");\n")
+		}
 		g.impl.Printf("return NULL;\n")
 		g.impl.Outdent()
 		g.impl.Printf("}\n\n")
