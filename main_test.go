@@ -932,3 +932,27 @@ pyerrors.Div(5, 2) = 2
 `),
 	})
 }
+
+func TestBuiltinArrays(t *testing.T) {
+	t.Parallel()
+	testPkgWithCFFI(t, pkg{
+		path: "_examples/arrays",
+		want: []byte(`Python list: [1, 2, 3, 4]
+Go array:  [4]int{1, 2, 3, 4}
+arrays.IntSum from Python list: 10
+arrays.IntSum from Go array: 10
+`),
+	})
+}
+
+func TestBuiltinSlices(t *testing.T) {
+	t.Parallel()
+	testPkgWithCFFI(t, pkg{
+		path: "_examples/slices",
+		want: []byte(`Python list: [1, 2, 3, 4]
+Go slice:  []int{1, 2, 3, 4}
+slices.IntSum from Python list: 10
+slices.IntSum from Go slice: 10
+`),
+	})
+}
