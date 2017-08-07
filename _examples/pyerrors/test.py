@@ -12,7 +12,7 @@ def div(a, b):
         r = pyerrors.Div(a, b)
         print("pyerrors.Div(%d, %d) = %d"% (a, b, r))
     except Exception as e:
-        print(str(e))
+        print(e)
 
 div(5,0)
 div(5,2)

@@ -130,6 +130,15 @@ class _cffi_helper(object):
         return pystr
 
     @staticmethod
+    def cffi_cgopy_cnv_c2py_errstring(c):
+        s = _cffi_helper.lib._cgopy_ErrorString(c)
+        pystr = ffi.string(s)
+        _cffi_helper.lib._cgopy_FreeCString(s)
+        if _PY3:
+            pystr = pystr.decode('ascii')
+        return pystr
+
+    @staticmethod
     def cffi_cgopy_cnv_c2py_int(c):
         return int(c)
 

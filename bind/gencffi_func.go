@@ -64,9 +64,7 @@ func (g *cffiGen) genMethodBody(s Struct, m Func) {
 		case 1:
 			g.wrapper.Printf("if not _cffi_helper.lib._cgopy_ErrorIsNil(cret):\n")
 			g.wrapper.Indent()
-			g.wrapper.Printf("c_err_str = _cffi_helper.lib._cgopy_ErrorString(cret)\n")
-			g.wrapper.Printf("py_err_str = ffi.string(c_err_str)\n")
-			g.wrapper.Printf("_cffi_helper.lib._cgopy_FreeCString(c_err_str)\n")
+			g.wrapper.Printf("py_err_str = _cffi_helper.cffi_cgopy_cnv_c2py_errstring(cret)\n")
 			g.wrapper.Printf("raise RuntimeError(py_err_str)\n")
 			g.wrapper.Outdent()
 			g.wrapper.Printf("return\n")
@@ -74,9 +72,7 @@ func (g *cffiGen) genMethodBody(s Struct, m Func) {
 		case 2:
 			g.wrapper.Printf("if not _cffi_helper.lib._cgopy_ErrorIsNil(cret.r1):\n")
 			g.wrapper.Indent()
-			g.wrapper.Printf("c_err_str = _cffi_helper.lib._cgopy_ErrorString(cret.r1)\n")
-			g.wrapper.Printf("py_err_str = ffi.string(c_err_str)\n")
-			g.wrapper.Printf("_cffi_helper.lib._cgopy_FreeCString(c_err_str)\n")
+			g.wrapper.Printf("py_err_str = _cffi_helper.cffi_cgopy_cnv_c2py_errstring(cret.r1)\n")
 			g.wrapper.Printf("raise RuntimeError(py_err_str)\n")
 			g.wrapper.Outdent()
 			if res[0].sym.hasConverter() {
@@ -212,9 +208,7 @@ func (g *cffiGen) genFuncBody(f Func) {
 		case 1:
 			g.wrapper.Printf("if not _cffi_helper.lib._cgopy_ErrorIsNil(cret):\n")
 			g.wrapper.Indent()
-			g.wrapper.Printf("c_err_str = _cffi_helper.lib._cgopy_ErrorString(cret)\n")
-			g.wrapper.Printf("py_err_str = ffi.string(c_err_str)\n")
-			g.wrapper.Printf("_cffi_helper.lib._cgopy_FreeCString(c_err_str)\n")
+			g.wrapper.Printf("py_err_str = _cffi_helper.cffi_cgopy_cnv_c2py_errstring(cret)\n")
 			g.wrapper.Printf("raise RuntimeError(py_err_str)\n")
 			g.wrapper.Outdent()
 			g.wrapper.Printf("return\n")
@@ -222,9 +216,7 @@ func (g *cffiGen) genFuncBody(f Func) {
 		case 2:
 			g.wrapper.Printf("if not _cffi_helper.lib._cgopy_ErrorIsNil(cret.r1):\n")
 			g.wrapper.Indent()
-			g.wrapper.Printf("c_err_str = _cffi_helper.lib._cgopy_ErrorString(cret.r1)\n")
-			g.wrapper.Printf("py_err_str = ffi.string(c_err_str)\n")
-			g.wrapper.Printf("_cffi_helper.lib._cgopy_FreeCString(c_err_str)\n")
+			g.wrapper.Printf("py_err_str = _cffi_helper.cffi_cgopy_cnv_c2py_errstring(cret.r1)\n")
 			g.wrapper.Printf("raise RuntimeError(py_err_str)\n")
 			g.wrapper.Outdent()
 			if res[0].sym.hasConverter() {
