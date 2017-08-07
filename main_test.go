@@ -721,3 +721,14 @@ slices.IntSum from Go slice: 10
 `),
 	})
 }
+
+func TestBindStrings(t *testing.T) {
+	t.Parallel()
+	testPkg(t, pkg{
+		path: "_examples/gostrings",
+		lang: []string{"py2", "cffi"},
+		want: []byte(`S1 = S1
+GetString() = MyString
+`),
+	})
+}
