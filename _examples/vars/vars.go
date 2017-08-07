@@ -24,6 +24,9 @@ var (
 	Kind2      = 2
 )
 
+// Doc is a top-level string with some documentation attached.
+var Doc = "A variable with some documentation"
+
 // FIXME: also use an unexported type
 // type kind int
 // var (

@@ -243,11 +243,13 @@ func (g *cpyGen) gen() error {
 
 	for _, v := range g.pkg.vars {
 		name := v.Name()
-		get := v.doc
-		set := v.doc
-		if v.doc == "" {
-			get = "returns " + g.pkg.Name() + "." + name
-			set = "sets " + g.pkg.Name() + "." + name
+		get := "returns " + g.pkg.Name() + "." + name
+		set := "sets " + g.pkg.Name() + "." + name
+		if v.doc != "" {
+			// if the Go variable had some documentation attached,
+			// put it there as well.
+			get += "\n\n" + v.doc
+			set += "\n\n" + v.doc
 		}
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
 			"Get"+name, "cpy_func_"+v.id+"_get", get,
@@ -322,7 +324,7 @@ func (g *cpyGen) genVar(v Var) {
 			typ:  nil,
 			name: v.Name(),
 			id:   id + "_get",
-			doc:  "returns " + g.pkg.Name() + "." + v.Name(),
+			doc:  "", // ignored: done during cpyGen.gen()
 			ret:  v.GoType(),
 			err:  false,
 		}
@@ -337,7 +339,7 @@ func (g *cpyGen) genVar(v Var) {
 			typ:  nil,
 			name: v.Name(),
 			id:   id + "_set",
-			doc:  "sets " + g.pkg.Name() + "." + v.Name(),
+			doc:  "", // ignored: done during cpyGen.gen()
 			ret:  nil,
 			err:  false,
 		}

@@ -47,3 +47,7 @@ print("v7 = %s" % vars.GetV7())
 
 print("k1 = %s" % vars.GetKind1())
 print("k2 = %s" % vars.GetKind2())
+
+print("vars.GetDoc() = %s" % repr(vars.GetDoc()))
+print("doc of vars.GetDoc = %s" % (repr(vars.GetDoc.__doc__),))
+print("doc of vars.SetDoc = %s" % (repr(vars.SetDoc.__doc__),))

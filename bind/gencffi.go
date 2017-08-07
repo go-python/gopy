@@ -290,6 +290,14 @@ func (g *cffiGen) genConst(c Const) {
 
 func (g *cffiGen) genVar(v Var) {
 	id := g.pkg.Name() + "_" + v.Name()
+	get := "returns " + g.pkg.Name() + "." + v.Name()
+	set := "sets " + g.pkg.Name() + "." + v.Name()
+	if v.doc != "" {
+		// if the Go variable had some documentation attached,
+		// put it there as well.
+		get += "\n\n" + v.doc
+		set += "\n\n" + v.doc
+	}
 	doc := v.doc
 	{
 		res := []*Var{newVar(g.pkg, v.GoType(), "ret", v.Name(), doc)}
@@ -300,7 +308,7 @@ func (g *cffiGen) genVar(v Var) {
 			typ:  nil,
 			name: v.Name(),
 			id:   id + "_get",
-			doc:  "returns " + g.pkg.Name() + "." + v.Name(),
+			doc:  get,
 			ret:  v.GoType(),
 			err:  false,
 		}
@@ -315,7 +323,7 @@ func (g *cffiGen) genVar(v Var) {
 			typ:  nil,
 			name: v.Name(),
 			id:   id + "_set",
-			doc:  "sets " + g.pkg.Name() + "." + v.Name(),
+			doc:  set,
 			ret:  nil,
 			err:  false,
 		}

@@ -805,6 +805,9 @@ v6 = 50
 v7 = 1111.1111
 k1 = 123
 k2 = 456
+vars.GetDoc() = 'A variable with some documentation'
+doc of vars.GetDoc = 'returns vars.Doc\n\nDoc is a top-level string with some documentation attached.\n'
+doc of vars.SetDoc = 'sets vars.Doc\n\nDoc is a top-level string with some documentation attached.\n'
 `),
 	})
 
@@ -836,6 +839,9 @@ v6 = 50
 v7 = 1111.1111
 k1 = 123
 k2 = 456
+vars.GetDoc() = 'A variable with some documentation'
+doc of vars.GetDoc = 'returns vars.Doc\n\nDoc is a top-level string with some documentation attached.\n'
+doc of vars.SetDoc = 'sets vars.Doc\n\nDoc is a top-level string with some documentation attached.\n'
 `),
 	})
 }
