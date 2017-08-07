@@ -5,6 +5,11 @@
 ## py2/py3 compat
 from __future__ import print_function
 
+import sys
+_PY3 = sys.version_info[0] == 3
+if _PY3:
+    xrange = range
+
 import seqs
 
 ### test docs
