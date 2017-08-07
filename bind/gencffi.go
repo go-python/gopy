@@ -126,7 +126,7 @@ class _cffi_helper(object):
         pystr = ffi.string(s)
         _cffi_helper.lib._cgopy_FreeCString(s)
         if _PY3:
-            pystr = pystr.decode('ascii')
+            pystr = pystr.decode('utf8')
         return pystr
 
     @staticmethod
@@ -135,7 +135,7 @@ class _cffi_helper(object):
         pystr = ffi.string(s)
         _cffi_helper.lib._cgopy_FreeCString(s)
         if _PY3:
-            pystr = pystr.decode('ascii')
+            pystr = pystr.decode('utf8')
         return pystr
 
     @staticmethod
