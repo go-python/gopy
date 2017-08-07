@@ -69,7 +69,7 @@ ex:
  $ gopy bind github.com/go-python/gopy/_examples/hi
 
 Options:
-  -lang="py2": python version to use for bindings (python2|py2|python3|py3)
+  -lang="py2": python version to use for bindings (python2|py2|python3|py3|cffi)
   -output="": output directory for bindings
 ```
 
@@ -177,7 +177,7 @@ $ docker run -it --rm go-python/gopy
 - wrap `go` structs into `python` classes **[DONE]**
 - better pythonization: turn `go` `errors` into `python` exceptions **[DONE]**
 - wrap arrays and slices into types implementing `tp_as_sequence` **[DONE]**
-- only `python-2` supported for now
+- only `python-2` supported for now **[DONE]**
 
 ## Contribute
 
