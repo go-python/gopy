@@ -7,6 +7,7 @@ package main
 import (
 	"bytes"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -43,6 +44,43 @@ func TestGofmt(t *testing.T) {
 	}
 }
 
+var testBackends = map[string]int{
+	"python2":  1,
+	"py2-cffi": 1,
+}
+
+func init() {
+	for _, be := range []struct {
+		name   string
+		vm     string
+		module string
+	}{
+		{"py2", "python2", ""},
+		{"py2-cffi", "python2", "cffi"},
+		{"py3", "python3", ""},
+		{"py3-cffi", "python3", "cffi"},
+		{"pypy2-cffi", "pypy", "cffi"},
+		{"pypy3-cffi", "pypy3", "cffi"},
+	} {
+		args := []string{"-c", ""}
+		if be.module != "" {
+			args[1] = "import " + be.module
+		}
+		log.Printf("checking testbackend: %q...", be.name)
+		cmd := exec.Command(be.vm, args...)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err != nil {
+			log.Printf("disabling testbackend: %q", be.name)
+			continue
+		}
+		log.Printf("enabling testbackend: %q", be.name)
+		testBackends[be.name] = 1
+	}
+}
+
 type pkg struct {
 	path string
 	lang []string
@@ -55,15 +93,25 @@ func testPkg(t *testing.T, table pkg) {
 		backends = []string{"py2"}
 	}
 	for _, be := range backends {
+		if _, ok := testBackends[be]; !ok {
+			// backend not available.
+			continue
+		}
 		switch be {
 		case "py2":
 			testPkgBackend(t, be, "python2", table)
-		case "py3":
-			testPkgBackend(t, be, "python3", table)
 		case "py2-cffi":
 			testPkgBackend(t, "cffi", "python2", table)
+		case "py3":
+			testPkgBackend(t, be, "python3", table)
 		case "py3-cffi":
 			testPkgBackend(t, "cffi", "python3", table)
+		case "pypy2-cffi":
+			testPkgBackend(t, "cffi", "pypy", table)
+		case "pypy3-cffi":
+			testPkgBackend(t, "cffi", "pypy3", table)
+		default:
+			t.Errorf("invalid backend name %q", be)
 		}
 	}
 }
