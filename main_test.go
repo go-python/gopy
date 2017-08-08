@@ -98,35 +98,6 @@ type pkg struct {
 	want []byte
 }
 
-func testPkg(t *testing.T, table pkg) {
-	backends := table.lang
-	if backends == nil {
-		backends = []string{"py2"}
-	}
-	for _, be := range backends {
-		if _, ok := testBackends[be]; !ok {
-			// backend not available.
-			continue
-		}
-		switch be {
-		case "py2":
-			testPkgBackend(t, be, "python2", table)
-		case "py2-cffi":
-			testPkgBackend(t, "cffi", "python2", table)
-		case "py3":
-			testPkgBackend(t, be, "python3", table)
-		case "py3-cffi":
-			testPkgBackend(t, "cffi", "python3", table)
-		case "pypy2-cffi":
-			testPkgBackend(t, "cffi", "pypy", table)
-		case "pypy3-cffi":
-			testPkgBackend(t, "cffi", "pypy3", table)
-		default:
-			t.Errorf("invalid backend name %q", be)
-		}
-	}
-}
-
 func testPkgBackend(t *testing.T, lang, pycmd string, table pkg) {
 	workdir, err := ioutil.TempDir("", "gopy-")
 	if err != nil {
