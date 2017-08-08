@@ -491,7 +491,7 @@ func TestBindSimple(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/simple",
-		lang: []string{"py2", "py2-cffi", "py3-cffi"},
+		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 		want: []byte(`doc(pkg):
 'simple is a simple package.\n'
 pkg.Func()...
@@ -510,7 +510,7 @@ func TestBindEmpty(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/empty",
-		lang: []string{"py2", "py2-cffi", "py3-cffi"},
+		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 		want: []byte(`empty.init()... [CALLED]
 doc(pkg):
 'Package empty does not expose anything.\nWe may want to wrap and import it just for its side-effects.\n'
@@ -539,7 +539,7 @@ func TestBindNamed(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/named",
-		lang: []string{"py2", "py2-cffi", "py3-cffi"},
+		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 		want: []byte(`doc(named): 'package named tests various aspects of named types.\n'
 doc(named.Float): ''
 doc(named.Float.Value): 'Value() float\n\nValue returns a float32 value\n'
@@ -609,7 +609,7 @@ func TestBindStructs(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/structs",
-		lang: []string{"py2", "py2-cffi", "py3-cffi"},
+		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 		want: []byte(`s = structs.S()
 s = structs.S{}
 s.Init()
@@ -633,7 +633,7 @@ func TestBindConsts(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/consts",
-		lang: []string{"py2", "py2-cffi", "py3-cffi"},
+		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 		want: []byte(`c1 = c1
 c2 = 42
 c3 = 666.666
@@ -651,7 +651,7 @@ func TestBindVars(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/vars",
-		lang: []string{"py2", "py2-cffi", "py3-cffi"},
+		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 		want: []byte(`doc(vars):
 ''
 doc(vars.GetV1()):
@@ -689,7 +689,7 @@ func TestBindSeqs(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/seqs",
-		lang: []string{"py2", "py2-cffi", "py3-cffi"},
+		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 		want: []byte(`doc(seqs): 'package seqs tests various aspects of sequence types.\n'
 arr = seqs.Array(xrange(2))
 arr = seqs.Array{0, 1, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -726,7 +726,7 @@ func TestBindCgoPackage(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/cgo",
-		lang: []string{"py2", "py2-cffi", "py3-cffi"},
+		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 		want: []byte(`cgo.doc: 'Package cgo tests bindings of CGo-based packages.\n'
 cgo.Hi()= 'hi from go\n'
 cgo.Hello(you)= 'hello you from go\n'
@@ -738,7 +738,7 @@ func TestPyErrors(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/pyerrors",
-		lang: []string{"py2", "py2-cffi", "py3-cffi"},
+		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 		want: []byte(`Divide by zero.
 pyerrors.Div(5, 2) = 2
 `),
@@ -749,7 +749,7 @@ func TestBuiltinArrays(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/arrays",
-		lang: []string{"py2-cffi", "py3-cffi"},
+		lang: []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 		want: []byte(`Python list: [1, 2, 3, 4]
 Go array:  [4]int{1, 2, 3, 4}
 arrays.IntSum from Python list: 10
@@ -762,7 +762,7 @@ func TestBuiltinSlices(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/slices",
-		lang: []string{"py2-cffi", "py3-cffi"},
+		lang: []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 		want: []byte(`Python list: [1, 2, 3, 4]
 Go slice:  []int{1, 2, 3, 4}
 slices.IntSum from Python list: 10
@@ -775,7 +775,7 @@ func TestBindStrings(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{
 		path: "_examples/gostrings",
-		lang: []string{"py2", "py2-cffi", "py3-cffi"},
+		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 		want: []byte(`S1 = S1
 GetString() = MyString
 `),
