@@ -34,6 +34,7 @@ ex:
 	cmd.Flag.String("lang", defaultPyVersion, "python version to use for bindings (python2|py2|python3|py3)")
 	cmd.Flag.String("output", "", "output directory for bindings")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
+	cmd.Flag.Bool("work", false, "print the name of temporary work directory and do not delete it when exiting")
 	return cmd
 }
 
@@ -50,6 +51,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	odir := cmdr.Flag.Lookup("output").Value.Get().(string)
 	lang := cmdr.Flag.Lookup("lang").Value.Get().(string)
 	symbols := cmdr.Flag.Lookup("symbols").Value.Get().(bool)
+	printWork := cmdr.Flag.Lookup("work").Value.Get().(bool)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -98,13 +100,17 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("gopy-bind: could not create temp-workdir (%v)", err)
 	}
-	log.Printf("work: %s\n", work)
+	if printWork {
+		log.Printf("work: %s\n", work)
+	}
 
 	err = os.MkdirAll(work, 0644)
 	if err != nil {
 		return fmt.Errorf("gopy-bind: could not create workdir (%v)", err)
 	}
-	//defer os.RemoveAll(work)
+	if !printWork {
+		defer os.RemoveAll(work)
+	}
 
 	err = genPkg(work, pkg, lang)
 	if err != nil {
