@@ -15,6 +15,17 @@ import (
 	"testing"
 )
 
+func TestGovet(t *testing.T) {
+	cmd := exec.Command("go", "vet", "./...")
+	buf := new(bytes.Buffer)
+	cmd.Stdout = buf
+	cmd.Stderr = buf
+	err := cmd.Run()
+	if err != nil {
+		t.Fatalf("error running %s:\n%s\n%v", "go vet", string(buf.Bytes()), err)
+	}
+}
+
 func TestGofmt(t *testing.T) {
 	exe, err := exec.LookPath("goimports")
 	if err != nil {
