@@ -35,7 +35,7 @@ func NewPackage(pkg *types.Package, doc *doc.Package) (*Package, error) {
 	p := &Package{
 		pkg:  pkg,
 		n:    0,
-		sz:   &types.StdSizes{sz, sz},
+		sz:   &types.StdSizes{WordSize: sz, MaxAlign: sz},
 		doc:  doc,
 		syms: newSymtab(pkg, nil),
 		objs: map[string]Object{},
