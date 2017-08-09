@@ -58,7 +58,7 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 		err = os.MkdirAll(odir, 0755)
 		if err != nil {
 			return fmt.Errorf(
-				"gopy-gen: could not create output directory: %v\n", err,
+				"gopy-gen: could not create output directory: %v", err,
 			)
 		}
 	}
@@ -66,7 +66,7 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 	odir, err = filepath.Abs(odir)
 	if err != nil {
 		return fmt.Errorf(
-			"gopy-gen: could not infer absolute path to output directory: %v\n",
+			"gopy-gen: could not infer absolute path to output directory: %v",
 			err,
 		)
 	}
@@ -75,7 +75,7 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 	pkg, err := newPackage(path)
 	if err != nil {
 		return fmt.Errorf(
-			"gopy-gen: go/build.Import failed with path=%q: %v\n",
+			"gopy-gen: go/build.Import failed with path=%q: %v",
 			path,
 			err,
 		)

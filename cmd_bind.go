@@ -62,7 +62,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 		err = os.MkdirAll(odir, 0755)
 		if err != nil {
 			return fmt.Errorf(
-				"gopy-bind: could not create output directory: %v\n", err,
+				"gopy-bind: could not create output directory: %v", err,
 			)
 		}
 	}
@@ -75,7 +75,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	pkg, err := newPackage(path)
 	if err != nil {
 		return fmt.Errorf(
-			"gopy-bind: go/build.Import failed with path=%q: %v\n",
+			"gopy-bind: go/build.Import failed with path=%q: %v",
 			path,
 			err,
 		)
@@ -190,7 +190,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	case "python3", "py3":
 		return fmt.Errorf("gopy: python-3 support not yet implemented")
 	default:
-		return fmt.Errorf("unknown target language: %q\n", lang)
+		return fmt.Errorf("gopy: unknown target language: %q", lang)
 	}
 	return err
 }
