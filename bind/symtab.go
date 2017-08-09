@@ -131,7 +131,7 @@ func (s symbol) isMap() bool {
 }
 
 func (s symbol) isPySequence() bool {
-	return s.isArray() || s.isSlice()
+	return s.isArray() || s.isSlice() || s.isMap()
 }
 
 func (s symbol) isSlice() bool {

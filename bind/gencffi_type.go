@@ -108,6 +108,13 @@ func (g *cffiGen) genTypeGetItem(sym *symbol) {
 		esym := g.pkg.syms.symtype(typ.Elem())
 		g.wrapper.Printf("item = _cffi_helper.lib.cgo_func_%[1]s_item(self.cgopy, idx)\n", sym.id)
 		g.wrapper.Printf("pyitem = _cffi_helper.cffi_%[1]s(item)\n", esym.c2py)
+	case sym.isMap():
+		typ := sym.GoType().Underlying().(*types.Map)
+		ksym := g.pkg.syms.symtype(typ.Key())
+		vsym := g.pkg.syms.symtype(typ.Elem())
+		g.wrapper.Printf("pykey = _cffi_helper.cffi_%[1]s(idx)\n", ksym.py2c)
+		g.wrapper.Printf("item = _cffi_helper.lib.cgo_func_%[1]s_get(self.cgopy, pykey)\n", sym.id)
+		g.wrapper.Printf("pyitem = _cffi_helper.cffi_%[1]s(item)\n", vsym.c2py)
 	default:
 		panic(fmt.Errorf(
 			"gopy: __getitem__ for %s not handled",
@@ -181,6 +188,22 @@ func (g *cffiGen) genTypeInit(sym *symbol) {
 		g.wrapper.Outdent()
 		g.wrapper.Outdent()
 	case sym.isMap():
+		g.wrapper.Printf("if args:\n")
+		g.wrapper.Indent()
+		g.wrapper.Printf("if not isinstance(args[0], collections.Mapping):\n")
+		g.wrapper.Indent()
+		g.wrapper.Printf("raise TypeError('%[1]s.__init__ takes a mapping as argument')\n", sym.goname)
+		g.wrapper.Outdent()
+		typ := sym.GoType().Underlying().(*types.Map)
+		esym := g.pkg.syms.symtype(typ.Elem())
+		ksym := g.pkg.syms.symtype(typ.Key())
+		g.wrapper.Printf("for k, v in args[0].items():\n")
+		g.wrapper.Indent()
+		g.wrapper.Printf("pykey = _cffi_helper.cffi_%[1]s(k)\n", ksym.py2c)
+		g.wrapper.Printf("pyitem = _cffi_helper.cffi_%[1]s(v)\n", esym.py2c)
+		g.wrapper.Printf("_cffi_helper.lib.cgo_func_%[1]s_set(self.cgopy, pykey, pyitem)\n", sym.id)
+		g.wrapper.Outdent()
+		g.wrapper.Outdent()
 	case sym.isSignature():
 		//TODO(corona10)
 	case sym.isInterface():
@@ -205,6 +228,8 @@ func (g *cffiGen) genTypeLen(sym *symbol) {
 		g.wrapper.Printf("return %[1]d\n", typ.Len())
 	case sym.isSlice():
 		g.wrapper.Printf("return ffi.cast('GoSlice*', self.cgopy).len\n")
+	case sym.isMap():
+		g.wrapper.Printf("return _cffi_helper.lib.cgo_func_%[1]s_len(self.cgopy)\n", sym.id)
 	default:
 		panic(fmt.Errorf(
 			"gopy: len for %s not handled",
@@ -267,6 +292,22 @@ func (g *cffiGen) genTypeConverter(sym *symbol) {
 		g.wrapper.Indent()
 		g.wrapper.Printf("pyitem = _cffi_helper.cffi_%[1]s(elt)\n", esym.py2c)
 		g.wrapper.Printf("_cffi_helper.lib.cgo_func_%[1]s_append(c, pyitem)\n", sym.id)
+		g.wrapper.Outdent()
+		g.wrapper.Printf("return c\n")
+	case sym.isMap():
+		g.wrapper.Printf("if not isinstance(o, collections.Mapping):\n")
+		g.wrapper.Indent()
+		g.wrapper.Printf("raise TypeError('%[1]s.__init__ takes a mapping as argument')\n", sym.goname)
+		g.wrapper.Outdent()
+		typ := sym.GoType().Underlying().(*types.Map)
+		esym := g.pkg.syms.symtype(typ.Elem())
+		ksym := g.pkg.syms.symtype(typ.Key())
+		g.wrapper.Printf("c = _cffi_helper.lib.cgo_func_%[1]s_new()\n", sym.id)
+		g.wrapper.Printf("for k, v in o.items():\n")
+		g.wrapper.Indent()
+		g.wrapper.Printf("pykey = _cffi_helper.cffi_%[1]s(k)\n", ksym.py2c)
+		g.wrapper.Printf("pyitem = _cffi_helper.cffi_%[1]s(v)\n", esym.py2c)
+		g.wrapper.Printf("_cffi_helper.lib.cgo_func_%[1]s_set(c, pykey, pyitem)\n", sym.id)
 		g.wrapper.Outdent()
 		g.wrapper.Printf("return c\n")
 	}
@@ -352,6 +393,13 @@ func (g *cffiGen) genTypeSetItem(sym *symbol) {
 		esym := g.pkg.syms.symtype(typ.Elem())
 		g.wrapper.Printf("pyitem = _cffi_helper.cffi_%[1]s(item)\n", esym.py2c)
 		g.wrapper.Printf("_cffi_helper.lib.cgo_func_%[1]s_ass_item(self.cgopy, idx, pyitem)\n", sym.id)
+	case sym.isMap():
+		typ := sym.GoType().Underlying().(*types.Map)
+		ksym := g.pkg.syms.symtype(typ.Key())
+		vsym := g.pkg.syms.symtype(typ.Elem())
+		g.wrapper.Printf("pykey = _cffi_helper.cffi_%[1]s(idx)\n", ksym.py2c)
+		g.wrapper.Printf("pyitem = _cffi_helper.cffi_%[1]s(item)\n", vsym.py2c)
+		g.wrapper.Printf("_cffi_helper.lib.cgo_func_%[1]s_set(self.cgopy, pykey, pyitem)\n", sym.id)
 	default:
 		panic(fmt.Errorf(
 			"gopy: __setitem__ for %s not handled",
