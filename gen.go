@@ -115,7 +115,7 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 		}
 
 	default:
-		return fmt.Errorf("unknown target language: %q\n", lang)
+		return fmt.Errorf("gopy: unknown target language: %q", lang)
 	}
 
 	if err != nil {
