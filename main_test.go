@@ -753,6 +753,21 @@ slices.IntSum from Go slice: 10
 	})
 }
 
+func TestBuiltinMaps(t *testing.T) {
+	t.Parallel()
+	testPkg(t, pkg{
+		path: "_examples/maps",
+		lang: []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		want: []byte(`maps.Sum from Go map: 8.0
+maps.Sum from Python dictionary: 8.0
+maps.Keys from Go map: []int{1, 2}
+maps.Values from Go map: []float64{3, 5}
+maps.Keys from Python dictionary: []int{1, 2}
+maps.Values from Python dictionary: []float64{3, 5}
+`),
+	})
+}
+
 func TestBindStrings(t *testing.T) {
 	t.Parallel()
 	testPkg(t, pkg{

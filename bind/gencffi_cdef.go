@@ -83,6 +83,13 @@ func (g *cffiGen) genTypeCdefInit(sym *symbol) {
 		g.wrapper.Printf("extern void cgo_func_%[1]s_append(void* p0, %[2]s p1);\n", sym.id, elemType.cgoname)
 		g.wrapper.Printf("extern %[1]s cgo_func_%[2]s_item(void* p0, %[1]s p1);\n", elemType.cgoname, sym.id)
 	case sym.isMap():
+		ktyp := sym.GoType().Underlying().(*types.Map).Key()
+		etyp := sym.GoType().Underlying().(*types.Map).Elem()
+		ksym := g.pkg.syms.symtype(ktyp)
+		esym := g.pkg.syms.symtype(etyp)
+		g.wrapper.Printf("extern void cgo_func_%[1]s_set(void* p0, %[2]s p1, %[3]s p2);\n", sym.id, ksym.cgoname, esym.cgoname)
+		g.wrapper.Printf("extern %[3]s cgo_func_%[1]s_get(void* p0, %[2]s p1);\n", sym.id, ksym.cgoname, esym.cgoname)
+		g.wrapper.Printf("extern GoInt cgo_func_%[1]s_len(void* p0);\n", sym.id)
 	case sym.isSignature():
 	case sym.isInterface():
 	default:

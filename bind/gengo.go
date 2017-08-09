@@ -752,6 +752,7 @@ func (g *goGen) genType(sym *symbol) {
 		g.Printf("}\n\n")
 	}
 
+	g.genTypeTPMapping(sym)
 	g.genTypeTPCall(sym)
 
 	g.genTypeMethods(sym)
@@ -870,6 +871,97 @@ func (g *goGen) genTypeTPCall(sym *symbol) {
 	g.Outdent()
 	g.Printf("}\n\n")
 
+}
+
+func (g *goGen) genTypeTPMapping(sym *symbol) {
+	if !sym.isMap() {
+		return
+	}
+
+	ktyp := sym.GoType().Underlying().(*types.Map).Key()
+	ksym := g.pkg.syms.symtype(ktyp)
+	etyp := sym.GoType().Underlying().(*types.Map).Elem()
+	esym := g.pkg.syms.symtype(etyp)
+
+	if ksym == nil {
+		panic(fmt.Errorf("gopy: could not retrieve key type of %v", sym))
+	}
+
+	if esym == nil {
+		panic(fmt.Errorf("gopy: could not retrieve element type of %v", sym))
+	}
+
+	g.Printf("//export cgo_func_%[1]s_set\n", sym.id)
+	g.Printf("func cgo_func_%[1]s_set(self %[2]s, key %[3]s, value %[4]s) {\n",
+		sym.id,
+		sym.cgoname,
+		ksym.cgotypename(),
+		esym.cgotypename(),
+	)
+	g.Indent()
+	g.Printf("m := (*%[1]s)(unsafe.Pointer(self))\n", sym.gofmt())
+	g.Printf("if *m == nil {\n")
+	g.Indent()
+	g.Printf("*m = make(map[%[1]s]%[2]s)\n", ksym.cgotypename(), esym.cgotypename())
+	g.Outdent()
+	g.Printf("}\n")
+	if !ksym.isBasic() {
+		g.Printf("k := *(*%[1]s)(unsafe.Pointer(key))", ksym.gofmt())
+	} else {
+		if ksym.isNamed() {
+			g.Printf("k := %[1]s(key)\n", esym.gofmt())
+		} else {
+			g.Printf("k := key\n")
+		}
+	}
+
+	if !esym.isBasic() {
+		g.Printf("v := *(*%[1]s)(unsafe.Pointer(value))", esym.gofmt())
+	} else {
+		if esym.isNamed() {
+			g.Printf("v := %[1]s(value)", esym.gofmt())
+		} else {
+			g.Printf("v := value\n")
+		}
+	}
+
+	g.Printf("(*m)[k] = v\n")
+	g.Outdent()
+	g.Printf("}\n\n")
+
+	g.Printf("//export cgo_func_%[1]s_get\n", sym.id)
+	g.Printf("func cgo_func_%[1]s_get(self %[2]s, key %[3]s) %[4]s {\n",
+		sym.id,
+		sym.cgoname,
+		ksym.cgotypename(),
+		esym.cgotypename(),
+	)
+	g.Indent()
+	g.Printf("m := (*%[1]s)(unsafe.Pointer(self))\n", sym.gofmt())
+
+	if !ksym.isBasic() {
+		g.Printf("k := *(*%[1]s)(unsafe.Pointer(key))\n", ksym.gofmt())
+	} else {
+		if ksym.isNamed() {
+			g.Printf("k := %[1]s(key)\n", esym.gofmt())
+		} else {
+			g.Printf("k := key\n")
+		}
+	}
+	g.Printf("return (*m)[k]\n")
+	g.Outdent()
+	g.Printf("}\n\n")
+
+	g.Printf("//export cgo_func_%[1]s_len\n", sym.id)
+	g.Printf("func cgo_func_%[1]s_len(self %[2]s) int {\n",
+		sym.id,
+		sym.cgoname,
+	)
+	g.Indent()
+	g.Printf("m := (*%[1]s)(unsafe.Pointer(self))\n", sym.gofmt())
+	g.Printf("return len(*m)\n")
+	g.Outdent()
+	g.Printf("}\n\n")
 }
 
 func (g *goGen) genTypeMethods(sym *symbol) {
