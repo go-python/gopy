@@ -49,8 +49,6 @@ func isStringer(obj types.Object) bool {
 	default:
 		return false
 	}
-
-	return false
 }
 
 func hasError(sig *types.Signature) bool {
@@ -78,8 +76,6 @@ func hasError(sig *types.Signature) bool {
 			nerr,
 		))
 	}
-
-	return false
 }
 
 func isConstructor(sig *types.Signature) bool {

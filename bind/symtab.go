@@ -270,7 +270,6 @@ func (sym *symtab) typeof(n string) *symbol {
 	default:
 		panic(fmt.Errorf("unhandled symbol kind (%v)", s.kind))
 	}
-	panic("unreachable")
 }
 
 func (sym *symtab) typename(t types.Type, pkg *types.Package) string {
