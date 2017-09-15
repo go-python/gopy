@@ -17,11 +17,14 @@ import imp
 import os
 import sys
 
-def load(pkg, output=""):
+_PY3 = sys.version_info[0] == 3
+
+def load(pkg, output="", lang="py2"):
     """
     `load` takes a fully qualified Go package name and runs `gopy bind` on it. 
     @returns the C-extension module object
     """
+    if _PY3: lang = "cffi"
 
     from subprocess import check_call, check_output
     if output == "": 
@@ -30,13 +33,15 @@ def load(pkg, output=""):
 
     print("gopy> inferring package name...")
     pkg = check_output(["go", "list", pkg]).strip()
+    if _PY3:
+        pkg = pkg.decode("utf-8")
     if pkg in sys.modules:
         print("gopy> package '%s' already wrapped and loaded!" % (pkg,))
         print("gopy> NOT recompiling it again (see issue #27)")
         return sys.modules[pkg]
     print("gopy> loading '%s'..." % pkg)
 
-    check_call(["gopy","bind", "-output=%s" % output, pkg])
+    check_call(["gopy","bind", "-lang=%s" % lang, "-output=%s" % output, pkg])
     
     n = os.path.basename(pkg)
     print("gopy> importing '%s'" % (pkg,))
