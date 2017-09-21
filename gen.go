@@ -47,6 +47,17 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 		pyvers = 2
 	case "python3", "py3":
 		pyvers = 3
+	case "go", "cffi":
+		var pylang string
+		pylang, err = getPythonVersion()
+		if err == nil {
+			switch pylang {
+			case "py2":
+				pyvers = 2
+			case "py3":
+				pyvers = 3
+			}
+		}
 	}
 
 	if err != nil {
