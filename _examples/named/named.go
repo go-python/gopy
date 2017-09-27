@@ -44,3 +44,7 @@ type T int
 
 func (t T) PublicMethod()  {}
 func (t T) privateMethod() {}
+
+func Xs() []X {
+	return []X{1, 2, 3}
+}
