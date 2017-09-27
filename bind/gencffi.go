@@ -122,9 +122,8 @@ class _cffi_helper(object):
 
     @staticmethod
     def cffi_cgopy_cnv_c2py_string(c):
-        s = _cffi_helper.lib._cgopy_CString(c)
-        pystr = ffi.string(s)
-        _cffi_helper.lib._cgopy_FreeCString(s)
+        pystr = ffi.string(c)
+        _cffi_helper.lib._cgopy_FreeCString(c)
         if _PY3:
             pystr = pystr.decode('utf8')
         return pystr

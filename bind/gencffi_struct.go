@@ -41,7 +41,7 @@ func (g *cffiGen) genStructConversion(s Struct) {
 	g.wrapper.Printf("def cffi_cgopy_cnv_c2py_%[1]s_%[2]s(c):\n", s.Package().Name(), s.GoName())
 	g.wrapper.Indent()
 	g.wrapper.Printf("o = %[1]s()\n", s.GoName())
-	g.wrapper.Printf("o.cgopy = ffi.gc(c, _cffi_helper.lib.cgopy_decref)\n")
+	//g.wrapper.Printf("o.cgopy = ffi.gc(c, _cffi_helper.lib.cgopy_decref)\n")
 	g.wrapper.Printf("return o\n\n")
 	g.wrapper.Outdent()
 }

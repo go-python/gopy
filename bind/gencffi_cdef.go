@@ -239,10 +239,10 @@ func (g *cffiGen) genCdefStructMemberSetter(s Struct, i int, f types.Object) {
 
 // genCdefStructTPStr generates C definitions of str method for a Go struct.
 func (g *cffiGen) genCdefStructTPStr(s Struct) {
-	g.wrapper.Printf("extern GoString cgo_func_%[1]s_str(void* p0);\n", s.sym.id)
+	g.wrapper.Printf("extern const char* cgo_func_%[1]s_str(void* p0);\n", s.sym.id)
 }
 
 // genCdefTypeTPStr generates C definitions of str method for a Go type.
 func (g *cffiGen) genCdefTypeTPStr(sym *symbol) {
-	g.wrapper.Printf("extern GoString cgo_func_%[1]s_str(%[2]s p0);\n", sym.id, sym.cgoname)
+	g.wrapper.Printf("extern const char* cgo_func_%[1]s_str(%[2]s p0);\n", sym.id, sym.cgoname)
 }
