@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -55,12 +56,14 @@ func TestGofmt(t *testing.T) {
 	}
 }
 
-var testBackends = map[string]int{
-	"python2":  1,
-	"py2-cffi": 1,
-}
+var testBackends = map[string]bool{}
 
 func init() {
+	if os.Getenv("GOPY_TRAVIS_CI") == "1" {
+		log.Printf("Running in travis CI")
+	}
+
+	var disabled []string
 	for _, be := range []struct {
 		name   string
 		vm     string
@@ -84,11 +87,21 @@ func init() {
 		cmd.Stderr = os.Stderr
 		err := cmd.Run()
 		if err != nil {
-			log.Printf("disabling testbackend: %q", be.name)
-			continue
+			log.Printf("disabling testbackend: %q, error: '%s'", be.name, err.Error())
+			testBackends[be.name] = false
+			disabled = append(disabled, be.name)
+		} else {
+			log.Printf("enabling testbackend: %q", be.name)
+			testBackends[be.name] = true
 		}
-		log.Printf("enabling testbackend: %q", be.name)
-		testBackends[be.name] = 1
+	}
+
+	if len(disabled) > 0 {
+		log.Printf("The following test backends are not available: %s",
+			strings.Join(disabled, ", "))
+		if os.Getenv("GOPY_TRAVIS_CI") == "1" {
+			log.Fatalf("Not all backends available in travis CI")
+		}
 	}
 }
 

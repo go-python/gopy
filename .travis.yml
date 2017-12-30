@@ -13,10 +13,18 @@ matrix:
 sudo: required
 
 before_install:
-   - sudo apt-get install libffi-dev python-cffi
-   - export PATH=$HOME/gopath/bin:$PATH
+   - sudo apt-get install libffi-dev python-cffi pypy python3-cffi
+   - export PATH=$HOME/gopath/bin:/usr/local/bin:$PATH
+   # Init() in main_test will make sure all backends are available if
+   # GOPY_TRAVIS_CI is set
+   - export GOPY_TRAVIS_CI=1
    # temporary workaround for go-python/gopy#83
    - export GODEBUG=cgocheck=0
+   # pypy3 isn't packaged in ubuntu yet.
+   - TEMPDIR=$(mktemp -d)
+   - curl -L https://bitbucket.org/squeaky/portable-pypy/downloads/pypy3.5-5.10.0-linux_x86_64-portable.tar.bz2 --output $TEMPDIR/pypy3.tar.bz2
+   - tar xf $TEMPDIR/pypy3.tar.bz2 -C $TEMPDIR
+   - sudo ln -s $TEMPDIR/pypy3.5-5.10.0-linux_x86_64-portable/bin/pypy3 /usr/local/bin/pypy3
 
 notifications:
   email:

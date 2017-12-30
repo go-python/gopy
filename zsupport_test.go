@@ -16,8 +16,9 @@ func testPkg(t *testing.T, table pkg) {
 		backends = []string{"py2"}
 	}
 	for _, be := range backends {
-		if _, ok := testBackends[be]; !ok {
+		if !testBackends[be] {
 			// backend not available.
+			t.Logf("Skipped testing backend %s for %s\n", be, table.path)
 			continue
 		}
 		switch be {
