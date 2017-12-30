@@ -4,10 +4,15 @@ gopy
 [![GoDoc](https://godoc.org/github.com/go-python/gopy?status.svg)](https://godoc.org/github.com/go-python/gopy)
 [![Build Status](https://travis-ci.org/go-python/gopy.svg?branch=master)](https://travis-ci.org/go-python/gopy)
 
-`gopy` generates (and compiles) a `CPython` extension module from a `go` package.
+`gopy` generates (and compiles) a `CPython` extension module from a `go`
+package.
 
-**WARNING** `gopy` is currently not compatible with `Go>=1.6` and its improved `CGo` rules as documented in [cmd/cgo](https://golang.org/cmd/cgo/#hdr-Passing_pointers).
-To be able to run a `CPython` module generated with `Go>=1.6`, one needs to export `GODEBUG=cgocheck=0` to disable the `CGo` rules runtime checker. (see [issue 83](https://github.com/go-python/gopy/issues/83) for more informations.)
+**WARNING** `gopy` is currently not compatible with `Go>=1.6` and its improved
+`CGo` rules as documented in
+[cmd/cgo](https://golang.org/cmd/cgo/#hdr-Passing_pointers).  To be able to run
+a `CPython` module generated with `Go>=1.6`, one needs to export
+`GODEBUG=cgocheck=0` to disable the `CGo` rules runtime checker. (see [issue
+83](https://github.com/go-python/gopy/issues/83) for more informations.)
 
 ## Installation
 
@@ -19,18 +24,25 @@ You will need `Go >= 1.5`.
 
 ## Community
 
-The `go-python` community can be reached out at [go-python@googlegroups.com](mailto:go-python@googlegroups.com) or via the web forum: [go-python group](https://groups.google.com/forum/#!forum/go-python).
-See the [CONTRIBUTING](https://github.com/go-python/gopy/blob/master/CONTRIBUTE.md) guide for pointers on how to contribute to `gopy`.
+The `go-python` community can be reached out at
+[go-python@googlegroups.com](mailto:go-python@googlegroups.com) or via the web
+forum: [go-python group](https://groups.google.com/forum/#!forum/go-python).
+See the
+[CONTRIBUTING](https://github.com/go-python/gopy/blob/master/CONTRIBUTE.md)
+guide for pointers on how to contribute to `gopy`.
 
 ## Documentation
 
-A presentation was given at [dotgo-2015](http://talks.godoc.org/github.com/sbinet/talks/2015/20151109-gopy-dotgo/gopy-dotgo.slide).
-A longer version of that talk is also available [here](http://talks.godoc.org/github.com/sbinet/talks/2015/20150929-gopy-lyon/gopy-lyon.slide#17).
-An article was also posted on the [GopherAcademy Advent-2015](https://blog.gopheracademy.com/advent-2015/gopy/).
+A presentation was given at
+[dotgo-2015](http://talks.godoc.org/github.com/sbinet/talks/2015/20151109-gopy-dotgo/gopy-dotgo.slide).
+A longer version of that talk is also available
+[here](http://talks.godoc.org/github.com/sbinet/talks/2015/20150929-gopy-lyon/gopy-lyon.slide#17).
+An article was also posted on the [GopherAcademy
+Advent-2015](https://blog.gopheracademy.com/advent-2015/gopy/).
 
 Documentation is available on [godoc](https://godoc.org):
- https://godoc.org/github.com/go-python/gopy
- 
+https://godoc.org/github.com/go-python/gopy
+
 or directly from the command-line prompt:
 
 ```sh
@@ -172,6 +184,11 @@ $ docker build -t go-python/gopy .
 $ docker run -it --rm go-python/gopy
 ```
 
+## Support Matrix
+
+To know what features are supported on what backends, please refer to the
+[Support matrix ](https://github.com/go-python/gopy/blob/master/SUPPORT_MATRIX.md).
+
 ## Limitations
 
 - wrap `go` structs into `python` classes **[DONE]**
@@ -184,5 +201,5 @@ $ docker run -it --rm go-python/gopy
 `gopy` is part of the `go-python` organization and licensed under `BSD-3`.
 When you want to contribute a patch or some code to `gopy`, please send a pull
 request against the `gopy` issue tracker **AND** a pull request against
-[go-python/license](https://github.com/go-python/license) adding yourself to the
-`AUTHORS` and `CONTRIBUTORS` files.
+[go-python/license](https://github.com/go-python/license) adding yourself to
+the `AUTHORS` and `CONTRIBUTORS` files.
