@@ -12,7 +12,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGovet(t *testing.T) {
@@ -180,12 +184,34 @@ func testPkgBackend(t *testing.T, lang, pycmd string, table pkg) {
 
 }
 
+var featureSupportedOnBackend = map[string][]string{
+	// FIXME(sbinet): add "cffi" when go-python/gopy#130 and go-python/gopy#125
+	// are fixed.
+	"_examples/hi":        []string{"py2"},
+	"_examples/funcs":     []string{"py2"},
+	"_examples/simple":    []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/empty":     []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/named":     []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/structs":   []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/consts":    []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/vars":      []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/seqs":      []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/cgo":       []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/pyerrors":  []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/iface":     []string{},
+	"_examples/pointers":  []string{},
+	"_examples/arrays":    []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/slices":    []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/maps":      []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/gostrings": []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+}
+
 func TestHi(t *testing.T) {
 	t.Parallel()
-
+	path := "_examples/hi"
 	testPkg(t, pkg{
-		path: "_examples/hi",
-		lang: []string{"py2"}, // FIXME(sbinet): add "cffi" when go-python/gopy#130 and go-python/gopy#125 are fixed.
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`--- doc(hi)...
 package hi exposes a few Go functions to be wrapped and used from Python.
 
@@ -314,6 +340,8 @@ mem(slice): 2
 `),
 	})
 
+	// FIXME: Add to featureSupportedOnBackend when go-python/gopy#130 and
+	// go-python/gopy#125 are fixed.
 	testPkg(t, pkg{
 		path: "_examples/hi",
 		lang: []string{"py2-cffi"},
@@ -448,9 +476,10 @@ mem(slice): caught: cannot make memory view because object does not have the buf
 
 func TestBindFuncs(t *testing.T) {
 	t.Parallel()
+	path := "_examples/funcs"
 	testPkg(t, pkg{
-		path: "_examples/funcs",
-		lang: []string{"py2"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`funcs.GetF1()...
 calling F1
 f1()= None
@@ -471,9 +500,10 @@ s2.F1() = None
 
 func TestBindSimple(t *testing.T) {
 	t.Parallel()
+	path := "_examples/simple"
 	testPkg(t, pkg{
-		path: "_examples/simple",
-		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`doc(pkg):
 'simple is a simple package.\n'
 pkg.Func()...
@@ -490,9 +520,10 @@ pkg.Comp128Add((3+4j), (2+5j)) = (5+9j)
 
 func TestBindEmpty(t *testing.T) {
 	t.Parallel()
+	path := "_examples/empty"
 	testPkg(t, pkg{
-		path: "_examples/empty",
-		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`empty.init()... [CALLED]
 doc(pkg):
 'Package empty does not expose anything.\nWe may want to wrap and import it just for its side-effects.\n'
@@ -503,9 +534,10 @@ doc(pkg):
 func TestBindPointers(t *testing.T) {
 	t.Skip("not ready yet")
 	t.Parallel()
+	path := "_examples/pointers"
 	testPkg(t, pkg{
-		path: "_examples/pointers",
-		lang: []string{"py2"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`s = pointers.S(2)
 s = pointers.S{Value:2}
 s.Value = 2
@@ -519,9 +551,10 @@ s.Value = 3
 
 func TestBindNamed(t *testing.T) {
 	t.Parallel()
+	path := "_examples/named"
 	testPkg(t, pkg{
-		path: "_examples/named",
-		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`doc(named): 'package named tests various aspects of named types.\n'
 doc(named.Float): ''
 doc(named.Float.Value): 'Value() float\n\nValue returns a float32 value\n'
@@ -589,9 +622,10 @@ s = named.Slice{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 
 func TestBindStructs(t *testing.T) {
 	t.Parallel()
+	path := "_examples/structs"
 	testPkg(t, pkg{
-		path: "_examples/structs",
-		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`s = structs.S()
 s = structs.S{}
 s.Init()
@@ -613,9 +647,10 @@ caught error: 'S2' object has no attribute 'private'
 
 func TestBindConsts(t *testing.T) {
 	t.Parallel()
+	path := "_examples/consts"
 	testPkg(t, pkg{
-		path: "_examples/consts",
-		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`c1 = c1
 c2 = 42
 c3 = 666.666
@@ -631,9 +666,10 @@ k2 = 2
 
 func TestBindVars(t *testing.T) {
 	t.Parallel()
+	path := "_examples/vars"
 	testPkg(t, pkg{
-		path: "_examples/vars",
-		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`doc(vars):
 ''
 doc(vars.GetV1()):
@@ -669,9 +705,10 @@ doc of vars.SetDoc = 'sets vars.Doc\n\nDoc is a top-level string with some docum
 
 func TestBindSeqs(t *testing.T) {
 	t.Parallel()
+	path := "_examples/seqs"
 	testPkg(t, pkg{
-		path: "_examples/seqs",
-		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`doc(seqs): 'package seqs tests various aspects of sequence types.\n'
 arr = seqs.Array(xrange(2))
 arr = seqs.Array{0, 1, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -696,9 +733,10 @@ s = seqs.Slice{1, 2, 10, 20}
 func TestBindInterfaces(t *testing.T) {
 	t.Skip("not ready")
 	t.Parallel()
+	path := "_examples/iface"
 	testPkg(t, pkg{
-		path: "_examples/iface",
-		lang: []string{"py2"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`
 `),
 	})
@@ -706,9 +744,10 @@ func TestBindInterfaces(t *testing.T) {
 
 func TestBindCgoPackage(t *testing.T) {
 	t.Parallel()
+	path := "_examples/cgo"
 	testPkg(t, pkg{
-		path: "_examples/cgo",
-		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`cgo.doc: 'Package cgo tests bindings of CGo-based packages.\n'
 cgo.Hi()= 'hi from go\n'
 cgo.Hello(you)= 'hello you from go\n'
@@ -718,9 +757,10 @@ cgo.Hello(you)= 'hello you from go\n'
 
 func TestPyErrors(t *testing.T) {
 	t.Parallel()
+	path := "_examples/pyerrors"
 	testPkg(t, pkg{
-		path: "_examples/pyerrors",
-		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`Divide by zero.
 pyerrors.Div(5, 2) = 2
 `),
@@ -729,9 +769,10 @@ pyerrors.Div(5, 2) = 2
 
 func TestBuiltinArrays(t *testing.T) {
 	t.Parallel()
+	path := "_examples/arrays"
 	testPkg(t, pkg{
-		path: "_examples/arrays",
-		lang: []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`Python list: [1, 2, 3, 4]
 Go array:  [4]int{1, 2, 3, 4}
 arrays.IntSum from Python list: 10
@@ -742,9 +783,10 @@ arrays.IntSum from Go array: 10
 
 func TestBuiltinSlices(t *testing.T) {
 	t.Parallel()
+	path := "_examples/slices"
 	testPkg(t, pkg{
-		path: "_examples/slices",
-		lang: []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`Python list: [1, 2, 3, 4]
 Go slice:  []int{1, 2, 3, 4}
 slices.IntSum from Python list: 10
@@ -755,9 +797,10 @@ slices.IntSum from Go slice: 10
 
 func TestBuiltinMaps(t *testing.T) {
 	t.Parallel()
+	path := "_examples/maps"
 	testPkg(t, pkg{
-		path: "_examples/maps",
-		lang: []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`maps.Sum from Go map: 8.0
 maps.Sum from Python dictionary: 8.0
 maps.Keys from Go map: []int{1, 2}
@@ -770,11 +813,86 @@ maps.Values from Python dictionary: []float64{3, 5}
 
 func TestBindStrings(t *testing.T) {
 	t.Parallel()
+	path := "_examples/gostrings"
 	testPkg(t, pkg{
-		path: "_examples/gostrings",
-		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		path: path,
+		lang: featureSupportedOnBackend[path],
 		want: []byte(`S1 = S1
 GetString() = MyString
 `),
 	})
+}
+
+// Generate / verify SUPPORT_MATRIX.md from featureSupportedOnBackend map.
+func TestCheckSupportMatrix(t *testing.T) {
+	var supportMatrixMd bytes.Buffer
+	supportMatrixMd.WriteString("# Support matrix\n")
+	supportMatrixMd.WriteString(`
+NOTE: File auto-generated by TestCheckSupportMatrix in main_test.go. Please
+don't modify manually.
+
+`)
+
+	// Generate
+	// - sorted list of features
+	// - sorted list of backends
+	// - a map of feature to available backends
+	var featuresSorted []string
+	var allBackendsSorted []string
+	featureToBackendMap := make(map[string]map[string]bool)
+	allBackends := make(map[string]bool)
+	for feature, backends := range featureSupportedOnBackend {
+		featuresSorted = append(featuresSorted, feature)
+		featureToBackendMap[feature] = make(map[string]bool)
+		for _, backend := range backends {
+			featureToBackendMap[feature][backend] = true
+			allBackends[backend] = true
+		}
+	}
+	for backend, _ := range allBackends {
+		allBackendsSorted = append(allBackendsSorted, backend)
+	}
+	sort.Strings(featuresSorted)
+	sort.Strings(allBackendsSorted)
+
+	// Write the table header and the line separating header and rows.
+	supportMatrixMd.WriteString("Feature |")
+	supportMatrixMd.WriteString(strings.Join(allBackendsSorted, " | "))
+	supportMatrixMd.WriteString("\n")
+	var tableDelimiters []string
+	for i := 0; i <= len(allBackendsSorted); i++ {
+		tableDelimiters = append(tableDelimiters, "---")
+	}
+	supportMatrixMd.WriteString(strings.Join(tableDelimiters, " | "))
+	supportMatrixMd.WriteString("\n")
+
+	// Write the actual rows of the support matrix.
+	for _, feature := range featuresSorted {
+		var cells []string
+		cells = append(cells, feature)
+		for _, backend := range allBackendsSorted {
+			if featureToBackendMap[feature][backend] {
+				cells = append(cells, "yes")
+			} else {
+				cells = append(cells, "no")
+			}
+		}
+		supportMatrixMd.WriteString(strings.Join(cells, " | "))
+		supportMatrixMd.WriteString("\n")
+	}
+
+	if os.Getenv("GOPY_GENERATE_SUPPORT_MATRIX") == "1" {
+		ioutil.WriteFile("SUPPORT_MATRIX.md", supportMatrixMd.Bytes(), 0644)
+	} else {
+		actualSupportMatrixBytes, err := ioutil.ReadFile("SUPPORT_MATRIX.md")
+		msg := `
+This is a test case to verify the support matrix. This test is likely failing
+because the map featureSupportedOnBackend has been updated and the
+auto-generated file SUPPORT_MATRIX.md hasn't been updated. Please run 'go test'
+with environment variable GOPY_GENERATE_SUPPORT_MATRIX=1 to regenerate
+SUPPORT_MATRIX.md and commit the changes to SUPPORT_MATRIX.md onto git.
+`
+		assert.Nil(t, err, msg)
+		assert.Equal(t, supportMatrixMd.Bytes(), actualSupportMatrixBytes, msg)
+	}
 }
