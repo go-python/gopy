@@ -122,16 +122,12 @@ func testPkgBackend(t *testing.T, lang, pycmd string, table pkg) {
 	}
 	defer os.RemoveAll(workdir)
 
-	cmd := exec.Command("gopy", "bind", "-lang="+lang, "-output="+workdir, "./"+table.path)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
+	err = run([]string{"bind", "-lang=" + lang, "-output=" + workdir, "./" + table.path})
 	if err != nil {
 		t.Fatalf("[%s:%s:%s]: error running gopy-bind: %v\n", lang, pycmd, table.path, err)
 	}
 
-	cmd = exec.Command(
+	cmd := exec.Command(
 		"/bin/cp", "./"+table.path+"/test.py",
 		filepath.Join(workdir, "test.py"),
 	)
