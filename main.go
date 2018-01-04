@@ -5,6 +5,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -31,19 +32,24 @@ func init() {
 	}
 }
 
+func run(args []string) error {
+	err := app.Flag.Parse(args)
+	if err != nil {
+		return fmt.Errorf("could not parse flags: %v", err)
+	}
+
+	appArgs := app.Flag.Args()
+	err = app.Dispatch(appArgs)
+	if err != nil {
+		return fmt.Errorf("error dispatching command: %v", err)
+	}
+	return nil
+}
+
 func main() {
-	err := app.Flag.Parse(os.Args[1:])
+	err := run(os.Args[1:])
 	if err != nil {
-		log.Printf("error parsing flags: %v\n", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
-
-	args := app.Flag.Args()
-	err = app.Dispatch(args)
-	if err != nil {
-		log.Printf("error dispatching command: %v\n", err)
-		os.Exit(1)
-	}
-
 	os.Exit(0)
 }
