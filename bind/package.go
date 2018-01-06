@@ -468,9 +468,10 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 		return Func{}, fmt.Errorf("bind: too many results to return: %v", obj)
 	}
 
-	id := obj.Pkg().Name() + "_" + obj.Name()
+	pkgname := sanitize(obj.Pkg().Name())
+	id := pkgname + "_" + obj.Name()
 	if parent != "" {
-		id = obj.Pkg().Name() + "_" + parent + "_" + obj.Name()
+		id = pkgname + "_" + sanitize(parent) + "_" + obj.Name()
 	}
 
 	return Func{

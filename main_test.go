@@ -778,3 +778,36 @@ GetString() = MyString
 `),
 	})
 }
+
+func TestIssues(t *testing.T) {
+	dirs, err := filepath.Glob("_issues/*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dirs) == 0 {
+		t.Fatalf("cannot find _issues")
+	}
+	exclude := []string{ // TODO(sbinet): remove this list
+		"issue148",
+	}
+	for _, dir := range dirs {
+		skip := false
+		name := filepath.Base(dir)
+		for _, n := range exclude {
+			if n == name {
+				skip = true
+			}
+		}
+		if skip {
+			continue
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			testPkg(t, pkg{
+				path: dir,
+				lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+				want: []byte("OK"),
+			})
+		})
+	}
+}

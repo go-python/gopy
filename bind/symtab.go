@@ -292,6 +292,7 @@ func (sym *symtab) addSymbol(obj types.Object) {
 	if pkg != nil {
 		id = pkg.Name() + "_" + n
 	}
+	id = sanitize(id)
 	switch obj.(type) {
 	case *types.Const:
 		sym.syms[fn] = &symbol{
@@ -364,6 +365,7 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 	if pkg != nil {
 		id = pkg.Name() + "_" + n
 	}
+	id = sanitize(id)
 	kind := skType
 	switch typ := t.(type) {
 	case *types.Basic:

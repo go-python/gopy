@@ -158,3 +158,9 @@ func getGoVersion(version string) (int64, int64, error) {
 	minor, _ := strconv.ParseInt(version_info[1], 10, 0)
 	return major, minor, nil
 }
+
+func sanitize(s string) string {
+	s = strings.Replace(s, ".", "_", -1)
+	s = strings.Replace(s, "/", "_", -1)
+	return s
+}
