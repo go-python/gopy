@@ -15,8 +15,6 @@ sudo: required
 before_install:
    - sudo apt-get install libffi-dev python-cffi
    - export PATH=$HOME/gopath/bin:$PATH
-   # temporary workaround for go-python/gopy#83
-   - export GODEBUG=cgocheck=0
 
 notifications:
   email:

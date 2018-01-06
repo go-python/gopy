@@ -13,8 +13,6 @@ import (
 	"os/exec"
 	"regexp"
 	"sort"
-	"strconv"
-	"strings"
 )
 
 func isErrorType(typ types.Type) bool {
@@ -145,16 +143,4 @@ func getPkgConfig(vers int) (string, error) {
 	pkgcfg := pkgs[0]
 
 	return pkgcfg, nil
-}
-
-func getGoVersion(version string) (int64, int64, error) {
-	version_regex := regexp.MustCompile(`^go((\d+)(\.(\d+))*)`)
-	match := version_regex.FindStringSubmatch(version)
-	if match == nil {
-		return -1, -1, fmt.Errorf("gopy: invalid Go version information: %q", version)
-	}
-	version_info := strings.Split(match[1], ".")
-	major, _ := strconv.ParseInt(version_info[0], 10, 0)
-	minor, _ := strconv.ParseInt(version_info[1], 10, 0)
-	return major, minor, nil
 }
