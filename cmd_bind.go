@@ -31,7 +31,7 @@ ex:
 		Flag: *flag.NewFlagSet("gopy-bind", flag.ExitOnError),
 	}
 
-	cmd.Flag.String("lang", defaultPyVersion, "python version to use for bindings (python2|py2|python3|py3)")
+	cmd.Flag.String("lang", defaultPyVersion, "python version to use for bindings (python2|py2|python3|py3|cffi)")
 	cmd.Flag.String("output", "", "output directory for bindings")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	cmd.Flag.Bool("work", false, "print the name of temporary work directory and do not delete it when exiting")

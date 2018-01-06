@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defaultPyVersion = "py2"
+	defaultPyVersion = "cffi"
 )
 
 var (
