@@ -172,6 +172,11 @@ $ docker build -t go-python/gopy .
 $ docker run -it --rm go-python/gopy
 ```
 
+## Support Matrix
+
+To know what features are supported on what backends, please refer to the
+[Support matrix ](https://github.com/go-python/gopy/blob/master/SUPPORT_MATRIX.md).
+
 ## Limitations
 
 - wrap `go` structs into `python` classes **[DONE]**
