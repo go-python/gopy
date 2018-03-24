@@ -104,7 +104,11 @@ func (g *cffiGen) genStructInit(s Struct) {
 		g.wrapper.Outdent()
 		g.wrapper.Printf("if %[1]s != None:\n", kwd_name)
 		g.wrapper.Indent()
-		g.wrapper.Printf("if not isinstance(%[1]s, %[2]s):\n", kwd_name, ifield.sym.pysig)
+		if ifield.sym.isSlice() {
+			g.wrapper.Printf("if not isinstance(%[1]s, list):\n", kwd_name)
+		} else {
+			g.wrapper.Printf("if not isinstance(%[1]s, %[2]s):\n", kwd_name, ifield.sym.pysig)
+		}
 		g.wrapper.Indent()
 		g.wrapper.Printf("raise TypeError(\"invalid type for '%[1]s' attribute\")\n", field.Name())
 		g.wrapper.Outdent()

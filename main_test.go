@@ -791,3 +791,21 @@ GetString() = MyString
 `),
 	})
 }
+
+func TestLot(t *testing.T) {
+	t.Parallel()
+	path := "_examples/lot"
+	testPkg(t, pkg{
+		path: path,
+		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		want: []byte(`l.SomeString : some string
+l.SomeInt : 1337
+l.SomeFloat : 1337.1337
+l.SomeBool : True
+l.SomeListOfStrings: []string{"some", "list", "of", "strings"}
+l.SomeListOfInts: []int64{6, 2, 9, 1}
+l.SomeListOfFloats: []float64{6.6, 2.2, 9.9, 1.1}
+l.SomeListOfBools: []bool{true, false, true, false}
+`),
+	})
+}
