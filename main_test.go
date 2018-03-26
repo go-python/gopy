@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -57,6 +58,8 @@ func TestGofmt(t *testing.T) {
 }
 
 var testBackends = map[string]bool{}
+
+var tableMutex sync.Mutex
 
 func init() {
 	if os.Getenv("GOPY_TRAVIS_CI") == "1" {
@@ -112,6 +115,16 @@ type pkg struct {
 }
 
 func testPkgBackend(t *testing.T, lang, pycmd string, table pkg) {
+	tableMutex.Lock()
+	tempTable := pkg{
+		path: table.path,
+		lang: table.lang,
+		want: table.want,
+	}
+	tableMutex.Unlock()
+
+	table = tempTable
+
 	workdir, err := ioutil.TempDir("", "gopy-")
 	if err != nil {
 		t.Fatalf("[%s:%s:%s]: could not create workdir: %v\n", lang, pycmd, table.path, err)
