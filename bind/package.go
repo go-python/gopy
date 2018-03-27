@@ -30,7 +30,11 @@ type Package struct {
 
 // NewPackage creates a new Package, tying types.Package and ast.Package together.
 func NewPackage(pkg *types.Package, doc *doc.Package) (*Package, error) {
+	// protection for parallel tests
+	universeMutex.Lock()
+	defer universeMutex.Unlock()
 	universe.pkg = pkg // FIXME(sbinet)
+
 	sz := int64(reflect.TypeOf(int(0)).Size())
 	p := &Package{
 		pkg:  pkg,

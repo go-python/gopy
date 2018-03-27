@@ -17,12 +17,8 @@ const (
 	defaultPyVersion = "py2"
 )
 
-var (
-	app *commander.Command
-)
-
-func init() {
-	app = &commander.Command{
+func run(args []string) error {
+	app := &commander.Command{
 		UsageLine: "gopy",
 		Subcommands: []*commander.Command{
 			gopyMakeCmdGen(),
@@ -30,9 +26,7 @@ func init() {
 		},
 		Flag: *flag.NewFlagSet("gopy", flag.ExitOnError),
 	}
-}
 
-func run(args []string) error {
 	err := app.Flag.Parse(args)
 	if err != nil {
 		return fmt.Errorf("could not parse flags: %v", err)
