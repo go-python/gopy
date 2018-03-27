@@ -11,10 +11,12 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 )
 
 var (
-	universe *symtab
+	universeMutex sync.Mutex
+	universe      *symtab
 )
 
 func hash(s string) string {
