@@ -52,7 +52,7 @@ func getTypeString(t types.Type) string {
 }
 
 func (v *Var) GoType() types.Type {
-	return v.sym.goobj.Type()
+	return v.sym.gotyp
 }
 
 func (v *Var) CType() string {

@@ -20,6 +20,9 @@ func (g *cpyGen) genType(sym *symbol) {
 	if sym.isBasic() && !sym.isNamed() {
 		return
 	}
+	if sym.isPointer() {
+		return
+	}
 
 	g.decl.Printf("\n/* --- decls for type %v --- */\n", sym.gofmt())
 	if sym.isBasic() {

@@ -277,26 +277,7 @@ func (g *goGen) genFuncBody(f Func) {
 	}
 
 	g.Printf("%s.%s(", g.pkg.Name(), f.GoName())
-
-	args := sig.Params()
-	for i, arg := range args {
-		tail := ""
-		if i+1 < len(args) {
-			tail = ", "
-		}
-		head := arg.Name()
-		if arg.needWrap() {
-			head = fmt.Sprintf(
-				"*(*%s)(unsafe.Pointer(%s))",
-				types.TypeString(
-					arg.GoType(),
-					func(*types.Package) string { return g.pkg.Name() },
-				),
-				arg.Name(),
-			)
-		}
-		g.Printf("%s%s", head, tail)
-	}
+	g.genParams(sig.Params())
 	g.Printf(")\n")
 
 	if len(results) <= 0 {
@@ -307,7 +288,11 @@ func (g *goGen) genFuncBody(f Func) {
 		if !res.needWrap() {
 			continue
 		}
-		g.Printf("cgopy_incref(unsafe.Pointer(&_gopy_%03d))\n", i)
+		if res.sym.isPointer() {
+			g.Printf("cgopy_incref(unsafe.Pointer(_gopy_%03d))\n", i)
+		} else {
+			g.Printf("cgopy_incref(unsafe.Pointer(&_gopy_%03d))\n", i)
+		}
 	}
 
 	g.Printf("return ")
@@ -319,14 +304,47 @@ func (g *goGen) genFuncBody(f Func) {
 		// 	g.Printf("")
 		// }
 		if res.needWrap() {
-			g.Printf("%s(unsafe.Pointer(&", res.sym.cgoname)
+			if res.sym.isPointer() {
+				g.Printf("%s(unsafe.Pointer(", res.sym.cgoname)
+			} else {
+				g.Printf("%s(unsafe.Pointer(&", res.sym.cgoname)
+			}
 		}
+
 		g.Printf("_gopy_%03d", i)
 		if res.needWrap() {
 			g.Printf("))")
 		}
 	}
 	g.Printf("\n")
+}
+
+func (g *goGen) genParams(args []*Var) {
+	for i, arg := range args {
+		tail := ""
+		if i+1 < len(args) {
+			tail = ", "
+		}
+
+		head := arg.Name()
+		if arg.needWrap() {
+			wrtype := "*(*%s)(unsafe.Pointer(%s))"
+			if arg.sym.isPointer() {
+				wrtype = "(*%s)(%s)"
+			}
+
+			head = fmt.Sprintf(
+				wrtype,
+				types.TypeString(
+					arg.GoType(),
+					func(*types.Package) string { return g.pkg.Name() },
+				),
+				arg.Name(),
+			)
+		}
+
+		g.Printf("%s%s", head, tail)
+	}
 }
 
 func (g *goGen) genStruct(s Struct) {
@@ -483,18 +501,7 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 		m.GoName(),
 	)
 
-	args := sig.Params()
-	for i, arg := range args {
-		tail := ""
-		if i+1 < len(args) {
-			tail = ", "
-		}
-		if arg.sym.isStruct() {
-			g.Printf("*(*%s)(unsafe.Pointer(%s))%s", arg.sym.gofmt(), arg.Name(), tail)
-		} else {
-			g.Printf("%s%s", arg.Name(), tail)
-		}
-	}
+	g.genParams(sig.Params())
 	g.Printf(")\n")
 
 	if len(results) <= 0 {
@@ -505,7 +512,11 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 		if !res.needWrap() {
 			continue
 		}
-		g.Printf("cgopy_incref(unsafe.Pointer(&_gopy_%03d))\n", i)
+		if res.sym.isPointer() {
+			g.Printf("cgopy_incref(unsafe.Pointer(_gopy_%03d))\n", i)
+		} else {
+			g.Printf("cgopy_incref(unsafe.Pointer(&_gopy_%03d))\n", i)
+		}
 	}
 
 	g.Printf("return ")
@@ -517,7 +528,11 @@ func (g *goGen) genMethodBody(s Struct, m Func) {
 		// 	g.Printf("")
 		// }
 		if res.needWrap() {
-			g.Printf("%s(unsafe.Pointer(&", res.sym.cgoname)
+			if res.sym.isPointer() {
+				g.Printf("%s(unsafe.Pointer(", res.sym.cgoname)
+			} else {
+				g.Printf("%s(unsafe.Pointer(&", res.sym.cgoname)
+			}
 		}
 		g.Printf("_gopy_%03d", i)
 		if res.needWrap() {
@@ -586,6 +601,9 @@ func (g *goGen) genType(sym *symbol) {
 		return
 	}
 	if sym.isBasic() && !sym.isNamed() {
+		return
+	}
+	if sym.isPointer() {
 		return
 	}
 
