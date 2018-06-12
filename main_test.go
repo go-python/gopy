@@ -211,6 +211,7 @@ var features = map[string][]string{
 	"_examples/slices":    []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 	"_examples/maps":      []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 	"_examples/gostrings": []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/rename":    []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 }
 
 func TestHi(t *testing.T) {
@@ -826,6 +827,18 @@ func TestBindStrings(t *testing.T) {
 		lang: features[path],
 		want: []byte(`S1 = S1
 GetString() = MyString
+`),
+	})
+}
+
+func TestBindRename(t *testing.T) {
+	t.Parallel()
+	path := "_examples/rename"
+	testPkg(t, pkg{
+		path: path,
+		lang: features[path],
+		want: []byte(`hi
+something
 `),
 	})
 }

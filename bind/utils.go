@@ -158,3 +158,20 @@ func getGoVersion(version string) (int64, int64, error) {
 	minor, _ := strconv.ParseInt(version_info[1], 10, 0)
 	return major, minor, nil
 }
+
+func extractPythonName(gname, gdoc string) (string, string, error) {
+	const PythonName = "\ngopy:name "
+	i := strings.Index(gdoc, PythonName)
+	if i < 0 {
+		return gname, gdoc, nil
+	}
+	s := gdoc[i+len(PythonName):]
+	if end := strings.Index(s, "\n"); end > 0 {
+		validIdPattern := regexp.MustCompile(`^[\pL][\pL_\pN]+$`)
+		if !validIdPattern.MatchString(s[:end]) {
+			return "", "", fmt.Errorf("gopy: invalid identifier: %s", s[:end])
+		}
+		return s[:end], gdoc[:i] + s[end:], nil
+	}
+	return gname, gdoc, nil
+}
