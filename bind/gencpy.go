@@ -215,10 +215,13 @@ func (g *cpyGen) gen() error {
 	g.impl.Printf("static PyMethodDef cpy_%s_methods[] = {\n", g.pkg.pkg.Name())
 	g.impl.Indent()
 	for _, f := range g.pkg.funcs {
-		name := f.GoName()
 		//obj := scope.Lookup(name)
+		gname, gdoc, err := extractPythonName(f.GoName(), f.Doc())
+		if err != nil {
+			panic(err)
+		}
 		g.impl.Printf("{%[1]q, %[2]s, METH_VARARGS, %[3]q},\n",
-			name, "cpy_func_"+f.ID(), f.Doc(),
+			gname, "cpy_func_"+f.ID(), gdoc,
 		)
 	}
 	// expose ctors at module level

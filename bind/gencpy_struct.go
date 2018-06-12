@@ -430,12 +430,16 @@ func (g *cpyGen) genStructMethods(cpy Struct) {
 		if len(m.Signature().Params()) == 0 {
 			margs = "METH_NOARGS"
 		}
+		gname, gdoc, err := extractPythonName(m.GoName(), m.Doc())
+		if err != nil {
+			panic(err)
+		}
 		g.impl.Printf(
 			"{%[1]q, (PyCFunction)cpy_func_%[2]s, %[3]s, %[4]q},\n",
-			m.GoName(),
+			gname,
 			m.ID(),
 			margs,
-			m.Doc(),
+			gdoc,
 		)
 	}
 	g.impl.Printf("{NULL} /* sentinel */\n")

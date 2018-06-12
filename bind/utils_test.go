@@ -38,3 +38,33 @@ func TestGetGoVersion(t *testing.T) {
 		}
 	}
 }
+
+func TestExtractPythonName(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		goDoc    string
+		newName  string
+		newGoDoc string
+		err      error
+	}{
+		{"Func1", "", "Func1", "", nil},
+		{"Func2", "\ngopy:name func2\n", "func2", "\n", nil},
+		{"Func3", "\ngopy:name bad name\n", "", "", errors.New("gopy: invalid identifier: bad name")},
+		{"Func4", "\nsome comment\n", "Func4", "\nsome comment\n", nil},
+		{"Func5", "\nsome comment\ngopy:name func5\n", "func5", "\nsome comment\n", nil},
+	} {
+		newName, newGoDoc, err := extractPythonName(tt.name, tt.goDoc)
+
+		if newName != tt.newName {
+			t.Errorf("extractPythonName(%s, %s): expected name %s, actual %s", tt.name, tt.goDoc, tt.newName, newName)
+		}
+
+		if newGoDoc != tt.newGoDoc {
+			t.Errorf("extractPythonName(%s, %s): expected comment %s, actual %s", tt.name, tt.goDoc, tt.newGoDoc, newGoDoc)
+		}
+
+		if err != nil && err.Error() != tt.err.Error() {
+			t.Errorf("extractPythonName(%s, %s): expected err %s, actual %s", tt.name, tt.goDoc, tt.err, err)
+		}
+	}
+}

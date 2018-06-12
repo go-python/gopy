@@ -17,6 +17,7 @@ _examples/maps | no | yes | yes | yes | yes
 _examples/named | yes | yes | yes | yes | yes
 _examples/pointers | no | no | no | no | no
 _examples/pyerrors | yes | yes | yes | yes | yes
+_examples/rename | yes | yes | yes | yes | yes
 _examples/seqs | yes | yes | yes | yes | yes
 _examples/simple | yes | yes | yes | yes | yes
 _examples/slices | no | yes | yes | yes | yes

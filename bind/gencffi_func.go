@@ -18,6 +18,10 @@ func (g *cffiGen) genMethod(s Struct, m Func) {
 	for _, arg := range args {
 		funcArgs = append(funcArgs, arg.Name())
 	}
+	gname, gdoc, err := extractPythonName(m.GoName(), m.Doc())
+	if err != nil {
+		panic(err)
+	}
 
 	g.wrapper.Printf(`
 #  pythonization of: %[1]s.%[2]s
@@ -25,9 +29,9 @@ def %[2]s(%[3]s):
     ""%[4]q""
 `,
 		g.pkg.pkg.Name(),
-		m.GoName(),
+		gname,
 		strings.Join(funcArgs, ", "),
-		m.Doc(),
+		gdoc,
 	)
 	g.wrapper.Indent()
 	g.genMethodBody(s, m)
@@ -111,15 +115,19 @@ func (g *cffiGen) genFunc(o Func) {
 	for _, arg := range args {
 		funcArgs = append(funcArgs, arg.Name())
 	}
+	gname, gdoc, err := extractPythonName(o.GoName(), o.Doc())
+	if err != nil {
+		panic(err)
+	}
 	g.wrapper.Printf(`
 # pythonization of: %[1]s.%[2]s 
 def %[2]s(%[3]s):
     ""%[4]q""
 `,
 		g.pkg.pkg.Name(),
-		o.GoName(),
+		gname,
 		strings.Join(funcArgs, ", "),
-		o.Doc(),
+		gdoc,
 	)
 
 	g.wrapper.Indent()
