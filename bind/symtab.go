@@ -144,6 +144,10 @@ func (s symbol) isStruct() bool {
 	return (s.kind & skStruct) != 0
 }
 
+func (s symbol) isPointer() bool {
+	return (s.kind & skPointer) != 0
+}
+
 func (s symbol) hasConverter() bool {
 	return s.pyfmt == "O&" && (s.c2py != "" || s.py2c != "")
 }
@@ -361,6 +365,9 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 	var pkg *types.Package
 	if obj != nil {
 		pkg = obj.Pkg()
+	}
+	if pkg == nil {
+		pkg = sym.pkg
 	}
 	id := n
 	if pkg != nil {
