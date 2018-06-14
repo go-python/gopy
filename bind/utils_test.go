@@ -52,6 +52,7 @@ func TestExtractPythonName(t *testing.T) {
 		{"Func3", "\ngopy:name bad name\n", "", "", errors.New("gopy: invalid identifier: bad name")},
 		{"Func4", "\nsome comment\n", "Func4", "\nsome comment\n", nil},
 		{"Func5", "\nsome comment\ngopy:name func5\n", "func5", "\nsome comment\n", nil},
+		{"Func6", "\nsome comment\ngopy:name __len__\n", "__len__", "\nsome comment\n", nil},
 	} {
 		newName, newGoDoc, err := extractPythonName(tt.name, tt.goDoc)
 

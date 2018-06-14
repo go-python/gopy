@@ -167,7 +167,7 @@ func extractPythonName(gname, gdoc string) (string, string, error) {
 	}
 	s := gdoc[i+len(PythonName):]
 	if end := strings.Index(s, "\n"); end > 0 {
-		validIdPattern := regexp.MustCompile(`^[\pL][\pL_\pN]+$`)
+		validIdPattern := regexp.MustCompile(`^[\pL_][\pL_\pN]+$`)
 		if !validIdPattern.MatchString(s[:end]) {
 			return "", "", fmt.Errorf("gopy: invalid identifier: %s", s[:end])
 		}
