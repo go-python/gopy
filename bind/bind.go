@@ -82,13 +82,14 @@ func GenCFFI(w io.Writer, fset *token.FileSet, pkg *Package, lang int) error {
 }
 
 // GenGo generates a cgo package from a Go package
-func GenGo(w io.Writer, fset *token.FileSet, pkg *Package, lang int) error {
+func GenGo(w io.Writer, fset *token.FileSet, pkg *Package, lang int, capi string) error {
 	buf := new(bytes.Buffer)
 	gen := &goGen{
 		printer: &printer{buf: buf, indentEach: []byte("\t")},
 		fset:    fset,
 		pkg:     pkg,
 		lang:    lang,
+		capi:    capi,
 	}
 	err := gen.gen()
 	if err != nil {

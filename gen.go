@@ -53,6 +53,25 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 		return err
 	}
 
+	og, err := os.Create(filepath.Join(odir, p.Name()+".go"))
+	if err != nil {
+		return err
+	}
+	defer og.Close()
+
+	capi := "cpython"
+	switch lang {
+	case "cffi":
+		capi = "cffi"
+	default:
+		capi = "cpython"
+	}
+
+	err = bind.GenGo(og, fset, p, pyvers, capi)
+	if err != nil {
+		return err
+	}
+
 	switch lang {
 	case "cffi":
 		o, err = os.Create(filepath.Join(odir, p.Name()+".py"))
@@ -77,21 +96,6 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 			return err
 		}
 
-	case "python3", "py3":
-		return fmt.Errorf("gopy: python-3 support not yet implemented")
-
-	case "go":
-		o, err = os.Create(filepath.Join(odir, p.Name()+".go"))
-		if err != nil {
-			return err
-		}
-		defer o.Close()
-
-		err = bind.GenGo(o, fset, p, pyvers)
-		if err != nil {
-			return err
-		}
-
 		var tmpdir string
 		tmpdir, err = ioutil.TempDir("", "gopy-go-cgo-")
 		if err != nil {
@@ -103,7 +107,7 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 		cmd := exec.Command(
 			"go", "tool", "cgo",
 			"-exportheader", hdr,
-			o.Name(),
+			og.Name(),
 		)
 		cmd.Dir = tmpdir
 		cmd.Stdin = os.Stdin
@@ -113,6 +117,9 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 		if err != nil {
 			return err
 		}
+
+	case "python3", "py3":
+		return fmt.Errorf("gopy: python-3 support not yet implemented")
 
 	default:
 		return fmt.Errorf("gopy: unknown target language: %q", lang)
