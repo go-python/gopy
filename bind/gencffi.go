@@ -249,6 +249,9 @@ func (g *cffiGen) genWrappedPy() {
 		if !sym.isType() {
 			continue
 		}
+		if sym.isPointer() {
+			continue
+		}
 		g.genTypeConverter(sym)
 	}
 

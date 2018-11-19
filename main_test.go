@@ -196,7 +196,7 @@ var features = map[string][]string{
 	// are fixed.
 	"_examples/hi":        []string{"py2"},
 	"_examples/funcs":     []string{"py2"},
-	"_examples/sliceptr":  []string{"py2"},
+	"_examples/sliceptr":  []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 	"_examples/simple":    []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 	"_examples/empty":     []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 	"_examples/named":     []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
@@ -867,7 +867,7 @@ func TestSlicePtr(t *testing.T) {
 	path := "_examples/sliceptr"
 	testPkg(t, pkg{
 		path: path,
-		lang: []string{"py2"}, //, "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 		want: []byte(`sliceptr.IntVector{1, 2, 3}
 sliceptr.IntVector{1, 2, 3, 4}
 sliceptr.StrVector{"1", "2", "3", "4"}

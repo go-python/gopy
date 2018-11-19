@@ -20,7 +20,7 @@ _examples/pyerrors | yes | yes | yes | yes | yes
 _examples/rename | yes | yes | yes | yes | yes
 _examples/seqs | yes | yes | yes | yes | yes
 _examples/simple | yes | yes | yes | yes | yes
-_examples/sliceptr | yes | no | no | no | no
+_examples/sliceptr | yes | yes | yes | yes | yes
 _examples/slices | no | yes | yes | yes | yes
 _examples/structs | yes | yes | yes | yes | yes
 _examples/vars | yes | yes | yes | yes | yes
