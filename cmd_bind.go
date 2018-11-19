@@ -117,11 +117,6 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 		return err
 	}
 
-	err = genPkg(work, pkg, "go")
-	if err != nil {
-		return err
-	}
-
 	wbind, err := ioutil.TempDir("", "gopy-")
 	if err != nil {
 		return fmt.Errorf("gopy-bind: could not create temp-workdir (%v)", err)
