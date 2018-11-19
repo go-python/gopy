@@ -53,3 +53,21 @@ try:
 except Exception as err:
     print("caught error: %s" % (err,))
     pass
+
+class S2Child(structs.S2):
+    def __init__(self, a, b):
+        super(S2Child, self).__init__(a)
+        self.local = b
+    def __str__(self):
+        return ("S2Child{S2: %s, local: %d}"
+                % (super(S2Child, self).__str__(), self.local))
+
+try:
+    s2child = S2Child(42, 123)
+    print("s2child = %s" % (s2child,))
+    print("s2child.Public = %s" % (s2child.Public,))
+    print("s2child.local = %s" % (s2child.local,))
+    print("s2child.private = %s" % (s2child.private,))
+except Exception as err:
+    print("caught error: %s" % (err,))
+    pass

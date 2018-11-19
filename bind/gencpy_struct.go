@@ -61,7 +61,7 @@ func (g *cpyGen) genStruct(cpy Struct) {
 	g.impl.Printf("0,\t/*tp_getattro*/\n")
 	g.impl.Printf("0,\t/*tp_setattro*/\n")
 	g.impl.Printf("0,\t/*tp_as_buffer*/\n")
-	g.impl.Printf("Py_TPFLAGS_DEFAULT,\t/*tp_flags*/\n")
+	g.impl.Printf("Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,\t/*tp_flags*/\n")
 	g.impl.Printf("%q,\t/* tp_doc */\n", cpy.Doc())
 	g.impl.Printf("0,\t/* tp_traverse */\n")
 	g.impl.Printf("0,\t/* tp_clear */\n")
