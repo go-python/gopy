@@ -20,6 +20,9 @@ func (g *cffiGen) genType(sym *symbol) {
 	if sym.isBasic() && !sym.isNamed() {
 		return
 	}
+	if sym.isPointer() {
+		return
+	}
 
 	var typename string
 
@@ -325,6 +328,10 @@ func (g *cffiGen) genTypeConverter(sym *symbol) {
 
 // genTypeMethod generates Type methods.
 func (g *cffiGen) genTypeMethod(sym *symbol) {
+	if sym.isPointer() {
+		return
+	}
+
 	g.wrapper.Printf("# methods for %s\n", sym.gofmt())
 	if sym.isNamed() {
 		typ := sym.GoType().(*types.Named)

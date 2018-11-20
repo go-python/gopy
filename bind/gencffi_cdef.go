@@ -33,6 +33,10 @@ func (g *cffiGen) genCdefType(sym *symbol) {
 		return
 	}
 
+	if sym.isPointer() {
+		return
+	}
+
 	g.genTypeCdefInit(sym)
 
 	if sym.isNamed() {
