@@ -15,3 +15,13 @@ func IntSum(s []int) int {
 func CreateSlice() []int {
 	return []int{1, 2, 3, 4}
 }
+
+type SliceUint8 []uint8
+type SliceUint16 []uint16
+type SliceUint32 []uint32
+type SliceUint64 []uint64
+
+type SliceInt8 []int8
+type SliceInt16 []int16
+type SliceInt32 []int32
+type SliceInt64 []int64
