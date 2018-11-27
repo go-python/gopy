@@ -103,11 +103,25 @@ cgopy_cnv_c2py_bool(GoUint8 *addr) {
 
 static int
 cgopy_cnv_py2c_string(PyObject *o, GoString *addr) {
-	const char *str = PyString_AsString(o);
-	if (str == NULL) {
-		return 0;
+	if (PyUnicode_Check(o)) {
+		o = PyUnicode_AsUTF8String(o);
+		if (o == NULL) {
+			return 0;
+		}
+		const char *str = PyString_AsString(o);
+		if (str == NULL) {
+			Py_DECREF(o);
+			return 0;
+		}
+		*addr = _cgopy_GoString((char*)str);
+		Py_DECREF(o);
+	} else {
+		const char *str = PyString_AsString(o);
+		if (str == NULL) {
+			return 0;
+		}
+		*addr = _cgopy_GoString((char*)str);
 	}
-	*addr = _cgopy_GoString((char*)str);
 	return 1;
 }
 

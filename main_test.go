@@ -213,6 +213,7 @@ var features = map[string][]string{
 	"_examples/maps":      []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 	"_examples/gostrings": []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 	"_examples/rename":    []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	"_examples/unicode":   []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 }
 
 func TestHi(t *testing.T) {
@@ -877,6 +878,19 @@ func TestSlicePtr(t *testing.T) {
 		want: []byte(`sliceptr.IntVector{1, 2, 3}
 sliceptr.IntVector{1, 2, 3, 4}
 sliceptr.StrVector{"1", "2", "3", "4"}
+`),
+	})
+}
+
+func TestUnicode(t *testing.T) {
+	t.Parallel()
+	path := "_examples/unicode"
+	testPkg(t, pkg{
+		path: path,
+		lang: []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		want: []byte(`encoding.HandleString(bytestr) -> Python byte string
+encoding.HandleString(unicodestr) -> Python Unicode string 🐱
+encoding.GetString() -> Go Unicode string 🐱
 `),
 	})
 }

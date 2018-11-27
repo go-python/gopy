@@ -87,8 +87,8 @@ class _cffi_helper(object):
 
     @staticmethod
     def cffi_cgopy_cnv_py2c_string(o):
-        if _PY3:
-            o = o.encode('ascii')
+        if (_PY3 and isinstance(o, str)) or (not _PY3 and isinstance(o, unicode)):
+            o = o.encode('utf8')
         s = ffi.new("char[]", o)
         return _cffi_helper.lib._cgopy_GoString(s)
 
