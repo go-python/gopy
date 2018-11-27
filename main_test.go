@@ -800,6 +800,8 @@ func TestBuiltinSlices(t *testing.T) {
 Go slice:  []int{1, 2, 3, 4}
 slices.IntSum from Python list: 10
 slices.IntSum from Go slice: 10
+unsigned slice elements: 1 2 3 4
+signed slice elements: -1 -2 -3 -4
 `),
 	})
 }

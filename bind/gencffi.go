@@ -97,6 +97,22 @@ class _cffi_helper(object):
         return ffi.cast('int', o)
 
     @staticmethod
+    def cffi_cgopy_cnv_py2c_int8(o):
+        return ffi.cast('int8_t', o)
+
+    @staticmethod
+    def cffi_cgopy_cnv_py2c_int16(o):
+        return ffi.cast('int16_t', o)
+
+    @staticmethod
+    def cffi_cgopy_cnv_py2c_int32(o):
+        return ffi.cast('int32_t', o)
+
+    @staticmethod
+    def cffi_cgopy_cnv_py2c_int64(o):
+        return ffi.cast('int64_t', o)
+
+    @staticmethod
     def cffi_cgopy_cnv_py2c_float32(o):
         return ffi.cast('float', o)
 
@@ -107,6 +123,22 @@ class _cffi_helper(object):
     @staticmethod
     def cffi_cgopy_cnv_py2c_uint(o):
         return ffi.cast('uint', o)
+
+    @staticmethod
+    def cffi_cgopy_cnv_py2c_uint8(o):
+        return ffi.cast('uint8_t', o)
+
+    @staticmethod
+    def cffi_cgopy_cnv_py2c_uint16(o):
+        return ffi.cast('uint16_t', o)
+
+    @staticmethod
+    def cffi_cgopy_cnv_py2c_uint32(o):
+        return ffi.cast('uint32_t', o)
+
+    @staticmethod
+    def cffi_cgopy_cnv_py2c_uint64(o):
+        return ffi.cast('uint64_t', o)
 
     @staticmethod
     def cffi_cgopy_cnv_c2py_bool(c):
@@ -143,6 +175,22 @@ class _cffi_helper(object):
         return int(c)
 
     @staticmethod
+    def cffi_cgopy_cnv_c2py_int8(c):
+        return int(c)
+
+    @staticmethod
+    def cffi_cgopy_cnv_c2py_int16(c):
+        return int(c)
+
+    @staticmethod
+    def cffi_cgopy_cnv_c2py_int32(c):
+        return int(c)
+
+    @staticmethod
+    def cffi_cgopy_cnv_c2py_int64(c):
+        return int(c)
+
+    @staticmethod
     def cffi_cgopy_cnv_c2py_float32(c):
         return float(c)
 
@@ -152,6 +200,22 @@ class _cffi_helper(object):
 
     @staticmethod
     def cffi_cgopy_cnv_c2py_uint(c):
+        return int(c)
+
+    @staticmethod
+    def cffi_cgopy_cnv_c2py_uint8(c):
+        return int(c)
+
+    @staticmethod
+    def cffi_cgopy_cnv_c2py_uint16(c):
+        return int(c)
+
+    @staticmethod
+    def cffi_cgopy_cnv_c2py_uint32(c):
+        return int(c)
+
+    @staticmethod
+    def cffi_cgopy_cnv_c2py_uint64(c):
         return int(c)
 
 `
