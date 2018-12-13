@@ -13,7 +13,7 @@ if _PY3:
 import seqs
 
 ### test docs
-print("doc(seqs): %r" % (seqs.__doc__,))
+print("doc(seqs): %s" % repr(seqs.__doc__).lstrip('u'))
 
 print("arr = seqs.Array(xrange(2))")
 arr = seqs.Array(xrange(2))

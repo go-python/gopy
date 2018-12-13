@@ -685,7 +685,7 @@ func TestBindVars(t *testing.T) {
 		path: path,
 		lang: features[path],
 		want: []byte(`doc(vars):
-''
+None
 doc(vars.GetV1()):
 'returns vars.V1'
 doc(vars.SetV1()):

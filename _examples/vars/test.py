@@ -7,9 +7,9 @@ from __future__ import print_function
 
 import vars
 
-print("doc(vars):\n%s" % repr(vars.__doc__))
-print("doc(vars.GetV1()):\n%s" % repr(vars.GetV1.__doc__))
-print("doc(vars.SetV1()):\n%s" % repr(vars.SetV1.__doc__))
+print("doc(vars):\n%s" % repr(vars.__doc__).lstrip('u'))
+print("doc(vars.GetV1()):\n%s" % repr(vars.GetV1.__doc__).lstrip('u'))
+print("doc(vars.SetV1()):\n%s" % repr(vars.SetV1.__doc__).lstrip('u'))
 
 print("Initial values")
 print("v1 = %s" % vars.GetV1())
@@ -48,6 +48,6 @@ print("v7 = %s" % vars.GetV7())
 print("k1 = %s" % vars.GetKind1())
 print("k2 = %s" % vars.GetKind2())
 
-print("vars.GetDoc() = %s" % repr(vars.GetDoc()))
-print("doc of vars.GetDoc = %s" % (repr(vars.GetDoc.__doc__),))
-print("doc of vars.SetDoc = %s" % (repr(vars.SetDoc.__doc__),))
+print("vars.GetDoc() = %s" % repr(vars.GetDoc()).lstrip('u'))
+print("doc of vars.GetDoc = %s" % repr(vars.GetDoc.__doc__).lstrip('u'))
+print("doc of vars.SetDoc = %s" % repr(vars.SetDoc.__doc__).lstrip('u'))

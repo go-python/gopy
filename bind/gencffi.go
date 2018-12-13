@@ -15,7 +15,8 @@ const (
 	//      #include "%[3]s.h"
 	//       """)
 	// discuss: https://github.com/go-python/gopy/pull/93#discussion_r119652220
-	cffiPreamble = `"""%[1]s"""
+	cffiPreamble = `%[1]s
+from __future__ import unicode_literals
 import collections
 import os
 import sys
@@ -157,8 +158,7 @@ class _cffi_helper(object):
         s = _cffi_helper.lib._cgopy_CString(c)
         pystr = ffi.string(s)
         _cffi_helper.lib._cgopy_FreeCString(s)
-        if _PY3:
-            pystr = pystr.decode('utf8')
+        pystr = pystr.decode('utf8')
         return pystr
 
     @staticmethod
@@ -166,8 +166,7 @@ class _cffi_helper(object):
         s = _cffi_helper.lib._cgopy_ErrorString(c)
         pystr = ffi.string(s)
         _cffi_helper.lib._cgopy_FreeCString(s)
-        if _PY3:
-            pystr = pystr.decode('utf8')
+        pystr = pystr.decode('utf8')
         return pystr
 
     @staticmethod
@@ -242,7 +241,11 @@ func (g *cffiGen) gen() error {
 func (g *cffiGen) genCffiPreamble() {
 	n := g.pkg.pkg.Name()
 	pkgDoc := g.pkg.doc.Doc
-	g.wrapper.Printf(cffiPreamble, pkgDoc, n)
+	if pkgDoc != "" {
+		g.wrapper.Printf(cffiPreamble, `"""`+pkgDoc+`"""`, n)
+	} else {
+		g.wrapper.Printf(cffiPreamble, "", n)
+	}
 }
 
 func (g *cffiGen) genCffiCdef() {

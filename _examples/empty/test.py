@@ -7,5 +7,5 @@ from __future__ import print_function
 
 import empty as pkg
 
-print("doc(pkg):\n%s" % repr(pkg.__doc__))
+print("doc(pkg):\n%s" % repr(pkg.__doc__).lstrip('u'))
 
