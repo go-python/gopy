@@ -128,7 +128,7 @@ cgopy_cnv_py2c_string(PyObject *o, GoString *addr) {
 static PyObject*
 cgopy_cnv_c2py_string(GoString *addr) {
 	const char *str = _cgopy_CString(*addr);
-	PyObject *pystr = PyString_FromString(str);
+	PyObject *pystr = PyUnicode_FromString(str);
 	free((void*)str);
 	return pystr;
 }
@@ -298,10 +298,16 @@ func (g *cpyGen) gen() error {
 		)
 	}
 
-	g.impl.Printf("module = Py_InitModule3(%[1]q, cpy_%[1]s_methods, %[2]q);\n\n",
-		g.pkg.pkg.Name(),
-		g.pkg.doc.Doc,
-	)
+	if g.pkg.doc.Doc != "" {
+		g.impl.Printf("module = Py_InitModule3(%[1]q, cpy_%[1]s_methods, %[2]q);\n\n",
+			g.pkg.pkg.Name(),
+			g.pkg.doc.Doc,
+		)
+	} else {
+		g.impl.Printf("module = Py_InitModule3(%[1]q, cpy_%[1]s_methods, NULL);\n\n",
+			g.pkg.pkg.Name(),
+		)
+	}
 
 	for _, n := range g.pkg.syms.names() {
 		sym := g.pkg.syms.sym(n)

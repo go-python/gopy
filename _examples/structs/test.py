@@ -12,7 +12,7 @@ s = structs.S()
 print("s = %s" % (s,))
 print("s.Init()")
 s.Init()
-print("s.Upper('boo')= %r" % (s.Upper("boo"),))
+print("s.Upper('boo')= %s" % repr(s.Upper("boo")).lstrip('u'))
 
 print("s1 = structs.S1()")
 s1 = structs.S1()

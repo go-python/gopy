@@ -14,9 +14,9 @@ if _PY3:
 import named
 
 ### test docs
-print("doc(named): %r" % (named.__doc__,))
-print("doc(named.Float): %r" % (named.Float.__doc__,))
-print("doc(named.Float.Value): %r" % (named.Float.Value.__doc__,))
+print("doc(named): %s" % repr(named.__doc__).lstrip('u'))
+print("doc(named.Float): %s" % repr(named.Float.__doc__).lstrip('u'))
+print("doc(named.Float.Value): %s" % repr(named.Float.Value.__doc__).lstrip('u'))
 
 print("v = named.Float()")
 v = named.Float()
@@ -83,12 +83,12 @@ print("x.Value() = %s" % (x.Value(),))
 print("s = named.Str()")
 s = named.Str()
 print("s = %s" % (s,))
-print("s.Value() = %r" % (s.Value(),))
+print("s.Value() = %s" % repr(s.Value()).lstrip('u'))
 
 print("s = named.Str('string')")
 s = named.Str("string")
 print("s = %s" % (s,))
-print("s.Value() = %r" % (s.Value(),))
+print("s.Value() = %s" % repr(s.Value()).lstrip('u'))
 
 print("arr = named.Array()")
 arr = named.Array()
