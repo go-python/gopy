@@ -5,40 +5,32 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os/exec"
+	"strconv"
+	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // getPythonVersion returns the python version available on this machine
-func getPythonVersion() (string, error) {
-	py, err := exec.LookPath("python")
+func getPythonVersion(vm string) (int, error) {
+	py, err := exec.LookPath(vm)
 	if err != nil {
-		return "", fmt.Errorf(
+		return 0, fmt.Errorf(
 			"gopy: could not locate 'python' executable (err: %v)",
 			err,
 		)
 	}
 
-	out, err := exec.Command(py, "--version").Output()
+	out, err := exec.Command(py, "-c", "import sys; print(sys.version_info.major)").Output()
 	if err != nil {
-		return "", fmt.Errorf(
-			"gopy: error retrieving python version (err: %v)",
-			err,
-		)
+		return 0, errors.Wrapf(err, "gopy: error retrieving python version")
 	}
 
-	vers := ""
-	switch {
-	case bytes.HasPrefix(out, []byte("Python 2")):
-		vers = "py2"
-	case bytes.HasPrefix(out, []byte("Python 3")):
-		vers = "py3"
-	default:
-		return "", fmt.Errorf(
-			"gopy: invalid python version (%s)",
-			string(out),
-		)
+	vers, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		return 0, errors.Wrapf(err, "gopy: error retrieving python version")
 	}
 
 	return vers, nil

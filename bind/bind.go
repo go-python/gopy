@@ -27,12 +27,13 @@ func (list ErrorList) Error() string {
 }
 
 // GenCPython generates a (C)Python package from a Go package
-func GenCPython(w io.Writer, fset *token.FileSet, pkg *Package, lang int) error {
+func GenCPython(w io.Writer, fset *token.FileSet, pkg *Package, vm string, lang int) error {
 	gen := &cpyGen{
 		decl: &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
 		impl: &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
 		fset: fset,
 		pkg:  pkg,
+		vm:   vm,
 		lang: lang,
 	}
 	err := gen.gen()
@@ -60,11 +61,12 @@ func GenCPython(w io.Writer, fset *token.FileSet, pkg *Package, lang int) error 
 // GenCFFI generates a wrapper python script by 2 steps.
 // First, GenCFFI analyzes which interfaces should be exposed from the Go package.
 // Then, GenCFFI writes a wrapper python script.
-func GenCFFI(w io.Writer, fset *token.FileSet, pkg *Package, lang int) error {
+func GenCFFI(w io.Writer, fset *token.FileSet, pkg *Package, vm string, lang int) error {
 	gen := &cffiGen{
 		wrapper: &printer{buf: new(bytes.Buffer), indentEach: []byte("    ")},
 		fset:    fset,
 		pkg:     pkg,
+		vm:      vm,
 		lang:    lang,
 	}
 
@@ -82,12 +84,13 @@ func GenCFFI(w io.Writer, fset *token.FileSet, pkg *Package, lang int) error {
 }
 
 // GenGo generates a cgo package from a Go package
-func GenGo(w io.Writer, fset *token.FileSet, pkg *Package, lang int, capi string) error {
+func GenGo(w io.Writer, fset *token.FileSet, pkg *Package, lang int, vm, capi string) error {
 	buf := new(bytes.Buffer)
 	gen := &goGen{
 		printer: &printer{buf: buf, indentEach: []byte("\t")},
 		fset:    fset,
 		pkg:     pkg,
+		vm:      vm,
 		lang:    lang,
 		capi:    capi,
 	}

@@ -16,7 +16,8 @@ func testPkg(t *testing.T, table pkg) {
 		backends = []string{"py2"}
 	}
 	for _, be := range backends {
-		if !testBackends[be] {
+		vm, ok := testBackends[be]
+		if !ok || vm == "" {
 			// backend not available.
 			t.Logf("Skipped testing backend %s for %s\n", be, table.path)
 			continue
@@ -25,32 +26,32 @@ func testPkg(t *testing.T, table pkg) {
 		case "py2":
 			t.Run("py2-python2", func(t *testing.T) {
 				t.Parallel()
-				testPkgBackend(t, "py2", "python2", table)
+				testPkgBackend(t, vm, "cpython", table)
 			})
 		case "py2-cffi":
 			t.Run(be, func(t *testing.T) {
 				t.Parallel()
-				testPkgBackend(t, "cffi", "python2", table)
+				testPkgBackend(t, vm, "cffi", table)
 			})
 		case "py3":
 			t.Run(be, func(t *testing.T) {
 				t.Parallel()
-				testPkgBackend(t, be, "python3", table)
+				testPkgBackend(t, vm, "cpython", table)
 			})
 		case "py3-cffi":
 			t.Run(be, func(t *testing.T) {
 				t.Parallel()
-				testPkgBackend(t, "cffi", "python3", table)
+				testPkgBackend(t, vm, "cffi", table)
 			})
 		case "pypy2-cffi":
 			t.Run(be, func(t *testing.T) {
 				t.Parallel()
-				testPkgBackend(t, "cffi", "pypy", table)
+				testPkgBackend(t, vm, "cffi", table)
 			})
 		case "pypy3-cffi":
 			t.Run(be, func(t *testing.T) {
 				t.Parallel()
-				testPkgBackend(t, "cffi", "pypy3", table)
+				testPkgBackend(t, vm, "cffi", table)
 			})
 		default:
 			t.Errorf("invalid backend name %q", be)

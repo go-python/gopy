@@ -14,23 +14,24 @@ func testPkg(t *testing.T, table pkg) {
 		backends = []string{"py2"}
 	}
 	for _, be := range backends {
-		if _, ok := testBackends[be]; !ok {
+		vm, ok := testBackends[be]
+		if !ok || vm == "" {
 			// backend not available.
 			continue
 		}
 		switch be {
 		case "py2":
-			testPkgBackend(t, be, "python2", table)
+			testPkgBackend(t, vm, "cpython", table)
 		case "py2-cffi":
-			testPkgBackend(t, "cffi", "python2", table)
+			testPkgBackend(t, vm, "cffi", table)
 		case "py3":
-			testPkgBackend(t, be, "python3", table)
+			testPkgBackend(t, vm, "cpython", table)
 		case "py3-cffi":
-			testPkgBackend(t, "cffi", "python3", table)
+			testPkgBackend(t, vm, "cffi", table)
 		case "pypy2-cffi":
-			testPkgBackend(t, "cffi", "pypy", table)
+			testPkgBackend(t, vm, "cffi", table)
 		case "pypy3-cffi":
-			testPkgBackend(t, "cffi", "pypy3", table)
+			testPkgBackend(t, vm, "cffi", table)
 		default:
 			t.Errorf("invalid backend name %q", be)
 		}

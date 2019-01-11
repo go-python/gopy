@@ -66,7 +66,7 @@ extern void cgo_pkg_%[2]s_init();
 class _cffi_helper(object):
 
     here = os.path.dirname(os.path.abspath(__file__))
-    lib = ffi.dlopen(os.path.join(here, "_%[1]s.so"))
+    lib = ffi.dlopen(os.path.join(here, "_%[1]s%[2]s"))
 
     @staticmethod
     def cffi_cgopy_cnv_py2c_bool(o):
@@ -227,7 +227,8 @@ type cffiGen struct {
 	pkg  *Package
 	err  ErrorList
 
-	lang int // c-python api version (2,3)
+	vm   string // python interpreter
+	lang int    // c-python api version (2,3)
 }
 
 func (g *cffiGen) gen() error {
@@ -306,7 +307,7 @@ func (g *cffiGen) genCffiCdef() {
 
 func (g *cffiGen) genWrappedPy() {
 	n := g.pkg.pkg.Name()
-	g.wrapper.Printf(cffiHelperPreamble, n)
+	g.wrapper.Printf(cffiHelperPreamble, n, shlibExt)
 	g.wrapper.Indent()
 
 	// first, process slices, arrays

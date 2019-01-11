@@ -6,15 +6,14 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"path"
 
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
-)
-
-const (
-	defaultPyVersion = "py2"
+	"github.com/pkg/errors"
 )
 
 func run(args []string) error {
@@ -46,4 +45,32 @@ func main() {
 		log.Fatal(err)
 	}
 	os.Exit(0)
+}
+
+func copyCmd(src, dst string) error {
+	srcf, err := os.Open(src)
+	if err != nil {
+		return errors.Wrap(err, "could not open source for copy")
+	}
+	defer srcf.Close()
+
+	os.MkdirAll(path.Dir(dst), 0755)
+
+	dstf, err := os.Create(dst)
+	if err != nil {
+		return errors.Wrap(err, "could not create destination for copy")
+	}
+	defer dstf.Close()
+
+	_, err = io.Copy(dstf, srcf)
+	if err != nil {
+		return errors.Wrap(err, "could not copy bytes to destination")
+	}
+
+	err = dstf.Sync()
+	if err != nil {
+		return errors.Wrap(err, "could not synchronize destination")
+	}
+
+	return dstf.Close()
 }

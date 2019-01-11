@@ -27,8 +27,7 @@ build_script:
   - "%CPYTHON3DIR%\\python -m pip install --upgrade pip"
   - "%CPYTHON2DIR%\\python -m pip install cffi"
   - "%CPYTHON3DIR%\\python -m pip install cffi"
-    #  - go get -v -t -tags purego ./... ## FIXME(sbinet)
+  - go get -v -t ./...
 
 test_script:
-  - go env
-    #  - go test -tags purego ./... ## FIXME(sbinet)
+  - go test ./...

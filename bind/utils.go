@@ -5,16 +5,17 @@
 package bind
 
 import (
-	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"go/types"
-	"io"
+	"os"
 	"os/exec"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 func isErrorType(typ types.Type) bool {
@@ -83,68 +84,77 @@ func isConstructor(sig *types.Signature) bool {
 	return false
 }
 
-// getPkgConfig returns the name of the pkg-config python's pc file
-func getPkgConfig(vers int) (string, error) {
-	bin, err := exec.LookPath("pkg-config")
+type pyconfig struct {
+	version int
+	cflags  string
+	ldflags string
+}
+
+// getPythonConfig returns the needed python configuration for the given
+// python VM (python, python2, python3, pypy, etc...)
+func getPythonConfig(vm string) (pyconfig, error) {
+	code := `import sys
+import distutils.sysconfig as ds
+import json
+print(json.dumps({
+	"version": sys.version_info.major,
+	"incdir":  ds.get_python_inc(),
+	"libdir":  ds.get_config_var("LIBDIR"),
+	"libpy":   ds.get_config_var("LIBRARY"),
+	"shlibs":  ds.get_config_var("SHLIBS"),
+	"syslibs": ds.get_config_var("SYSLIBS"),
+	"shlinks": ds.get_config_var("LINKFORSHARED"),
+}))
+`
+
+	var cfg pyconfig
+	bin, err := exec.LookPath(vm)
 	if err != nil {
-		return "", fmt.Errorf(
-			"gopy: could not locate 'pkg-config' executable (err: %v)",
-			err,
-		)
+		return cfg, errors.Wrapf(err, "could not locate python vm %q", vm)
 	}
 
-	out, err := exec.Command(bin, "--list-all").Output()
+	buf := new(bytes.Buffer)
+	cmd := exec.Command(bin, "-c", code)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = buf
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
 	if err != nil {
-		return "", fmt.Errorf(
-			"gopy: error retrieving the list of packages known to pkg-config (err: %v)",
-			err,
-		)
+		return cfg, errors.Wrap(err, "could not run python-config script")
 	}
 
-	pkgs := []string{}
-	re := regexp.MustCompile(fmt.Sprintf(`^python(\s|-|\.|)%d.*?`, vers))
-	s := bufio.NewScanner(bytes.NewReader(out))
-	for s.Scan() {
-		err = s.Err()
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-			}
-			break
-		}
-
-		line := s.Bytes()
-		if !bytes.HasPrefix(line, []byte("python")) {
-			continue
-		}
-
-		if !re.Match(line) {
-			continue
-		}
-
-		pkg := bytes.Split(line, []byte(" "))
-		pkgs = append(pkgs, string(pkg[0]))
+	var raw struct {
+		Version int    `json:"version"`
+		IncDir  string `json:"incdir"`
+		LibDir  string `json:"libdir"`
+		LibPy   string `json:"libpy"`
+		ShLibs  string `json:"shlibs"`
+		SysLibs string `json:"syslibs"`
 	}
-
+	err = json.NewDecoder(buf).Decode(&raw)
 	if err != nil {
-		return "", fmt.Errorf(
-			"gopy: error scanning pkg-config output (err: %v)",
-			err,
-		)
+		return cfg, errors.Wrapf(err, "could not decode JSON script output")
 	}
 
-	if len(pkgs) <= 0 {
-		return "", fmt.Errorf(
-			"gopy: could not find pkg-config file (no python.pc installed?)",
-		)
+	if strings.HasSuffix(raw.LibPy, ".a") {
+		raw.LibPy = raw.LibPy[:len(raw.LibPy)-len(".a")]
+	}
+	if strings.HasPrefix(raw.LibPy, "lib") {
+		raw.LibPy = raw.LibPy[len("lib"):]
 	}
 
-	sort.Strings(pkgs)
+	cfg.version = raw.Version
+	cfg.cflags = strings.Join([]string{
+		"-I" + raw.IncDir,
+	}, " ")
+	cfg.ldflags = strings.Join([]string{
+		"-L" + raw.LibDir,
+		"-l" + raw.LibPy,
+		raw.ShLibs,
+		raw.SysLibs,
+	}, " ")
 
-	// FIXME(sbinet): make sure we take the latest version?
-	pkgcfg := pkgs[0]
-
-	return pkgcfg, nil
+	return cfg, nil
 }
 
 func getGoVersion(version string) (int64, int64, error) {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
+	"github.com/pkg/errors"
 )
 
 func gopyMakeCmdBind() *commander.Command {
@@ -31,7 +32,8 @@ ex:
 		Flag: *flag.NewFlagSet("gopy-bind", flag.ExitOnError),
 	}
 
-	cmd.Flag.String("lang", defaultPyVersion, "python version to use for bindings (python2|py2|python3|py3)")
+	cmd.Flag.String("vm", "python", "path to python interpreter")
+	cmd.Flag.String("api", "cpython", "bindings API to use (cpython, cffi)")
 	cmd.Flag.String("output", "", "output directory for bindings")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	cmd.Flag.Bool("work", false, "print the name of temporary work directory and do not delete it when exiting")
@@ -48,10 +50,13 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 		)
 	}
 
-	odir := cmdr.Flag.Lookup("output").Value.Get().(string)
-	lang := cmdr.Flag.Lookup("lang").Value.Get().(string)
-	symbols := cmdr.Flag.Lookup("symbols").Value.Get().(bool)
-	printWork := cmdr.Flag.Lookup("work").Value.Get().(bool)
+	var (
+		odir      = cmdr.Flag.Lookup("output").Value.Get().(string)
+		vm        = cmdr.Flag.Lookup("vm").Value.Get().(string)
+		api       = cmdr.Flag.Lookup("api").Value.Get().(string)
+		symbols   = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
+		printWork = cmdr.Flag.Lookup("work").Value.Get().(bool)
+	)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -112,7 +117,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 		defer os.RemoveAll(work)
 	}
 
-	err = genPkg(work, pkg, lang)
+	err = genPkg(work, pkg, vm, api)
 	if err != nil {
 		return err
 	}
@@ -129,13 +134,11 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	defer os.RemoveAll(wbind)
 
 	buildname := pkg.Name()
-	switch lang {
+	switch api {
 	case "cffi":
-		/*
-			Since Python importing module priority is XXXX.so > XXXX.py,
-			We need to change shared module name from  'XXXX.so' to '_XXXX.so'.
-			As the result, an user can import XXXX.py.
-		*/
+		// Since Python importing module priority is XXXX.so > XXXX.py,
+		// We need to change shared module name from  'XXXX.so' to '_XXXX.so'.
+		// As the result, an user can import XXXX.py.
 		buildname = "_" + buildname
 		cmd = getBuildCommand(wbind, buildname, work, symbols)
 		err = cmd.Run()
@@ -143,55 +146,38 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 			return err
 		}
 
-		cmd = exec.Command(
-			"/bin/cp",
-			filepath.Join(wbind, buildname)+".so",
-			filepath.Join(odir, buildname)+".so",
+		err = copyCmd(
+			filepath.Join(wbind, buildname)+libExt,
+			filepath.Join(odir, buildname)+libExt,
 		)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err := cmd.Run()
 		if err != nil {
 			return err
 		}
 
-		cmd = exec.Command(
-			"/bin/cp",
+		err = copyCmd(
 			filepath.Join(work, pkg.Name())+".py",
 			filepath.Join(odir, pkg.Name())+".py",
 		)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err = cmd.Run()
 		if err != nil {
 			return err
 		}
 
-	case "python2", "py2":
+	case "cpython":
 		cmd = getBuildCommand(wbind, buildname, work, symbols)
 		err = cmd.Run()
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "could not generate build command")
 		}
 
-		cmd = exec.Command(
-			"/bin/cp",
-			filepath.Join(wbind, buildname)+".so",
-			filepath.Join(odir, buildname)+".so",
+		err = copyCmd(
+			filepath.Join(wbind, buildname)+libExt,
+			filepath.Join(odir, buildname)+libExt,
 		)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err = cmd.Run()
 		if err != nil {
 			return err
 		}
-	case "python3", "py3":
-		return fmt.Errorf("gopy: python-3 support not yet implemented")
 	default:
-		return fmt.Errorf("gopy: unknown target language: %q", lang)
+		return fmt.Errorf("gopy: unknown target API: %q", api)
 	}
 	return err
 }
@@ -205,7 +191,7 @@ func getBuildCommand(wbind string, buildname string, work string, symbols bool) 
 		// -w Omit the DWARF symbol table
 		args = append(args, "-ldflags=-s -w")
 	}
-	args = append(args, "-o", filepath.Join(wbind, buildname)+".so", ".")
+	args = append(args, "-o", filepath.Join(wbind, buildname)+libExt, ".")
 	cmd = exec.Command(
 		"go", args...,
 	)

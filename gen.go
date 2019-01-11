@@ -21,32 +21,27 @@ import (
 	"path/filepath"
 
 	"github.com/go-python/gopy/bind"
+	"github.com/pkg/errors"
 )
 
 var (
 	fset = token.NewFileSet()
 )
 
-func genPkg(odir string, p *bind.Package, lang string) error {
+func genPkg(odir string, p *bind.Package, vm, capi string) error {
 	var err error
 	var o *os.File
 
-	switch lang {
-	case "python", "py":
-		lang, err = getPythonVersion()
+	if !filepath.IsAbs(vm) {
+		vm, err = exec.LookPath(vm)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "could not locate absolute path to python VM")
 		}
-	default:
-		// no-op
 	}
 
-	pyvers := 2
-	switch lang {
-	case "python2", "py2":
-		pyvers = 2
-	case "python3", "py3":
-		pyvers = 3
+	pyvers, err := getPythonVersion(vm)
+	if err != nil {
+		return err
 	}
 
 	if err != nil {
@@ -59,20 +54,12 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 	}
 	defer og.Close()
 
-	capi := "cpython"
-	switch lang {
-	case "cffi":
-		capi = "cffi"
-	default:
-		capi = "cpython"
-	}
-
-	err = bind.GenGo(og, fset, p, pyvers, capi)
+	err = bind.GenGo(og, fset, p, pyvers, vm, capi)
 	if err != nil {
 		return err
 	}
 
-	switch lang {
+	switch capi {
 	case "cffi":
 		o, err = os.Create(filepath.Join(odir, p.Name()+".py"))
 		if err != nil {
@@ -80,18 +67,18 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 		}
 		defer o.Close()
 
-		err = bind.GenCFFI(o, fset, p, 2)
+		err = bind.GenCFFI(o, fset, p, vm, 2)
 		if err != nil {
 			return err
 		}
 
-	case "python2", "py2":
+	case "cpython":
 		o, err = os.Create(filepath.Join(odir, p.Name()+".c"))
 		if err != nil {
 			return err
 		}
 		defer o.Close()
-		err = bind.GenCPython(o, fset, p, 2)
+		err = bind.GenCPython(o, fset, p, vm, pyvers)
 		if err != nil {
 			return err
 		}
@@ -118,11 +105,8 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 			return err
 		}
 
-	case "python3", "py3":
-		return fmt.Errorf("gopy: python-3 support not yet implemented")
-
 	default:
-		return fmt.Errorf("gopy: unknown target language: %q", lang)
+		return fmt.Errorf("gopy: unknown target API: %q", capi)
 	}
 
 	if err != nil {

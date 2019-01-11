@@ -69,3 +69,29 @@ func TestExtractPythonName(t *testing.T) {
 		}
 	}
 }
+
+func TestPythonConfig(t *testing.T) {
+	t.Skip()
+
+	for _, tc := range []struct {
+		vm   string
+		want pyconfig
+	}{
+		{
+			vm: "python2",
+		},
+		{
+			vm: "python3",
+		},
+	} {
+		t.Run(tc.vm, func(t *testing.T) {
+			cfg, err := getPythonConfig(tc.vm)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg != tc.want {
+				t.Fatalf("error:\ngot= %#v\nwant=%#v\n", cfg, tc.want)
+			}
+		})
+	}
+}

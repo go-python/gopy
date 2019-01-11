@@ -18,6 +18,34 @@ import (
 	"testing"
 )
 
+var (
+	testBackends = map[string]string{}
+	features     = map[string][]string{
+		// FIXME(sbinet): add "cffi" when go-python/gopy#130 and go-python/gopy#125
+		// are fixed.
+		"_examples/hi":        []string{"py2"},
+		"_examples/funcs":     []string{"py2"},
+		"_examples/sliceptr":  []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/simple":    []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/empty":     []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/named":     []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/structs":   []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/consts":    []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/vars":      []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/seqs":      []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/cgo":       []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/pyerrors":  []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/iface":     []string{},
+		"_examples/pointers":  []string{},
+		"_examples/arrays":    []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/slices":    []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/maps":      []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/gostrings": []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/rename":    []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+		"_examples/unicode":   []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
+	}
+)
+
 func TestGovet(t *testing.T) {
 	cmd := exec.Command("go", "vet", "./...")
 	buf := new(bytes.Buffer)
@@ -56,164 +84,6 @@ func TestGofmt(t *testing.T) {
 	if len(buf.Bytes()) != 0 {
 		t.Errorf("some files were not gofmt'ed:\n%s\n", string(buf.Bytes()))
 	}
-}
-
-var testBackends = map[string]bool{}
-
-func init() {
-	if os.Getenv("GOPY_TRAVIS_CI") == "1" {
-		log.Printf("Running in travis CI")
-	}
-
-	var disabled []string
-	for _, be := range []struct {
-		name   string
-		vm     string
-		module string
-	}{
-		{"py2", "python2", ""},
-		{"py2-cffi", "python2", "cffi"},
-		{"py3", "python3", ""},
-		{"py3-cffi", "python3", "cffi"},
-		{"pypy2-cffi", "pypy", "cffi"},
-		{"pypy3-cffi", "pypy3", "cffi"},
-	} {
-		args := []string{"-c", ""}
-		if be.module != "" {
-			args[1] = "import " + be.module
-		}
-		log.Printf("checking testbackend: %q...", be.name)
-		cmd := exec.Command(be.vm, args...)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err := cmd.Run()
-		if err != nil {
-			log.Printf("disabling testbackend: %q, error: '%s'", be.name, err.Error())
-			testBackends[be.name] = false
-			disabled = append(disabled, be.name)
-		} else {
-			log.Printf("enabling testbackend: %q", be.name)
-			testBackends[be.name] = true
-		}
-	}
-
-	if len(disabled) > 0 {
-		log.Printf("The following test backends are not available: %s",
-			strings.Join(disabled, ", "))
-		if os.Getenv("GOPY_TRAVIS_CI") == "1" {
-			log.Fatalf("Not all backends available in travis CI")
-		}
-	}
-}
-
-type pkg struct {
-	path string
-	lang []string
-	want []byte
-}
-
-func testPkgBackend(t *testing.T, lang, pycmd string, table pkg) {
-	workdir, err := ioutil.TempDir("", "gopy-")
-	if err != nil {
-		t.Fatalf("[%s:%s:%s]: could not create workdir: %v\n", lang, pycmd, table.path, err)
-	}
-	err = os.MkdirAll(workdir, 0644)
-	if err != nil {
-		t.Fatalf("[%s:%s:%s]: could not create workdir: %v\n", lang, pycmd, table.path, err)
-	}
-	defer os.RemoveAll(workdir)
-
-	err = run([]string{"bind", "-lang=" + lang, "-output=" + workdir, "./" + table.path})
-	if err != nil {
-		t.Fatalf("[%s:%s:%s]: error running gopy-bind: %v\n", lang, pycmd, table.path, err)
-	}
-
-	cmd := exec.Command(
-		"/bin/cp", "./"+table.path+"/test.py",
-		filepath.Join(workdir, "test.py"),
-	)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		t.Fatalf("[%s:%s:%s]: error copying 'test.py': %v\n", lang, pycmd, table.path, err)
-	}
-
-	buf := new(bytes.Buffer)
-	cmd = exec.Command(pycmd, "./test.py")
-	cmd.Dir = workdir
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = buf
-	cmd.Stderr = buf
-	err = cmd.Run()
-	if err != nil {
-		t.Fatalf(
-			"[%s:%s:%s]: error running python module: %v\n%v\n",
-			lang, pycmd, table.path,
-			err,
-			string(buf.Bytes()),
-		)
-	}
-
-	if !reflect.DeepEqual(string(buf.Bytes()), string(table.want)) {
-		diffTxt := ""
-		diffBin, diffErr := exec.LookPath("diff")
-		if diffErr == nil {
-			wantFile, wantErr := os.Create(filepath.Join(workdir, "want.txt"))
-			if wantErr == nil {
-				wantFile.Write(table.want)
-				wantFile.Close()
-			}
-			gotFile, gotErr := os.Create(filepath.Join(workdir, "got.txt"))
-			if gotErr == nil {
-				gotFile.Write(buf.Bytes())
-				gotFile.Close()
-			}
-			if gotErr == nil && wantErr == nil {
-				cmd = exec.Command(diffBin, "-urN",
-					wantFile.Name(),
-					gotFile.Name(),
-				)
-				diff, _ := cmd.CombinedOutput()
-				diffTxt = string(diff) + "\n"
-			}
-		}
-
-		t.Fatalf("[%s:%s:%s]: error running python module:\nwant:\n%s\n\ngot:\n%s\n[%s:%s:%s] diff:\n%s",
-			lang, pycmd, table.path,
-			string(table.want), string(buf.Bytes()),
-			lang, pycmd, table.path,
-			diffTxt,
-		)
-	}
-
-}
-
-var features = map[string][]string{
-	// FIXME(sbinet): add "cffi" when go-python/gopy#130 and go-python/gopy#125
-	// are fixed.
-	"_examples/hi":        []string{"py2"},
-	"_examples/funcs":     []string{"py2"},
-	"_examples/sliceptr":  []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/simple":    []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/empty":     []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/named":     []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/structs":   []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/consts":    []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/vars":      []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/seqs":      []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/cgo":       []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/pyerrors":  []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/iface":     []string{},
-	"_examples/pointers":  []string{},
-	"_examples/arrays":    []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/slices":    []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/maps":      []string{"py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/gostrings": []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/rename":    []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
-	"_examples/unicode":   []string{"py2", "py2-cffi", "py3-cffi", "pypy2-cffi", "pypy3-cffi"},
 }
 
 func TestHi(t *testing.T) {
@@ -974,4 +844,87 @@ SUPPORT_MATRIX.md and commit the changes to SUPPORT_MATRIX.md onto git.
 	if bytes.Compare(buf.Bytes(), src) != 0 {
 		t.Fatalf(msg)
 	}
+}
+
+type pkg struct {
+	path string
+	lang []string
+	want []byte
+}
+
+func testPkgBackend(t *testing.T, pyvm, capi string, table pkg) {
+	workdir, err := ioutil.TempDir("", "gopy-")
+	if err != nil {
+		t.Fatalf("[%s:%s:%s]: could not create workdir: %v\n", pyvm, capi, table.path, err)
+	}
+	err = os.MkdirAll(workdir, 0644)
+	if err != nil {
+		t.Fatalf("[%s:%s:%s]: could not create workdir: %v\n", pyvm, capi, table.path, err)
+	}
+	defer os.RemoveAll(workdir)
+
+	err = run([]string{"bind", "-vm=" + pyvm, "-api=" + capi, "-output=" + workdir, "./" + table.path})
+	if err != nil {
+		t.Fatalf("[%s:%s:%s]: error running gopy-bind: %v\n", pyvm, capi, table.path, err)
+	}
+
+	err = copyCmd("./"+table.path+"/test.py",
+		filepath.Join(workdir, "test.py"),
+	)
+	if err != nil {
+		t.Fatalf("[%s:%s:%s]: error copying 'test.py': %v\n", pyvm, capi, table.path, err)
+	}
+
+	buf := new(bytes.Buffer)
+	cmd := exec.Command(pyvm, "./test.py")
+	cmd.Dir = workdir
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = buf
+	cmd.Stderr = buf
+	err = cmd.Run()
+	if err != nil {
+		t.Fatalf(
+			"[%s:%s:%s]: error running python module: err=%v\n%v\n",
+			pyvm, capi, table.path,
+			err,
+			string(buf.Bytes()),
+		)
+	}
+
+	var (
+		got  = strings.Replace(string(buf.Bytes()), "\r\n", "\n", -1)
+		want = strings.Replace(string(table.want), "\r\n", "\n", -1)
+	)
+	if !reflect.DeepEqual(got, want) {
+		diffTxt := ""
+		diffBin, diffErr := exec.LookPath("diff")
+		if diffErr == nil {
+			wantFile, wantErr := os.Create(filepath.Join(workdir, "want.txt"))
+			if wantErr == nil {
+				wantFile.Write([]byte(want))
+				wantFile.Close()
+			}
+			gotFile, gotErr := os.Create(filepath.Join(workdir, "got.txt"))
+			if gotErr == nil {
+				gotFile.Write([]byte(got))
+				gotFile.Close()
+			}
+			if gotErr == nil && wantErr == nil {
+				cmd = exec.Command(diffBin, "-urN",
+					wantFile.Name(),
+					gotFile.Name(),
+				)
+				diff, _ := cmd.CombinedOutput()
+				diffTxt = string(diff) + "\n"
+			}
+		}
+
+		t.Fatalf("[%s:%s:%s]: error running python module:\ngot:\n%s\n\nwant:\n%s\n[%s:%s:%s] diff:\n%s",
+			pyvm, capi, table.path,
+			got, want,
+			pyvm, capi, table.path,
+			diffTxt,
+		)
+	}
+
 }

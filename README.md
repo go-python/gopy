@@ -55,9 +55,9 @@ ex:
  $ gopy gen github.com/go-python/gopy/_examples/hi
 
 Options:
-  -lang="py2": target language for bindings
+  -api="cpython": bindings API to use (cpython, cffi)
   -output="": output directory for bindings
-
+  -vm="python": path to python interpreter
 
 $ gopy help bind
 Usage: gopy bind <go-package-name>
@@ -69,8 +69,11 @@ ex:
  $ gopy bind github.com/go-python/gopy/_examples/hi
 
 Options:
-  -lang="py2": python version to use for bindings (python2|py2|python3|py3|cffi)
+  -api="cpython": bindings API to use (cpython, cffi)
   -output="": output directory for bindings
+  -symbols=true: include symbols in output
+  -vm="python": path to python interpreter
+  -work=false: print the name of temporary work directory and do not delete it when exiting
 ```
 
 
