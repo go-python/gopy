@@ -1,0 +1,34 @@
+build: off
+
+clone_folder: c:\gopath\src\github.com\go-python\gopy
+
+cache:
+  - '%LocalAppData%\go-build'
+
+branches:
+  only:
+    - master
+
+environment:
+  GOPATH: c:\gopath
+  GOPY_APPVEYOR_CI: '1'
+  GODEBUG: 'cgocheck=0'
+  CPYTHON2DIR: "C:\\Python27-x64"
+  CPYTHON3DIR: "C:\\Python37-x64"
+  PATH: '%GOPATH%\bin;%CPYTHON2DIR%;%CPYTHON2DIR%\\Scripts;%CPYTHON3DIR%;%CPYTHON3DIR%\\Scripts;C:\msys64\mingw64\bin;C:\msys64\usr\bin\;%PATH%'
+
+stack: go 1.11
+
+build_script:
+  - python --version
+  - "%CPYTHON2DIR%\\python --version"
+  - "%CPYTHON3DIR%\\python --version"
+  - "%CPYTHON2DIR%\\python -m pip install --upgrade pip"
+  - "%CPYTHON3DIR%\\python -m pip install --upgrade pip"
+  - "%CPYTHON2DIR%\\python -m pip install cffi"
+  - "%CPYTHON3DIR%\\python -m pip install cffi"
+    #  - go get -v -t -tags purego ./... ## FIXME(sbinet)
+
+test_script:
+  - go env
+    #  - go test -tags purego ./... ## FIXME(sbinet)
