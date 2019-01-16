@@ -14,7 +14,7 @@ matrix:
 sudo: required
 
 before_install:
-   - sudo apt-get install libffi-dev python-cffi pypy python3-cffi
+   - sudo apt-get install libffi-dev python-cffi python3-cffi
    - export PATH=$HOME/gopath/bin:/usr/local/bin:$PATH
    # Init() in main_test will make sure all backends are available if
    # GOPY_TRAVIS_CI is set
@@ -25,9 +25,13 @@ before_install:
    - export GODEBUG=cgocheck=0
    # pypy3 isn't packaged in ubuntu yet.
    - TEMPDIR=$(mktemp -d)
-   - curl -L https://bitbucket.org/squeaky/portable-pypy/downloads/pypy3.5-5.10.0-linux_x86_64-portable.tar.bz2 --output $TEMPDIR/pypy3.tar.bz2
+   - export PYPYVERSION=v6.0.0
+   - curl -L https://bitbucket.org/pypy/pypy/downloads/pypy2-${PYPYVERSION}-linux64.tar.bz2 --output $TEMPDIR/pypy2.tar.bz2
+   - curl -L https://bitbucket.org/pypy/pypy/downloads/pypy3-${PYPYVERSION}-linux64.tar.bz2 --output $TEMPDIR/pypy3.tar.bz2
+   - tar xf $TEMPDIR/pypy2.tar.bz2 -C $TEMPDIR
    - tar xf $TEMPDIR/pypy3.tar.bz2 -C $TEMPDIR
-   - sudo ln -s $TEMPDIR/pypy3.5-5.10.0-linux_x86_64-portable/bin/pypy3 /usr/local/bin/pypy3
+   - sudo ln -s $TEMPDIR/pypy2-$PYPYVERSION-linux64/bin/pypy  /usr/local/bin/pypy
+   - sudo ln -s $TEMPDIR/pypy3-$PYPYVERSION-linux64/bin/pypy3 /usr/local/bin/pypy3
 
 notifications:
   email:
