@@ -4,6 +4,7 @@ clone_folder: c:\gopath\src\github.com\go-python\gopy
 
 cache:
   - '%LocalAppData%\go-build'
+  - '%LocalAppData%\pip'
 
 branches:
   only:
