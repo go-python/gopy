@@ -3,6 +3,7 @@ gopy
 
 [![GoDoc](https://godoc.org/github.com/go-python/gopy?status.svg)](https://godoc.org/github.com/go-python/gopy)
 [![Build Status](https://travis-ci.org/go-python/gopy.svg?branch=master)](https://travis-ci.org/go-python/gopy)
+[![Build status](https://ci.appveyor.com/api/projects/status/229rc10wcvsd5t8f?svg=true)](https://ci.appveyor.com/project/sbinet/gopy)
 
 `gopy` generates (and compiles) a `CPython` extension module from a `go` package.
 
@@ -186,6 +187,7 @@ To know what features are supported on what backends, please refer to the
 - better pythonization: turn `go` `errors` into `python` exceptions **[DONE]**
 - wrap arrays and slices into types implementing `tp_as_sequence` **[DONE]**
 - only `python-2` supported for now **[DONE]**
+- Windows only supported with the `cffi` backend
 
 ## Contribute
 
