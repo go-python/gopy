@@ -14,22 +14,33 @@ import (
 )
 
 func init() {
+	var (
+		py2   = "python2"
+		py3   = "python3"
+		pypy2 = "pypy"
+		pypy3 = "pypy3"
+	)
+
 	if os.Getenv("GOPY_TRAVIS_CI") == "1" {
 		log.Printf("Running in travis CI")
 	}
 
-	var disabled []string
+	var (
+		disabled []string
+		missing  int
+	)
 	for _, be := range []struct {
-		name   string
-		vm     string
-		module string
+		name      string
+		vm        string
+		module    string
+		mandatory bool
 	}{
-		{"py2", "python2", ""},
-		{"py2-cffi", "python2", "cffi"},
-		{"py3", "python3", ""},
-		{"py3-cffi", "python3", "cffi"},
-		{"pypy2-cffi", "pypy", "cffi"},
-		{"pypy3-cffi", "pypy3", "cffi"},
+		{"py2", py2, "", true},
+		{"py2-cffi", py2, "cffi", true},
+		{"py3", py3, "", true},
+		{"py3-cffi", py3, "cffi", true},
+		{"pypy2-cffi", pypy2, "cffi", true},
+		{"pypy3-cffi", pypy3, "cffi", true},
 	} {
 		args := []string{"-c", ""}
 		if be.module != "" {
@@ -45,6 +56,9 @@ func init() {
 			log.Printf("disabling testbackend: %q, error: '%s'", be.name, err.Error())
 			testBackends[be.name] = ""
 			disabled = append(disabled, be.name)
+			if be.mandatory {
+				missing++
+			}
 		} else {
 			log.Printf("enabling testbackend: %q", be.name)
 			testBackends[be.name] = be.vm
@@ -54,7 +68,7 @@ func init() {
 	if len(disabled) > 0 {
 		log.Printf("The following test backends are not available: %s",
 			strings.Join(disabled, ", "))
-		if os.Getenv("GOPY_TRAVIS_CI") == "1" {
+		if os.Getenv("GOPY_TRAVIS_CI") == "1" && missing > 0 {
 			log.Fatalf("Not all backends available in travis CI")
 		}
 	}

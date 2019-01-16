@@ -15,27 +15,43 @@ import (
 )
 
 func init() {
+	var (
+		py2   = "python2"
+		py3   = "python3"
+		pypy2 = "pypy"
+		pypy3 = "pypy3"
+	)
+
 	if os.Getenv("GOPY_APPVEYOR_CI") == "1" {
 		log.Printf("Running in appveyor CI")
+		var (
+			cpy2dir  = os.Getenv("CPYTHON2DIR")
+			cpy3dir  = os.Getenv("CPYTHON3DIR")
+			pypy2dir = os.Getenv("PYPY2DIR")
+			pypy3dir = os.Getenv("PYPY3DIR")
+		)
+		py2 = path.Join(cpy2dir, "python")
+		py3 = path.Join(cpy3dir, "python")
+		pypy2 = path.Join(pypy2dir, "pypy")
+		pypy3 = path.Join(pypy3dir, "pypy")
 	}
 
 	var (
-		cpy2dir = os.Getenv("CPYTHON2DIR")
-		cpy3dir = os.Getenv("CPYTHON3DIR")
+		disabled []string
+		missing  int
 	)
-
-	var disabled []string
 	for _, be := range []struct {
-		name   string
-		vm     string
-		module string
+		name      string
+		vm        string
+		module    string
+		mandatory bool
 	}{
-		{"py2", path.Join(cpy2dir, "python"), ""},
-		{"py2-cffi", path.Join(cpy2dir, "python"), "cffi"},
-		{"py3", path.Join(cpy3dir, "python"), ""},
-		{"py3-cffi", path.Join(cpy3dir, "python"), "cffi"},
-		//	{"pypy2-cffi", "pypy", "cffi"},
-		//	{"pypy3-cffi", "pypy3", "cffi"},
+		//		{"py2", py2, "", true},
+		{"py2-cffi", py2, "cffi", true},
+		//		{"py3", py3, "", true},
+		{"py3-cffi", py3, "cffi", true},
+		{"pypy2-cffi", pypy2, "cffi", false},
+		{"pypy3-cffi", pypy3, "cffi", false},
 	} {
 		args := []string{"-c", ""}
 		if be.module != "" {
@@ -51,6 +67,9 @@ func init() {
 			log.Printf("disabling testbackend: %q, error: '%s'", be.name, err.Error())
 			testBackends[be.name] = ""
 			disabled = append(disabled, be.name)
+			if be.mandatory {
+				missing++
+			}
 		} else {
 			log.Printf("enabling testbackend: %q", be.name)
 			testBackends[be.name] = be.vm
@@ -60,7 +79,7 @@ func init() {
 	if len(disabled) > 0 {
 		log.Printf("The following test backends are not available: %s",
 			strings.Join(disabled, ", "))
-		if os.Getenv("GOPY_APPVEYOR_CI") == "1" {
+		if os.Getenv("GOPY_APPVEYOR_CI") == "1" && missing > 0 {
 			log.Fatalf("Not all backends available in appveyor CI")
 		}
 	}
