@@ -125,3 +125,5 @@ print("s = %s" % (s,))
 print("s = named.Slice(xrange(10))")
 s = named.Slice(xrange(10))
 print("s = %s" % (s,))
+
+print("OK")

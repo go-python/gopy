@@ -18,3 +18,4 @@ t.F()
 print("iface.CallIface(t)")
 iface.CallIface(t)
 
+print("OK")

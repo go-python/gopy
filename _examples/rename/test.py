@@ -9,3 +9,5 @@ import rename
 
 print(rename.say_hi())
 print(rename.MyStruct().say_something())
+
+print("OK")

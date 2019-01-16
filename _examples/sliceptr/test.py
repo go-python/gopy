@@ -16,3 +16,5 @@ print(i)
 s = sliceptr.StrVector()
 sliceptr.Convert(i, s)
 print(s)
+
+print("OK")

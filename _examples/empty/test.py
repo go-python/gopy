@@ -9,3 +9,4 @@ import empty as pkg
 
 print("doc(pkg):\n%s" % repr(pkg.__doc__).lstrip('u'))
 
+print("OK")

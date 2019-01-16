@@ -16,3 +16,5 @@ def div(a, b):
 
 div(5,0)
 div(5,2)
+
+print("OK")

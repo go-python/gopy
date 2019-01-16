@@ -14,3 +14,5 @@ print("s.Value = %s" % (s.Value,))
 
 print("pointers.Inc(s)")
 print("s.Value = %s" % (s.Value,))
+
+print("OK")

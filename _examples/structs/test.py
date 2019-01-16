@@ -71,3 +71,5 @@ try:
 except Exception as err:
     print("caught error: %s" % (err,))
     pass
+
+print("OK")

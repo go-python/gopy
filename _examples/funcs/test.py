@@ -27,3 +27,4 @@ print("s2.F1 = funcs.GetF1()...")
 s2.F1 = funcs.GetF1()
 print("s2.F1() = %s" % s2.F1())
 
+print("OK")

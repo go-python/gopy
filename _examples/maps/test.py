@@ -13,3 +13,5 @@ print('maps.Keys from Go map:', maps.Keys(a))
 print('maps.Values from Go map:', maps.Values(a))
 print('maps.Keys from Python dictionary:', maps.Keys(b))
 print('maps.Values from Python dictionary:', maps.Values(b))
+
+print("OK")

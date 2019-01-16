@@ -21,3 +21,4 @@ print("k2 = %s" % consts.GetKind2())
 #print("k3 = %s" % consts.GetKind3())
 #print("k4 = %s" % consts.GetKind4())
 
+print("OK")

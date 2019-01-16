@@ -36,3 +36,4 @@ binary_stdout.write(b"encoding.GetString() -> ")
 binary_stdout.write(gostring_ret.encode("UTF-8"))
 binary_stdout.write(b"\n")
 
+print("OK")

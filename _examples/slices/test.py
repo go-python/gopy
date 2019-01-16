@@ -23,3 +23,5 @@ si16 = slices.SliceInt16([-2,-3])
 si32 = slices.SliceInt32([-3,-4])
 si64 = slices.SliceInt64([-4,-5])
 print ("signed slice elements:", si8[0], si16[0], si32[0], si64[0])
+
+print("OK")

@@ -256,3 +256,6 @@ try:
     print("mem(slice):",len(memoryview(s)))
 except Exception as err:
     print("mem(slice): caught:",err)
+    pass
+
+print("OK")

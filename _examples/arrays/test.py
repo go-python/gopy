@@ -11,3 +11,5 @@ print ("Python list:", a)
 print ("Go array: ", b)
 print ("arrays.IntSum from Python list:", arrays.IntSum(a))
 print ("arrays.IntSum from Go array:", arrays.IntSum(b))
+
+print("OK")

@@ -10,3 +10,5 @@ import cgo
 print("cgo.doc: %s" % repr(cgo.__doc__).lstrip('u'))
 print("cgo.Hi()= %s" % repr(cgo.Hi()).lstrip('u'))
 print("cgo.Hello(you)= %s" % repr(cgo.Hello("you")).lstrip('u'))
+
+print("OK")

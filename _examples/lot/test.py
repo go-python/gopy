@@ -12,3 +12,5 @@ print('l.SomeListOfStrings: {}'.format(l.SomeListOfStrings))
 print('l.SomeListOfInts: {}'.format(l.SomeListOfInts))
 print('l.SomeListOfFloats: {}'.format(l.SomeListOfFloats))
 print('l.SomeListOfBools: {}'.format(l.SomeListOfBools))
+
+print("OK")

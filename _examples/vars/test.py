@@ -51,3 +51,5 @@ print("k2 = %s" % vars.GetKind2())
 print("vars.GetDoc() = %s" % repr(vars.GetDoc()).lstrip('u'))
 print("doc of vars.GetDoc = %s" % repr(vars.GetDoc.__doc__).lstrip('u'))
 print("doc of vars.SetDoc = %s" % repr(vars.SetDoc.__doc__).lstrip('u'))
+
+print("OK")

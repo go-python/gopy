@@ -9,3 +9,5 @@ import gostrings
 
 print("S1 = %s" % (gostrings.GetS1(),))
 print("GetString() = %s" % (gostrings.GetString(),))
+
+print("OK")

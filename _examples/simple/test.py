@@ -22,3 +22,5 @@ a = 3+4j
 b = 2+5j
 print("pkg.Comp64Add(%s, %s) = %s" % (a, b, pkg.Comp128Add(a, b)))
 print("pkg.Comp128Add(%s, %s) = %s" % (a, b, pkg.Comp128Add(a, b)))
+
+print("OK")

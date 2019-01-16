@@ -217,6 +217,7 @@ slice[2]: caught: slice index out of range
 slice: []int{1, 42}
 len(slice): 2
 mem(slice): 2
+OK
 `),
 	})
 
@@ -350,6 +351,7 @@ slice[2]: caught: slice index out of range
 slice: []int{1, 42}
 len(slice): 2
 mem(slice): caught: cannot make memory view because object does not have the buffer interface
+OK
 `),
 	})
 }
@@ -374,6 +376,7 @@ s2 = funcs.S2()...
 s2.F1 = funcs.GetF1()...
 calling F1
 s2.F1() = None
+OK
 `),
 	})
 }
@@ -394,6 +397,7 @@ pkg.Bool(True)= True
 pkg.Bool(False)= False
 pkg.Comp64Add((3+4j), (2+5j)) = (5+9j)
 pkg.Comp128Add((3+4j), (2+5j)) = (5+9j)
+OK
 `),
 	})
 }
@@ -407,6 +411,7 @@ func TestBindEmpty(t *testing.T) {
 		want: []byte(`empty.init()... [CALLED]
 doc(pkg):
 'Package empty does not expose anything.\nWe may want to wrap and import it just for its side-effects.\n'
+OK
 `),
 	})
 }
@@ -425,6 +430,7 @@ pointers.Inc(s)
 ==> go: s.Value==2
 <== go: s.Value==3
 s.Value = 3
+OK
 `),
 	})
 }
@@ -496,6 +502,7 @@ s = named.Slice(range(10))
 s = named.Slice{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 s = named.Slice(xrange(10))
 s = named.Slice{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+OK
 `),
 	})
 }
@@ -525,6 +532,7 @@ s2child = S2Child{S2: structs.S2{Public:42, private:0}, local: 123}
 s2child.Public = 42
 s2child.local = 123
 caught error: 'S2Child' object has no attribute 'private'
+OK
 `),
 	})
 }
@@ -544,6 +552,7 @@ c6 = 42
 c7 = 666.666
 k1 = 1
 k2 = 2
+OK
 `),
 	})
 }
@@ -583,6 +592,7 @@ k2 = 456
 vars.GetDoc() = 'A variable with some documentation'
 doc of vars.GetDoc = 'returns vars.Doc\n\nDoc is a top-level string with some documentation attached.\n'
 doc of vars.SetDoc = 'sets vars.Doc\n\nDoc is a top-level string with some documentation attached.\n'
+OK
 `),
 	})
 }
@@ -610,6 +620,7 @@ s += [1,2]
 s = seqs.Slice{1, 2}
 s += [10,20]
 s = seqs.Slice{1, 2, 10, 20}
+OK
 `),
 	})
 }
@@ -635,6 +646,7 @@ func TestBindCgoPackage(t *testing.T) {
 		want: []byte(`cgo.doc: 'Package cgo tests bindings of CGo-based packages.\n'
 cgo.Hi()= 'hi from go\n'
 cgo.Hello(you)= 'hello you from go\n'
+OK
 `),
 	})
 }
@@ -647,6 +659,7 @@ func TestPyErrors(t *testing.T) {
 		lang: features[path],
 		want: []byte(`Divide by zero.
 pyerrors.Div(5, 2) = 2
+OK
 `),
 	})
 }
@@ -661,6 +674,7 @@ func TestBuiltinArrays(t *testing.T) {
 Go array:  [4]int{1, 2, 3, 4}
 arrays.IntSum from Python list: 10
 arrays.IntSum from Go array: 10
+OK
 `),
 	})
 }
@@ -677,6 +691,7 @@ slices.IntSum from Python list: 10
 slices.IntSum from Go slice: 10
 unsigned slice elements: 1 2 3 4
 signed slice elements: -1 -2 -3 -4
+OK
 `),
 	})
 }
@@ -693,6 +708,7 @@ maps.Keys from Go map: []int{1, 2}
 maps.Values from Go map: []float64{3, 5}
 maps.Keys from Python dictionary: []int{1, 2}
 maps.Values from Python dictionary: []float64{3, 5}
+OK
 `),
 	})
 }
@@ -705,6 +721,7 @@ func TestBindStrings(t *testing.T) {
 		lang: features[path],
 		want: []byte(`S1 = S1
 GetString() = MyString
+OK
 `),
 	})
 }
@@ -717,6 +734,7 @@ func TestBindRename(t *testing.T) {
 		lang: features[path],
 		want: []byte(`hi
 something
+OK
 `),
 	})
 }
@@ -735,6 +753,7 @@ l.SomeListOfStrings: []string{"some", "list", "of", "strings"}
 l.SomeListOfInts: []int64{6, 2, 9, 1}
 l.SomeListOfFloats: []float64{6.6, 2.2, 9.9, 1.1}
 l.SomeListOfBools: []bool{true, false, true, false}
+OK
 `),
 	})
 }
@@ -748,6 +767,7 @@ func TestSlicePtr(t *testing.T) {
 		want: []byte(`sliceptr.IntVector{1, 2, 3}
 sliceptr.IntVector{1, 2, 3, 4}
 sliceptr.StrVector{"1", "2", "3", "4"}
+OK
 `),
 	})
 }
@@ -761,6 +781,7 @@ func TestUnicode(t *testing.T) {
 		want: []byte(`encoding.HandleString(bytestr) -> Python byte string
 encoding.HandleString(unicodestr) -> Python Unicode string 🐱
 encoding.GetString() -> Go Unicode string 🐱
+OK
 `),
 	})
 }
