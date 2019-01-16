@@ -14,6 +14,7 @@ environment:
   GOPATH: c:\gopath
   GOPY_APPVEYOR_CI: '1'
   GODEBUG: 'cgocheck=0'
+  GOTRACEBACK: 'crash'
   PYTHONUNBUFFERED: "1"
   CPYTHON2DIR: "C:\\Python27-x64"
   CPYTHON3DIR: "C:\\Python37-x64"
