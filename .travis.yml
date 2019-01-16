@@ -18,6 +18,8 @@ before_install:
    # Init() in main_test will make sure all backends are available if
    # GOPY_TRAVIS_CI is set
    - export GOPY_TRAVIS_CI=1
+   # make python output (sys.stdout, sys.stderr) unbuffered
+   - export PYTHONUNBUFFERED=1
    # temporary workaround for go-python/gopy#83
    - export GODEBUG=cgocheck=0
    # pypy3 isn't packaged in ubuntu yet.
