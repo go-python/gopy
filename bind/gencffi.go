@@ -26,19 +26,19 @@ _PY3 = sys.version_info[0] == 3
 
 ffi = _cffi_backend.FFI()
 ffi.cdef("""
-typedef signed char GoInt8;
-typedef unsigned char GoUint8;
-typedef short GoInt16;
-typedef unsigned short GoUint16;
-typedef int GoInt32;
-typedef unsigned int GoUint32;
-typedef long long GoInt64;
-typedef size_t GoUintptr;
-typedef unsigned long long GoUint64;
-typedef GoInt64 GoInt;
-typedef GoUint64 GoUint;
-typedef float GoFloat32;
-typedef double GoFloat64;
+typedef  int8_t  GoInt8;
+typedef uint8_t  GoUint8;
+typedef  int16_t GoInt16;
+typedef uint16_t GoUint16;
+typedef  int32_t GoInt32;
+typedef uint32_t GoUint32;
+typedef  int64_t GoInt64;
+typedef uintptr_t GoUintptr;
+typedef uint64_t  GoUint64;
+typedef GoInt64   GoInt;
+typedef GoUint64  GoUint;
+typedef float     GoFloat32;
+typedef double    GoFloat64;
 typedef struct { const char *p; GoInt n; } GoString;
 typedef void *GoMap;
 typedef void *GoChan;
