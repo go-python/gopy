@@ -30,7 +30,7 @@ ex:
 	}
 
 	cmd.Flag.String("vm", "python", "path to python interpreter")
-	cmd.Flag.String("api", "cpython", "bindings API to use (cpython, cffi)")
+	cmd.Flag.String("api", "pybind", "bindings API to use (pybind, cpython, cffi)")
 	cmd.Flag.String("output", "", "output directory for bindings")
 	return cmd
 }
