@@ -59,24 +59,24 @@ type Person struct {
 }
 
 // NewPerson creates a new Person value
-func NewPerson(name string, age int) Person {
-	return Person{
+func NewPerson(name string, age int) *Person {
+	return &Person{
 		Name: name,
 		Age:  age,
 	}
 }
 
 // NewPersonWithAge creates a new Person with a specific age
-func NewPersonWithAge(age int) Person {
-	return Person{
+func NewPersonWithAge(age int) *Person {
+	return &Person{
 		Name: "stranger",
 		Age:  age,
 	}
 }
 
 // NewActivePerson creates a new Person with a certain amount of work done.
-func NewActivePerson(h int) (Person, error) {
-	var p Person
+func NewActivePerson(h int) (*Person, error) {
+	p := &Person{}
 	err := p.Work(h)
 	return p, err
 }
@@ -120,10 +120,10 @@ type Couple struct {
 }
 
 // NewCouple returns a new couple made of the p1 and p2 persons.
-func NewCouple(p1, p2 Person) Couple {
-	return Couple{
-		P1: p1,
-		P2: p2,
+func NewCouple(p1, p2 *Person) *Couple {
+	return &Couple{
+		P1: *p1,
+		P2: *p2,
 	}
 }
 

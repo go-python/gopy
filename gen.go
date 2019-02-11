@@ -20,7 +20,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/go-python/gopy/bind"
+	"github.com/goki/gopy/bind"
 	"github.com/pkg/errors"
 )
 
@@ -30,7 +30,7 @@ var (
 
 func genPkg(odir string, p *bind.Package, vm, capi string) error {
 	var err error
-	var o *os.File
+	var o, og, ogo, opy, omk *os.File
 
 	if !filepath.IsAbs(vm) {
 		vm, err = exec.LookPath(vm)
@@ -48,18 +48,41 @@ func genPkg(odir string, p *bind.Package, vm, capi string) error {
 		return err
 	}
 
-	og, err := os.Create(filepath.Join(odir, p.Name()+".go"))
-	if err != nil {
-		return err
-	}
-	defer og.Close()
-
-	err = bind.GenGo(og, fset, p, pyvers, vm, capi)
-	if err != nil {
-		return err
-	}
-
+	// if capi != "pybind" {
+	// 	og, err := os.Create(filepath.Join(odir, p.Name()+".go"))
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	defer og.Close()
+	//
+	// 	err = bind.GenGo(og, fset, p, pyvers, vm, capi)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+	//
 	switch capi {
+	case "pybind":
+		ogo, err = os.Create(filepath.Join(odir, p.Name()+".go"))
+		if err != nil {
+			return err
+		}
+		defer ogo.Close()
+		opy, err = os.Create(filepath.Join(odir, p.Name()+".py"))
+		if err != nil {
+			return err
+		}
+		defer opy.Close()
+		omk, err = os.Create(filepath.Join(odir, "Makefile"))
+		if err != nil {
+			return err
+		}
+		defer omk.Close()
+
+		err = bind.GenPyBind(ogo, opy, omk, fset, p, vm, pyvers)
+		if err != nil {
+			return err
+		}
 	case "cffi":
 		o, err = os.Create(filepath.Join(odir, p.Name()+".py"))
 		if err != nil {
@@ -104,7 +127,6 @@ func genPkg(odir string, p *bind.Package, vm, capi string) error {
 		if err != nil {
 			return err
 		}
-
 	default:
 		return fmt.Errorf("gopy: unknown target API: %q", capi)
 	}
@@ -117,15 +139,6 @@ func genPkg(odir string, p *bind.Package, vm, capi string) error {
 		} else {
 			log.Printf("%v\n", err)
 		}
-	}
-
-	if err != nil {
-		return err
-	}
-
-	err = o.Close()
-	if err != nil {
-		return err
 	}
 
 	return err
