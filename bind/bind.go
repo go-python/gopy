@@ -26,6 +26,40 @@ func (list ErrorList) Error() string {
 	return buf.String()
 }
 
+// GenPyBind generates a .go file and .py file to enable pybindgen to create python bindings
+func GenPyBind(gow, pyw, mkw io.Writer, fset *token.FileSet, pkg *Package, vm string, lang int) error {
+	gen := &pybindGen{
+		gofile:   &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
+		pyfile:   &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
+		makefile: &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
+		fset:     fset,
+		pkg:      pkg,
+		vm:       vm,
+		lang:     lang,
+	}
+	err := gen.gen()
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(gow, gen.gofile)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(pyw, gen.pyfile)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(mkw, gen.makefile)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
 // GenCPython generates a (C)Python package from a Go package
 func GenCPython(w io.Writer, fset *token.FileSet, pkg *Package, vm string, lang int) error {
 	gen := &cpyGen{

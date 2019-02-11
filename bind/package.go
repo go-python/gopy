@@ -509,6 +509,10 @@ func (f Func) GoName() string {
 	return f.name
 }
 
+func (f Func) GoFmt() string {
+	return f.pkg.Name() + "." + f.name
+}
+
 func (f Func) Signature() *Signature {
 	return f.sig
 }
