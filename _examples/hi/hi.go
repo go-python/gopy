@@ -115,15 +115,15 @@ func (p *Person) Salary(h int) (int, error) {
 
 // Couple is a pair of persons
 type Couple struct {
-	P1 Person
-	P2 Person
+	P1 *Person
+	P2 *Person
 }
 
 // NewCouple returns a new couple made of the p1 and p2 persons.
 func NewCouple(p1, p2 *Person) *Couple {
 	return &Couple{
-		P1: *p1,
-		P2: *p2,
+		P1: p1,
+		P2: p2,
 	}
 }
 

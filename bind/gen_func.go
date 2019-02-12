@@ -195,7 +195,7 @@ if err != nil {
 			callArgs = append(callArgs, arg.Name())
 		}
 		if arg.sym.isPointer() {
-			wrapArgs = append(wrapArgs, fmt.Sprintf("str(%s)", arg.Name()))
+			wrapArgs = append(wrapArgs, fmt.Sprintf("%s.handle", arg.Name()))
 		} else {
 			wrapArgs = append(wrapArgs, arg.Name())
 		}
