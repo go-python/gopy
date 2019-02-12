@@ -30,7 +30,6 @@ ex:
 	}
 
 	cmd.Flag.String("vm", "python", "path to python interpreter")
-	cmd.Flag.String("api", "pybind", "bindings API to use (pybind, cpython, cffi)")
 	cmd.Flag.String("output", "", "output directory for bindings")
 	return cmd
 }
@@ -48,7 +47,6 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 	var (
 		odir = cmdr.Flag.Lookup("output").Value.Get().(string)
 		vm   = cmdr.Flag.Lookup("vm").Value.Get().(string)
-		api  = cmdr.Flag.Lookup("api").Value.Get().(string)
 	)
 
 	if vm == "" {
@@ -89,7 +87,7 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 		)
 	}
 
-	err = genPkg(odir, pkg, vm, api)
+	err = genPkg(odir, pkg, vm)
 	if err != nil {
 		return err
 	}

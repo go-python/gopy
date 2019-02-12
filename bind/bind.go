@@ -26,11 +26,14 @@ func (list ErrorList) Error() string {
 	return buf.String()
 }
 
-// GenPyBind generates a .go file and .py file to enable pybindgen to create python bindings
-func GenPyBind(gow, pyw, mkw io.Writer, fset *token.FileSet, pkg *Package, vm string, lang int) error {
+// GenPyBind generates a .go file, build.py file to enable pybindgen to create python bindings,
+// and a wrapper .py file that is loaded as the interface to the package with shadow
+// python-side classes
+func GenPyBind(gow, pybw, pyww, mkw io.Writer, fset *token.FileSet, pkg *Package, vm string, lang int) error {
 	gen := &pybindGen{
 		gofile:   &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
-		pyfile:   &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
+		pybuild:  &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
+		pywrap:   &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
 		makefile: &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
 		fset:     fset,
 		pkg:      pkg,
@@ -47,7 +50,12 @@ func GenPyBind(gow, pyw, mkw io.Writer, fset *token.FileSet, pkg *Package, vm st
 		return err
 	}
 
-	_, err = io.Copy(pyw, gen.pyfile)
+	_, err = io.Copy(pybw, gen.pybuild)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(pyww, gen.pywrap)
 	if err != nil {
 		return err
 	}

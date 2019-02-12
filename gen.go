@@ -14,7 +14,6 @@ import (
 	"go/scanner"
 	"go/token"
 	"go/types"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -28,9 +27,9 @@ var (
 	fset = token.NewFileSet()
 )
 
-func genPkg(odir string, p *bind.Package, vm, capi string) error {
+func genPkg(odir string, p *bind.Package, vm string) error {
 	var err error
-	var o, og, ogo, opy, omk *os.File
+	var ogo, opyb, opyw, omk *os.File
 
 	if !filepath.IsAbs(vm) {
 		vm, err = exec.LookPath(vm)
@@ -48,87 +47,30 @@ func genPkg(odir string, p *bind.Package, vm, capi string) error {
 		return err
 	}
 
-	// if capi != "pybind" {
-	// 	og, err := os.Create(filepath.Join(odir, p.Name()+".go"))
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	defer og.Close()
-	//
-	// 	err = bind.GenGo(og, fset, p, pyvers, vm, capi)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-	//
-	switch capi {
-	case "pybind":
-		ogo, err = os.Create(filepath.Join(odir, p.Name()+".go"))
-		if err != nil {
-			return err
-		}
-		defer ogo.Close()
-		opy, err = os.Create(filepath.Join(odir, p.Name()+".py"))
-		if err != nil {
-			return err
-		}
-		defer opy.Close()
-		omk, err = os.Create(filepath.Join(odir, "Makefile"))
-		if err != nil {
-			return err
-		}
-		defer omk.Close()
+	ogo, err = os.Create(filepath.Join(odir, p.Name()+".go"))
+	if err != nil {
+		return err
+	}
+	defer ogo.Close()
+	opyb, err = os.Create(filepath.Join(odir, "build.py"))
+	if err != nil {
+		return err
+	}
+	defer opyb.Close()
+	opyw, err = os.Create(filepath.Join(odir, p.Name()+".py"))
+	if err != nil {
+		return err
+	}
+	defer opyw.Close()
+	omk, err = os.Create(filepath.Join(odir, "Makefile"))
+	if err != nil {
+		return err
+	}
+	defer omk.Close()
 
-		err = bind.GenPyBind(ogo, opy, omk, fset, p, vm, pyvers)
-		if err != nil {
-			return err
-		}
-	case "cffi":
-		o, err = os.Create(filepath.Join(odir, p.Name()+".py"))
-		if err != nil {
-			return err
-		}
-		defer o.Close()
-
-		err = bind.GenCFFI(o, fset, p, vm, 2)
-		if err != nil {
-			return err
-		}
-
-	case "cpython":
-		o, err = os.Create(filepath.Join(odir, p.Name()+".c"))
-		if err != nil {
-			return err
-		}
-		defer o.Close()
-		err = bind.GenCPython(o, fset, p, vm, pyvers)
-		if err != nil {
-			return err
-		}
-
-		var tmpdir string
-		tmpdir, err = ioutil.TempDir("", "gopy-go-cgo-")
-		if err != nil {
-			return err
-		}
-		defer os.RemoveAll(tmpdir)
-
-		hdr := filepath.Join(odir, p.Name()+".h")
-		cmd := exec.Command(
-			"go", "tool", "cgo",
-			"-exportheader", hdr,
-			og.Name(),
-		)
-		cmd.Dir = tmpdir
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err = cmd.Run()
-		if err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("gopy: unknown target API: %q", capi)
+	err = bind.GenPyBind(ogo, opyb, opyw, omk, fset, p, vm, pyvers)
+	if err != nil {
+		return err
 	}
 
 	if err != nil {
