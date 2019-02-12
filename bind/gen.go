@@ -122,19 +122,20 @@ PYTHON=%[3]s
 PYTHON_CFG=$(PYTHON)-config
 GCC=gcc
 
+# get the flags used to build python:
+CFLAGS = $(shell $(PYTHON_CFG) --cflags)
+LDFLAGS = $(shell $(PYTHON_CFG) --ldflags)
+
 all: build
 
 build:
 	# this will otherwise be built during go build and may be out of date
-	rm %[1]s.c
+	- rm %[1]s.c
 	# generate %[1]s_go.so from %[1]s.go -- the cgo wrappers to go functions
 	$(GOBUILD) -buildmode=c-shared -ldflags="-s -w" -o %[1]s_go.so %[1]s.go
 	# use pybindgen to build the %[1]s.c file which are the CPython wrappers to cgo wrappers..
 	# note: pip install pybindgen to get pybindgen if this fails
 	$(PYTHON) build.py
-	# get the flags used to build python:
-	CFLAGS = $(shell $(PYTHON_CFG) --cflags)
-	LDFLAGS = $(shell $(PYTHON_CFG) --ldflags)
 	# build the _%[1]s.so library that contains the cgo and CPython wrappers
 	# generated %[1]s.py python wrapper imports this c-code package
 	$(GCC) %[1]s.c -dynamiclib %[1]s_go.so -o _%[1]s.so $(CFLAGS) $(LDFLAGS)
