@@ -32,7 +32,6 @@ ex:
 	}
 
 	cmd.Flag.String("vm", "python", "path to python interpreter")
-	cmd.Flag.String("api", "pybind", "bindings API to use (pybind, cpython, cffi)")
 	cmd.Flag.String("output", "", "output directory for bindings")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	cmd.Flag.Bool("work", false, "print the name of temporary work directory and do not delete it when exiting")
@@ -52,7 +51,6 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	var (
 		odir    = cmdr.Flag.Lookup("output").Value.Get().(string)
 		vm      = cmdr.Flag.Lookup("vm").Value.Get().(string)
-		api     = cmdr.Flag.Lookup("api").Value.Get().(string)
 		symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 		// printWork = cmdr.Flag.Lookup("work").Value.Get().(bool)
 	)
@@ -100,136 +98,60 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 		return err
 	}
 
-	// work, err := ioutil.TempDir("", "gopy-")
-	// if err != nil {
-	// 	return fmt.Errorf("gopy-bind: could not create temp-workdir (%v)", err)
-	// }
-	// if printWork {
-	// 	log.Printf("work: %s\n", work)
-	// }
-	//
-	// err = os.MkdirAll(work, 0644)
-	// if err != nil {
-	// 	return fmt.Errorf("gopy-bind: could not create workdir (%v)", err)
-	// }
-	// if !printWork {
-	// 	defer os.RemoveAll(work)
-	// }
-
-	err = genPkg(odir, pkg, vm, api)
+	err = genPkg(odir, pkg, vm)
 	if err != nil {
 		return err
 	}
 
-	// wbind, err := ioutil.TempDir("", "gopy-")
-	// if err != nil {
-	// 	return fmt.Errorf("gopy-bind: could not create temp-workdir (%v)", err)
-	// }
-	//
-	// err = os.MkdirAll(wbind, 0644)
-	// if err != nil {
-	// 	return fmt.Errorf("gopy-bind: could not create workdir (%v)", err)
-	// }
-	// defer os.RemoveAll(wbind)
-
 	buildname := pkg.Name()
 	pkgname := pkg.Name()
 	var cmdout []byte
-	switch api {
-	case "pybind":
+	os.Chdir(odir)
 
-		os.Chdir(odir)
-
-		fmt.Printf("executing command: go build -buildmode=c-shared ...\n")
-		buildname = buildname + "_go"
-		cmd = getBuildCommand(odir, buildname, odir, symbols)
-		err = cmd.Run()
-		if err != nil {
-			return err
-		}
-
-		fmt.Printf("executing command: %v\n", vm+" "+pkgname+".py")
-		cmd = exec.Command(vm, pkgname+".py")
-		cmdout, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(cmdout))
-			return err
-		}
-
-		fmt.Printf("executing command: %v.6-config --cflags\n", vm)
-		cmd = exec.Command(vm+".6-config", "--cflags") // todo: need minor version!
-		cflags, err := cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(cflags))
-			return err
-		}
-
-		fmt.Printf("executing command: %v.6-config --ldflags\n", vm)
-		cmd = exec.Command(vm+".6-config", "--ldflags")
-		ldflags, err := cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(ldflags))
-			return err
-		}
-
-		gccargs := []string{pkgname + ".c", "-dynamiclib", pkgname + "_go" + libExt, "-o", pkgname + libExt}
-		gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(cflags)), " ")...)
-		gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(ldflags)), " ")...)
-
-		fmt.Printf("executing command: gcc %v\n", strings.Join(gccargs, " "))
-		cmd = exec.Command("gcc", gccargs...)
-		cmdout, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(cmdout))
-			return err
-		}
-
-		/*
-			case "cffi":
-				// Since Python importing module priority is XXXX.so > XXXX.py,
-				// We need to change shared module name from  'XXXX.so' to '_XXXX.so'.
-				// As the result, an user can import XXXX.py.
-				buildname = "_" + buildname
-				cmd = getBuildCommand(wbind, buildname, work, symbols)
-				err = cmd.Run()
-				if err != nil {
-					return err
-				}
-
-				err = copyCmd(
-					filepath.Join(wbind, buildname)+libExt,
-					filepath.Join(odir, buildname)+libExt,
-				)
-				if err != nil {
-					return err
-				}
-
-				err = copyCmd(
-					filepath.Join(work, pkg.Name())+".py",
-					filepath.Join(odir, pkg.Name())+".py",
-				)
-				if err != nil {
-					return err
-				}
-
-			case "cpython":
-				cmd = getBuildCommand(wbind, buildname, work, symbols)
-				err = cmd.Run()
-				if err != nil {
-					return errors.Wrapf(err, "could not generate build command")
-				}
-
-				err = copyCmd(
-					filepath.Join(wbind, buildname)+libExt,
-					filepath.Join(odir, buildname)+libExt,
-				)
-				if err != nil {
-					return err
-				}
-		*/
-	default:
-		return fmt.Errorf("gopy: unknown target API: %q", api)
+	fmt.Printf("executing command: go build -buildmode=c-shared ...\n")
+	buildname = buildname + "_go"
+	cmd = getBuildCommand(odir, buildname, odir, symbols)
+	err = cmd.Run()
+	if err != nil {
+		return err
 	}
+
+	fmt.Printf("executing command: %v build.py\n", vm)
+	cmd = exec.Command(vm, "build.py")
+	cmdout, err = cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(cmdout))
+		return err
+	}
+
+	fmt.Printf("executing command: %v-config --cflags\n", vm)
+	cmd = exec.Command(vm+"-config", "--cflags") // todo: need minor version!
+	cflags, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(cflags))
+		return err
+	}
+
+	fmt.Printf("executing command: %v-config --ldflags\n", vm)
+	cmd = exec.Command(vm+"-config", "--ldflags")
+	ldflags, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(ldflags))
+		return err
+	}
+
+	gccargs := []string{pkgname + ".c", "-dynamiclib", pkgname + "_go" + libExt, "-o", "_" + pkgname + libExt}
+	gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(cflags)), " ")...)
+	gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(ldflags)), " ")...)
+
+	fmt.Printf("executing command: gcc %v\n", strings.Join(gccargs, " "))
+	cmd = exec.Command("gcc", gccargs...)
+	cmdout, err = cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(cmdout))
+		return err
+	}
+
 	return err
 }
 
