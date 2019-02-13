@@ -142,7 +142,8 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 		return err
 	}
 
-	gccargs := []string{pkgname + ".c", "-dynamiclib", pkgname + "_go" + libExt, "-o", "_" + pkgname + libExt}
+	modlib := "_" + pkgname + libExt
+	gccargs := []string{pkgname + ".c", "-dynamiclib", pkgname + "_go" + libExt, "-o", modlib}
 	gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(cflags)), " ")...)
 	gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(ldflags)), " ")...)
 
@@ -153,6 +154,12 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 		fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(cmdout))
 		return err
 	}
+
+	// if libExt == ".dylib" {
+	// 	// python doesn't recognize .dylib but mac wants .dylib -- otherwise it makes a weird extra dir
+	// // atually still makes the weird symbols dir -- need the ldflags=-s -w to get rid of it
+	// 	os.Symlink(modlib, "_"+pkgname+".so")
+	// }
 
 	return err
 }
