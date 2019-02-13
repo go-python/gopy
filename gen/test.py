@@ -149,6 +149,14 @@ print("--- hi.NewActivePerson(4):")
 p = hi.NewActivePerson(4)
 print(p)
 
+## test interface
+pif = hi.PersonAsIface("me", 666)
+print("--- hi.PersonAsIface('me', 666):", pif)
+print("--- pif.GetName():", pif.GetName())
+print("--- pif.GetAge():", pif.GetAge())
+print("--- pif.SetAge(22):", pif.SetAge(22))
+print("--- pif.GetAge():", pif.GetAge())
+
 # test Couple
 print("--- c = hi.Couple()...")
 c = hi.Couple()
