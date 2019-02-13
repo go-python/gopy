@@ -25,15 +25,21 @@ func (g *pybindGen) genType(sym *symbol) {
 
 func (g *pybindGen) genTypePointer(sym *symbol) {
 	npnm := sym.goname[1:] // non-pointer name
-	g.gofile.Printf("\n// Converters for pointer handles for type: %v\n", sym.gofmt())
-	g.gofile.Printf("func ptrFmHandle_%v(h *C.char) %v {\n", npnm, sym.gofmt())
+	g.gofile.Printf("\n// Converters for pointer handles for type: %s\n", sym.gofmt())
+	g.gofile.Printf("func ptrFmHandle_%s(h *C.char) %s {\n", npnm, sym.gofmt())
 	g.gofile.Indent()
-	g.gofile.Printf("return varHand.varFmHandle(h, \"%[1]s\").(%[1]s)\n", sym.gofmt())
+	g.gofile.Printf("p := varHand.varFmHandle(h, %[1]q)\n", sym.gofmt())
+	g.gofile.Printf("if p == nil {\n")
+	g.gofile.Indent()
+	g.gofile.Printf("return nil\n")
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
-	g.gofile.Printf("func handleFmPtr_%v(p interface{}) *C.char {\n", npnm)
+	g.gofile.Printf("return p	.(%[1]s)\n", sym.gofmt())
+	g.gofile.Outdent()
+	g.gofile.Printf("}\n")
+	g.gofile.Printf("func handleFmPtr_%s(p interface{}) *C.char {\n", npnm)
 	g.gofile.Indent()
-	g.gofile.Printf("return varHand.register(\"%v\", p)\n", sym.gofmt())
+	g.gofile.Printf("return varHand.register(\"%s\", p)\n", sym.gofmt())
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
 }
