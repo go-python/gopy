@@ -124,9 +124,8 @@ func (g *pybindGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	g.pywrap.Printf("@property\n")
 	g.pywrap.Printf("def %[1]s(self):\n", f.Name())
 	g.pywrap.Indent()
-	if ret.isPointer() {
-		npnm := ret.goname[1:] // non-pointer name
-		g.pywrap.Printf("return %s(handle=_%s.%s(self.handle))\n", npnm, pkgname, cgoFn)
+	if ret.hasHandle() {
+		g.pywrap.Printf("return %s(handle=_%s.%s(self.handle))\n", ret.nonPointerName(), pkgname, cgoFn)
 	} else {
 		g.pywrap.Printf("return _%s.%s(self.handle)\n", pkgname, cgoFn)
 	}
@@ -137,8 +136,12 @@ func (g *pybindGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	g.gofile.Printf("func %s(handle *C.char) %s {\n", cgoFn, ret.cgoname)
 	g.gofile.Indent()
 	g.gofile.Printf("op := ptrFmHandle_%s(handle)\nreturn ", s.GoName())
-	if ret.c2py != "" {
-		g.gofile.Printf("%s(op.%s)", ret.c2py, f.Name())
+	if ret.go2py != "" {
+		if ret.hasHandle() && !ret.isPtrOrIface() {
+			g.gofile.Printf("%s(&op.%s)", ret.go2py, f.Name())
+		} else {
+			g.gofile.Printf("%s(op.%s)", ret.go2py, f.Name())
+		}
 	} else {
 		g.gofile.Printf("op.%s", f.Name())
 	}
@@ -174,8 +177,12 @@ func (g *pybindGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	g.gofile.Printf("func %s(handle *C.char, val %s) {\n", cgoFn, ret.cgoname)
 	g.gofile.Indent()
 	g.gofile.Printf("op := ptrFmHandle_%s(handle)\n", s.GoName())
-	if ret.c2py != "" {
-		g.gofile.Printf("op.%s = %s(val)", f.Name(), ret.py2c)
+	if ret.go2py != "" {
+		if ret.hasHandle() && !ret.isPtrOrIface() {
+			g.gofile.Printf("op.%s = *%s(val)", f.Name(), ret.py2go)
+		} else {
+			g.gofile.Printf("op.%s = %s(val)", f.Name(), ret.py2go)
+		}
 	} else {
 		g.gofile.Printf("op.%s = val", f.Name())
 	}

@@ -148,8 +148,8 @@ if err != nil {
 		g.gofile.Indent()
 		if nres > 0 {
 			ret := res[0]
-			if ret.sym.c2py != "" {
-				g.gofile.Printf("return %s(%s)\n", ret.sym.c2py, ret.sym.zval)
+			if ret.sym.go2py != "" {
+				g.gofile.Printf("return %s(%s)\n", ret.sym.go2py, ret.sym.zval)
 			} else {
 				g.gofile.Printf("return %s\n", ret.sym.zval)
 			}
@@ -167,13 +167,12 @@ if err != nil {
 	if isMethod {
 		mnm = sym.goname + "_" + mnm
 	}
-	rvIsPtr := false
+	rvHasHandle := false
 	if nres > 0 {
 		ret := res[0]
-		if ret.sym.isPointer() {
-			npnm := ret.sym.goname[1:] // non-pointer name
-			rvIsPtr = true
-			g.pywrap.Printf("return %s(handle=_%s.%s(", npnm, pkgname, mnm)
+		if !rvIsErr && ret.sym.hasHandle() {
+			rvHasHandle = true
+			g.pywrap.Printf("return %s(handle=_%s.%s(", ret.sym.nonPointerName(), pkgname, mnm)
 		} else {
 			g.pywrap.Printf("return _%s.%s(", pkgname, mnm)
 		}
@@ -187,12 +186,18 @@ if err != nil {
 		wrapArgs = append(wrapArgs, "self.handle")
 	}
 	for _, arg := range args {
-		if arg.sym.py2c != "" {
-			callArgs = append(callArgs, fmt.Sprintf("%s(%s)", arg.sym.py2c, arg.Name()))
+		na := ""
+		if arg.sym.py2go != "" {
+			if arg.sym.hasHandle() && !arg.sym.isPtrOrIface() {
+				na = fmt.Sprintf("*%s(%s)", arg.sym.py2go, arg.Name())
+			} else {
+				na = fmt.Sprintf("%s(%s)", arg.sym.py2go, arg.Name())
+			}
 		} else {
-			callArgs = append(callArgs, arg.Name())
+			na = arg.Name()
 		}
-		if arg.sym.isPointer() {
+		callArgs = append(callArgs, na)
+		if arg.sym.hasHandle() {
 			wrapArgs = append(wrapArgs, fmt.Sprintf("%s.handle", arg.Name()))
 		} else {
 			wrapArgs = append(wrapArgs, arg.Name())
@@ -200,23 +205,27 @@ if err != nil {
 	}
 
 	hasRetCvt := false
+	hasAddrOfTmp := false
 	if nres > 0 {
 		ret := res[0]
 		if rvIsErr {
 			g.gofile.Printf("err = ")
 		} else if nres == 2 {
 			g.gofile.Printf("cret, err := ")
+		} else if ret.sym.hasHandle() && !ret.sym.isPtrOrIface() {
+			hasAddrOfTmp = true
+			g.gofile.Printf("cret := ")
 		} else {
-			if ret.sym.c2py != "" {
-				g.gofile.Printf("return %s(", ret.sym.c2py)
+			if ret.sym.go2py != "" {
 				hasRetCvt = true
+				g.gofile.Printf("return %s(", ret.sym.go2py)
 			} else {
 				g.gofile.Printf("return ")
 			}
 		}
 	}
 	g.pywrap.Printf("%s)", strings.Join(wrapArgs, ", "))
-	if rvIsPtr {
+	if rvHasHandle {
 		g.pywrap.Printf(")")
 	}
 
@@ -227,7 +236,8 @@ if err != nil {
 	}
 	if hasRetCvt {
 		g.gofile.Printf(")")
-	} else if rvIsErr || nres == 2 {
+	}
+	if rvIsErr || nres == 2 {
 		g.gofile.Printf("\n")
 		g.gofile.Printf("if err != nil {\n")
 		g.gofile.Indent()
@@ -241,12 +251,19 @@ if err != nil {
 			g.gofile.Printf("return C.CString(\"\")")
 		} else {
 			ret := res[0]
-			if ret.sym.c2py != "" {
-				g.gofile.Printf("return %s(cret)", ret.sym.c2py)
+			if ret.sym.go2py != "" {
+				if ret.sym.hasHandle() && !ret.sym.isPtrOrIface() {
+					g.gofile.Printf("return %s(&cret)", ret.sym.go2py)
+				} else {
+					g.gofile.Printf("return %s(cret)", ret.sym.go2py)
+				}
 			} else {
 				g.gofile.Printf("return cret")
 			}
 		}
+	} else if hasAddrOfTmp {
+		ret := res[0]
+		g.gofile.Printf("\nreturn %s(&cret)", ret.sym.go2py)
 	}
 	g.gofile.Printf("\n")
 	g.gofile.Outdent()
