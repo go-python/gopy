@@ -38,6 +38,20 @@ import (
 
 func main() {}
 
+func boolGoToPy(b bool) C.char {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func boolPyToGo(b C.char) bool {
+	if b != 0 {
+		return true
+	}
+	return false
+}
+
 // --- variable handles: all pointers managed via handles ---
 
 type varHandler struct {
@@ -259,6 +273,7 @@ func (g *pybindGen) genAll() {
 		g.genStruct(s)
 	}
 
+	// todo: not sure where these come from
 	for _, s := range g.pkg.structs {
 		for _, ctor := range s.ctors {
 			g.genFunc(ctor)
@@ -269,99 +284,20 @@ func (g *pybindGen) genAll() {
 		g.genFunc(f)
 	}
 
-	// for _, c := range g.pkg.consts {
-	// 	g.genGoConst(c)
-	// }
-	//
-	// for _, v := range g.pkg.vars {
-	// 	g.genGoVar(v)
-	// }
+	for _, c := range g.pkg.consts {
+		g.genConst(c)
+	}
+
+	for _, v := range g.pkg.vars {
+		g.genVar(v)
+	}
 }
 
-/*
 func (g *pybindGen) genConst(c Const) {
-	g.genGetFunc(c.f)
+	g.genConstGetter(c)
 }
 
 func (g *pybindGen) genVar(v Var) {
-	id := g.pkg.Name() + "_" + v.Name()
-	get := "returns " + g.pkg.Name() + "." + v.Name()
-	set := "sets " + g.pkg.Name() + "." + v.Name()
-	if v.doc != "" {
-		// if the Go variable had some documentation attached,
-		// put it there as well.
-		get += "\n\n" + v.doc
-		set += "\n\n" + v.doc
-	}
-	doc := v.doc
-	{
-		res := []*Var{newVar(g.pkg, v.GoType(), "ret", v.Name(), doc)}
-		sig := newSignature(g.pkg, nil, nil, res)
-		fget := Func{
-			pkg:  g.pkg,
-			sig:  sig,
-			typ:  nil,
-			name: v.Name(),
-			id:   id + "_get",
-			doc:  get,
-			ret:  v.GoType(),
-			err:  false,
-		}
-		g.genGetFunc(fget)
-	}
-	{
-		params := []*Var{newVar(g.pkg, v.GoType(), "arg", v.Name(), doc)}
-		sig := newSignature(g.pkg, nil, params, nil)
-		fset := Func{
-			pkg:  g.pkg,
-			sig:  sig,
-			typ:  nil,
-			name: v.Name(),
-			id:   id + "_set",
-			doc:  set,
-			ret:  nil,
-			err:  false,
-		}
-		g.genSetFunc(fset)
-	}
+	g.genVarGetter(v)
+	g.genVarSetter(v)
 }
-
-func (g *pybindGen) genGoConst(c Const) {
-	g.genGoFunc(c.f)
-}
-
-func (g *pybindGen) genGoVar(v Var) {
-	id := g.pkg.Name() + "_" + v.Name()
-	doc := v.doc
-	{
-		res := []*Var{newVar(g.pkg, v.GoType(), "ret", v.Name(), doc)}
-		sig := newSignature(g.pkg, nil, nil, res)
-		fget := Func{
-			pkg:  g.pkg,
-			sig:  sig,
-			typ:  nil,
-			name: v.Name(),
-			id:   id + "_get",
-			doc:  "returns " + g.pkg.Name() + "." + v.Name(),
-			ret:  v.GoType(),
-			err:  false,
-		}
-		g.genGoFunc(fget)
-	}
-	{
-		params := []*Var{newVar(g.pkg, v.GoType(), "arg", v.Name(), doc)}
-		sig := newSignature(g.pkg, nil, params, nil)
-		fset := Func{
-			pkg:  g.pkg,
-			sig:  sig,
-			typ:  nil,
-			name: v.Name(),
-			id:   id + "_set",
-			doc:  "sets " + g.pkg.Name() + "." + v.Name(),
-			ret:  nil,
-			err:  false,
-		}
-		g.genGoFunc(fset)
-	}
-}
-*/
