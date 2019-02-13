@@ -10,7 +10,7 @@ import (
 
 func (g *pybindGen) genVarGetter(v Var) {
 	pkgname := g.pkg.Name()
-	cgoFn := fmt.Sprintf("Get%s", v.Name())
+	cgoFn := v.Name() // plain name is the getter
 	qFn := "_" + pkgname + "." + cgoFn
 	qVn := pkgname + "." + v.Name()
 
@@ -84,39 +84,7 @@ func (g *pybindGen) genVarSetter(v Var) {
 	g.pybuild.Printf("mod.add_function('%s', None, [param('%s', 'val')])\n", cgoFn, v.sym.cpyname)
 }
 
-func (g *pybindGen) genConstGetter(c Const) {
-	pkgname := g.pkg.Name()
-	cgoFn := fmt.Sprintf("Get%s", c.GoName())
-	qFn := "_" + pkgname + "." + cgoFn
-	qVn := pkgname + "." + c.GoName()
-
-	g.pywrap.Printf("def %s():\n", cgoFn)
-	g.pywrap.Indent()
-	g.pywrap.Printf("%s\n%s Gets Go Constant: %s\n%s\n%s\n", `"""`, cgoFn, qVn, c.doc, `"""`)
-	if c.sym.hasHandle() {
-		g.pywrap.Printf("return %s(handle=%s())\n", c.sym.nonPointerName(), qFn)
-	} else {
-		g.pywrap.Printf("return %s()\n", qFn)
-	}
-	g.pywrap.Outdent()
-	g.pywrap.Printf("\n")
-
-	g.gofile.Printf("//export %s\n", cgoFn)
-	g.gofile.Printf("func %s() %s {\n", cgoFn, c.sym.cgoname)
-	g.gofile.Indent()
-	g.gofile.Printf("return ")
-	if c.sym.go2py != "" {
-		if c.sym.hasHandle() && !c.sym.isPtrOrIface() {
-			g.gofile.Printf("%s(&%s)", c.sym.go2py, qVn)
-		} else {
-			g.gofile.Printf("%s(%s)", c.sym.go2py, qVn)
-		}
-	} else {
-		g.gofile.Printf("%s", qVn)
-	}
-	g.gofile.Printf("\n")
-	g.gofile.Outdent()
-	g.gofile.Printf("}\n\n")
-
-	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [])\n", cgoFn, c.sym.cpyname)
+func (g *pybindGen) genConstValue(c Const) {
+	// constants go directly into wrapper as-is
+	g.pywrap.Printf("%s = %s\n", c.GoName(), c.obj.Val().ExactString())
 }

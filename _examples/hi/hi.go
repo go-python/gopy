@@ -19,8 +19,8 @@ const (
 var (
 	Debug = false                            // Debug switches between debug and prod
 	Anon  = Person{Age: 1, Name: "<nobody>"} // Anon is a default anonymous person
-	// IntSlice = []int{1, 2}                      // A slice of ints
-	// IntArray = [2]int{1, 2}                     // An array of ints
+//	IntSlice = []int{1, 2}                      // A slice of ints
+// IntArray = [2]int{1, 2}                     // An array of ints
 )
 
 // Hi prints hi from Go

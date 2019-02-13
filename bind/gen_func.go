@@ -124,7 +124,7 @@ func (g *pybindGen) genFuncBody(sym *symbol, fsym Func) {
 		symNm = sym.gofmt()
 		isIface = sym.isInterface()
 		if !isIface {
-			symNm = "*" + sym.gofmt()
+			symNm = "*" + symNm
 		}
 	}
 
@@ -156,7 +156,7 @@ func (g *pybindGen) genFuncBody(sym *symbol, fsym Func) {
 	g.gofile.Indent()
 	if isMethod {
 		g.gofile.Printf(
-			`vifc, err := varHand.varFmHandleTry(_handle, "*%s")
+			`vifc, err := varHand.varFmHandleTry(_handle, "%s")
 if err != nil {
 `, symNm)
 		g.gofile.Indent()

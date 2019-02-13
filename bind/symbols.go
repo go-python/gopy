@@ -456,6 +456,7 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 			))
 		}
 	}
+	id = hash(id)
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -466,8 +467,8 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		cgoname: "*C.char", // handles
 		cpyname: "char*",
 		pysig:   "[]" + elt.pysig,
-		go2py:   "handleFmPtr_" + n,
-		py2go:   "ptrFmHandle_" + n,
+		go2py:   "handleFmPtr_" + id,
+		py2go:   "ptrFmHandle_" + id,
 	}
 }
 
@@ -503,8 +504,8 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		cgoname: "*C.char",
 		cpyname: "char*",
 		pysig:   "object",
-		go2py:   "handleFmPtr_" + n,
-		py2go:   "ptrFmHandle_" + n,
+		go2py:   "handleFmPtr_" + id,
+		py2go:   "ptrFmHandle_" + id,
 	}
 }
 
@@ -540,8 +541,8 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		cgoname: "*C.char",
 		cpyname: "char*",
 		pysig:   "[]" + elt.pysig,
-		go2py:   "handleFmPtr_" + n,
-		py2go:   "ptrFmHandle_" + n,
+		go2py:   "handleFmPtr_" + id,
+		py2go:   "ptrFmHandle_" + id,
 	}
 }
 
