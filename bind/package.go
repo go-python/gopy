@@ -25,6 +25,7 @@ type Package struct {
 	consts  []Const
 	vars    []Var
 	structs []Struct
+	ifaces  []Interface
 	funcs   []Func
 }
 
@@ -170,6 +171,7 @@ func (p *Package) process() error {
 
 	funcs := make(map[string]Func)
 	structs := make(map[string]Struct)
+	ifaces := make(map[string]Interface)
 
 	scope := p.pkg.Scope()
 	for _, name := range scope.Names() {
@@ -217,7 +219,10 @@ func (p *Package) process() error {
 				// ok. handled by p.syms-types
 
 			case *types.Interface:
-				// ok. handled by p.syms-types
+				ifaces[name], err = newInterface(p, obj)
+				if err != nil {
+					return err
+				}
 
 			case *types.Signature:
 				// ok. handled by p.syms-types
@@ -273,6 +278,22 @@ func (p *Package) process() error {
 		p.addStruct(s)
 	}
 
+	for iname, ifc := range ifaces {
+		mset := types.NewMethodSet(ifc.GoType())
+		for i := 0; i < mset.Len(); i++ {
+			meth := mset.At(i)
+			if !meth.Obj().Exported() {
+				continue
+			}
+			m, err := newFuncFrom(p, iname, meth.Obj(), meth.Type().(*types.Signature))
+			if err != nil {
+				return err
+			}
+			ifc.meths = append(ifc.meths, m)
+		}
+		p.addInterface(ifc)
+	}
+
 	for _, fct := range funcs {
 		p.addFunc(fct)
 	}
@@ -317,6 +338,11 @@ func (p *Package) addVar(obj *types.Var) {
 func (p *Package) addStruct(s Struct) {
 	p.structs = append(p.structs, s)
 	p.objs[s.GoName()] = s
+}
+
+func (p *Package) addInterface(ifc Interface) {
+	p.ifaces = append(p.ifaces, ifc)
+	p.objs[ifc.GoName()] = ifc
 }
 
 func (p *Package) addFunc(f Func) {

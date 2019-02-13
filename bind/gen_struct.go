@@ -24,8 +24,6 @@ class %[2]s(GoClass):
 	g.genStructInit(s)
 	g.genStructMembers(s)
 	g.genStructMethods(s)
-	// g.genStructTPRepr(s)
-	// g.genStructTPStr(s)
 	g.pywrap.Outdent()
 }
 
@@ -196,5 +194,62 @@ func (g *pybindGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 func (g *pybindGen) genStructMethods(s Struct) {
 	for _, m := range s.meths {
 		g.genMethod(s, m)
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Interface
+
+func (g *pybindGen) genInterface(ifc Interface) {
+	pkgname := ifc.Package().Name()
+	g.pywrap.Printf(`
+# Python type for interface %[1]s.%[2]s
+class %[2]s(GoClass):
+	""%[3]q""
+`,
+		pkgname,
+		ifc.GoName(),
+		ifc.Doc(),
+	)
+	g.pywrap.Indent()
+	g.genIfaceInit(ifc)
+	g.genIfaceMethods(ifc)
+	g.pywrap.Outdent()
+}
+
+func (g *pybindGen) genIfaceInit(ifc Interface) {
+	// pkgname := ifc.Package().Name()
+
+	g.pywrap.Printf("def __init__(self, *args, **kwargs):\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf(`"""
+handle=A Go-side object is always initialized with an explicit handle=arg
+"""
+`)
+	g.pywrap.Printf("if len(kwargs) == 1 and 'handle' in kwargs:\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("self.handle = kwargs['handle']\n")
+	g.pywrap.Outdent()
+	g.pywrap.Printf("else:\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("self.handle = args[0]\n")
+	g.pywrap.Outdent()
+	g.pywrap.Outdent()
+	g.pywrap.Printf("\n")
+
+	for _, m := range ifc.meths {
+		if m.GoName() == "String" {
+			g.pywrap.Printf("def __str__(self):\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("return self.String()\n")
+			g.pywrap.Outdent()
+			g.pywrap.Printf("\n")
+		}
+	}
+}
+
+func (g *pybindGen) genIfaceMethods(ifc Interface) {
+	for _, m := range ifc.meths {
+		g.genIfcMethod(ifc, m)
 	}
 }

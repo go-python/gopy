@@ -280,6 +280,10 @@ func (g *pybindGen) genAll() {
 		}
 	}
 
+	for _, ifc := range g.pkg.ifaces {
+		g.genInterface(ifc)
+	}
+
 	for _, f := range g.pkg.funcs {
 		g.genFunc(f)
 	}
