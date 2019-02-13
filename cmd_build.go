@@ -16,19 +16,19 @@ import (
 	"github.com/gonuts/flag"
 )
 
-func gopyMakeCmdBind() *commander.Command {
+func gopyMakeCmdBuild() *commander.Command {
 	cmd := &commander.Command{
-		Run:       gopyRunCmdBind,
-		UsageLine: "bind <go-package-name>",
+		Run:       gopyRunCmdBuild,
+		UsageLine: "build <go-package-name>",
 		Short:     "generate and compile (C)Python language bindings for Go",
 		Long: `
-bind generates and compiles (C)Python language bindings for a Go package.
+build generates and compiles (C)Python language bindings for a Go package.
 
 ex:
- $ gopy bind [options] <go-package-name>
- $ gopy bind github.com/go-python/gopy/_examples/hi
+ $ gopy build [options] <go-package-name>
+ $ gopy build github.com/go-python/gopy/_examples/hi
 `,
-		Flag: *flag.NewFlagSet("gopy-bind", flag.ExitOnError),
+		Flag: *flag.NewFlagSet("gopy-build", flag.ExitOnError),
 	}
 
 	cmd.Flag.String("vm", "python", "path to python interpreter")
@@ -38,13 +38,13 @@ ex:
 	return cmd
 }
 
-func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
+func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 	var err error
 
 	if len(args) != 1 {
 		log.Printf("expect a fully qualified go package name as argument\n")
 		return fmt.Errorf(
-			"gopy-bind: expect a fully qualified go package name as argument",
+			"gopy-build: expect a fully qualified go package name as argument",
 		)
 	}
 
@@ -66,7 +66,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 		err = os.MkdirAll(odir, 0755)
 		if err != nil {
 			return fmt.Errorf(
-				"gopy-bind: could not create output directory: %v", err,
+				"gopy-build: could not create output directory: %v", err,
 			)
 		}
 	}
@@ -79,7 +79,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	pkg, err := newPackage(path)
 	if err != nil {
 		return fmt.Errorf(
-			"gopy-bind: go/build.Import failed with path=%q: %v",
+			"gopy-build: go/build.Import failed with path=%q: %v",
 			path,
 			err,
 		)
@@ -107,6 +107,8 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	pkgname := pkg.Name()
 	var cmdout []byte
 	os.Chdir(odir)
+
+	err = os.Remove(pkgname + ".c")
 
 	fmt.Printf("executing command: go build -buildmode=c-shared ...\n")
 	buildname = buildname + "_go"
@@ -155,7 +157,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	return err
 }
 
-func getBuildCommand(wbind string, buildname string, work string, symbols bool) (cmd *exec.Cmd) {
+func getBuildCommand(wbuild string, buildname string, work string, symbols bool) (cmd *exec.Cmd) {
 	args := []string{"build", "-buildmode=c-shared"}
 	if !symbols {
 		// These flags will omit the various symbol tables, thereby
@@ -164,7 +166,7 @@ func getBuildCommand(wbind string, buildname string, work string, symbols bool) 
 		// -w Omit the DWARF symbol table
 		args = append(args, "-ldflags=-s -w")
 	}
-	args = append(args, "-o", filepath.Join(wbind, buildname)+libExt, ".")
+	args = append(args, "-o", filepath.Join(wbuild, buildname)+libExt, ".")
 	cmd = exec.Command(
 		"go", args...,
 	)

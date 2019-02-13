@@ -68,7 +68,7 @@ func genPkg(odir string, p *bind.Package, vm string) error {
 	}
 	defer omk.Close()
 
-	err = bind.GenPyBind(ogo, opyb, opyw, omk, fset, p, vm, pyvers)
+	err = bind.GenPyBind(ogo, opyb, opyw, omk, fset, p, vm, libExt, pyvers)
 	if err != nil {
 		return err
 	}

@@ -884,7 +884,7 @@ func testPkgBackend(t *testing.T, pyvm, capi string, table pkg) {
 	}
 	defer os.RemoveAll(workdir)
 
-	err = run([]string{"bind", "-vm=" + pyvm, "-api=" + capi, "-output=" + workdir, "./" + table.path})
+	err = run([]string{"build", "-vm=" + pyvm, "-api=" + capi, "-output=" + workdir, "./" + table.path})
 	if err != nil {
 		t.Fatalf("[%s:%s:%s]: error running gopy-bind: %v\n", pyvm, capi, table.path, err)
 	}

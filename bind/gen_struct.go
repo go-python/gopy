@@ -13,7 +13,7 @@ func (g *pybindGen) genStruct(s Struct) {
 	pkgname := s.Package().Name()
 	g.pywrap.Printf(`
 # Python type for struct %[1]s.%[2]s
-class %[2]s:
+class %[2]s(GoClass):
 	""%[3]q""
 `,
 		pkgname,
@@ -31,7 +31,7 @@ class %[2]s:
 
 func (g *pybindGen) genStructInit(s Struct) {
 	// pkg := s.Package()
-	// pkgname := s.Package().Name()
+	pkgname := s.Package().Name()
 	numFields := s.Struct().NumFields()
 	numPublic := numFields
 	for i := 0; i < s.Struct().NumFields(); i++ {
@@ -42,9 +42,37 @@ func (g *pybindGen) genStructInit(s Struct) {
 		}
 	}
 
-	g.pywrap.Printf("def __init__(self, handle):\n")
+	g.pywrap.Printf("def __init__(self, *args, **kwargs):\n")
 	g.pywrap.Indent()
-	g.pywrap.Printf("self.handle = handle\n")
+	g.pywrap.Printf(`"""
+handle=A Go-side object is always initialized with an explicit handle=arg
+otherwise parameters can be unnamed in order of field names or named fields
+in which case a new Go object is constructed first
+"""
+`)
+	g.pywrap.Printf("if len(kwargs) == 1 and 'handle' in kwargs:\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("self.handle = kwargs['handle']\n")
+	g.pywrap.Outdent()
+	g.pywrap.Printf("else:\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("self.handle = _%s.%s_CTor()\n", pkgname, s.GoName())
+
+	for i := 0; i < numFields; i++ {
+		field := s.Struct().Field(i)
+		if !field.Exported() {
+			continue
+		}
+		g.pywrap.Printf("if  %[1]d < len(args):\n", i)
+		g.pywrap.Indent()
+		g.pywrap.Printf("self.%s = args[%d]\n", field.Name(), i)
+		g.pywrap.Outdent()
+		g.pywrap.Printf("if %[1]q in kwargs:\n", field.Name())
+		g.pywrap.Indent()
+		g.pywrap.Printf("self.%[1]s = kwargs[%[1]q]\n", field.Name())
+		g.pywrap.Outdent()
+	}
+	g.pywrap.Outdent()
 	g.pywrap.Outdent()
 	g.pywrap.Printf("\n")
 
@@ -57,6 +85,20 @@ func (g *pybindGen) genStructInit(s Struct) {
 			g.pywrap.Printf("\n")
 		}
 	}
+
+	// go ctor
+	sname := pkgname + "." + s.GoName()
+	ctnm := s.GoName() + "_CTor"
+	g.gofile.Printf("\n// --- wrapping struct: %v ---\n", sname)
+	g.gofile.Printf("//export %s\n", ctnm)
+	g.gofile.Printf("func %s() *C.char {\n", ctnm)
+	g.gofile.Indent()
+	g.gofile.Printf("return handleFmPtr_%[1]s(&%[2]s{})\n", s.GoName(), sname)
+	g.gofile.Outdent()
+	g.gofile.Printf("}\n")
+
+	g.pybuild.Printf("mod.add_function('%s', retval('char*'), [])\n", ctnm)
+
 }
 
 func (g *pybindGen) genStructMembers(s Struct) {
@@ -77,17 +119,22 @@ func (g *pybindGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	ft := f.Type()
 	ret := g.pkg.syms.symtype(ft)
 
-	cgo_fgetname := fmt.Sprintf("%s_%s_Get", s.GoName(), f.Name())
+	cgoFn := fmt.Sprintf("%s_%s_Get", s.GoName(), f.Name())
 
 	g.pywrap.Printf("@property\n")
 	g.pywrap.Printf("def %[1]s(self):\n", f.Name())
 	g.pywrap.Indent()
-	g.pywrap.Printf("return _%s.%s(self.handle)\n", pkgname, cgo_fgetname)
+	if ret.isPointer() {
+		npnm := ret.goname[1:] // non-pointer name
+		g.pywrap.Printf("return %s(handle=_%s.%s(self.handle))\n", npnm, pkgname, cgoFn)
+	} else {
+		g.pywrap.Printf("return _%s.%s(self.handle)\n", pkgname, cgoFn)
+	}
 	g.pywrap.Outdent()
 	g.pywrap.Printf("\n")
 
-	g.gofile.Printf("//export %s\n", cgo_fgetname)
-	g.gofile.Printf("func %s(handle *C.char) %s {\n", cgo_fgetname, ret.cgoname)
+	g.gofile.Printf("//export %s\n", cgoFn)
+	g.gofile.Printf("func %s(handle *C.char) %s {\n", cgoFn, ret.cgoname)
 	g.gofile.Indent()
 	g.gofile.Printf("op := ptrFmHandle_%s(handle)\nreturn ", s.GoName())
 	if ret.c2py != "" {
@@ -99,20 +146,44 @@ func (g *pybindGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n\n")
 
-	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [param('char*', 'handle')])\n", cgo_fgetname, ret.cpyname)
+	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [param('char*', 'handle')])\n", cgoFn, ret.cpyname)
 }
 
 func (g *pybindGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	pkgname := s.Package().Name()
-	// ft := f.Type()
-	cgo_fsetname := fmt.Sprintf("%s_%s_Set", s.GoName(), f.Name())
+	ft := f.Type()
+	ret := g.pkg.syms.symtype(ft)
 
-	g.pywrap.Printf("@%[1]s.setter\n", f.Name())
+	cgoFn := fmt.Sprintf("%s_%s_Set", s.GoName(), f.Name())
+
+	g.pywrap.Printf("@%s.setter\n", f.Name())
 	g.pywrap.Printf("def %[1]s(self, value):\n", f.Name())
 	g.pywrap.Indent()
-	g.pywrap.Printf("_%s.%s(self.handle, value)\n", pkgname, cgo_fsetname)
+	g.pywrap.Printf("if isinstance(value, GoClass):\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("_%s.%s(self.handle, value.handle)\n", pkgname, cgoFn)
+	g.pywrap.Outdent()
+	g.pywrap.Printf("else:\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("_%s.%s(self.handle, value)\n", pkgname, cgoFn)
+	g.pywrap.Outdent()
 	g.pywrap.Outdent()
 	g.pywrap.Printf("\n")
+
+	g.gofile.Printf("//export %s\n", cgoFn)
+	g.gofile.Printf("func %s(handle *C.char, val %s) {\n", cgoFn, ret.cgoname)
+	g.gofile.Indent()
+	g.gofile.Printf("op := ptrFmHandle_%s(handle)\n", s.GoName())
+	if ret.c2py != "" {
+		g.gofile.Printf("op.%s = %s(val)", f.Name(), ret.py2c)
+	} else {
+		g.gofile.Printf("op.%s = val", f.Name())
+	}
+	g.gofile.Printf("\n")
+	g.gofile.Outdent()
+	g.gofile.Printf("}\n\n")
+
+	g.pybuild.Printf("mod.add_function('%s', None, [param('char*', 'handle'), param('%s', 'val')])\n", cgoFn, ret.cpyname)
 }
 
 func (g *pybindGen) genStructMethods(s Struct) {

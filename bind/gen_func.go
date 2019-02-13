@@ -19,7 +19,6 @@ func (g *pybindGen) genFuncSig(sym *symbol, fsym Func) {
 		g.gofile.Printf("\n//export %s\n", mnm)
 		g.gofile.Printf("func %s(", mnm)
 
-		g.pybuild.Printf("\n# wrapping %s.%s\n", sym.goname, fsym.GoName())
 		g.pybuild.Printf("mod.add_function('%s', ", mnm)
 
 		g.pywrap.Printf("def %s(", fsym.GoName())
@@ -28,7 +27,6 @@ func (g *pybindGen) genFuncSig(sym *symbol, fsym Func) {
 		g.gofile.Printf("\n//export %s\n", fsym.GoName())
 		g.gofile.Printf("func %s(", fsym.GoName())
 
-		g.pybuild.Printf("\n# wrapping %s\n", fsym.GoName())
 		g.pybuild.Printf("mod.add_function('%s', ", fsym.GoName())
 
 		g.pywrap.Printf("def %s(", fsym.GoName())
@@ -175,7 +173,7 @@ if err != nil {
 		if ret.sym.isPointer() {
 			npnm := ret.sym.goname[1:] // non-pointer name
 			rvIsPtr = true
-			g.pywrap.Printf("return %s(_%s.%s(", npnm, pkgname, mnm)
+			g.pywrap.Printf("return %s(handle=_%s.%s(", npnm, pkgname, mnm)
 		} else {
 			g.pywrap.Printf("return _%s.%s(", pkgname, mnm)
 		}
