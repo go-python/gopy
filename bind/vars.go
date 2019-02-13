@@ -63,10 +63,6 @@ func (v *Var) CGoType() string {
 	return v.sym.cgoname
 }
 
-func (v *Var) PyCode() string {
-	return v.sym.pyfmt
-}
-
 func (v *Var) isGoString() bool {
 	switch typ := v.GoType().(type) {
 	case *types.Basic:
@@ -90,32 +86,6 @@ func (v *Var) genRecvImpl(g *printer) {
 
 func (v *Var) genRetDecl(g *printer) {
 	g.Printf("%[1]s c_gopy_ret;\n", v.sym.cgoname)
-}
-
-func (v *Var) getArgParse() (string, []string) {
-	addrs := make([]string, 0, 1)
-	cnv := v.sym.hasConverter()
-	if cnv {
-		addrs = append(addrs, v.sym.py2c)
-	}
-	addr := "&c_" + v.Name()
-	addrs = append(addrs, addr)
-	return v.sym.pyfmt, addrs
-}
-
-func (v *Var) getArgBuildValue() (string, []string) {
-	args := make([]string, 0, 1)
-	cnv := v.sym.hasConverter()
-	if cnv {
-		args = append(args, ""+v.sym.c2py)
-	}
-	arg := "c_" + v.Name()
-	if cnv {
-		arg = "&" + arg
-	}
-	args = append(args, arg)
-
-	return v.sym.pyfmt, args
 }
 
 func (v *Var) genFuncPreamble(g *printer) {

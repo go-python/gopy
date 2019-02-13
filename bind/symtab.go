@@ -86,19 +86,10 @@ type symbol struct {
 	goname  string // name of go entity
 	cgoname string // name of entity for cgo
 	cpyname string // name of entity for cpython
-
-	// for types only
-
-	pyfmt string // format string for PyArg_ParseTuple
-	pybuf string // format string for 'struct'/'buffer'
-	pysig string // type string for doc-signatures
-	c2py  string // name of go->py converter function
-	py2c  string // name of py->go converter function
-
-	// Py<Type>_Check type-check function codelet
-	// e.g. PyObject_TypeCheck(%s, cpy_type_mypkg_MyStructType)
-	pychk string
-	zval  string // zero value representation
+	pysig   string // type string for doc-signatures
+	go2py   string // name of go->py converter function
+	py2go   string // name of py->go converter function
+	zval    string // zero value representation
 }
 
 func isPrivate(s string) bool {
@@ -149,8 +140,23 @@ func (s symbol) isPointer() bool {
 	return (s.kind & skPointer) != 0
 }
 
+func (s symbol) isPtrOrIface() bool {
+	return s.isPointer() || s.isInterface()
+}
+
+func (s symbol) nonPointerName() string {
+	if s.isPointer() {
+		return s.goname[1:]
+	}
+	return s.goname
+}
+
+func (s symbol) hasHandle() bool {
+	return !s.isBasic()
+}
+
 func (s symbol) hasConverter() bool {
-	return s.pyfmt == "O&" && (s.c2py != "" || s.py2c != "")
+	return (s.go2py != "" || s.py2go != "")
 }
 
 func (s symbol) pkgname() string {
@@ -195,33 +201,6 @@ func (s symbol) gofmt() string {
 		s.GoType(),
 		func(*types.Package) string { return s.pkgname() },
 	)
-}
-
-func (s symbol) getArgParse(v string) (string, []string) {
-	addrs := make([]string, 0, 1)
-	cnv := s.hasConverter()
-	if cnv {
-		addrs = append(addrs, s.py2c)
-	}
-	addr := "&" + v
-	addrs = append(addrs, addr)
-	return s.pyfmt, addrs
-}
-
-func (s symbol) getBuildValue(v string) (string, []string) {
-	args := make([]string, 0, 1)
-	cnv := s.hasConverter()
-	if cnv {
-		args = append(args, ""+s.c2py)
-	}
-	arg := v
-	if cnv {
-		arg = "&" + arg
-	}
-	args = append(args, arg)
-
-	return s.pyfmt, args
-
 }
 
 // symtab is a table of symbols in a go package
@@ -394,12 +373,11 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 
 	case *types.Named:
 		kind |= skNamed
-		switch typ := typ.Underlying().(type) {
+		switch typ.Underlying().(type) {
 		case *types.Struct:
 			sym.addStructType(pkg, obj, t, kind, id, n)
 
 		case *types.Basic:
-			bsym := sym.symtype(typ)
 			sym.syms[fn] = &symbol{
 				gopkg:   pkg,
 				goobj:   obj,
@@ -409,12 +387,9 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 				goname:  n,
 				cgoname: "cgo_type_" + id,
 				cpyname: "cpy_type_" + id,
-				pyfmt:   bsym.pyfmt,
-				pybuf:   bsym.pybuf,
 				pysig:   "object",
-				c2py:    "cgopy_cnv_c2py_" + id,
-				py2c:    "cgopy_cnv_py2c_" + id,
-				pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
+				go2py:   "cgopy_cnv_go2py_" + id,
+				py2go:   "cgopy_cnv_py2go_" + id,
 			}
 
 		case *types.Array:
@@ -481,7 +456,6 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 			))
 		}
 	}
-	id = hash(id)
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -489,14 +463,11 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "cgo_type_" + id,
-		cpyname: "cpy_type_" + id,
-		pyfmt:   "O&",
-		pybuf:   fmt.Sprintf("%d%s", typ.Len(), elt.pybuf),
+		cgoname: "*C.char", // handles
+		cpyname: "char*",
 		pysig:   "[]" + elt.pysig,
-		c2py:    "cgopy_cnv_c2py_" + id,
-		py2c:    "cgopy_cnv_py2c_" + id,
-		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
+		go2py:   "handleFmPtr_" + n,
+		py2go:   "ptrFmHandle_" + n,
 	}
 }
 
@@ -529,14 +500,11 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "cgo_type_" + id,
-		cpyname: "cpy_type_" + id,
-		pyfmt:   "O&",
-		pybuf:   elt.pybuf, //fmt.Sprintf("%d%s", typ.Len(), elt.pybuf),
+		cgoname: "*C.char",
+		cpyname: "char*",
 		pysig:   "object",
-		c2py:    "cgopy_cnv_c2py_" + id,
-		py2c:    "cgopy_cnv_py2c_" + id,
-		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
+		go2py:   "handleFmPtr_" + n,
+		py2go:   "ptrFmHandle_" + n,
 	}
 }
 
@@ -569,14 +537,11 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "cgo_type_" + id,
-		cpyname: "cpy_type_" + id,
-		pyfmt:   "O&",
-		pybuf:   elt.pybuf,
+		cgoname: "*C.char",
+		cpyname: "char*",
 		pysig:   "[]" + elt.pysig,
-		c2py:    "cgopy_cnv_c2py_" + id,
-		py2c:    "cgopy_cnv_py2c_" + id,
-		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
+		go2py:   "handleFmPtr_" + n,
+		py2go:   "ptrFmHandle_" + n,
 	}
 }
 
@@ -584,7 +549,6 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 	fn := sym.typename(t, nil)
 	typ := t.Underlying().(*types.Struct)
 	kind |= skStruct
-	pybuf := make([]string, 0, typ.NumFields())
 	for i := 0; i < typ.NumFields(); i++ {
 		if isPrivate(typ.Field(i).Name()) {
 			continue
@@ -601,7 +565,6 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 				))
 			}
 		}
-		pybuf = append(pybuf, fsym.pybuf)
 	}
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
@@ -610,14 +573,11 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "cgo_type_" + id,
-		cpyname: "cpy_type_" + id,
-		pyfmt:   "O&",
-		pybuf:   strings.Join(pybuf, ""),
+		cgoname: "*C.char",
+		cpyname: "char*",
 		pysig:   "object",
-		c2py:    "cgopy_cnv_c2py_" + id,
-		py2c:    "cgopy_cnv_py2c_" + id,
-		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
+		go2py:   "handleFmPtr_" + n,
+		py2go:   "ptrFmHandle_" + n,
 	}
 }
 
@@ -635,14 +595,11 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "cgo_type_" + id,
-		cpyname: "cpy_type_" + id,
-		pyfmt:   "O&",
-		pybuf:   "P",
+		cgoname: "*C.char",
+		cpyname: "char*",
 		pysig:   "callable",
-		c2py:    "cgopy_cnv_c2py_" + id,
-		py2c:    "cgopy_cnv_py2c_" + id,
-		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
+		go2py:   "?",
+		py2go:   "?",
 	}
 }
 
@@ -656,8 +613,8 @@ func (sym *symtab) addMethod(pkg *types.Package, obj types.Object, t types.Type,
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "cgo_func_" + id,
-		cpyname: "cpy_func_" + id,
+		cgoname: fn + "_" + n,
+		cpyname: fn + "_" + n,
 	}
 	sig := t.Underlying().(*types.Signature)
 	sym.processTuple(sig.Results())
@@ -680,29 +637,18 @@ func (sym *symtab) addPointerType(pkg *types.Package, obj types.Object, t types.
 		}
 	}
 
-	// FIXME(sbinet): better handling?
-	if false {
-		elm := *esym
-		elm.kind |= skPointer
-		sym.syms[fn] = &elm
-	} else {
-		// id = hash(id)
-		sym.syms[fn] = &symbol{
-			gopkg:   pkg,
-			goobj:   obj,
-			gotyp:   t,
-			kind:    esym.kind | skPointer,
-			id:      id,
-			goname:  n,
-			cgoname: "*C.char", // handles
-			cpyname: "char*",
-			pyfmt:   "O&",
-			pybuf:   "P",
-			pysig:   "object",
-			c2py:    "handleFmPtr_" + n[1:],
-			py2c:    "ptrFmHandle_" + n[1:],
-			pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
-		}
+	sym.syms[fn] = &symbol{
+		gopkg:   pkg,
+		goobj:   obj,
+		gotyp:   t,
+		kind:    esym.kind | skPointer,
+		id:      id,
+		goname:  n,
+		cgoname: "*C.char", // handles
+		cpyname: "char*",
+		pysig:   "object",
+		go2py:   "handleFmPtr_" + n[1:] + "_Ptr",
+		py2go:   "ptrFmHandle_" + n[1:] + "_Ptr",
 	}
 }
 
@@ -724,12 +670,9 @@ func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t type
 		goname:  n,
 		cgoname: "cgo_type_" + id,
 		cpyname: "cpy_type_" + id,
-		pyfmt:   "O&",
-		pybuf:   "P",
 		pysig:   "object",
-		c2py:    "cgopy_cnv_c2py_" + id,
-		py2c:    "cgopy_cnv_py2c_" + id,
-		pychk:   fmt.Sprintf("cpy_func_%[1]s_check(%%s)", id),
+		go2py:   "cgopy_cnv_go2py_" + id,
+		py2go:   "cgopy_cnv_py2go_" + id,
 	}
 
 }
@@ -754,12 +697,9 @@ func init() {
 			goname:  "bool",
 			cgoname: "bool",
 			cpyname: "bool",
-			pyfmt:   "O&",
-			pybuf:   "?",
 			pysig:   "bool",
-			c2py:    "cgopy_cnv_c2py_bool",
-			py2c:    "cgopy_cnv_py2c_bool",
-			pychk:   "PyBool_Check(%s)",
+			go2py:   "cgopy_cnv_go2py_bool",
+			py2go:   "cgopy_cnv_py2go_bool",
 			zval:    "false",
 		},
 
@@ -771,12 +711,9 @@ func init() {
 			goname:  "byte",
 			cpyname: "uint8_t",
 			cgoname: "C.char",
-			pyfmt:   "b",
-			pybuf:   "B",
 			pysig:   "int", // FIXME(sbinet) py2/py3
-			c2py:    "C.char",
-			py2c:    "byte",
-			pychk:   "PyByte_Check(%s)",
+			go2py:   "C.char",
+			py2go:   "byte",
 			zval:    "0",
 		},
 
@@ -788,12 +725,9 @@ func init() {
 			goname:  "int",
 			cpyname: "int",
 			cgoname: "C.long", // see below for 64 bit version
-			pyfmt:   "i",
-			pybuf:   "i",
 			pysig:   "int",
-			c2py:    "C.long",
-			py2c:    "int",
-			pychk:   "PyInt_Check(%s)",
+			go2py:   "C.long",
+			py2go:   "int",
 			zval:    "0",
 		},
 
@@ -805,12 +739,9 @@ func init() {
 			goname:  "int8",
 			cpyname: "int8_t",
 			cgoname: "C.char",
-			pyfmt:   "b",
-			pybuf:   "b",
 			pysig:   "int",
-			c2py:    "C.char",
-			py2c:    "int8",
-			pychk:   "PyInt_Check(%s)",
+			go2py:   "C.char",
+			py2go:   "int8",
 			zval:    "0",
 		},
 
@@ -822,12 +753,9 @@ func init() {
 			goname:  "int16",
 			cpyname: "int16_t",
 			cgoname: "C.short",
-			pyfmt:   "h",
-			pybuf:   "h",
 			pysig:   "int",
-			c2py:    "C.short",
-			py2c:    "int16",
-			pychk:   "PyInt_Check(%s)",
+			go2py:   "C.short",
+			py2go:   "int16",
 			zval:    "0",
 		},
 
@@ -839,12 +767,9 @@ func init() {
 			goname:  "int32",
 			cpyname: "int32_t",
 			cgoname: "C.long",
-			pyfmt:   "i",
-			pybuf:   "i",
 			pysig:   "int",
-			c2py:    "C.long",
-			py2c:    "int32",
-			pychk:   "PyInt_Check(%s)",
+			go2py:   "C.long",
+			py2go:   "int32",
 			zval:    "0",
 		},
 
@@ -856,12 +781,9 @@ func init() {
 			goname:  "int64",
 			cpyname: "int64_t",
 			cgoname: "C.longlong",
-			pyfmt:   "k",
-			pybuf:   "q",
 			pysig:   "long",
-			c2py:    "C.longlong",
-			py2c:    "int64",
-			pychk:   "PyLong_Check(%s)",
+			go2py:   "C.longlong",
+			py2go:   "int64",
 			zval:    "0",
 		},
 
@@ -873,12 +795,9 @@ func init() {
 			goname:  "uint",
 			cpyname: "unsigned int",
 			cgoname: "C.uint",
-			pyfmt:   "I",
-			pybuf:   "I",
 			pysig:   "int",
-			c2py:    "C.uint",
-			py2c:    "uint",
-			pychk:   "PyInt_Check(%s)",
+			go2py:   "C.uint",
+			py2go:   "uint",
 			zval:    "0",
 		},
 
@@ -890,12 +809,9 @@ func init() {
 			goname:  "uint8",
 			cpyname: "uint8_t",
 			cgoname: "C.uchar",
-			pyfmt:   "B",
-			pybuf:   "B",
 			pysig:   "int",
-			c2py:    "C.uchar",
-			py2c:    "uint8",
-			pychk:   "PyInt_Check(%s)",
+			go2py:   "C.uchar",
+			py2go:   "uint8",
 			zval:    "0",
 		},
 
@@ -907,12 +823,9 @@ func init() {
 			goname:  "uint16",
 			cpyname: "uint16_t",
 			cgoname: "C.ushort",
-			pyfmt:   "H",
-			pybuf:   "H",
 			pysig:   "int",
-			c2py:    "C.ushort",
-			py2c:    "uint16",
-			pychk:   "PyInt_Check(%s)",
+			go2py:   "C.ushort",
+			py2go:   "uint16",
 			zval:    "0",
 		},
 
@@ -924,12 +837,9 @@ func init() {
 			goname:  "uint32",
 			cpyname: "uint32_t",
 			cgoname: "C.ulong",
-			pyfmt:   "I",
-			pybuf:   "I",
 			pysig:   "long",
-			c2py:    "C.ulong",
-			py2c:    "uint32",
-			pychk:   "PyInt_Check(%s)",
+			go2py:   "C.ulong",
+			py2go:   "uint32",
 			zval:    "0",
 		},
 
@@ -941,12 +851,9 @@ func init() {
 			goname:  "uint64",
 			cpyname: "uint64_t",
 			cgoname: "C.ulonglong",
-			pyfmt:   "K",
-			pybuf:   "Q",
 			pysig:   "long",
-			c2py:    "C.ulonglong",
-			py2c:    "uint64",
-			pychk:   "PyLong_Check(%s)",
+			go2py:   "C.ulonglong",
+			py2go:   "uint64",
 			zval:    "0",
 		},
 
@@ -958,12 +865,9 @@ func init() {
 			goname:  "float32",
 			cpyname: "float",
 			cgoname: "C.float",
-			pyfmt:   "f",
-			pybuf:   "f",
 			pysig:   "float",
-			c2py:    "C.float",
-			py2c:    "float32",
-			pychk:   "PyFloat_Check(%s)",
+			go2py:   "C.float",
+			py2go:   "float32",
 			zval:    "0",
 		},
 
@@ -975,12 +879,9 @@ func init() {
 			goname:  "float64",
 			cpyname: "double",
 			cgoname: "C.double",
-			pyfmt:   "d",
-			pybuf:   "d",
 			pysig:   "float",
-			c2py:    "C.double",
-			py2c:    "float64",
-			pychk:   "PyFloat_Check(%s)",
+			go2py:   "C.double",
+			py2go:   "float64",
 			zval:    "0",
 		},
 
@@ -992,12 +893,9 @@ func init() {
 			goname:  "complex64",
 			cpyname: "float complex",
 			cgoname: "GoComplex64",
-			pyfmt:   "O&",
-			pybuf:   "ff",
 			pysig:   "complex",
-			c2py:    "cgopy_cnv_c2py_complex64",
-			py2c:    "cgopy_cnv_py2c_complex64",
-			pychk:   "PyComplex_Check(%s)",
+			go2py:   "cgopy_cnv_go2py_complex64",
+			py2go:   "cgopy_cnv_py2go_complex64",
 			zval:    "0",
 		},
 
@@ -1009,12 +907,9 @@ func init() {
 			goname:  "complex128",
 			cpyname: "double complex",
 			cgoname: "GoComplex128",
-			pyfmt:   "O&",
-			pybuf:   "dd",
 			pysig:   "complex",
-			c2py:    "cgopy_cnv_c2py_complex128",
-			py2c:    "cgopy_cnv_py2c_complex128",
-			pychk:   "PyComplex_Check(%s)",
+			go2py:   "cgopy_cnv_go2py_complex128",
+			py2go:   "cgopy_cnv_py2go_complex128",
 			zval:    "0",
 		},
 
@@ -1026,12 +921,9 @@ func init() {
 			goname:  "string",
 			cpyname: "char*",
 			cgoname: "*C.char",
-			pyfmt:   "O&",
-			pybuf:   "s",
 			pysig:   "str",
-			c2py:    "C.CString", // todo: rename go2py
-			py2c:    "C.GoString",
-			pychk:   "PyString_Check(%s)",
+			go2py:   "C.CString",
+			py2go:   "C.GoString",
 			zval:    `""`,
 		},
 
@@ -1043,12 +935,9 @@ func init() {
 			goname:  "rune",
 			cpyname: "GoRune",
 			cgoname: "C.long",
-			pyfmt:   "O&",
-			pybuf:   "p",
 			pysig:   "str",
-			c2py:    "C.long",
-			py2c:    "rune",
-			pychk:   "PyUnicode_Check(%s)",
+			go2py:   "C.long",
+			py2go:   "rune",
 			zval:    "0",
 		},
 
@@ -1060,11 +949,9 @@ func init() {
 			goname:  "error",
 			cpyname: "char*",
 			cgoname: "*C.char",
-			pyfmt:   "O&",
-			pybuf:   "PP",
 			pysig:   "str",
-			c2py:    "C.CString",
-			py2c:    "C.GoString",
+			go2py:   "C.CString",
+			py2go:   "C.GoString",
 			zval:    `""`,
 		},
 	}
@@ -1078,12 +965,9 @@ func init() {
 			goname:  "int",
 			cpyname: "int64_t",
 			cgoname: "C.longlong",
-			pyfmt:   "k",
-			pybuf:   "q",
 			pysig:   "int",
-			c2py:    "C.longlong",
-			py2c:    "int",
-			pychk:   "PyInt_Check(%s)",
+			go2py:   "C.longlong",
+			py2go:   "int",
 			zval:    "0",
 		}
 		syms["uint"] = &symbol{
@@ -1094,12 +978,9 @@ func init() {
 			goname:  "uint",
 			cpyname: "uint64_t",
 			cgoname: "C.ulonglong",
-			pyfmt:   "K",
-			pybuf:   "Q",
 			pysig:   "int",
-			c2py:    "C.ulonglong",
-			py2c:    "uint",
-			pychk:   "PyInt_Check(%s)",
+			go2py:   "C.ulonglong",
+			py2go:   "uint",
 			zval:    "0",
 		}
 	}
