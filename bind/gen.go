@@ -85,7 +85,7 @@ func (vh *varHandler) register(typnm string, ifc interface{}) *C.char {
 	}
 	hc := vh.ctr
 	vh.ctr++
-	rnm := typnm + "_" + strconv.FormatInt(hc, 10)
+	rnm := typnm + "_" + strconv.FormatInt(hc, 16)
 	vh.vars[rnm] = ifc
 	return C.CString(rnm)
 }
@@ -105,6 +105,7 @@ func (vh *varHandler) varFmHandleTry(h *C.char, typnm string) (interface{}, erro
 	}
 	vh.m.RLock()
 	defer vh.m.RUnlock()
+	// extra type-checking: not needed usually due to python wrapper classes
 	// if !strings.HasPrefix(hs, typnm) {
 	// 	err := fmt.Errorf("gopy: variable handle is not the correct type, should be: " + typnm + " is: " +  hs)
 	// 	C.PyErr_SetString(C.PyExc_TypeError, C.CString(err.Error()))
@@ -244,7 +245,7 @@ func (g *pybindGen) genPyWrapPreamble(cmd string) {
 	pkgimport := g.pkg.pkg.Path()
 	pkgDoc := g.pkg.doc.Doc
 	if pkgDoc != "" {
-		g.pywrap.Printf(PyWrapPreamble, n, pkgimport, cmd, `"""`+pkgDoc+`"""`)
+		g.pywrap.Printf(PyWrapPreamble, n, pkgimport, cmd, `"""`+"\n"+pkgDoc+"\n"+`"""`)
 	} else {
 		g.pywrap.Printf(PyWrapPreamble, n, pkgimport, cmd, "")
 	}
@@ -258,8 +259,8 @@ func (g *pybindGen) genMakefile(cmd string) {
 
 func (g *pybindGen) genAll() {
 
-	// first, process slices, arrays
-	// if false {
+	g.gofile.Printf("\n// ---- Types ---\n")
+	g.pywrap.Printf("\n# ---- Types ---\n")
 	names := g.pkg.syms.names()
 	for _, n := range names {
 		sym := g.pkg.syms.sym(n)
@@ -269,36 +270,47 @@ func (g *pybindGen) genAll() {
 		g.genType(sym)
 	}
 
+	g.pywrap.Printf("\n\n#---- Constants from Go: Python can only ask that you please don't change these! ---\n")
+	for _, c := range g.pkg.consts {
+		g.genConst(c)
+	}
+
+	g.gofile.Printf("\n\n// ---- Global Variables: can only use functions to access ---\n")
+	g.pywrap.Printf("\n\n# ---- Global Variables: can only use functions to access ---\n")
+	for _, v := range g.pkg.vars {
+		g.genVar(v)
+	}
+
+	g.gofile.Printf("\n\n// ---- Interfaces ---\n")
+	g.pywrap.Printf("\n\n# ---- Interfaces ---\n")
+	for _, ifc := range g.pkg.ifaces {
+		g.genInterface(ifc)
+	}
+
+	g.gofile.Printf("\n\n// ---- Structs ---\n")
+	g.pywrap.Printf("\n\n# ---- Structs ---\n")
 	for _, s := range g.pkg.structs {
 		g.genStruct(s)
 	}
 
 	// todo: not sure where these come from
+	g.gofile.Printf("\n\n// ---- Constructors ---\n")
+	g.pywrap.Printf("\n\n# ---- Constructors ---\n")
 	for _, s := range g.pkg.structs {
 		for _, ctor := range s.ctors {
 			g.genFunc(ctor)
 		}
 	}
 
-	for _, ifc := range g.pkg.ifaces {
-		g.genInterface(ifc)
-	}
-
+	g.gofile.Printf("\n\n// ---- Functions ---\n")
+	g.pywrap.Printf("\n\n# ---- Functions ---\n")
 	for _, f := range g.pkg.funcs {
 		g.genFunc(f)
-	}
-
-	for _, c := range g.pkg.consts {
-		g.genConst(c)
-	}
-
-	for _, v := range g.pkg.vars {
-		g.genVar(v)
 	}
 }
 
 func (g *pybindGen) genConst(c Const) {
-	g.genConstGetter(c)
+	g.genConstValue(c)
 }
 
 func (g *pybindGen) genVar(v Var) {
