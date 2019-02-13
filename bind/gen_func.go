@@ -111,8 +111,22 @@ func (g *pybindGen) genMethod(s Struct, o Func) {
 	g.genFuncBody(s.sym, o)
 }
 
+func (g *pybindGen) genIfcMethod(ifc Interface, o Func) {
+	g.genFuncSig(ifc.sym, o)
+	g.genFuncBody(ifc.sym, o)
+}
+
 func (g *pybindGen) genFuncBody(sym *symbol, fsym Func) {
 	isMethod := (sym != nil)
+	isIface := false
+	symNm := ""
+	if isMethod {
+		symNm = sym.gofmt()
+		isIface = sym.isInterface()
+		if !isIface {
+			symNm = "*" + sym.gofmt()
+		}
+	}
 
 	pkgname := fsym.Package().Name()
 
@@ -144,7 +158,7 @@ func (g *pybindGen) genFuncBody(sym *symbol, fsym Func) {
 		g.gofile.Printf(
 			`vifc, err := varHand.varFmHandleTry(_handle, "*%s")
 if err != nil {
-`, sym.gofmt())
+`, symNm)
 		g.gofile.Indent()
 		if nres > 0 {
 			ret := res[0]
@@ -230,7 +244,7 @@ if err != nil {
 	}
 
 	if isMethod {
-		g.gofile.Printf("vifc.(*%s).%s(%s)", sym.gofmt(), fsym.GoName(), strings.Join(callArgs, ", "))
+		g.gofile.Printf("vifc.(%s).%s(%s)", symNm, fsym.GoName(), strings.Join(callArgs, ", "))
 	} else {
 		g.gofile.Printf("%s(%s)", fsym.GoFmt(), strings.Join(callArgs, ", "))
 	}

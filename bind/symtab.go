@@ -668,13 +668,12 @@ func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t type
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "cgo_type_" + id,
-		cpyname: "cpy_type_" + id,
+		cgoname: "*C.char",
+		cpyname: "char*",
 		pysig:   "object",
-		go2py:   "cgopy_cnv_go2py_" + id,
-		py2go:   "cgopy_cnv_py2go_" + id,
+		go2py:   "handleFmPtr_" + n,
+		py2go:   "ptrFmHandle_" + n,
 	}
-
 }
 
 func (sym *symtab) print() {

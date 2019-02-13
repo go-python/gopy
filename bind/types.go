@@ -117,6 +117,58 @@ func (s Struct) Struct() *types.Struct {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
+//  Interface
+
+// Interface collects informations about a go struct.
+type Interface struct {
+	pkg *Package
+	sym *symbol
+	obj *types.TypeName
+
+	id    string
+	doc   string
+	meths []Func
+}
+
+func newInterface(p *Package, obj *types.TypeName) (Interface, error) {
+	sym := p.syms.symtype(obj.Type())
+	if sym == nil {
+		panic(fmt.Errorf("no such object [%s] in symbols table", obj.Id()))
+	}
+	sym.doc = p.getDoc("", obj)
+	s := Interface{
+		pkg: p,
+		sym: sym,
+		obj: obj,
+	}
+	return s, nil
+}
+
+func (s Interface) Package() *Package {
+	return s.pkg
+}
+
+func (s Interface) ID() string {
+	return s.sym.id
+}
+
+func (s Interface) Doc() string {
+	return s.sym.doc
+}
+
+func (s Interface) GoType() types.Type {
+	return s.sym.GoType()
+}
+
+func (s Interface) GoName() string {
+	return s.sym.goname
+}
+
+func (s Interface) Interface() *types.Interface {
+	return s.sym.GoType().Underlying().(*types.Interface)
+}
+
+///////////////////////////////////////////////////////////////////////////////////
 //  Signature
 
 // A Signature represents a (non-builtin) function or method type.

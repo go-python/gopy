@@ -66,6 +66,14 @@ func NewPerson(name string, age int) *Person {
 	}
 }
 
+// PersonAsIface creates a new person as a PersIface interface
+func PersonAsIface(name string, age int) PersIface {
+	return &Person{
+		Name: name,
+		Age:  age,
+	}
+}
+
 // NewPersonWithAge creates a new Person with a specific age
 func NewPersonWithAge(age int) *Person {
 	return &Person{
@@ -113,6 +121,22 @@ func (p *Person) Salary(h int) (int, error) {
 	return h * 10, nil
 }
 
+func (p *Person) GetName() string {
+	return p.Name
+}
+
+func (p *Person) GetAge() int {
+	return p.Age
+}
+
+func (p *Person) SetName(nm string) {
+	p.Name = nm
+}
+
+func (p *Person) SetAge(ag int) {
+	p.Age = ag
+}
+
 // Couple is a pair of persons
 type Couple struct {
 	P1 Person
@@ -139,3 +163,21 @@ type Floats []Float
 
 // Eval evals float64
 type Eval func(f float64) float64
+
+// PersIface is an interface into the person type
+type PersIface interface {
+	// GetName returns the name of the person
+	GetName() string
+
+	// GetAge returns the age of the person
+	GetAge() int
+
+	// SetName sets name
+	SetName(nm string)
+
+	// SetAge sets age
+	SetAge(age int)
+
+	// Greet sends greetings
+	Greet() string
+}
