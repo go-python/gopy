@@ -29,7 +29,7 @@ func (list ErrorList) Error() string {
 // GenPyBind generates a .go file, build.py file to enable pybindgen to create python bindings,
 // and a wrapper .py file that is loaded as the interface to the package with shadow
 // python-side classes
-func GenPyBind(gow, pybw, pyww, mkw io.Writer, fset *token.FileSet, pkg *Package, vm string, lang int) error {
+func GenPyBind(gow, pybw, pyww, mkw io.Writer, fset *token.FileSet, pkg *Package, vm, libext string, lang int) error {
 	gen := &pybindGen{
 		gofile:   &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
 		pybuild:  &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
@@ -38,6 +38,7 @@ func GenPyBind(gow, pybw, pyww, mkw io.Writer, fset *token.FileSet, pkg *Package
 		fset:     fset,
 		pkg:      pkg,
 		vm:       vm,
+		libext:   libext,
 		lang:     lang,
 	}
 	err := gen.gen()
@@ -64,84 +65,6 @@ func GenPyBind(gow, pybw, pyww, mkw io.Writer, fset *token.FileSet, pkg *Package
 	if err != nil {
 		return err
 	}
-
-	return err
-}
-
-// GenCPython generates a (C)Python package from a Go package
-func GenCPython(w io.Writer, fset *token.FileSet, pkg *Package, vm string, lang int) error {
-	gen := &cpyGen{
-		decl: &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
-		impl: &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")},
-		fset: fset,
-		pkg:  pkg,
-		vm:   vm,
-		lang: lang,
-	}
-	err := gen.gen()
-	if err != nil {
-		return err
-	}
-
-	_, err = io.Copy(w, gen.decl)
-	if err != nil {
-		return err
-	}
-
-	_, err = io.Copy(w, gen.impl)
-	if err != nil {
-		return err
-	}
-
-	return err
-}
-
-// GenCFFI generates a CFFI package from a Go package
-// Use 4spaces indentation for Python codes, aka PEP8.
-// w is an io.Writer for a wrapper python script which will be executed by a user.
-//
-// GenCFFI generates a wrapper python script by 2 steps.
-// First, GenCFFI analyzes which interfaces should be exposed from the Go package.
-// Then, GenCFFI writes a wrapper python script.
-func GenCFFI(w io.Writer, fset *token.FileSet, pkg *Package, vm string, lang int) error {
-	gen := &cffiGen{
-		wrapper: &printer{buf: new(bytes.Buffer), indentEach: []byte("    ")},
-		fset:    fset,
-		pkg:     pkg,
-		vm:      vm,
-		lang:    lang,
-	}
-
-	err := gen.gen()
-	if err != nil {
-		return err
-	}
-
-	_, err = io.Copy(w, gen.wrapper)
-	if err != nil {
-		return err
-	}
-
-	return err
-}
-
-// GenGo generates a cgo package from a Go package
-func GenGo(w io.Writer, fset *token.FileSet, pkg *Package, lang int, vm, capi string) error {
-	buf := new(bytes.Buffer)
-	gen := &goGen{
-		printer: &printer{buf: buf, indentEach: []byte("\t")},
-		fset:    fset,
-		pkg:     pkg,
-		vm:      vm,
-		lang:    lang,
-		capi:    capi,
-	}
-	err := gen.gen()
-	if err != nil {
-		return err
-	}
-
-	_, err = io.Copy(w, gen.buf)
 
 	return err
 }

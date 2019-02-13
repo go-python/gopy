@@ -21,7 +21,7 @@ func run(args []string) error {
 		UsageLine: "gopy",
 		Subcommands: []*commander.Command{
 			gopyMakeCmdGen(),
-			gopyMakeCmdBind(),
+			gopyMakeCmdBuild(),
 		},
 		Flag: *flag.NewFlagSet("gopy", flag.ExitOnError),
 	}

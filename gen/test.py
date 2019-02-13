@@ -63,11 +63,11 @@ print("--- doc(hi.Person):")
 print(hi.Person.__doc__)
 
 print("--- p = hi.Person()...")
-p = hi.NewPerson("some", 22)
+p = hi.Person()
 print("--- p:", p)
 
-#print("--- p.Name:", p.Name)
-#print("--- p.Age:",p.Age)
+print("--- p.Name:", p.Name)
+print("--- p.Age:",p.Age)
 
 print("--- doc(hi.Greet):")
 print(p.Greet.__doc__)
@@ -80,16 +80,16 @@ print(p.String())
 print("--- doc(p):")
 print(p.__doc__)
 
-#print("--- p.Name = \"foo\"...")
-#p.Name = "foo"
+print("--- p.Name = \"foo\"...")
+p.Name = "foo"
 
-#print("--- p.Age = 42...")
-#p.Age = 42
+print("--- p.Age = 42...")
+p.Age = 42
 
 print("--- p.String()...")
 print(p.String())
-#print("--- p.Age:", p.Age)
-#print("--- p.Name:",p.Name)
+print("--- p.Age:", p.Age)
+print("--- p.Name:",p.Name)
 
 print("--- p.Work(2)...")
 p.Work(2)
@@ -111,36 +111,36 @@ except Exception as err:
     pass
 
 ## test ctor args
-#print("--- Person.__init__")
-#try:
-#    hi.Person(1)
-#    print("*ERROR* no exception raised!")
-#except Exception as err:
-#    print("caught:", err, "| err-type:",type(err))
-#    pass
+print("--- Person.__init__")
+try:
+    hi.Person(1)
+    print("*ERROR* no exception raised!")
+except Exception as err:
+    print("caught:", err, "| err-type:",type(err))
+    pass
 
-#try:
-#    hi.Person("name","2")
-#    print("*ERROR* no exception raised!")
-#except Exception as err:
-#    print("caught:", err, "| err-type:",type(err))
-#    pass
+try:
+    hi.Person("name","2")
+    print("*ERROR* no exception raised!")
+except Exception as err:
+    print("caught:", err, "| err-type:",type(err))
+    pass
 
-#try:
-#    hi.Person("name",2,3)
-#    print("*ERROR* no exception raised!")
-#except Exception as err:
-#    print("caught:", err, "| err-type:",type(err))
-#    pass
+try:
+    hi.Person("name",2,3)
+    print("*ERROR* no exception raised!")
+except Exception as err:
+    print("caught:", err, "| err-type:",type(err))
+    pass
 
-#p = hi.Person("name")
-#print(p)
-#p = hi.Person("name", 42)
-#print(p)
-#p = hi.Person(Name="name", Age=42)
-#print(p)
-#p = hi.Person(Age=42, Name="name")
-#print(p)
+p = hi.Person("name")
+print(p)
+p = hi.Person("name", 42)
+print(p)
+p = hi.Person(Name="name", Age=42)
+print(p)
+p = hi.Person(Age=42, Name="name")
+print(p)
 
 ## test ctors
 print("--- hi.NewPerson('me', 666):", hi.NewPerson("me", 666))
@@ -149,28 +149,29 @@ print("--- hi.NewActivePerson(4):")
 p = hi.NewActivePerson(4)
 print(p)
 
-## test Couple
-#print("--- c = hi.Couple()...")
-#c = hi.Couple()
-#print(c)
-#print("--- c.P1:", c.P1)
-#c.P1 = hi.NewPerson("tom", 5)
-#c.P2 = hi.NewPerson("bob", 2)
-#print("--- c:", c)
+# test Couple
+print("--- c = hi.Couple()...")
+c = hi.Couple()
+print(c)
+print("--- c.P1:", c.P1)
+c.P1 = hi.NewPerson("tom", 5)
+c.P2 = hi.NewPerson("bob", 2)
+print("--- c:", c)
 
 print("--- c = hi.NewCouple(tom, bob)...")
 c = hi.NewCouple(hi.NewPerson("tom", 50), hi.NewPerson("bob", 41))
 print(c.String())
-#c.P1.Name = "mom"
-#c.P2.Age = 51
+c.P1.Name = "mom"
+c.P2.Age = 51
 print(c.String())
 
-## test Couple.__init__
+# test Couple.__init__
 print("--- Couple.__init__")
 #c = hi.NewCouple(hi.NewPerson("p1", 42))
 #print(c)
 c = hi.NewCouple(hi.NewPerson("p1", 42), hi.NewPerson("p2", 52))
 print(c.String())
+# note: not supporting named args -- not worth it for now!
 #c = hi.NewCouple(P1=hi.NewPerson("p1", 42), P2=hi.NewPerson("p2", 52))
 #print(c)
 #c = hi.NewCouple(P2=hi.NewPerson("p1", 42), P1=hi.NewPerson("p2", 52))
