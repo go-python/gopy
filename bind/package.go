@@ -246,10 +246,13 @@ func (p *Package) process() error {
 	// add methods.
 	for sname, s := range structs {
 		for name, fct := range funcs {
-			if fct.Return() == nil {
+			ret := fct.Return()
+			if ret == nil {
 				continue
 			}
-			if fct.Return() == s.GoType() {
+			retptr, retIsPtr := ret.(*types.Pointer)
+
+			if ret == s.GoType() || (retIsPtr && retptr == s.GoType()) {
 				delete(funcs, name)
 				fct.doc = p.getDoc(sname, scope.Lookup(name))
 				fct.ctor = true
