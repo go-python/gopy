@@ -30,6 +30,8 @@ class %[2]s(GoClass):
 func (g *pybindGen) genStructInit(s Struct) {
 	// pkg := s.Package()
 	pkgname := s.Package().Name()
+	qNm := pkgname + "." + s.GoName()
+
 	numFields := s.Struct().NumFields()
 	numPublic := numFields
 	for i := 0; i < s.Struct().NumFields(); i++ {
@@ -54,7 +56,7 @@ in which case a new Go object is constructed first
 	g.pywrap.Outdent()
 	g.pywrap.Printf("else:\n")
 	g.pywrap.Indent()
-	g.pywrap.Printf("self.handle = _%s.%s_CTor()\n", pkgname, s.GoName())
+	g.pywrap.Printf("self.handle = _%s_CTor()\n", qNm)
 
 	for i := 0; i < numFields; i++ {
 		field := s.Struct().Field(i)
@@ -85,17 +87,16 @@ in which case a new Go object is constructed first
 	}
 
 	// go ctor
-	sname := pkgname + "." + s.GoName()
-	ctnm := s.GoName() + "_CTor"
-	g.gofile.Printf("\n// --- wrapping struct: %v ---\n", sname)
-	g.gofile.Printf("//export %s\n", ctnm)
-	g.gofile.Printf("func %s() *C.char {\n", ctnm)
+	ctNm := s.GoName() + "_CTor"
+	g.gofile.Printf("\n// --- wrapping struct: %v ---\n", qNm)
+	g.gofile.Printf("//export %s\n", ctNm)
+	g.gofile.Printf("func %s() CGoHandle {\n", ctNm)
 	g.gofile.Indent()
-	g.gofile.Printf("return handleFmPtr_%[1]s(&%[2]s{})\n", s.GoName(), sname)
+	g.gofile.Printf("return handleFmPtr_%[1]s(&%[2]s{})\n", s.GoName(), qNm)
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
 
-	g.pybuild.Printf("mod.add_function('%s', retval('char*'), [])\n", ctnm)
+	g.pybuild.Printf("mod.add_function('%s', retval('char*'), [])\n", ctNm)
 
 }
 
@@ -131,7 +132,7 @@ func (g *pybindGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	g.pywrap.Printf("\n")
 
 	g.gofile.Printf("//export %s\n", cgoFn)
-	g.gofile.Printf("func %s(handle *C.char) %s {\n", cgoFn, ret.cgoname)
+	g.gofile.Printf("func %s(handle CGoHandle) %s {\n", cgoFn, ret.cgoname)
 	g.gofile.Indent()
 	g.gofile.Printf("op := ptrFmHandle_%s(handle)\nreturn ", s.GoName())
 	if ret.go2py != "" {
@@ -172,7 +173,7 @@ func (g *pybindGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	g.pywrap.Printf("\n")
 
 	g.gofile.Printf("//export %s\n", cgoFn)
-	g.gofile.Printf("func %s(handle *C.char, val %s) {\n", cgoFn, ret.cgoname)
+	g.gofile.Printf("func %s(handle CGoHandle, val %s) {\n", cgoFn, ret.cgoname)
 	g.gofile.Indent()
 	g.gofile.Printf("op := ptrFmHandle_%s(handle)\n", s.GoName())
 	if ret.go2py != "" {

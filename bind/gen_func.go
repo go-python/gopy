@@ -44,8 +44,8 @@ func (g *pybindGen) genFuncSig(sym *symbol, fsym Func) {
 	pyArgs := []string{}
 	wpArgs := []string{}
 	if isMethod {
-		goArgs = append(goArgs, "_handle *C.char")
-		pyArgs = append(pyArgs, "param('char*', '_handle')")
+		goArgs = append(goArgs, "_handle CGoHandle")
+		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '_handle')", PyHandle))
 		wpArgs = append(wpArgs, "self")
 	}
 
