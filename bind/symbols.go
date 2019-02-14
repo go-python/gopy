@@ -456,7 +456,18 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 			))
 		}
 	}
-	id = hash(id)
+	id = n
+	if strings.Contains(id, "[") {
+		strings.Replace(id, "[", "ArrayOf_", 1)
+		strings.Replace(id, "]", "_", 1)
+	}
+	if strings.Contains(id, "[]") {
+		strings.Replace(id, "[]", "SliceOf_", -1)
+	}
+	if strings.Contains(id, "[") {
+		strings.Replace(id, "[", "MapOf_", -1)
+		strings.Replace(id, "]", "_", -1)
+	}
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -464,8 +475,8 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "*C.char", // handles
-		cpyname: "char*",
+		cgoname: "CGoHandle", // handles
+		cpyname: PyHandle,
 		pysig:   "[]" + elt.pysig,
 		go2py:   "handleFmPtr_" + id,
 		py2go:   "ptrFmHandle_" + id,
@@ -493,7 +504,18 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 			))
 		}
 	}
-	id = hash(id)
+	id = n
+	if strings.Contains(id, "[") {
+		strings.Replace(id, "[", "MapOf_", 1)
+		strings.Replace(id, "]", "_", 1)
+	}
+	if strings.Contains(id, "[]") {
+		strings.Replace(id, "[]", "SliceOf_", -1)
+	}
+	if strings.Contains(id, "[") {
+		strings.Replace(id, "[", "MapOf_", -1)
+		strings.Replace(id, "]", "_", -1)
+	}
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -501,8 +523,8 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "*C.char",
-		cpyname: "char*",
+		cgoname: "CGoHandle",
+		cpyname: PyHandle,
 		pysig:   "object",
 		go2py:   "handleFmPtr_" + id,
 		py2go:   "ptrFmHandle_" + id,
@@ -530,7 +552,14 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 			))
 		}
 	}
-	id = hash(id)
+	id = n
+	if strings.Contains(id, "[]") {
+		strings.Replace(id, "[]", "SliceOf_", -1)
+	}
+	if strings.Contains(id, "[") {
+		strings.Replace(id, "[", "MapOf_", -1)
+		strings.Replace(id, "]", "_", -1)
+	}
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -538,8 +567,8 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "*C.char",
-		cpyname: "char*",
+		cgoname: "CGoHandle",
+		cpyname: PyHandle,
 		pysig:   "[]" + elt.pysig,
 		go2py:   "handleFmPtr_" + id,
 		py2go:   "ptrFmHandle_" + id,
@@ -574,8 +603,8 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "*C.char",
-		cpyname: "char*",
+		cgoname: "CGoHandle",
+		cpyname: PyHandle,
 		pysig:   "object",
 		go2py:   "handleFmPtr_" + n,
 		py2go:   "ptrFmHandle_" + n,
@@ -596,8 +625,8 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "*C.char",
-		cpyname: "char*",
+		cgoname: "CGoHandle",
+		cpyname: PyHandle,
 		pysig:   "callable",
 		go2py:   "?",
 		py2go:   "?",
@@ -645,8 +674,8 @@ func (sym *symtab) addPointerType(pkg *types.Package, obj types.Object, t types.
 		kind:    esym.kind | skPointer,
 		id:      id,
 		goname:  n,
-		cgoname: "*C.char", // handles
-		cpyname: "char*",
+		cgoname: "CGoHandle", // handles
+		cpyname: PyHandle,
 		pysig:   "object",
 		go2py:   "handleFmPtr_" + n[1:] + "_Ptr",
 		py2go:   "ptrFmHandle_" + n[1:] + "_Ptr",
@@ -669,8 +698,8 @@ func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t type
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "*C.char",
-		cpyname: "char*",
+		cgoname: "CGoHandle",
+		cpyname: PyHandle,
 		pysig:   "object",
 		go2py:   "handleFmPtr_" + n,
 		py2go:   "ptrFmHandle_" + n,

@@ -26,7 +26,7 @@ func (g *pybindGen) genType(sym *symbol) {
 
 func (g *pybindGen) genTypeHandlePtr(sym *symbol) {
 	g.gofile.Printf("\n// Converters for pointer handles for type: %s\n", sym.gofmt())
-	g.gofile.Printf("func %s(h *C.char) %s {\n", sym.py2go, sym.gofmt())
+	g.gofile.Printf("func %s(h CGoHandle) %s {\n", sym.py2go, sym.gofmt())
 	g.gofile.Indent()
 	g.gofile.Printf("p := varHand.varFmHandle(h, %[1]q)\n", sym.gofmt())
 	g.gofile.Printf("if p == nil {\n")
@@ -37,7 +37,7 @@ func (g *pybindGen) genTypeHandlePtr(sym *symbol) {
 	g.gofile.Printf("return p.(%[1]s)\n", sym.gofmt())
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
-	g.gofile.Printf("func %s(p interface{}) *C.char {\n", sym.go2py)
+	g.gofile.Printf("func %s(p interface{}) CGoHandle {\n", sym.go2py)
 	g.gofile.Indent()
 	g.gofile.Printf("return varHand.register(\"%s\", p)\n", sym.gofmt())
 	g.gofile.Outdent()
@@ -47,7 +47,7 @@ func (g *pybindGen) genTypeHandlePtr(sym *symbol) {
 func (g *pybindGen) genTypeHandle(sym *symbol) {
 	ptrnm := "*" + sym.gofmt()
 	g.gofile.Printf("\n// Converters for pointer handles for type: %s\n", sym.gofmt())
-	g.gofile.Printf("func %s(h *C.char) %s {\n", sym.py2go, ptrnm)
+	g.gofile.Printf("func %s(h CGoHandle) %s {\n", sym.py2go, ptrnm)
 	g.gofile.Indent()
 	g.gofile.Printf("p := varHand.varFmHandle(h, %[1]q)\n", sym.gofmt())
 	g.gofile.Printf("if p == nil {\n")
@@ -58,7 +58,7 @@ func (g *pybindGen) genTypeHandle(sym *symbol) {
 	g.gofile.Printf("return p.(%[1]s)\n", ptrnm)
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
-	g.gofile.Printf("func %s(p interface{}) *C.char {\n", sym.go2py)
+	g.gofile.Printf("func %s(p interface{}) CGoHandle {\n", sym.go2py)
 	g.gofile.Indent()
 	g.gofile.Printf("return varHand.register(\"%s\", p)\n", sym.gofmt())
 	g.gofile.Outdent()
