@@ -225,29 +225,8 @@ print("--- len(vs):",len(vs))
 del objs
 print("--- testing GC... [ok]")
 
-print("--- testing array...")
-arr = hi.GetIntArray()
-print("arr:",arr)
-print("len(arr):",len(arr))
-print("arr[0]:",arr[0])
-print("arr[1]:",arr[1])
-try:
-    print("arr[2]:", arr[2])
-    print("*ERROR* no exception raised!")
-except Exception as err:
-    print("arr[2]: caught:",err)
-    pass
-arr[1] = 42
-print("arr:",arr)
-print("len(arr):",len(arr))
-try:
-    print("mem(arr):",len(memoryview(arr)))
-except Exception as err:
-    print("mem(arr): caught:",err)
-    pass
-
 print("--- testing slice...")
-s = hi.GetIntSlice()
+s = hi.IntSlice()
 print("slice:",s)
 print("len(slice):",len(s))
 print("slice[0]:",s[0])
@@ -265,6 +244,27 @@ try:
     print("mem(slice):",len(memoryview(s)))
 except Exception as err:
     print("mem(slice): caught:",err)
+    pass
+
+print("--- testing array...")
+arr = hi.IntArray()
+print("arr:",arr)
+print("len(arr):",len(arr))
+print("arr[0]:",arr[0])
+print("arr[1]:",arr[1])
+try:
+    print("arr[2]:", arr[2])
+    print("*ERROR* no exception raised!")
+except Exception as err:
+    print("arr[2]: caught:",err)
+    pass
+arr[1] = 42
+print("arr:",arr)
+print("len(arr):",len(arr))
+try:
+    print("mem(arr):",len(memoryview(arr)))
+except Exception as err:
+    print("mem(arr): caught:",err)
     pass
 
 print("OK")
