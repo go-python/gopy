@@ -186,7 +186,7 @@ if err != nil {
 		ret := res[0]
 		if !rvIsErr && ret.sym.hasHandle() {
 			rvHasHandle = true
-			g.pywrap.Printf("return %s(handle=_%s.%s(", ret.sym.nonPointerName(), pkgname, mnm)
+			g.pywrap.Printf("return %s(handle=_%s.%s(", ret.sym.pyname, pkgname, mnm)
 		} else {
 			g.pywrap.Printf("return _%s.%s(", pkgname, mnm)
 		}

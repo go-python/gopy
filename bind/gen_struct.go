@@ -92,11 +92,11 @@ in which case a new Go object is constructed first
 	g.gofile.Printf("//export %s\n", ctNm)
 	g.gofile.Printf("func %s() CGoHandle {\n", ctNm)
 	g.gofile.Indent()
-	g.gofile.Printf("return handleFmPtr_%[1]s(&%[2]s{})\n", s.GoName(), qNm)
+	g.gofile.Printf("return CGoHandle(handleFmPtr_%s(&%s{}))\n", s.GoName(), qNm)
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
 
-	g.pybuild.Printf("mod.add_function('%s', retval('char*'), [])\n", ctNm)
+	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [])\n", ctNm, PyHandle)
 
 }
 
@@ -124,7 +124,7 @@ func (g *pybindGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	g.pywrap.Printf("def %[1]s(self):\n", f.Name())
 	g.pywrap.Indent()
 	if ret.hasHandle() {
-		g.pywrap.Printf("return %s(handle=_%s.%s(self.handle))\n", ret.nonPointerName(), pkgname, cgoFn)
+		g.pywrap.Printf("return %s(handle=_%s.%s(self.handle))\n", ret.pyname, pkgname, cgoFn)
 	} else {
 		g.pywrap.Printf("return _%s.%s(self.handle)\n", pkgname, cgoFn)
 	}
@@ -148,7 +148,7 @@ func (g *pybindGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n\n")
 
-	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [param('char*', 'handle')])\n", cgoFn, ret.cpyname)
+	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [param('%s', 'handle')])\n", cgoFn, ret.cpyname, PyHandle)
 }
 
 func (g *pybindGen) genStructMemberSetter(s Struct, i int, f types.Object) {
@@ -189,7 +189,7 @@ func (g *pybindGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n\n")
 
-	g.pybuild.Printf("mod.add_function('%s', None, [param('char*', 'handle'), param('%s', 'val')])\n", cgoFn, ret.cpyname)
+	g.pybuild.Printf("mod.add_function('%s', None, [param('%s', 'handle'), param('%s', 'val')])\n", cgoFn, PyHandle, ret.cpyname)
 }
 
 func (g *pybindGen) genStructMethods(s Struct) {
