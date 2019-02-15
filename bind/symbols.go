@@ -108,6 +108,17 @@ func (s symbol) isBasic() bool {
 	return (s.kind & skBasic) != 0
 }
 
+func (s symbol) isNamedBasic() bool {
+	if !s.isNamed() {
+		return false
+	}
+	_, ok := s.gotyp.Underlying().(*types.Basic)
+	if ok {
+		return true
+	}
+	return false
+}
+
 func (s symbol) isArray() bool {
 	return (s.kind & skArray) != 0
 }
@@ -373,23 +384,24 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 
 	case *types.Named:
 		kind |= skNamed
-		switch typ.Underlying().(type) {
+		switch st := typ.Underlying().(type) {
 		case *types.Struct:
 			sym.addStructType(pkg, obj, t, kind, id, n)
 
 		case *types.Basic:
+			styp := sym.symtype(st)
 			sym.syms[fn] = &symbol{
 				gopkg:   pkg,
 				goobj:   obj,
 				gotyp:   t,
 				kind:    kind | skBasic,
 				id:      id,
-				goname:  n,
-				cgoname: "cgo_type_" + id,
-				cpyname: "cpy_type_" + id,
-				pysig:   "object",
-				go2py:   "cgopy_cnv_go2py_" + id,
-				py2go:   "cgopy_cnv_py2go_" + id,
+				goname:  styp.goname,
+				cgoname: styp.cgoname,
+				cpyname: styp.cpyname,
+				pysig:   "",
+				go2py:   styp.cgoname,
+				py2go:   "",
 			}
 
 		case *types.Array:
@@ -457,17 +469,11 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		}
 	}
 	id = n
-	if strings.Contains(id, "[") {
-		strings.Replace(id, "[", "ArrayOf_", 1)
-		strings.Replace(id, "]", "_", 1)
-	}
-	if strings.Contains(id, "[]") {
-		strings.Replace(id, "[]", "SliceOf_", -1)
-	}
-	if strings.Contains(id, "[") {
-		strings.Replace(id, "[", "MapOf_", -1)
-		strings.Replace(id, "]", "_", -1)
-	}
+	id = strings.Replace(id, "[", "ArrayOf_", 1)
+	id = strings.Replace(id, "]", "_", 1)
+	id = strings.Replace(id, "[]", "SliceOf_", -1)
+	id = strings.Replace(id, "[", "MapOf_", -1)
+	id = strings.Replace(id, "]", "_", -1)
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -505,17 +511,11 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		}
 	}
 	id = n
-	if strings.Contains(id, "[") {
-		strings.Replace(id, "[", "MapOf_", 1)
-		strings.Replace(id, "]", "_", 1)
-	}
-	if strings.Contains(id, "[]") {
-		strings.Replace(id, "[]", "SliceOf_", -1)
-	}
-	if strings.Contains(id, "[") {
-		strings.Replace(id, "[", "MapOf_", -1)
-		strings.Replace(id, "]", "_", -1)
-	}
+	id = strings.Replace(id, "[", "MapOf_", 1)
+	id = strings.Replace(id, "]", "_", 1)
+	id = strings.Replace(id, "[]", "SliceOf_", -1)
+	id = strings.Replace(id, "[", "MapOf_", -1)
+	id = strings.Replace(id, "]", "_", -1)
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -553,13 +553,9 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		}
 	}
 	id = n
-	if strings.Contains(id, "[]") {
-		strings.Replace(id, "[]", "SliceOf_", -1)
-	}
-	if strings.Contains(id, "[") {
-		strings.Replace(id, "[", "MapOf_", -1)
-		strings.Replace(id, "]", "_", -1)
-	}
+	id = strings.Replace(id, "[]", "SliceOf_", -1)
+	id = strings.Replace(id, "[", "MapOf_", -1)
+	id = strings.Replace(id, "]", "_", -1)
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,

@@ -12,6 +12,11 @@ func (g *pybindGen) genType(sym *symbol) {
 		return
 	}
 
+	if sym.isNamedBasic() {
+		// todo: could have methods!
+		return
+	}
+
 	// todo: not handling yet:
 	if sym.isSignature() {
 		return
@@ -21,6 +26,10 @@ func (g *pybindGen) genType(sym *symbol) {
 		g.genTypeHandlePtr(sym)
 	} else {
 		g.genTypeHandle(sym)
+	}
+
+	if sym.isSlice() {
+		g.genSlice(sym)
 	}
 }
 

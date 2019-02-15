@@ -351,7 +351,8 @@ func (g *pybindGen) genAll() {
 		g.genStruct(s)
 	}
 
-	// todo: not sure where these come from
+	// note: these are extracted from reg functions that return full
+	// type (not pointer -- should do pointer but didn't work yet)
 	g.gofile.Printf("\n\n// ---- Constructors ---\n")
 	g.pywrap.Printf("\n\n# ---- Constructors ---\n")
 	for _, s := range g.pkg.structs {
