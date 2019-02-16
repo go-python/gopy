@@ -7,6 +7,14 @@ package bind
 import "go/types"
 
 func (g *pybindGen) genSlice(slc *symbol) {
+	if slc.isPointer() {
+		return // todo: not sure what to do..
+	}
+	_, ok := slc.GoType().Underlying().(*types.Slice)
+	if !ok {
+		return
+	}
+
 	pkgname := slc.gopkg.Name()
 	// todo: inherit from collections.Iterable too?
 	g.pywrap.Printf(`

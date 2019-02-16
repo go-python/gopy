@@ -9,7 +9,10 @@ import (
 	"strings"
 )
 
-func (g *pybindGen) genFuncSig(sym *symbol, fsym Func) {
+// genFuncSig generates just the signature for binding
+// returns false if function is not suitable for python
+// binding (e.g., multiple return values)
+func (g *pybindGen) genFuncSig(sym *symbol, fsym Func) bool {
 	isMethod := (sym != nil)
 
 	switch {
@@ -36,9 +39,17 @@ func (g *pybindGen) genFuncSig(sym *symbol, fsym Func) {
 	sig := fsym.sig
 	args := sig.Params()
 	res := sig.Results()
-
 	nargs := 0
-	nres := 0
+	nres := len(res)
+
+	if nres > 2 {
+		return false
+		// panic(fmt.Errorf("gopy: function/method with more than 2 results not supported! (%s)", fsym.ID()))
+	}
+	if nres == 2 && !fsym.err {
+		return false
+		// panic(fmt.Errorf("gopy: function/method with 2 results must have error as second result! (%s)", fsym.ID()))
+	}
 
 	goArgs := []string{}
 	pyArgs := []string{}
@@ -99,21 +110,25 @@ func (g *pybindGen) genFuncSig(sym *symbol, fsym Func) {
 
 		g.pywrap.Printf(")")
 	}
+	return true
 }
 
 func (g *pybindGen) genFunc(o Func) {
-	g.genFuncSig(nil, o)
-	g.genFuncBody(nil, o)
+	if g.genFuncSig(nil, o) {
+		g.genFuncBody(nil, o)
+	}
 }
 
 func (g *pybindGen) genMethod(s Struct, o Func) {
-	g.genFuncSig(s.sym, o)
-	g.genFuncBody(s.sym, o)
+	if g.genFuncSig(s.sym, o) {
+		g.genFuncBody(s.sym, o)
+	}
 }
 
 func (g *pybindGen) genIfcMethod(ifc Interface, o Func) {
-	g.genFuncSig(ifc.sym, o)
-	g.genFuncBody(ifc.sym, o)
+	if g.genFuncSig(ifc.sym, o) {
+		g.genFuncBody(ifc.sym, o)
+	}
 }
 
 func (g *pybindGen) genFuncBody(sym *symbol, fsym Func) {
@@ -135,12 +150,6 @@ func (g *pybindGen) genFuncBody(sym *symbol, fsym Func) {
 	args := sig.Params()
 	nres := len(res)
 
-	if nres > 2 {
-		panic(fmt.Errorf("gopy: function/method with more than 2 results not supported! (%s)", fsym.ID()))
-	}
-	if nres == 2 && !fsym.err {
-		panic(fmt.Errorf("gopy: function/method with 2 results must have error as second result! (%s)", fsym.ID()))
-	}
 	rvIsErr := false // set to true if the main return is an error
 	if nres == 1 {
 		ret := res[0]
@@ -156,7 +165,7 @@ func (g *pybindGen) genFuncBody(sym *symbol, fsym Func) {
 	g.gofile.Indent()
 	if isMethod {
 		g.gofile.Printf(
-			`vifc, err := varHand.varFmHandleTry(_handle, "%s")
+			`vifc, err := gopyh.VarHand.VarFmHandleTry((gopyh.CGoHandle)(_handle), "%s")
 if err != nil {
 `, symNm)
 		g.gofile.Indent()

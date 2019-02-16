@@ -38,20 +38,18 @@ package main
 // #include <Python.h>
 import "C"
 import (
-	"fmt"
-	"reflect"
-	"strconv"
-	"sync"
+	"github.com/goki/gopy/gopyh" // handler
 	
-	"%[2]s"
+	%[2]s
 )
 
 func main() {}
 
-// type for the handle -- int64 for speed, string for debug
+// type for the handle -- int64 for speed (can switch to string)
 type GoHandle %[5]s
 type CGoHandle %[6]s
 
+// boolGoToPy converts a Go bool to python-compatible C.char
 func boolGoToPy(b bool) C.char {
 	if b {
 		return 1
@@ -59,6 +57,7 @@ func boolGoToPy(b bool) C.char {
 	return 0
 }
 
+// boolPyToGo converts a python-compatible C.Char to Go bool
 func boolPyToGo(b C.char) bool {
 	if b != 0 {
 		return true
@@ -66,114 +65,6 @@ func boolPyToGo(b C.char) bool {
 	return false
 }
 
-// --- variable handles: all pointers managed via handles ---
-
-type varHandler struct {
-	ctr  int64
-	vars map[GoHandle]interface{}
-	m    sync.RWMutex
-}
-
-var varHand varHandler
-
-func IfaceIsNil(it interface{}) bool {
-	if it == nil {
-		return true
-	}
-	v := reflect.ValueOf(it)
-	vk := v.Kind()
-	if vk == reflect.Ptr || vk == reflect.Interface || vk == reflect.Map || vk == reflect.Slice || vk == reflect.Func || vk == reflect.Chan {
-		return v.IsNil()
-	}
-	return false
-}
-
-// varFmHandle gets variable from handle string -- reports error to python but does not return it
-// for use in inline calls
-func (vh *varHandler) varFmHandle(h CGoHandle, typnm string) interface{} {
-	v, _ := vh.varFmHandleTry(h, typnm)
-	return v
-}
-`
-
-	// string version of handle functions
-	varHandleString = `
-func (vh *varHandler) register(typnm string, ifc interface{}) CGoHandle {
-	if IfaceIsNil(ifc) {
-		return C.CString("nil")
-	}
-	vh.m.Lock()
-	defer vh.m.Unlock()
-	if vh.vars == nil {
-		vh.vars = make(map[GoHandle]interface{})
-	}
-	hc := vh.ctr
-	vh.ctr++
-	rnm := typnm + "_" + strconv.FormatInt(hc, 16)
-	vh.vars[GoHandle(rnm)] = ifc
-	return C.CString(rnm)
-}
-
-// Try version returns the error explicitly, for use when error can be processed
-func (vh *varHandler) varFmHandleTry(h CGoHandle, typnm string) (interface{}, error) {
-	hs := C.GoString(h)
-	if hs == "" || hs == "nil" {
-		return nil, fmt.Errorf("gopy: nil handle")
-	}
-	vh.m.RLock()
-	defer vh.m.RUnlock()
-	// if !strings.HasPrefix(hs, typnm) {
-	//  	err := fmt.Errorf("gopy: variable handle is not the correct type, should be: " + typnm + " is: " +  hs)
-	//  	C.PyErr_SetString(C.PyExc_TypeError, C.CString(err.Error()))
-	//  	return nil, err
-	// }
-	v, has := vh.vars[GoHandle(hs)]
-	if !has {
-		err := fmt.Errorf("gopy: variable handle not registered: " +  hs)
-		C.PyErr_SetString(C.PyExc_TypeError, C.CString(err.Error()))
-		return nil, err
-	}
-	return v, nil
-}
-`
-
-	// int64 version of handle functions
-	varHandleInt64 = `
-
-func init()	 {
-	varHand.ctr = 1
-}
-	
-func (vh *varHandler) register(typnm string, ifc interface{}) CGoHandle {
-	if IfaceIsNil(ifc) {
-		return -1
-	}
-	vh.m.Lock()
-	defer vh.m.Unlock()
-	if vh.vars == nil {
-		vh.vars = make(map[GoHandle]interface{})
-	}
-	hc := vh.ctr
-	vh.ctr++
-	vh.vars[GoHandle(hc)] = ifc
-	return CGoHandle(hc)
-}
-
-// Try version returns the error explicitly, for use when error can be processed
-func (vh *varHandler) varFmHandleTry(h CGoHandle, typnm string) (interface{}, error) {
-	if h < 1 {
-		return nil, fmt.Errorf("gopy: nil handle")
-	}
-	vh.m.RLock()
-	defer vh.m.RUnlock()
-	v, has := vh.vars[GoHandle(h)]
-	if !has {
-		err := fmt.Errorf("gopy: variable handle not registered: " +  strconv.FormatInt(int64(h), 10))
-		C.PyErr_SetString(C.PyExc_TypeError, C.CString(err.Error()))
-		return nil, err
-	}
-	return v, nil
-}
 `
 
 	PyBuildPreamble = `# python build stubs for package %[2]s
@@ -279,16 +170,14 @@ func (g *pybindGen) gen() error {
 
 func (g *pybindGen) genGoPreamble(cmd string) {
 	n := g.pkg.pkg.Name()
-	pkgimport := g.pkg.pkg.Path()
+	pkgimport := fmt.Sprintf("%q", g.pkg.pkg.Path())
+	for pi, _ := range g.pkg.syms.imports {
+		pkgimport += fmt.Sprintf("\n\t%q", pi)
+	}
 	pypath, pyonly := filepath.Split(g.vm)
 	pyroot, _ := filepath.Split(filepath.Clean(pypath))
 	libcfg := filepath.Join(filepath.Join(filepath.Join(pyroot, "lib"), "pkgconfig"), pyonly+".pc")
 	g.gofile.Printf(pybGoPreamble, n, pkgimport, cmd, libcfg, GoHandle, CGoHandle)
-	if GoHandle == "string" {
-		g.gofile.Printf(varHandleString)
-	} else {
-		g.gofile.Printf(varHandleInt64)
-	}
 	g.gofile.Printf("\n// --- generated code for package: %[1]s below: ---\n\n", n)
 }
 
