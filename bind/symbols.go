@@ -210,9 +210,10 @@ func (s symbol) gofmt() string {
 
 // symtab is a table of symbols in a go package
 type symtab struct {
-	pkg    *types.Package
-	syms   map[string]*symbol
-	parent *symtab
+	pkg     *types.Package
+	syms    map[string]*symbol
+	imports map[string]string // other packages to import b/c we refer to their types
+	parent  *symtab
 }
 
 func newSymtab(pkg *types.Package, parent *symtab) *symtab {
@@ -220,9 +221,10 @@ func newSymtab(pkg *types.Package, parent *symtab) *symtab {
 		parent = universe
 	}
 	s := &symtab{
-		pkg:    pkg,
-		syms:   make(map[string]*symbol),
-		parent: parent,
+		pkg:     pkg,
+		syms:    make(map[string]*symbol),
+		imports: make(map[string]string),
+		parent:  parent,
 	}
 	return s
 }
@@ -348,12 +350,29 @@ func (sym *symtab) processTuple(tuple *types.Tuple) {
 	}
 }
 
+func TypePackage(t types.Type) *types.Package {
+	if tn, ok := t.(*types.Named); ok {
+		return tn.Obj().Pkg()
+	}
+	switch tt := t.(type) {
+	case *types.Pointer:
+		return TypePackage(tt.Elem())
+	}
+	return nil
+}
+
 func (sym *symtab) addType(obj types.Object, t types.Type) {
 	fn := sym.typename(t, nil)
 	n := sym.typename(t, sym.pkg)
 	var pkg *types.Package
-	if obj != nil {
-		pkg = obj.Pkg()
+	if lidx := strings.LastIndex(n, "/"); lidx > 0 {
+		qnm := n[lidx+1:]
+		n = strings.Replace(qnm, ".", "_", 1)
+		pkg = TypePackage(t)
+		if pkg != nil {
+			ip := pkg.Path()
+			sym.imports[ip] = ip
+		}
 	}
 	if pkg == nil {
 		pkg = sym.pkg
@@ -686,6 +705,7 @@ func (sym *symtab) addPointerType(pkg *types.Package, obj types.Object, t types.
 		pysig:   "object",
 		go2py:   "handleFmPtr_" + pyname + "_Ptr",
 		py2go:   "ptrFmHandle_" + pyname + "_Ptr",
+		zval:    "nil",
 	}
 }
 

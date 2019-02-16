@@ -149,6 +149,11 @@ print("--- hi.NewActivePerson(4):")
 p = hi.NewActivePerson(4)
 print(p)
 
+## test cross-package
+# todo: need to be able to import multiple packages
+#s2 = p.ReturnS2Ptr()
+#print("s2: ", s2)
+
 ## test interface
 pif = hi.PersonAsIface("me", 666)
 print("--- hi.PersonAsIface('me', 666):", pif)
