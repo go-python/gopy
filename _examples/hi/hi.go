@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/go-python/gopy/_examples/cpkg"
+	"github.com/go-python/gopy/_examples/structs"
 )
 
 const (
@@ -135,6 +136,19 @@ func (p *Person) SetName(nm string) {
 
 func (p *Person) SetAge(ag int) {
 	p.Age = ag
+}
+
+func (p *Person) SetFmS2(s2arg structs.S2) {
+	p.Age = s2arg.Public
+}
+
+func (p *Person) SetFmS2Ptr(s2arg *structs.S2) {
+	p.Age = s2arg.Public
+}
+
+func (p *Person) ReturnS2Ptr() *structs.S2 {
+	s2 := &structs.S2{Public: p.Age}
+	return s2
 }
 
 // Couple is a pair of persons

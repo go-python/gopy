@@ -200,7 +200,7 @@ func (p *Package) process() error {
 		case *types.Func:
 			funcs[name], err = newFuncFrom(p, "", obj, obj.Type().(*types.Signature))
 			if err != nil {
-				return err
+				continue
 			}
 
 		case *types.TypeName:
@@ -271,7 +271,7 @@ func (p *Package) process() error {
 			}
 			m, err := newFuncFrom(p, sname, meth.Obj(), meth.Type().(*types.Signature))
 			if err != nil {
-				return err
+				continue
 			}
 			s.meths = append(s.meths, m)
 			if isStringer(meth.Obj()) {
@@ -290,7 +290,7 @@ func (p *Package) process() error {
 			}
 			m, err := newFuncFrom(p, iname, meth.Obj(), meth.Type().(*types.Signature))
 			if err != nil {
-				return err
+				continue
 			}
 			ifc.meths = append(ifc.meths, m)
 		}
