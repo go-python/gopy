@@ -350,15 +350,25 @@ func (sym *symtab) processTuple(tuple *types.Tuple) {
 	}
 }
 
-func TypePackage(t types.Type) *types.Package {
+// typePackage gets the package for a given types.Type
+func typePackage(t types.Type) *types.Package {
 	if tn, ok := t.(*types.Named); ok {
 		return tn.Obj().Pkg()
 	}
 	switch tt := t.(type) {
 	case *types.Pointer:
-		return TypePackage(tt.Elem())
+		return typePackage(tt.Elem())
 	}
 	return nil
+}
+
+// goToPyName translates a go type name to a safe python-usable
+// name -- converts [] -> SliceOf_, [*] -> MapOf_*_
+func goToPyName(gon string) string {
+	pyn := strings.Replace(gon, "[]", "SliceOf_", -1)
+	pyn = strings.Replace(pyn, "[", "MapOf_", -1)
+	pyn = strings.Replace(pyn, "]", "_", -1)
+	return pyn
 }
 
 func (sym *symtab) addType(obj types.Object, t types.Type) {
@@ -368,7 +378,14 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 	if lidx := strings.LastIndex(n, "/"); lidx > 0 {
 		qnm := n[lidx+1:]
 		n = strings.Replace(qnm, ".", "_", 1)
-		pkg = TypePackage(t)
+		pkg = typePackage(t)
+		if pkg != nil {
+			ip := pkg.Path()
+			sym.imports[ip] = ip
+		}
+	} else if pidx := strings.LastIndex(n, "."); pidx > 0 {
+		n = strings.Replace(n, ".", "_", 1)
+		pkg = typePackage(t)
 		if pkg != nil {
 			ip := pkg.Path()
 			sym.imports[ip] = ip
@@ -489,9 +506,7 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 	pyname := n
 	pyname = strings.Replace(pyname, "[", "ArrayOf_", 1)
 	pyname = strings.Replace(pyname, "]", "_", 1)
-	pyname = strings.Replace(pyname, "[]", "SliceOf_", -1)
-	pyname = strings.Replace(pyname, "[", "MapOf_", -1)
-	pyname = strings.Replace(pyname, "]", "_", -1)
+	pyname = goToPyName(pyname)
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -532,9 +547,7 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 	pyname := n
 	pyname = strings.Replace(pyname, "[", "MapOf_", 1)
 	pyname = strings.Replace(pyname, "]", "_", 1)
-	pyname = strings.Replace(pyname, "[]", "SliceOf_", -1)
-	pyname = strings.Replace(pyname, "[", "MapOf_", -1)
-	pyname = strings.Replace(pyname, "]", "_", -1)
+	pyname = goToPyName(pyname)
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -572,10 +585,7 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 			))
 		}
 	}
-	pyname := n
-	pyname = strings.Replace(pyname, "[]", "SliceOf_", -1)
-	pyname = strings.Replace(pyname, "[", "MapOf_", -1)
-	pyname = strings.Replace(pyname, "]", "_", -1)
+	pyname := goToPyName(n)
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -691,6 +701,7 @@ func (sym *symtab) addPointerType(pkg *types.Package, obj types.Object, t types.
 	if len(pyname) > 0 && pyname[0] == '*' {
 		pyname = pyname[1:]
 	}
+	pyname = goToPyName(pyname)
 
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
