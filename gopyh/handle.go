@@ -8,6 +8,7 @@
 package gopyh
 
 import "C"
+
 import (
 	"fmt"
 	"reflect"
@@ -31,7 +32,9 @@ type VarHandler struct {
 var VarHand VarHandler
 
 func init() {
-	VarHand.ctr = 1
+	if VarHand.ctr == 0 {
+		VarHand.ctr = 1
+	}
 }
 
 func IfaceIsNil(it interface{}) bool {
@@ -69,6 +72,7 @@ func (vh *VarHandler) Register(typnm string, ifc interface{}) CGoHandle {
 	hc := vh.ctr
 	vh.ctr++
 	vh.vars[GoHandle(hc)] = ifc
+	fmt.Printf("gopy Registered: %s %d\n", typnm, hc)
 	return CGoHandle(hc)
 }
 
@@ -84,7 +88,7 @@ func (vh *VarHandler) VarFmHandleTry(h CGoHandle, typnm string) (interface{}, er
 	if !has {
 		err := fmt.Errorf("gopy: variable handle not registered: " + strconv.FormatInt(int64(h), 10))
 		// todo: need to get access to this:
-		//		C.PyErr_SetString(C.PyExc_TypeError, C.CString(err.Error()))
+		// C.PyErr_SetString(C.PyExc_TypeError, C.CString(err.Error()))
 		return nil, err
 	}
 	return v, nil

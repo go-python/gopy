@@ -257,6 +257,16 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 		return Func{}, fmt.Errorf("bind: too many results to return: %v", obj)
 	}
 
+	args := sig.Params()
+	nargs := args.Len()
+	for i := 0; i < nargs; i++ {
+		arg := args.At(i)
+		argt := arg.Type()
+		if _, isSig := argt.(*types.Signature); isSig {
+			return Func{}, fmt.Errorf("bind: func args (signature) not supported: %v", obj)
+		}
+	}
+
 	id := obj.Pkg().Name() + "_" + obj.Name()
 	if parent != "" {
 		id = obj.Pkg().Name() + "_" + parent + "_" + obj.Name()
