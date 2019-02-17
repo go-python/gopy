@@ -15,6 +15,49 @@ import (
 func (g *pybindGen) genFuncSig(sym *symbol, fsym Func) bool {
 	isMethod := (sym != nil)
 
+	sig := fsym.sig
+	args := sig.Params()
+	res := sig.Results()
+	nargs := 0
+	nres := len(res)
+
+	// note: this is enforced in creation of Func, in newFuncFrom
+	if nres > 2 {
+		return false
+	}
+	if nres == 2 && !fsym.err {
+		return false
+	}
+
+	goArgs := []string{}
+	pyArgs := []string{}
+	wpArgs := []string{}
+	if isMethod {
+		goArgs = append(goArgs, "_handle CGoHandle")
+		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '_handle')", PyHandle))
+		wpArgs = append(wpArgs, "self")
+	}
+
+	nargs = len(args)
+	for i := 0; i < nargs; i++ {
+		arg := args[i]
+		sarg := g.pkg.syms.symtype(arg.GoType())
+		if sarg == nil {
+			// panic(fmt.Errorf(
+			// 	"gopy: could not find symbol for %q",
+			// 	arg.Name(),
+			// ))
+			return false
+		}
+		// note: this is enforced in creation of Func, in newFuncFrom
+		if sarg.isSignature() { // no support for func args
+			return false
+		}
+		goArgs = append(goArgs, fmt.Sprintf("%s %s", arg.Name(), sarg.cgoname))
+		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", sarg.cpyname, arg.Name()))
+		wpArgs = append(wpArgs, arg.Name())
+	}
+
 	switch {
 	case isMethod:
 		mnm := sym.goname + "_" + fsym.GoName()
@@ -34,45 +77,6 @@ func (g *pybindGen) genFuncSig(sym *symbol, fsym Func) bool {
 
 		g.pywrap.Printf("def %s(", fsym.GoName())
 
-	}
-
-	sig := fsym.sig
-	args := sig.Params()
-	res := sig.Results()
-	nargs := 0
-	nres := len(res)
-
-	if nres > 2 {
-		return false
-		// panic(fmt.Errorf("gopy: function/method with more than 2 results not supported! (%s)", fsym.ID()))
-	}
-	if nres == 2 && !fsym.err {
-		return false
-		// panic(fmt.Errorf("gopy: function/method with 2 results must have error as second result! (%s)", fsym.ID()))
-	}
-
-	goArgs := []string{}
-	pyArgs := []string{}
-	wpArgs := []string{}
-	if isMethod {
-		goArgs = append(goArgs, "_handle CGoHandle")
-		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '_handle')", PyHandle))
-		wpArgs = append(wpArgs, "self")
-	}
-
-	nargs = len(args)
-	for i := 0; i < nargs; i++ {
-		arg := args[i]
-		sarg := g.pkg.syms.symtype(arg.GoType())
-		if sarg == nil {
-			panic(fmt.Errorf(
-				"gopy: could not find symbol for %q",
-				arg.Name(),
-			))
-		}
-		goArgs = append(goArgs, fmt.Sprintf("%s %s", arg.Name(), sarg.cgoname))
-		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", sarg.cpyname, arg.Name()))
-		wpArgs = append(wpArgs, arg.Name())
 	}
 
 	goRet := ""
