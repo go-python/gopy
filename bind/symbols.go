@@ -520,6 +520,7 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		pysig:   "[]" + elt.pysig,
 		go2py:   "handleFmPtr_" + pyname,
 		py2go:   "ptrFmHandle_" + pyname,
+		zval:    "nil",
 	}
 }
 
@@ -561,6 +562,7 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		pysig:   "object",
 		go2py:   "handleFmPtr_" + pyname,
 		py2go:   "ptrFmHandle_" + pyname,
+		zval:    "nil",
 	}
 }
 
@@ -599,6 +601,7 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		pysig:   "[]" + elt.pysig,
 		go2py:   "handleFmPtr_" + pyname,
 		py2go:   "ptrFmHandle_" + pyname,
+		zval:    "nil",
 	}
 }
 
@@ -742,6 +745,7 @@ func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t type
 		pysig:   "object",
 		go2py:   "handleFmPtr_" + n,
 		py2go:   "ptrFmHandle_" + n,
+		zval:    "nil",
 	}
 }
 
