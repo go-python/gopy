@@ -22,7 +22,7 @@ func (g *pybindGen) genType(sym *symbol) {
 		return
 	}
 
-	if sym.isPointer() {
+	if sym.isPointer() || sym.isInterface() {
 		g.genTypeHandlePtr(sym)
 	} else {
 		g.genTypeHandle(sym)

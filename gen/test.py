@@ -213,7 +213,8 @@ except Exception as err:
 
 ### test gc
 print("--- testing GC...")
-NMAX = 100000
+#NMAX = 100000
+NMAX = 10
 objs = []
 for i in range(NMAX):
     p1  = hi.NewPerson("p1-%d" % i, i)
