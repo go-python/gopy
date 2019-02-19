@@ -86,6 +86,11 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 		}
 
 	case *types.Func:
+		sig := o.Type().(*types.Signature)
+		err, _, _ := isPyCompatFunc(sig)
+		if err != nil {
+			return ""
+		}
 		doc := func() string {
 			if o.Parent() == nil || (o.Parent() != nil && parent != "") {
 				for _, typ := range p.doc.Types {
@@ -115,8 +120,6 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 			}
 			return ""
 		}()
-
-		sig := o.Type().(*types.Signature)
 
 		parseFn := func(tup *types.Tuple) []string {
 			params := []string{}
@@ -318,10 +321,7 @@ func (p *Package) process() error {
 				mname := types.ObjectString(m, nil)
 				msym := p.syms.sym(mname)
 				if msym == nil {
-					panic(fmt.Errorf(
-						"gopy: could not retrieve symbol for %q",
-						m.FullName(),
-					))
+					continue
 				}
 				msym.doc = doc
 			}

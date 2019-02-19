@@ -229,42 +229,9 @@ type Func struct {
 }
 
 func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signature) (Func, error) {
-	haserr := false
-	res := sig.Results()
-	var ret types.Type
-
-	switch res.Len() {
-	case 2:
-		if !isErrorType(res.At(1).Type()) {
-			return Func{}, fmt.Errorf(
-				"bind: second result value must be of type error: %s",
-				obj,
-			)
-		}
-		haserr = true
-		ret = res.At(0).Type()
-
-	case 1:
-		if isErrorType(res.At(0).Type()) {
-			haserr = true
-			ret = nil
-		} else {
-			ret = res.At(0).Type()
-		}
-	case 0:
-		ret = nil
-	default:
-		return Func{}, fmt.Errorf("bind: too many results to return: %v", obj)
-	}
-
-	args := sig.Params()
-	nargs := args.Len()
-	for i := 0; i < nargs; i++ {
-		arg := args.At(i)
-		argt := arg.Type()
-		if _, isSig := argt.(*types.Signature); isSig {
-			return Func{}, fmt.Errorf("bind: func args (signature) not supported: %v", obj)
-		}
+	err, ret, haserr := isPyCompatFunc(sig)
+	if err != nil {
+		return Func{}, err
 	}
 
 	id := obj.Pkg().Name() + "_" + obj.Name()
