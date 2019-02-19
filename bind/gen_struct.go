@@ -117,6 +117,9 @@ func (g *pybindGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	pkgname := s.Package().Name()
 	ft := f.Type()
 	ret := g.pkg.syms.symtype(ft)
+	if ret == nil {
+		return
+	}
 
 	cgoFn := fmt.Sprintf("%s_%s_Get", s.GoName(), f.Name())
 
@@ -155,6 +158,9 @@ func (g *pybindGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	pkgname := s.Package().Name()
 	ft := f.Type()
 	ret := g.pkg.syms.symtype(ft)
+	if ret == nil {
+		return
+	}
 
 	cgoFn := fmt.Sprintf("%s_%s_Set", s.GoName(), f.Name())
 
