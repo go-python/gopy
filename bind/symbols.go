@@ -277,7 +277,7 @@ func (sym *symtab) symtype(t types.Type) *symbol {
 	return sym.sym(tname)
 }
 
-func (sym *symtab) addSymbol(obj types.Object) {
+func (sym *symtab) addSymbol(obj types.Object) error {
 	fn := types.ObjectString(obj, nil)
 	n := obj.Name()
 	pkg := obj.Pkg()
@@ -298,7 +298,7 @@ func (sym *symtab) addSymbol(obj types.Object) {
 			cgoname: n, // todo: type names!
 			cpyname: n,
 		}
-		sym.addType(obj, obj.Type())
+		return sym.addType(obj, obj.Type())
 
 	case *types.Var:
 		sym.syms[fn] = &symbol{
@@ -311,7 +311,7 @@ func (sym *symtab) addSymbol(obj types.Object) {
 			cgoname: n,
 			cpyname: n,
 		}
-		sym.addType(obj, obj.Type())
+		return sym.addType(obj, obj.Type())
 
 	case *types.Func:
 		sig := obj.Type().Underlying().(*types.Signature)
@@ -327,29 +327,37 @@ func (sym *symtab) addSymbol(obj types.Object) {
 				cgoname: n,
 				cpyname: n,
 			}
-			sym.processTuple(sig.Params())
-			sym.processTuple(sig.Results())
+			err := sym.processTuple(sig.Params())
+			if err != nil {
+				return err
+			}
+			return sym.processTuple(sig.Results())
 		}
 	case *types.TypeName:
-		sym.addType(obj, obj.Type())
+		return sym.addType(obj, obj.Type())
 
 	default:
-		panic(fmt.Errorf("gopy: handled object [%#v]", obj))
+		return fmt.Errorf("gopy: handled object [%#v]", obj)
 	}
+	return nil
 }
 
-func (sym *symtab) processTuple(tuple *types.Tuple) {
+func (sym *symtab) processTuple(tuple *types.Tuple) error {
 	if tuple == nil {
-		return
+		return nil
 	}
 	for i := 0; i < tuple.Len(); i++ {
 		ivar := tuple.At(i)
 		ityp := ivar.Type()
 		isym := sym.symtype(ityp)
 		if isym == nil {
-			sym.addType(ivar, ityp)
+			err := sym.addType(ivar, ityp)
+			if err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 // isPyCompatFunc checks if function signature is a python-compatible function.
@@ -382,6 +390,10 @@ func isPyCompatFunc(sig *types.Signature) (error, types.Type, bool) {
 		return fmt.Errorf("gopy: too many results to return: %s", sig.String()), ret, haserr
 	}
 
+	if _, isChan := ret.(*types.Chan); isChan {
+		return fmt.Errorf("gopy: channel types not supported: %s", sig.String()), ret, haserr
+	}
+
 	args := sig.Params()
 	nargs := args.Len()
 	for i := 0; i < nargs; i++ {
@@ -389,6 +401,9 @@ func isPyCompatFunc(sig *types.Signature) (error, types.Type, bool) {
 		argt := arg.Type()
 		if _, isSig := argt.(*types.Signature); isSig {
 			return fmt.Errorf("gopy: func args (signature) not supported: %s", sig.String()), ret, haserr
+		}
+		if _, isChan := ret.(*types.Chan); isChan {
+			return fmt.Errorf("gopy: channel types not supported: %s", sig.String()), ret, haserr
 		}
 	}
 	return nil, ret, haserr
@@ -444,7 +459,7 @@ func (sym *symtab) typeNamePkg(t types.Type) (string, *types.Package) {
 	return n, pkg
 }
 
-func (sym *symtab) addType(obj types.Object, t types.Type) {
+func (sym *symtab) addType(obj types.Object, t types.Type) error {
 	fn := sym.typename(t, nil)
 	n, pkg := sym.typeNamePkg(t)
 	id := n
@@ -457,32 +472,36 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 		kind |= skBasic
 		styp := sym.symtype(typ)
 		if styp == nil {
-			panic(fmt.Errorf("builtin type not already known [%s]!", n))
+			return fmt.Errorf("builtin type not already known [%s]!", n)
 		}
 
 	case *types.Pointer:
-		sym.addPointerType(pkg, obj, t, kind, id, n)
+		return sym.addPointerType(pkg, obj, t, kind, id, n)
 
 	case *types.Array:
-		sym.addArrayType(pkg, obj, t, kind, id, n)
+		return sym.addArrayType(pkg, obj, t, kind, id, n)
 
 	case *types.Slice:
-		sym.addSliceType(pkg, obj, t, kind, id, n)
+		return sym.addSliceType(pkg, obj, t, kind, id, n)
 
 	case *types.Map:
-		sym.addMapType(pkg, obj, t, kind, id, n)
+		return sym.addMapType(pkg, obj, t, kind, id, n)
 
 	case *types.Signature:
-		sym.addSignatureType(pkg, obj, t, kind, id, n)
+		return sym.addSignatureType(pkg, obj, t, kind, id, n)
 
 	case *types.Interface:
-		sym.addInterfaceType(pkg, obj, t, kind, id, n)
+		return sym.addInterfaceType(pkg, obj, t, kind, id, n)
+
+	case *types.Chan:
+		return fmt.Errorf("gopy: channel type not supported: %s\n", n)
 
 	case *types.Named:
 		kind |= skNamed
+		var err error
 		switch st := typ.Underlying().(type) {
 		case *types.Struct:
-			sym.addStructType(pkg, obj, t, kind, id, n)
+			err = sym.addStructType(pkg, obj, t, kind, id, n)
 
 		case *types.Basic:
 			styp := sym.symtype(st)
@@ -511,25 +530,32 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 			}
 
 		case *types.Array:
-			sym.addArrayType(pkg, obj, t, kind, id, n)
+			err = sym.addArrayType(pkg, obj, t, kind, id, n)
 
 		case *types.Slice:
-			sym.addSliceType(pkg, obj, t, kind, id, n)
+			err = sym.addSliceType(pkg, obj, t, kind, id, n)
 
 		case *types.Map:
-			sym.addMapType(pkg, obj, t, kind, id, n)
+			err = sym.addMapType(pkg, obj, t, kind, id, n)
 
 		case *types.Signature:
-			sym.addSignatureType(pkg, obj, t, kind, id, n)
+			err = sym.addSignatureType(pkg, obj, t, kind, id, n)
 
 		case *types.Pointer:
-			sym.addPointerType(pkg, obj, t, kind, id, n)
+			err = sym.addPointerType(pkg, obj, t, kind, id, n)
 
 		case *types.Interface:
-			sym.addInterfaceType(pkg, obj, t, kind, id, n)
+			err = sym.addInterfaceType(pkg, obj, t, kind, id, n)
+
+		case *types.Chan:
+			err = fmt.Errorf("gopy: channel type not supported: %s", n)
 
 		default:
-			panic(fmt.Errorf("unhandled named-type: [%T]\n%#v\n", obj, t))
+			err = fmt.Errorf("unhandled named-type: [%T]\n%#v\n", obj, t)
+		}
+
+		if err != nil {
+			return err
 		}
 
 		// add methods
@@ -546,11 +572,12 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 		}
 
 	default:
-		panic(fmt.Errorf("unhandled obj [%T]\ntype [%#v]", obj, t))
+		return fmt.Errorf("unhandled obj [%T]\ntype [%#v]", obj, t)
 	}
+	return nil
 }
 
-func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
 	fn := sym.typename(t, nil)
 	typ := t.Underlying().(*types.Array)
 	kind |= skArray
@@ -568,10 +595,7 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		}
 		elt = sym.sym(enam)
 		if elt == nil {
-			panic(fmt.Errorf(
-				"gopy: could not retrieve array-elt symbol for %q",
-				enam,
-			))
+			return fmt.Errorf("gopy: could not retrieve array-elt symbol for %q", enam)
 		}
 	}
 	pyname := n
@@ -593,9 +617,10 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		py2go:   "*ptrFmHandle_" + pyname,
 		zval:    "nil",
 	}
+	return nil
 }
 
-func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
 	fn := sym.typename(t, nil)
 	typ := t.Underlying().(*types.Map)
 	kind |= skMap
@@ -614,7 +639,7 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		}
 		elsym = sym.sym(enam)
 		if elsym == nil {
-			panic(fmt.Errorf("gopy: map key type must be named type if outside current package: %q", enam))
+			return fmt.Errorf("gopy: map key type must be named type if outside current package: %q", enam)
 		}
 	}
 	pyname := n
@@ -636,9 +661,10 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		py2go:   "*ptrFmHandle_" + pyname,
 		zval:    "nil",
 	}
+	return nil
 }
 
-func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
 	fn := sym.typename(t, nil)
 	typ := t.Underlying().(*types.Slice)
 	kind |= skSlice
@@ -657,7 +683,7 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		}
 		elsym = sym.sym(enam)
 		if elsym == nil {
-			panic(fmt.Errorf("gopy: slice type must be named type if outside current package: %q", enam))
+			return fmt.Errorf("gopy: slice type must be named type if outside current package: %q", enam)
 		}
 		n = "[]" + elsym.goname
 	}
@@ -677,9 +703,10 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		py2go:   "*ptrFmHandle_" + pyname,
 		zval:    "nil",
 	}
+	return nil
 }
 
-func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
 	fn := sym.typename(t, nil)
 	typ := t.Underlying().(*types.Struct)
 	kind |= skStruct
@@ -690,13 +717,13 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 		ftyp := typ.Field(i).Type()
 		fsym := sym.symtype(ftyp)
 		if fsym == nil {
-			sym.addType(typ.Field(i), ftyp)
+			err := sym.addType(typ.Field(i), ftyp)
+			if err != nil {
+				continue
+			}
 			fsym = sym.symtype(ftyp)
 			if fsym == nil {
-				panic(fmt.Errorf(
-					"gopy: could not add type [%s]",
-					ftyp.String(),
-				))
+				continue
 			}
 		}
 	}
@@ -715,9 +742,10 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 		py2go:   "*ptrFmHandle_" + n,
 		zval:    "nil",
 	}
+	return nil
 }
 
-func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
 	fn := sym.typename(t, nil)
 	//typ := t.(*types.Signature)
 	kind |= skSignature
@@ -738,9 +766,10 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 		go2py:   "?",
 		py2go:   "?",
 	}
+	return nil
 }
 
-func (sym *symtab) addMethod(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+func (sym *symtab) addMethod(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
 	sig := t.Underlying().(*types.Signature)
 	err, _, _ := isPyCompatFunc(sig)
 	if err == nil {
@@ -760,9 +789,10 @@ func (sym *symtab) addMethod(pkg *types.Package, obj types.Object, t types.Type,
 		sym.processTuple(sig.Results())
 		sym.processTuple(sig.Params())
 	}
+	return nil
 }
 
-func (sym *symtab) addPointerType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+func (sym *symtab) addPointerType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
 	fn := sym.typename(t, nil)
 	typ := t.Underlying().(*types.Pointer)
 	etyp := typ.Elem()
@@ -771,10 +801,7 @@ func (sym *symtab) addPointerType(pkg *types.Package, obj types.Object, t types.
 		sym.addType(obj, etyp)
 		esym = sym.symtype(etyp)
 		if esym == nil {
-			panic(fmt.Errorf(
-				"gopy: could not retrieve symbol for %q",
-				sym.typename(etyp, nil),
-			))
+			return fmt.Errorf("gopy: could not retrieve symbol for %q", sym.typename(etyp, nil))
 		}
 	}
 
@@ -799,15 +826,16 @@ func (sym *symtab) addPointerType(pkg *types.Package, obj types.Object, t types.
 		py2go:   "ptrFmHandle_" + pyname + "_Ptr",
 		zval:    "nil",
 	}
+	return nil
 }
 
-func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
+func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
 	fn := sym.typename(t, nil)
 	typ := t.Underlying().(*types.Interface)
 	kind |= skInterface
 	// special handling of 'error'
 	if isErrorType(typ) {
-		return
+		return nil
 	}
 
 	pyname := goToPyName(n)
@@ -827,6 +855,7 @@ func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t type
 		py2go:   "ptrFmHandle_" + pyname,
 		zval:    "nil",
 	}
+	return nil
 }
 
 func (sym *symtab) print() {
