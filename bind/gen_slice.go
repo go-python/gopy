@@ -149,7 +149,7 @@ otherwise parameter is a python list that we copy from
 	g.gofile.Indent()
 	g.gofile.Printf("s := *ptrFmHandle_%s(handle)\n", slNm)
 	if esym.py2go != "" {
-		g.gofile.Printf("s[idx] = %s(value)\n", esym.py2go)
+		g.gofile.Printf("s[idx] = %s(value)%s\n", esym.py2go, esym.py2goParenEx)
 	} else {
 		g.gofile.Printf("s[idx] = value\n")
 	}
@@ -163,7 +163,7 @@ otherwise parameter is a python list that we copy from
 	g.gofile.Indent()
 	g.gofile.Printf("s := ptrFmHandle_%s(handle)\n", slNm)
 	if esym.py2go != "" {
-		g.gofile.Printf("*s = append(*s, %s(value))\n", esym.py2go)
+		g.gofile.Printf("*s = append(*s, %s(value)%s)\n", esym.py2go, esym.py2goParenEx)
 	} else {
 		g.gofile.Printf("*s = append(*s, value)\n")
 	}

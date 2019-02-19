@@ -77,39 +77,40 @@ func (k symkind) String() string {
 
 // symbol is an exported symbol in a go package
 type symbol struct {
-	kind    symkind
-	gopkg   *types.Package
-	goobj   types.Object
-	gotyp   types.Type
-	doc     string
-	id      string // mangled name of entity (eg: <pkg>_<name>)
-	goname  string // name of go entity
-	pyname  string // name of python entity (nonptrname, cleaned-up slice name)
-	cgoname string // type name of entity for cgo -- handle for objs
-	cpyname string // type name of entity for cgo - python -- handle..
-	pysig   string // type string for doc-signatures
-	go2py   string // name of go->py converter function
-	py2go   string // name of py->go converter function
-	zval    string // zero value representation
+	kind         symkind
+	gopkg        *types.Package
+	goobj        types.Object
+	gotyp        types.Type
+	doc          string
+	id           string // mangled name of entity (eg: <pkg>_<name>)
+	goname       string // name of go entity
+	pyname       string // name of python entity (nonptrname, cleaned-up slice name)
+	cgoname      string // type name of entity for cgo -- handle for objs
+	cpyname      string // type name of entity for cgo - python -- handle..
+	pysig        string // type string for doc-signatures
+	go2py        string // name of go->py converter function
+	py2go        string // name of py->go converter function
+	py2goParenEx string // extra parentheses needed at end of py2go (beyond 1 default)
+	zval         string // zero value representation
 }
 
 func isPrivate(s string) bool {
 	return (strings.ToLower(s[0:1]) == s[0:1])
 }
 
-func (s symbol) isType() bool {
+func (s *symbol) isType() bool {
 	return (s.kind & skType) != 0
 }
 
-func (s symbol) isNamed() bool {
+func (s *symbol) isNamed() bool {
 	return (s.kind & skNamed) != 0
 }
 
-func (s symbol) isBasic() bool {
+func (s *symbol) isBasic() bool {
 	return (s.kind & skBasic) != 0
 }
 
-func (s symbol) isNamedBasic() bool {
+func (s *symbol) isNamedBasic() bool {
 	if !s.isNamed() {
 		return false
 	}
@@ -120,65 +121,65 @@ func (s symbol) isNamedBasic() bool {
 	return false
 }
 
-func (s symbol) isArray() bool {
+func (s *symbol) isArray() bool {
 	return (s.kind & skArray) != 0
 }
 
-func (s symbol) isInterface() bool {
+func (s *symbol) isInterface() bool {
 	return (s.kind & skInterface) != 0
 }
 
-func (s symbol) isSignature() bool {
+func (s *symbol) isSignature() bool {
 	return (s.kind & skSignature) != 0
 }
 
-func (s symbol) isMap() bool {
+func (s *symbol) isMap() bool {
 	return (s.kind & skMap) != 0
 }
 
-func (s symbol) isPySequence() bool {
+func (s *symbol) isPySequence() bool {
 	return s.isArray() || s.isSlice() || s.isMap()
 }
 
-func (s symbol) isSlice() bool {
+func (s *symbol) isSlice() bool {
 	return (s.kind & skSlice) != 0
 }
 
-func (s symbol) isStruct() bool {
+func (s *symbol) isStruct() bool {
 	return (s.kind & skStruct) != 0
 }
 
-func (s symbol) isPointer() bool {
+func (s *symbol) isPointer() bool {
 	return (s.kind & skPointer) != 0
 }
 
-func (s symbol) isPtrOrIface() bool {
+func (s *symbol) isPtrOrIface() bool {
 	return s.isPointer() || s.isInterface()
 }
 
-func (s symbol) hasHandle() bool {
+func (s *symbol) hasHandle() bool {
 	return !s.isBasic()
 }
 
-func (s symbol) hasConverter() bool {
+func (s *symbol) hasConverter() bool {
 	return (s.go2py != "" || s.py2go != "")
 }
 
-func (s symbol) pkgname() string {
+func (s *symbol) pkgname() string {
 	if s.gopkg == nil {
 		return ""
 	}
 	return s.gopkg.Name()
 }
 
-func (s symbol) GoType() types.Type {
+func (s *symbol) GoType() types.Type {
 	if s.goobj != nil {
 		return s.goobj.Type()
 	}
 	return s.gotyp
 }
 
-func (s symbol) cgotypename() string {
+func (s *symbol) cgotypename() string {
 	typ := s.gotyp
 	switch typ := typ.(type) {
 	case *types.Basic:
@@ -201,11 +202,10 @@ func (s symbol) cgotypename() string {
 	return s.cgoname
 }
 
-func (s symbol) gofmt() string {
+func (s *symbol) gofmt() string {
 	return types.TypeString(
 		s.GoType(),
-		func(*types.Package) string { return s.pkgname() },
-	)
+		func(pkg *types.Package) string { return pkg.Name() })
 }
 
 // symtab is a table of symbols in a go package
@@ -314,20 +314,22 @@ func (sym *symtab) addSymbol(obj types.Object) {
 		sym.addType(obj, obj.Type())
 
 	case *types.Func:
-		sym.syms[fn] = &symbol{
-			gopkg:   pkg,
-			goobj:   obj,
-			kind:    skFunc,
-			id:      id,
-			goname:  n,
-			pyname:  pyname,
-			cgoname: n,
-			cpyname: n,
-		}
 		sig := obj.Type().Underlying().(*types.Signature)
-		sym.processTuple(sig.Params())
-		sym.processTuple(sig.Results())
-
+		err, _, _ := isPyCompatFunc(sig)
+		if err == nil {
+			sym.syms[fn] = &symbol{
+				gopkg:   pkg,
+				goobj:   obj,
+				kind:    skFunc,
+				id:      id,
+				goname:  n,
+				pyname:  pyname,
+				cgoname: n,
+				cpyname: n,
+			}
+			sym.processTuple(sig.Params())
+			sym.processTuple(sig.Results())
+		}
 	case *types.TypeName:
 		sym.addType(obj, obj.Type())
 
@@ -350,16 +352,46 @@ func (sym *symtab) processTuple(tuple *types.Tuple) {
 	}
 }
 
-// typePackage gets the package for a given types.Type
-func typePackage(t types.Type) *types.Package {
-	if tn, ok := t.(*types.Named); ok {
-		return tn.Obj().Pkg()
+// isPyCompatFunc checks if function signature is a python-compatible function.
+// Returns nil if function is compatible, err message if not.
+// Also returns the return type of the function
+// extra bool is true if 2nd arg is an error type, which is only
+// supported form of multi-return-value functions
+func isPyCompatFunc(sig *types.Signature) (error, types.Type, bool) {
+	haserr := false
+	res := sig.Results()
+	var ret types.Type
+
+	switch res.Len() {
+	case 2:
+		if !isErrorType(res.At(1).Type()) {
+			return fmt.Errorf("gopy: second result value must be of type error: %s", sig.String()), ret, haserr
+		}
+		haserr = true
+		ret = res.At(0).Type()
+	case 1:
+		if isErrorType(res.At(0).Type()) {
+			haserr = true
+			ret = nil
+		} else {
+			ret = res.At(0).Type()
+		}
+	case 0:
+		ret = nil
+	default:
+		return fmt.Errorf("gopy: too many results to return: %s", sig.String()), ret, haserr
 	}
-	switch tt := t.(type) {
-	case *types.Pointer:
-		return typePackage(tt.Elem())
+
+	args := sig.Params()
+	nargs := args.Len()
+	for i := 0; i < nargs; i++ {
+		arg := args.At(i)
+		argt := arg.Type()
+		if _, isSig := argt.(*types.Signature); isSig {
+			return fmt.Errorf("gopy: func args (signature) not supported: %s", sig.String()), ret, haserr
+		}
 	}
-	return nil
+	return nil, ret, haserr
 }
 
 // goToPyName translates a go type name to a safe python-usable
@@ -371,21 +403,35 @@ func goToPyName(gon string) string {
 	return pyn
 }
 
-func (sym *symtab) addType(obj types.Object, t types.Type) {
-	fn := sym.typename(t, nil)
+// typePkg gets the package for a given types.Type
+func typePkg(t types.Type) *types.Package {
+	if tn, ok := t.(*types.Named); ok {
+		return tn.Obj().Pkg()
+	}
+	switch tt := t.(type) {
+	case *types.Pointer:
+		return typePkg(tt.Elem())
+	}
+	return nil
+}
+
+// typeNamePkg gets the name and package for a given types.Type -- deals with
+// naming for types in other packages, and adds those packages to imports paths.
+// Falls back on sym.pkg if no other package info avail.
+func (sym *symtab) typeNamePkg(t types.Type) (string, *types.Package) {
 	n := sym.typename(t, sym.pkg)
 	var pkg *types.Package
 	if lidx := strings.LastIndex(n, "/"); lidx > 0 {
 		qnm := n[lidx+1:]
 		n = strings.Replace(qnm, ".", "_", 1)
-		pkg = typePackage(t)
+		pkg = typePkg(t)
 		if pkg != nil {
 			ip := pkg.Path()
 			sym.imports[ip] = ip
 		}
 	} else if pidx := strings.LastIndex(n, "."); pidx > 0 {
 		n = strings.Replace(n, ".", "_", 1)
-		pkg = typePackage(t)
+		pkg = typePkg(t)
 		if pkg != nil {
 			ip := pkg.Path()
 			sym.imports[ip] = ip
@@ -394,6 +440,12 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 	if pkg == nil {
 		pkg = sym.pkg
 	}
+	return n, pkg
+}
+
+func (sym *symtab) addType(obj types.Object, t types.Type) {
+	fn := sym.typename(t, nil)
+	n, pkg := sym.typeNamePkg(t)
 	id := n
 	if pkg != nil {
 		id = pkg.Name() + "_" + n
@@ -406,6 +458,9 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 		if styp == nil {
 			panic(fmt.Errorf("builtin type not already known [%s]!", n))
 		}
+
+	case *types.Pointer:
+		sym.addPointerType(pkg, obj, t, kind, id, n)
 
 	case *types.Array:
 		sym.addArrayType(pkg, obj, t, kind, id, n)
@@ -424,19 +479,28 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 
 		case *types.Basic:
 			styp := sym.symtype(st)
+			py2go := pkg.Name() + "." + sym.typename(t, pkg)
+			py2goParEx := ""
+			if styp.py2go != "" {
+				py2go += "(" + styp.py2go
+				py2goParEx = ")"
+			}
+
 			sym.syms[fn] = &symbol{
-				gopkg:   pkg,
-				goobj:   obj,
-				gotyp:   t,
-				kind:    kind | skBasic,
-				id:      id,
-				goname:  styp.goname,
-				pyname:  styp.pyname,
-				cgoname: styp.cgoname,
-				cpyname: styp.cpyname,
-				pysig:   styp.pysig,
-				go2py:   styp.cgoname,
-				py2go:   pkg.Name() + "." + n,
+				gopkg:        pkg,
+				goobj:        obj,
+				gotyp:        t,
+				kind:         kind | skBasic,
+				id:           id,
+				goname:       styp.goname,
+				pyname:       styp.pyname,
+				cgoname:      styp.cgoname,
+				cpyname:      styp.cpyname,
+				pysig:        styp.pysig,
+				go2py:        styp.cgoname,
+				py2go:        py2go,
+				py2goParenEx: py2goParEx,
+				zval:         styp.zval,
 			}
 
 		case *types.Array:
@@ -471,9 +535,6 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 			}
 		}
 
-	case *types.Pointer:
-		sym.addPointerType(pkg, obj, t, kind, id, n)
-
 	case *types.Map:
 		sym.addMapType(pkg, obj, t, kind, id, n)
 
@@ -491,10 +552,13 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 	if elt == nil || elt.goname == "" {
 		eltname := sym.typename(typ.Elem(), pkg)
 		eobj := sym.pkg.Scope().Lookup(eltname)
-		if eobj == nil {
-			panic(fmt.Errorf("could not look-up %q!\n", enam))
+		if eobj != nil {
+			sym.addSymbol(eobj)
+		} else {
+			if ntyp, ok := typ.Elem().(*types.Named); ok {
+				sym.addType(ntyp.Obj(), typ.Elem())
+			}
 		}
-		sym.addSymbol(eobj)
 		elt = sym.sym(enam)
 		if elt == nil {
 			panic(fmt.Errorf(
@@ -528,21 +592,22 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 	fn := sym.typename(t, nil)
 	typ := t.Underlying().(*types.Map)
 	kind |= skMap
-	enam := sym.typename(typ.Elem(), nil)
-	elt := sym.sym(enam)
-	if elt == nil || elt.goname == "" {
-		eltname := sym.typename(typ.Elem(), pkg)
+	elt := typ.Elem()
+	enam := sym.typename(elt, nil)
+	elsym := sym.sym(enam)
+	if elsym == nil || elsym.goname == "" {
+		eltname, _ := sym.typeNamePkg(elt)
 		eobj := sym.pkg.Scope().Lookup(eltname)
-		if eobj == nil {
-			panic(fmt.Errorf("could not look-up %q!\n", enam))
+		if eobj != nil {
+			sym.addSymbol(eobj)
+		} else {
+			if ntyp, ok := elt.(*types.Named); ok {
+				sym.addType(ntyp.Obj(), elt)
+			}
 		}
-		sym.addSymbol(eobj)
-		elt = sym.sym(enam)
-		if elt == nil {
-			panic(fmt.Errorf(
-				"gopy: could not retrieve map-elt symbol for %q",
-				enam,
-			))
+		elsym = sym.sym(enam)
+		if elsym == nil {
+			panic(fmt.Errorf("gopy: map key type must be named type if outside current package: %q", enam))
 		}
 	}
 	pyname := n
@@ -570,22 +635,24 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 	fn := sym.typename(t, nil)
 	typ := t.Underlying().(*types.Slice)
 	kind |= skSlice
-	enam := sym.typename(typ.Elem(), nil)
-	elt := sym.sym(enam)
-	if elt == nil || elt.goname == "" {
-		eltname := sym.typename(typ.Elem(), pkg)
+	elt := typ.Elem()
+	enam := sym.typename(elt, nil)
+	elsym := sym.sym(enam)
+	if elsym == nil || elsym.goname == "" {
+		eltname, _ := sym.typeNamePkg(elt)
 		eobj := sym.pkg.Scope().Lookup(eltname)
-		if eobj == nil {
-			panic(fmt.Errorf("could not look-up %q!\n", enam))
+		if eobj != nil {
+			sym.addSymbol(eobj)
+		} else {
+			if ntyp, ok := elt.(*types.Named); ok {
+				sym.addType(ntyp.Obj(), elt)
+			}
 		}
-		sym.addSymbol(eobj)
-		elt = sym.sym(enam)
-		if elt == nil {
-			panic(fmt.Errorf(
-				"gopy: could not retrieve slice-elt symbol for %q",
-				enam,
-			))
+		elsym = sym.sym(enam)
+		if elsym == nil {
+			panic(fmt.Errorf("gopy: slice type must be named type if outside current package: %q", enam))
 		}
+		n = "[]" + elsym.goname
 	}
 	pyname := goToPyName(n)
 	sym.syms[fn] = &symbol{
@@ -598,7 +665,7 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		pyname:  pyname,
 		cgoname: "CGoHandle",
 		cpyname: PyHandle,
-		pysig:   "[]" + elt.pysig,
+		pysig:   "[]" + elsym.pysig,
 		go2py:   "handleFmPtr_" + pyname,
 		py2go:   "ptrFmHandle_" + pyname,
 		zval:    "nil",
@@ -638,7 +705,7 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 		cpyname: PyHandle,
 		pysig:   "object",
 		go2py:   "handleFmPtr_" + n,
-		py2go:   "ptrFmHandle_" + n,
+		py2go:   "*ptrFmHandle_" + n,
 	}
 }
 
@@ -666,22 +733,25 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 }
 
 func (sym *symtab) addMethod(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
-	fn := types.ObjectString(obj, nil)
-	kind |= skFunc
-	sym.syms[fn] = &symbol{
-		gopkg:   pkg,
-		goobj:   obj,
-		gotyp:   t,
-		kind:    kind,
-		id:      id,
-		goname:  n,
-		pyname:  n,
-		cgoname: fn + "_" + n,
-		cpyname: fn + "_" + n,
-	}
 	sig := t.Underlying().(*types.Signature)
-	sym.processTuple(sig.Results())
-	sym.processTuple(sig.Params())
+	err, _, _ := isPyCompatFunc(sig)
+	if err == nil {
+		fn := types.ObjectString(obj, nil)
+		kind |= skFunc
+		sym.syms[fn] = &symbol{
+			gopkg:   pkg,
+			goobj:   obj,
+			gotyp:   t,
+			kind:    kind,
+			id:      id,
+			goname:  n,
+			pyname:  n,
+			cgoname: fn + "_" + n,
+			cpyname: fn + "_" + n,
+		}
+		sym.processTuple(sig.Results())
+		sym.processTuple(sig.Params())
+	}
 }
 
 func (sym *symtab) addPointerType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) {
@@ -1022,7 +1092,7 @@ func init() {
 			kind:    skType | skBasic,
 			goname:  "rune",
 			pyname:  "str",
-			cpyname: "GoRune",
+			cpyname: "int32_t",
 			cgoname: "C.long",
 			pysig:   "str",
 			go2py:   "C.long",

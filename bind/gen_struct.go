@@ -105,7 +105,7 @@ func (g *pybindGen) genStructMembers(s Struct) {
 	typ := s.Struct()
 	for i := 0; i < typ.NumFields(); i++ {
 		f := typ.Field(i)
-		if !f.Exported() {
+		if !f.Exported() || f.Embedded() {
 			continue
 		}
 		g.genStructMemberGetter(s, i, f)
@@ -178,9 +178,9 @@ func (g *pybindGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	g.gofile.Printf("op := ptrFmHandle_%s(handle)\n", s.GoName())
 	if ret.go2py != "" {
 		if ret.hasHandle() && !ret.isPtrOrIface() {
-			g.gofile.Printf("op.%s = *%s(val)", f.Name(), ret.py2go)
+			g.gofile.Printf("op.%s = *%s(val)%s", f.Name(), ret.py2go, ret.py2goParenEx)
 		} else {
-			g.gofile.Printf("op.%s = %s(val)", f.Name(), ret.py2go)
+			g.gofile.Printf("op.%s = %s(val)%s", f.Name(), ret.py2go, ret.py2goParenEx)
 		}
 	} else {
 		g.gofile.Printf("op.%s = val", f.Name())
