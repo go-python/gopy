@@ -69,11 +69,7 @@ func (g *pybindGen) genVarSetter(v Var) {
 	g.gofile.Printf("func %s(val %s) {\n", cgoFn, v.sym.cgoname)
 	g.gofile.Indent()
 	if v.sym.go2py != "" {
-		if v.sym.hasHandle() && !v.sym.isPtrOrIface() {
-			g.gofile.Printf("%s = *%s(val)%s", qVn, v.sym.py2go, v.sym.py2goParenEx)
-		} else {
-			g.gofile.Printf("%s = %s(val)%s", qVn, v.sym.py2go, v.sym.py2goParenEx)
-		}
+		g.gofile.Printf("%s = %s(val)%s", qVn, v.sym.py2go, v.sym.py2goParenEx)
 	} else {
 		g.gofile.Printf("%s = val", qVn)
 	}

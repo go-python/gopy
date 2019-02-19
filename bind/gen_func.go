@@ -222,11 +222,7 @@ if err != nil {
 	for _, arg := range args {
 		na := ""
 		if arg.sym.py2go != "" {
-			if arg.sym.hasHandle() && !arg.sym.isPtrOrIface() {
-				na = fmt.Sprintf("*%s(%s)%s", arg.sym.py2go, arg.Name(), arg.sym.py2goParenEx)
-			} else {
-				na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, arg.Name(), arg.sym.py2goParenEx)
-			}
+			na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, arg.Name(), arg.sym.py2goParenEx)
 		} else {
 			na = arg.Name()
 		}

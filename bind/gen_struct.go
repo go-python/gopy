@@ -177,11 +177,7 @@ func (g *pybindGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	g.gofile.Indent()
 	g.gofile.Printf("op := ptrFmHandle_%s(handle)\n", s.GoName())
 	if ret.go2py != "" {
-		if ret.hasHandle() && !ret.isPtrOrIface() {
-			g.gofile.Printf("op.%s = *%s(val)%s", f.Name(), ret.py2go, ret.py2goParenEx)
-		} else {
-			g.gofile.Printf("op.%s = %s(val)%s", f.Name(), ret.py2go, ret.py2goParenEx)
-		}
+		g.gofile.Printf("op.%s = %s(val)%s", f.Name(), ret.py2go, ret.py2goParenEx)
 	} else {
 		g.gofile.Printf("op.%s = val", f.Name())
 	}

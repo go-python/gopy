@@ -400,6 +400,7 @@ func goToPyName(gon string) string {
 	pyn := strings.Replace(gon, "[]", "SliceOf_", -1)
 	pyn = strings.Replace(pyn, "[", "MapOf_", -1)
 	pyn = strings.Replace(pyn, "]", "_", -1)
+	pyn = strings.Replace(pyn, "{}", "_", -1)
 	return pyn
 }
 
@@ -468,8 +469,14 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 	case *types.Slice:
 		sym.addSliceType(pkg, obj, t, kind, id, n)
 
+	case *types.Map:
+		sym.addMapType(pkg, obj, t, kind, id, n)
+
 	case *types.Signature:
 		sym.addSignatureType(pkg, obj, t, kind, id, n)
+
+	case *types.Interface:
+		sym.addInterfaceType(pkg, obj, t, kind, id, n)
 
 	case *types.Named:
 		kind |= skNamed
@@ -509,6 +516,9 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 		case *types.Slice:
 			sym.addSliceType(pkg, obj, t, kind, id, n)
 
+		case *types.Map:
+			sym.addMapType(pkg, obj, t, kind, id, n)
+
 		case *types.Signature:
 			sym.addSignatureType(pkg, obj, t, kind, id, n)
 
@@ -534,9 +544,6 @@ func (sym *symtab) addType(obj types.Object, t types.Type) {
 				sym.addMethod(pkg, m, m.Type(), skFunc, mid, mname)
 			}
 		}
-
-	case *types.Map:
-		sym.addMapType(pkg, obj, t, kind, id, n)
 
 	default:
 		panic(fmt.Errorf("unhandled obj [%T]\ntype [%#v]", obj, t))
@@ -583,7 +590,7 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		cpyname: PyHandle,
 		pysig:   "[]" + elt.pysig,
 		go2py:   "handleFmPtr_" + pyname,
-		py2go:   "ptrFmHandle_" + pyname,
+		py2go:   "*ptrFmHandle_" + pyname,
 		zval:    "nil",
 	}
 }
@@ -626,7 +633,7 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		cpyname: PyHandle,
 		pysig:   "object",
 		go2py:   "handleFmPtr_" + pyname,
-		py2go:   "ptrFmHandle_" + pyname,
+		py2go:   "*ptrFmHandle_" + pyname,
 		zval:    "nil",
 	}
 }
@@ -667,7 +674,7 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		cpyname: PyHandle,
 		pysig:   "[]" + elsym.pysig,
 		go2py:   "handleFmPtr_" + pyname,
-		py2go:   "ptrFmHandle_" + pyname,
+		py2go:   "*ptrFmHandle_" + pyname,
 		zval:    "nil",
 	}
 }
@@ -706,6 +713,7 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 		pysig:   "object",
 		go2py:   "handleFmPtr_" + n,
 		py2go:   "*ptrFmHandle_" + n,
+		zval:    "nil",
 	}
 }
 
@@ -802,6 +810,8 @@ func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t type
 		return
 	}
 
+	pyname := goToPyName(n)
+
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -813,8 +823,8 @@ func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t type
 		cgoname: "CGoHandle",
 		cpyname: PyHandle,
 		pysig:   "object",
-		go2py:   "handleFmPtr_" + n,
-		py2go:   "ptrFmHandle_" + n,
+		go2py:   "handleFmPtr_" + pyname,
+		py2go:   "ptrFmHandle_" + pyname,
 		zval:    "nil",
 	}
 }
