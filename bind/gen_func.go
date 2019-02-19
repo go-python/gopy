@@ -15,6 +15,10 @@ import (
 func (g *pybindGen) genFuncSig(sym *symbol, fsym Func) bool {
 	isMethod := (sym != nil)
 
+	if fsym.sig == nil {
+		return false
+	}
+
 	sig := fsym.sig
 	args := sig.Params()
 	res := sig.Results()
@@ -175,6 +179,9 @@ if err != nil {
 		g.gofile.Indent()
 		if nres > 0 {
 			ret := res[0]
+			if ret.sym.zval == "" {
+				fmt.Printf("gopy: programmer error: empty zval zero value in symbol: %v\n", ret.sym)
+			}
 			if ret.sym.go2py != "" {
 				g.gofile.Printf("return %s(%s)\n", ret.sym.go2py, ret.sym.zval)
 			} else {
@@ -216,9 +223,9 @@ if err != nil {
 		na := ""
 		if arg.sym.py2go != "" {
 			if arg.sym.hasHandle() && !arg.sym.isPtrOrIface() {
-				na = fmt.Sprintf("*%s(%s)", arg.sym.py2go, arg.Name())
+				na = fmt.Sprintf("*%s(%s)%s", arg.sym.py2go, arg.Name(), arg.sym.py2goParenEx)
 			} else {
-				na = fmt.Sprintf("%s(%s)", arg.sym.py2go, arg.Name())
+				na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, arg.Name(), arg.sym.py2goParenEx)
 			}
 		} else {
 			na = arg.Name()
