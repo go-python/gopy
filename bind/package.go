@@ -233,6 +233,9 @@ func (p *Package) process() error {
 			case *types.Slice:
 				// ok. handled by p.syms-types
 
+			case *types.Map:
+				// ok. handled by p.syms-types
+
 			default:
 				//TODO(sbinet)
 				panic(fmt.Errorf("not yet supported: %v (%T)", typ, obj))
