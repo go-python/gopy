@@ -347,7 +347,21 @@ func (v *Var) Name() string {
 func newVar(p *Package, typ types.Type, objname, name, doc string) *Var {
 	sym := p.syms.symtype(typ)
 	if sym == nil {
-		panic(fmt.Errorf("could not find symbol for type [%s]!", typ.String()))
+		typname, _ := p.syms.typeNamePkg(typ)
+		typobj := p.syms.pkg.Scope().Lookup(typname)
+		if typobj != nil {
+			p.syms.addSymbol(typobj)
+		} else {
+			if ntyp, ok := typ.(*types.Named); ok {
+				p.syms.addType(ntyp.Obj(), typ)
+			} else {
+				p.syms.addType(nil, typ)
+			}
+		}
+		sym = p.syms.symtype(typ)
+		if sym == nil {
+			panic(fmt.Errorf("could not find symbol for type [%s]!", typ.String()))
+		}
 	}
 	return &Var{
 		pkg:  p,
