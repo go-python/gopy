@@ -6,7 +6,7 @@ package bind
 
 import "go/types"
 
-func (g *pybindGen) genSlice(slc *symbol) {
+func (g *pyGen) genSlice(slc *symbol) {
 	if slc.isPointer() {
 		return // todo: not sure what to do..
 	}
@@ -33,7 +33,7 @@ class %[2]s(GoClass):
 	g.pywrap.Outdent()
 }
 
-func (g *pybindGen) genSliceInit(slc *symbol) {
+func (g *pyGen) genSliceInit(slc *symbol) {
 	pkgname := slc.gopkg.Name()
 	slNm := slc.pyname
 	qNm := pkgname + "." + slNm

@@ -8,7 +8,7 @@ import (
 	"fmt"
 )
 
-func (g *pybindGen) genVarGetter(v Var) {
+func (g *pyGen) genVarGetter(v Var) {
 	pkgname := g.pkg.Name()
 	cgoFn := v.Name() // plain name is the getter
 	qFn := "_" + pkgname + "." + cgoFn
@@ -45,7 +45,7 @@ func (g *pybindGen) genVarGetter(v Var) {
 	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [])\n", cgoFn, v.sym.cpyname)
 }
 
-func (g *pybindGen) genVarSetter(v Var) {
+func (g *pyGen) genVarSetter(v Var) {
 	pkgname := g.pkg.Name()
 	cgoFn := fmt.Sprintf("Set%s", v.Name())
 	qFn := "_" + pkgname + "." + cgoFn
@@ -80,7 +80,7 @@ func (g *pybindGen) genVarSetter(v Var) {
 	g.pybuild.Printf("mod.add_function('%s', None, [param('%s', 'val')])\n", cgoFn, v.sym.cpyname)
 }
 
-func (g *pybindGen) genConstValue(c Const) {
+func (g *pyGen) genConstValue(c Const) {
 	// constants go directly into wrapper as-is
 	g.pywrap.Printf("%s = %s\n", c.GoName(), c.obj.Val().ExactString())
 }

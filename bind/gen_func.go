@@ -12,7 +12,7 @@ import (
 // genFuncSig generates just the signature for binding
 // returns false if function is not suitable for python
 // binding (e.g., multiple return values)
-func (g *pybindGen) genFuncSig(sym *symbol, fsym Func) bool {
+func (g *pyGen) genFuncSig(sym *symbol, fsym Func) bool {
 	isMethod := (sym != nil)
 
 	if fsym.sig == nil {
@@ -121,25 +121,25 @@ func (g *pybindGen) genFuncSig(sym *symbol, fsym Func) bool {
 	return true
 }
 
-func (g *pybindGen) genFunc(o Func) {
+func (g *pyGen) genFunc(o Func) {
 	if g.genFuncSig(nil, o) {
 		g.genFuncBody(nil, o)
 	}
 }
 
-func (g *pybindGen) genMethod(s Struct, o Func) {
+func (g *pyGen) genMethod(s Struct, o Func) {
 	if g.genFuncSig(s.sym, o) {
 		g.genFuncBody(s.sym, o)
 	}
 }
 
-func (g *pybindGen) genIfcMethod(ifc Interface, o Func) {
+func (g *pyGen) genIfcMethod(ifc Interface, o Func) {
 	if g.genFuncSig(ifc.sym, o) {
 		g.genFuncBody(ifc.sym, o)
 	}
 }
 
-func (g *pybindGen) genFuncBody(sym *symbol, fsym Func) {
+func (g *pyGen) genFuncBody(sym *symbol, fsym Func) {
 	isMethod := (sym != nil)
 	isIface := false
 	symNm := ""
