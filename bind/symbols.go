@@ -402,8 +402,13 @@ func isPyCompatFunc(sig *types.Signature) (error, types.Type, bool) {
 		if _, isSig := argt.(*types.Signature); isSig {
 			return fmt.Errorf("gopy: func args (signature) not supported: %s", sig.String()), ret, haserr
 		}
-		if _, isChan := ret.(*types.Chan); isChan {
+		if _, isChan := argt.(*types.Chan); isChan {
 			return fmt.Errorf("gopy: channel types not supported: %s", sig.String()), ret, haserr
+		}
+		if ptyp, isPtr := argt.(*types.Pointer); isPtr {
+			if _, isBasic := ptyp.Elem().(*types.Basic); isBasic {
+				return fmt.Errorf("gopy: args as pointers to basic types not supported: %s", sig.String()), ret, haserr
+			}
 		}
 	}
 	return nil, ret, haserr
@@ -439,6 +444,13 @@ func (sym *symtab) typeNamePkg(t types.Type) (string, *types.Package) {
 	var pkg *types.Package
 	if lidx := strings.LastIndex(n, "/"); lidx > 0 {
 		qnm := n[lidx+1:]
+		if eidx := strings.LastIndex(n, "]"); eidx > 0 {
+			if eidx > lidx {
+				qnm = "map[" + qnm + "]"
+			} else {
+				qnm = n[:eidx+1] + qnm
+			}
+		}
 		n = strings.Replace(qnm, ".", "_", 1)
 		pkg = typePkg(t)
 		if pkg != nil {
