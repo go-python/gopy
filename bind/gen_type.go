@@ -56,7 +56,10 @@ func (g *pybindGen) genTypeHandlePtr(sym *symbol) {
 
 func (g *pybindGen) genTypeHandle(sym *symbol) {
 	gonm := sym.gofmt()
-	ptrnm := "*" + gonm
+	ptrnm := gonm
+	if ptrnm[:1] != "*" {
+		ptrnm = "*" + ptrnm
+	}
 	py2go := sym.py2go
 	if py2go[0] == '*' {
 		py2go = py2go[1:]
