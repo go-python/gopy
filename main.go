@@ -22,6 +22,7 @@ func run(args []string) error {
 		Subcommands: []*commander.Command{
 			gopyMakeCmdGen(),
 			gopyMakeCmdBuild(),
+			gopyMakeCmdPkg(),
 		},
 		Flag: *flag.NewFlagSet("gopy", flag.ExitOnError),
 	}

@@ -9,7 +9,7 @@ import (
 	"go/types"
 )
 
-func (g *pybindGen) genStruct(s Struct) {
+func (g *pyGen) genStruct(s Struct) {
 	pkgname := s.Package().Name()
 	g.pywrap.Printf(`
 # Python type for struct %[1]s.%[2]s
@@ -27,7 +27,7 @@ class %[2]s(GoClass):
 	g.pywrap.Outdent()
 }
 
-func (g *pybindGen) genStructInit(s Struct) {
+func (g *pyGen) genStructInit(s Struct) {
 	// pkg := s.Package()
 	pkgname := s.Package().Name()
 	qNm := pkgname + "." + s.GoName()
@@ -100,7 +100,7 @@ in which case a new Go object is constructed first
 
 }
 
-func (g *pybindGen) genStructMembers(s Struct) {
+func (g *pyGen) genStructMembers(s Struct) {
 	//pkgname := s.Package().Name()
 	typ := s.Struct()
 	for i := 0; i < typ.NumFields(); i++ {
@@ -113,7 +113,7 @@ func (g *pybindGen) genStructMembers(s Struct) {
 	}
 }
 
-func (g *pybindGen) genStructMemberGetter(s Struct, i int, f types.Object) {
+func (g *pyGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	pkgname := s.Package().Name()
 	ft := f.Type()
 	ret := g.pkg.syms.symtype(ft)
@@ -154,7 +154,7 @@ func (g *pybindGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [param('%s', 'handle')])\n", cgoFn, ret.cpyname, PyHandle)
 }
 
-func (g *pybindGen) genStructMemberSetter(s Struct, i int, f types.Object) {
+func (g *pyGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	pkgname := s.Package().Name()
 	ft := f.Type()
 	ret := g.pkg.syms.symtype(ft)
@@ -194,7 +194,7 @@ func (g *pybindGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	g.pybuild.Printf("mod.add_function('%s', None, [param('%s', 'handle'), param('%s', 'val')])\n", cgoFn, PyHandle, ret.cpyname)
 }
 
-func (g *pybindGen) genStructMethods(s Struct) {
+func (g *pyGen) genStructMethods(s Struct) {
 	for _, m := range s.meths {
 		g.genMethod(s, m)
 	}
@@ -203,7 +203,7 @@ func (g *pybindGen) genStructMethods(s Struct) {
 //////////////////////////////////////////////////////////////////////////
 // Interface
 
-func (g *pybindGen) genInterface(ifc Interface) {
+func (g *pyGen) genInterface(ifc Interface) {
 	pkgname := ifc.Package().Name()
 	g.pywrap.Printf(`
 # Python type for interface %[1]s.%[2]s
@@ -220,7 +220,7 @@ class %[2]s(GoClass):
 	g.pywrap.Outdent()
 }
 
-func (g *pybindGen) genIfaceInit(ifc Interface) {
+func (g *pyGen) genIfaceInit(ifc Interface) {
 	// pkgname := ifc.Package().Name()
 
 	g.pywrap.Printf("def __init__(self, *args, **kwargs):\n")
@@ -251,7 +251,7 @@ handle=A Go-side object is always initialized with an explicit handle=arg
 	}
 }
 
-func (g *pybindGen) genIfaceMethods(ifc Interface) {
+func (g *pyGen) genIfaceMethods(ifc Interface) {
 	for _, m := range ifc.meths {
 		g.genIfcMethod(ifc, m)
 	}

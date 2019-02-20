@@ -726,10 +726,14 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 		if isPrivate(typ.Field(i).Name()) {
 			continue
 		}
-		ftyp := typ.Field(i).Type()
+		f := typ.Field(i)
+		if !f.Exported() || f.Embedded() {
+			continue
+		}
+		ftyp := f.Type()
 		fsym := sym.symtype(ftyp)
 		if fsym == nil {
-			err := sym.addType(typ.Field(i), ftyp)
+			err := sym.addType(f, ftyp)
 			if err != nil {
 				continue
 			}

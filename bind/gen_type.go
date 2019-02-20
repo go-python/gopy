@@ -4,7 +4,7 @@
 
 package bind
 
-func (g *pybindGen) genType(sym *symbol) {
+func (g *pyGen) genType(sym *symbol) {
 	if !sym.isType() {
 		return
 	}
@@ -33,7 +33,7 @@ func (g *pybindGen) genType(sym *symbol) {
 	}
 }
 
-func (g *pybindGen) genTypeHandlePtr(sym *symbol) {
+func (g *pyGen) genTypeHandlePtr(sym *symbol) {
 	gonm := sym.gofmt()
 	g.gofile.Printf("\n// Converters for pointer handles for type: %s\n", gonm)
 	g.gofile.Printf("func %s(h CGoHandle) %s {\n", sym.py2go, gonm)
@@ -54,7 +54,7 @@ func (g *pybindGen) genTypeHandlePtr(sym *symbol) {
 	g.gofile.Printf("}\n")
 }
 
-func (g *pybindGen) genTypeHandle(sym *symbol) {
+func (g *pyGen) genTypeHandle(sym *symbol) {
 	gonm := sym.gofmt()
 	ptrnm := gonm
 	if ptrnm[:1] != "*" {
