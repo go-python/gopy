@@ -34,13 +34,10 @@ ex:
 	cmd.Flag.String("vm", "python", "path to python interpreter")
 	cmd.Flag.String("output", "", "output directory for bindings")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
-	cmd.Flag.Bool("work", false, "print the name of temporary work directory and do not delete it when exiting")
 	return cmd
 }
 
 func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
-	var err error
-
 	if len(args) != 1 {
 		log.Printf("expect a fully qualified go package name as argument\n")
 		return fmt.Errorf(
@@ -52,37 +49,23 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 		odir    = cmdr.Flag.Lookup("output").Value.Get().(string)
 		vm      = cmdr.Flag.Lookup("vm").Value.Get().(string)
 		symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
-		// printWork = cmdr.Flag.Lookup("work").Value.Get().(bool)
 	)
 
+	path := args[0]
+
+	return runBuild(odir, path, vm, symbols)
+}
+
+func runBuild(odir, path, vm string, symbols bool) error {
+	fmt.Printf("\n###############################################\nBuilding package: %v into %v\n\n", path, odir)
 	cwd, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if odir == "" {
-		odir = cwd
-	} else {
-		err = os.MkdirAll(odir, 0755)
-		if err != nil {
-			return fmt.Errorf(
-				"gopy-build: could not create output directory: %v", err,
-			)
-		}
-	}
-	odir, err = filepath.Abs(odir)
-	if err != nil {
-		return err
-	}
-
-	path := args[0]
 	pkg, err := newPackage(path)
 	if err != nil {
-		return fmt.Errorf(
-			"gopy-build: go/build.Import failed with path=%q: %v",
-			path,
-			err,
-		)
+		return fmt.Errorf("gopy-build: go/build.Import failed with path=%q: %v", path, err)
 	}
 
 	// go-get it to tickle the GOPATH cache (and make sure it compiles
@@ -94,6 +77,19 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	if odir == "" {
+		odir = cwd
+	} else {
+		err = os.MkdirAll(odir, 0755)
+		if err != nil {
+			return fmt.Errorf("gopy-build: could not create output directory: %v", err)
+		}
+	}
+	odir, err = filepath.Abs(odir)
 	if err != nil {
 		return err
 	}

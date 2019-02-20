@@ -68,6 +68,12 @@ func genPkg(odir string, p *bind.Package, vm string) error {
 	}
 	defer omk.Close()
 
+	oinit, err := os.Create(filepath.Join(odir, "__init__.py"))
+	if err != nil {
+		return err
+	}
+	oinit.Close()
+
 	err = bind.GenPyBind(ogo, opyb, opyw, omk, fset, p, vm, libExt, pyvers)
 	if err != nil {
 		return err
