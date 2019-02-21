@@ -347,7 +347,7 @@ func (v *Var) Name() string {
 func newVar(p *Package, typ types.Type, objname, name, doc string) *Var {
 	sym := p.syms.symtype(typ)
 	if sym == nil {
-		typname, _ := p.syms.typeNamePkg(typ)
+		typname, _, _ := p.syms.typeNamePkg(typ)
 		typobj := p.syms.pkg.Scope().Lookup(typname)
 		if typobj != nil {
 			p.syms.addSymbol(typobj)

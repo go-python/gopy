@@ -89,3 +89,45 @@ func VarFmHandleTry(h CGoHandle, typnm string) (interface{}, error) {
 	}
 	return v, nil
 }
+
+/*
+// --- string version of handle functions -- less opaque
+// need to switch type in gopy/gen.c ---
+func Register(typnm string, ifc interface{}) CGoHandle {
+	if IfaceIsNil(ifc) {
+		return C.CString("nil")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if handles == nil {
+		handles = make(map[GoHandle]interface{})
+	}
+	ctr++
+	hc := ctr
+	rnm := typnm + "_" + strconv.FormatInt(hc, 16)
+	handles[GoHandle(rnm)] = ifc
+	return C.CString(rnm)
+}
+
+// Try version returns the error explicitly, for use when error can be processed
+func VarFmHandleTry(h CGoHandle, typnm string) (interface{}, error) {
+	hs := C.GoString(h)
+	if hs == "" || hs == "nil" {
+		return nil, fmt.Errorf("gopy: nil handle")
+	}
+	mu.RLock()
+	defer mu.RUnlock()
+	// if !strings.HasPrefix(hs, typnm) {
+	//  	err := fmt.Errorf("gopy: variable handle is not the correct type, should be: " + typnm + " is: " +  hs)
+	//  	C.PyErr_SetString(C.PyExc_TypeError, C.CString(err.Error()))
+	//  	return nil, err
+	// }
+	v, has := handles[GoHandle(hs)]
+	if !has {
+		err := fmt.Errorf("gopy: variable handle not registered: " +  hs)
+		C.PyErr_SetString(C.PyExc_TypeError, C.CString(err.Error()))
+		return nil, err
+	}
+	return v, nil
+}
+*/

@@ -23,7 +23,7 @@ class %[2]s(GoClass):
 	""%[3]q""
 `,
 		pkgname,
-		slc.pyname,
+		slc.id,
 		slc.doc,
 	)
 	g.pywrap.Indent()
@@ -39,7 +39,7 @@ class %[2]s(GoClass):
 
 func (g *pyGen) genSliceInit(slc *symbol) {
 	pkgname := slc.gopkg.Name()
-	slNm := slc.pyname
+	slNm := slc.id
 	qNm := pkgname + "." + slNm
 	typ := slc.GoType().Underlying().(*types.Slice)
 	esym := g.pkg.syms.symtype(typ.Elem())
