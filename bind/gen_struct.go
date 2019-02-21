@@ -58,7 +58,7 @@ in which case a new Go object is constructed first
 
 	for i := 0; i < numFields; i++ {
 		field := s.Struct().Field(i)
-		if !field.Exported() {
+		if !field.Exported() || f.Embedded() {
 			continue
 		}
 		g.pywrap.Printf("if  %[1]d < len(args):\n", i)

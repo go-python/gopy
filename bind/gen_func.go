@@ -74,12 +74,12 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym Func) bool {
 		g.pywrap.Printf("def %s(", fsym.GoName())
 
 	default:
-		g.gofile.Printf("\n//export %s\n", fsym.GoName())
-		g.gofile.Printf("func %s(", fsym.GoName())
+		g.gofile.Printf("\n//export %s\n", fsym.ID())
+		g.gofile.Printf("func %s(", fsym.ID())
 
-		g.pybuild.Printf("mod.add_function('%s', ", fsym.GoName())
+		g.pybuild.Printf("mod.add_function('%s', ", fsym.ID())
 
-		g.pywrap.Printf("def %s(", fsym.GoName())
+		g.pywrap.Printf("def %s(", fsym.ID())
 
 	}
 
