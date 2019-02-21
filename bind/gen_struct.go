@@ -235,7 +235,7 @@ handle=A Go-side object is always initialized with an explicit handle=arg
 	g.pywrap.Outdent()
 	g.pywrap.Printf("else:\n")
 	g.pywrap.Indent()
-	g.pywrap.Printf("self.handle = args[0]\n")
+	g.pywrap.Printf("self.handle = 0\n")
 	g.pywrap.Outdent()
 	g.pywrap.Outdent()
 	g.pywrap.Printf("\n")
