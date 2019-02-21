@@ -17,7 +17,7 @@ class %[2]s(GoClass):
 	""%[3]q""
 `,
 		pkgname,
-		s.GoName(),
+		s.ID(),
 		s.Doc(),
 	)
 	g.pywrap.Indent()
@@ -28,9 +28,7 @@ class %[2]s(GoClass):
 }
 
 func (g *pyGen) genStructInit(s Struct) {
-	// pkg := s.Package()
-	pkgname := s.Package().Name()
-	qNm := pkgname + "." + s.GoName()
+	qNm := s.GoName()
 
 	numFields := s.Struct().NumFields()
 	numPublic := numFields
@@ -56,7 +54,7 @@ in which case a new Go object is constructed first
 	g.pywrap.Outdent()
 	g.pywrap.Printf("else:\n")
 	g.pywrap.Indent()
-	g.pywrap.Printf("self.handle = _%s_CTor()\n", qNm)
+	g.pywrap.Printf("self.handle = _%s_CTor()\n", s.ID())
 
 	for i := 0; i < numFields; i++ {
 		field := s.Struct().Field(i)
@@ -87,12 +85,12 @@ in which case a new Go object is constructed first
 	}
 
 	// go ctor
-	ctNm := s.GoName() + "_CTor"
+	ctNm := s.ID() + "_CTor"
 	g.gofile.Printf("\n// --- wrapping struct: %v ---\n", qNm)
 	g.gofile.Printf("//export %s\n", ctNm)
 	g.gofile.Printf("func %s() CGoHandle {\n", ctNm)
 	g.gofile.Indent()
-	g.gofile.Printf("return CGoHandle(handleFmPtr_%s(&%s{}))\n", s.GoName(), qNm)
+	g.gofile.Printf("return CGoHandle(handleFmPtr_%s(&%s{}))\n", s.ID(), qNm)
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
 
@@ -121,13 +119,13 @@ func (g *pyGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 		return
 	}
 
-	cgoFn := fmt.Sprintf("%s_%s_Get", s.GoName(), f.Name())
+	cgoFn := fmt.Sprintf("%s_%s_Get", s.ID(), f.Name())
 
 	g.pywrap.Printf("@property\n")
 	g.pywrap.Printf("def %[1]s(self):\n", f.Name())
 	g.pywrap.Indent()
 	if ret.hasHandle() {
-		g.pywrap.Printf("return %s(handle=_%s.%s(self.handle))\n", ret.pyname, pkgname, cgoFn)
+		g.pywrap.Printf("return %s(handle=_%s.%s(self.handle))\n", ret.id, pkgname, cgoFn)
 	} else {
 		g.pywrap.Printf("return _%s.%s(self.handle)\n", pkgname, cgoFn)
 	}
@@ -137,7 +135,7 @@ func (g *pyGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	g.gofile.Printf("//export %s\n", cgoFn)
 	g.gofile.Printf("func %s(handle CGoHandle) %s {\n", cgoFn, ret.cgoname)
 	g.gofile.Indent()
-	g.gofile.Printf("op := ptrFmHandle_%s(handle)\nreturn ", s.GoName())
+	g.gofile.Printf("op := ptrFmHandle_%s(handle)\nreturn ", s.ID())
 	if ret.go2py != "" {
 		if ret.hasHandle() && !ret.isPtrOrIface() {
 			g.gofile.Printf("%s(&op.%s)", ret.go2py, f.Name())
@@ -162,7 +160,7 @@ func (g *pyGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 		return
 	}
 
-	cgoFn := fmt.Sprintf("%s_%s_Set", s.GoName(), f.Name())
+	cgoFn := fmt.Sprintf("%s_%s_Set", s.ID(), f.Name())
 
 	g.pywrap.Printf("@%s.setter\n", f.Name())
 	g.pywrap.Printf("def %[1]s(self, value):\n", f.Name())
@@ -181,7 +179,7 @@ func (g *pyGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	g.gofile.Printf("//export %s\n", cgoFn)
 	g.gofile.Printf("func %s(handle CGoHandle, val %s) {\n", cgoFn, ret.cgoname)
 	g.gofile.Indent()
-	g.gofile.Printf("op := ptrFmHandle_%s(handle)\n", s.GoName())
+	g.gofile.Printf("op := ptrFmHandle_%s(handle)\n", s.ID())
 	if ret.go2py != "" {
 		g.gofile.Printf("op.%s = %s(val)%s", f.Name(), ret.py2go, ret.py2goParenEx)
 	} else {
@@ -211,7 +209,7 @@ class %[2]s(GoClass):
 	""%[3]q""
 `,
 		pkgname,
-		ifc.GoName(),
+		ifc.ID(),
 		ifc.Doc(),
 	)
 	g.pywrap.Indent()

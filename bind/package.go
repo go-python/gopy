@@ -45,6 +45,7 @@ func NewPackage(pkg *types.Package, doc *doc.Package) (*Package, error) {
 		syms: newSymtab(pkg, nil),
 		objs: map[string]Object{},
 	}
+	p.syms.addImport(pkg)
 	err := p.process()
 	if err != nil {
 		return nil, err
