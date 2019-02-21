@@ -18,7 +18,7 @@ func (g *pyGen) genVarGetter(v Var) {
 	g.pywrap.Indent()
 	g.pywrap.Printf("%s\n%s Gets Go Variable: %s\n%s\n%s\n", `"""`, cgoFn, qVn, v.doc, `"""`)
 	if v.sym.hasHandle() {
-		g.pywrap.Printf("return %s(handle=%s())\n", v.sym.pyname, qFn)
+		g.pywrap.Printf("return %s(handle=%s())\n", v.sym.id, qFn)
 	} else {
 		g.pywrap.Printf("return %s()\n", qFn)
 	}

@@ -96,7 +96,7 @@ class %[2]s(GoClass):
 	""%[3]q""
 `,
 		pkgname,
-		sym.pyname,
+		sym.id,
 		sym.doc,
 	)
 	g.pywrap.Indent()

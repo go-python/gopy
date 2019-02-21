@@ -226,7 +226,7 @@ func (g *pyGen) gen() error {
 
 func (g *pyGen) genGoPreamble(cmd string) {
 	n := g.pkg.pkg.Name()
-	pkgimport := fmt.Sprintf("%q", g.pkg.pkg.Path())
+	pkgimport := ""
 	for pi, _ := range g.pkg.syms.imports {
 		pkgimport += fmt.Sprintf("\n\t%q", pi)
 	}

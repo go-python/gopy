@@ -64,7 +64,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym Func) bool {
 
 	switch {
 	case isMethod:
-		mnm := sym.goname + "_" + fsym.GoName()
+		mnm := sym.id + "_" + fsym.GoName()
 
 		g.gofile.Printf("\n//export %s\n", mnm)
 		g.gofile.Printf("func %s(", mnm)
@@ -199,14 +199,14 @@ if err != nil {
 	// pywrap output
 	mnm := fsym.GoName()
 	if isMethod {
-		mnm = sym.goname + "_" + mnm
+		mnm = sym.id + "_" + mnm
 	}
 	rvHasHandle := false
 	if nres > 0 {
 		ret := res[0]
 		if !rvIsErr && ret.sym.hasHandle() {
 			rvHasHandle = true
-			g.pywrap.Printf("return %s(handle=_%s.%s(", ret.sym.pyname, pkgname, mnm)
+			g.pywrap.Printf("return %s(handle=_%s.%s(", ret.sym.id, pkgname, mnm)
 		} else {
 			g.pywrap.Printf("return _%s.%s(", pkgname, mnm)
 		}
