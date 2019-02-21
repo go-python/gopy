@@ -33,6 +33,10 @@ class %[2]s(GoClass):
 	g.pywrap.Outdent()
 }
 
+// todo: only basic ctor for out-of-package scope slices
+// and have standard slices avail in a gopy library
+// that is imported always, and we always refer to those there..
+
 func (g *pyGen) genSliceInit(slc *symbol) {
 	pkgname := slc.gopkg.Name()
 	slNm := slc.pyname

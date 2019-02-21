@@ -173,7 +173,7 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym Func) {
 	g.gofile.Indent()
 	if isMethod {
 		g.gofile.Printf(
-			`vifc, err := gopyh.VarHand.VarFmHandleTry((gopyh.CGoHandle)(_handle), "%s")
+			`vifc, err := gopyh.VarFmHandleTry((gopyh.CGoHandle)(_handle), "%s")
 if err != nil {
 `, symNm)
 		g.gofile.Indent()

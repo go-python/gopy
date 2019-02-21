@@ -30,6 +30,10 @@ func (g *pyGen) genType(sym *symbol) {
 
 	if sym.isSlice() {
 		g.genSlice(sym)
+	} else if sym.isInterface() || sym.isStruct() {
+		if g.pkg.pkg != sym.gopkg {
+			g.genExtClass(sym)
+		}
 	}
 }
 
@@ -38,7 +42,7 @@ func (g *pyGen) genTypeHandlePtr(sym *symbol) {
 	g.gofile.Printf("\n// Converters for pointer handles for type: %s\n", gonm)
 	g.gofile.Printf("func %s(h CGoHandle) %s {\n", sym.py2go, gonm)
 	g.gofile.Indent()
-	g.gofile.Printf("p := gopyh.VarHand.VarFmHandle((gopyh.CGoHandle)(h), %[1]q)\n", gonm)
+	g.gofile.Printf("p := gopyh.VarFmHandle((gopyh.CGoHandle)(h), %[1]q)\n", gonm)
 	g.gofile.Printf("if p == nil {\n")
 	g.gofile.Indent()
 	g.gofile.Printf("return nil\n")
@@ -49,7 +53,7 @@ func (g *pyGen) genTypeHandlePtr(sym *symbol) {
 	g.gofile.Printf("}\n")
 	g.gofile.Printf("func %s(p interface{}) CGoHandle {\n", sym.go2py)
 	g.gofile.Indent()
-	g.gofile.Printf("return CGoHandle(gopyh.VarHand.Register(\"%s\", p))\n", gonm)
+	g.gofile.Printf("return CGoHandle(gopyh.Register(\"%s\", p))\n", gonm)
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
 }
@@ -67,7 +71,7 @@ func (g *pyGen) genTypeHandle(sym *symbol) {
 	g.gofile.Printf("\n// Converters for non-pointer handles for type: %s\n", gonm)
 	g.gofile.Printf("func %s(h CGoHandle) %s {\n", py2go, ptrnm)
 	g.gofile.Indent()
-	g.gofile.Printf("p := gopyh.VarHand.VarFmHandle((gopyh.CGoHandle)(h), %[1]q)\n", gonm)
+	g.gofile.Printf("p := gopyh.VarFmHandle((gopyh.CGoHandle)(h), %[1]q)\n", gonm)
 	g.gofile.Printf("if p == nil {\n")
 	g.gofile.Indent()
 	g.gofile.Printf("return nil\n")
@@ -78,7 +82,39 @@ func (g *pyGen) genTypeHandle(sym *symbol) {
 	g.gofile.Printf("}\n")
 	g.gofile.Printf("func %s(p interface{}) CGoHandle {\n", sym.go2py)
 	g.gofile.Indent()
-	g.gofile.Printf("return CGoHandle(gopyh.VarHand.Register(\"%s\", p))\n", gonm)
+	g.gofile.Printf("return CGoHandle(gopyh.Register(\"%s\", p))\n", gonm)
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
+}
+
+// genExtClass generates minimal python wrappers for external classes (struct, interface, etc)
+func (g *pyGen) genExtClass(sym *symbol) {
+	pkgname := sym.gopkg.Name()
+	g.pywrap.Printf(`
+# Python type for interface %[1]s.%[2]s
+class %[2]s(GoClass):
+	""%[3]q""
+`,
+		pkgname,
+		sym.pyname,
+		sym.doc,
+	)
+	g.pywrap.Indent()
+	g.pywrap.Printf("def __init__(self, *args, **kwargs):\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf(`"""
+handle=A Go-side object is always initialized with an explicit handle=arg
+"""
+`)
+	g.pywrap.Printf("if len(kwargs) == 1 and 'handle' in kwargs:\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("self.handle = kwargs['handle']\n")
+	g.pywrap.Outdent()
+	g.pywrap.Printf("else:\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("self.handle = 0\n")
+	g.pywrap.Outdent()
+	g.pywrap.Outdent()
+	g.pywrap.Printf("\n")
+	g.pywrap.Outdent()
 }
