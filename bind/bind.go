@@ -6,6 +6,7 @@ package bind
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -14,15 +15,22 @@ import (
 // ErrorList is a list of errors
 type ErrorList []error
 
-func (list ErrorList) Error() string {
+func (list *ErrorList) Add(err error) {
+	if err == nil {
+		return
+	}
+	*list = append(*list, err)
+}
+
+func (list *ErrorList) Error() error {
 	buf := new(bytes.Buffer)
-	for i, err := range list {
+	for i, err := range *list {
 		if i > 0 {
 			buf.WriteRune('\n')
 		}
 		io.WriteString(buf, err.Error())
 	}
-	return buf.String()
+	return errors.New(buf.String())
 }
 
 const (

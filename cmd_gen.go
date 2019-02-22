@@ -7,8 +7,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
@@ -17,13 +15,13 @@ import (
 func gopyMakeCmdGen() *commander.Command {
 	cmd := &commander.Command{
 		Run:       gopyRunCmdGen,
-		UsageLine: "gen <go-package-name>",
+		UsageLine: "gen <go-package-name> [other-go-package...]",
 		Short:     "generate (C)Python language bindings for Go",
 		Long: `
-gen generates (C)Python language bindings for a Go package.
+gen generates (C)Python language bindings for Go package(s).
 
 ex:
- $ gopy gen [options] <go-package-name>
+ $ gopy gen [options] <go-package-name> [other-go-package...]
  $ gopy gen github.com/go-python/gopy/_examples/hi
 `,
 		Flag: *flag.NewFlagSet("gopy-gen", flag.ExitOnError),
@@ -31,6 +29,7 @@ ex:
 
 	cmd.Flag.String("vm", "python", "path to python interpreter")
 	cmd.Flag.String("output", "", "output directory for bindings")
+	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
 	return cmd
 }
 
@@ -44,50 +43,29 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 		)
 	}
 
+	cmdstr := argStr()
+
 	var (
 		odir = cmdr.Flag.Lookup("output").Value.Get().(string)
 		vm   = cmdr.Flag.Lookup("vm").Value.Get().(string)
+		name = cmdr.Flag.Lookup("name").Value.Get().(string)
 	)
 
 	if vm == "" {
 		vm = "python"
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if odir == "" {
-		odir = cwd
-	} else {
-		err = os.MkdirAll(odir, 0755)
+	for _, path := range args {
+		pkg, err := newPackage(path)
+		if name == "" {
+			name = pkg.Name()
+		}
 		if err != nil {
-			return fmt.Errorf(
-				"gopy-gen: could not create output directory: %v", err,
-			)
+			return fmt.Errorf("gopy-gen: go/build.Import failed with path=%q: %v", path, err)
 		}
 	}
 
-	odir, err = filepath.Abs(odir)
-	if err != nil {
-		return fmt.Errorf(
-			"gopy-gen: could not infer absolute path to output directory: %v",
-			err,
-		)
-	}
-
-	path := args[0]
-	pkg, err := newPackage(path)
-	if err != nil {
-		return fmt.Errorf(
-			"gopy-gen: go/build.Import failed with path=%q: %v",
-			path,
-			err,
-		)
-	}
-
-	err = genPkg(odir, pkg, vm)
+	err = genPkg(odir, name, cmdstr, vm)
 	if err != nil {
 		return err
 	}

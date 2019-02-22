@@ -4,7 +4,9 @@
 
 package bind
 
-func (g *pyGen) genType(sym *symbol) {
+// extTypes = these are types external to any targeted packages
+// pyWrapOnly = only generate python wrapper code, not go code
+func (g *pyGen) genType(sym *symbol, extTypes, pyWrapOnly bool) {
 	if !sym.isType() {
 		return
 	}
@@ -22,17 +24,25 @@ func (g *pyGen) genType(sym *symbol) {
 		return
 	}
 
-	if sym.isPointer() || sym.isInterface() {
-		g.genTypeHandlePtr(sym)
-	} else {
-		g.genTypeHandle(sym)
+	if !pyWrapOnly {
+		if sym.isPointer() || sym.isInterface() {
+			g.genTypeHandlePtr(sym)
+		} else {
+			g.genTypeHandle(sym)
+		}
 	}
 
-	if sym.isSlice() {
-		g.genSlice(sym)
-	} else if sym.isInterface() || sym.isStruct() {
-		if g.pkg.pkg != sym.gopkg {
-			g.genExtClass(sym)
+	if extTypes {
+		if sym.isSlice() {
+			g.genSlice(sym, extTypes, pyWrapOnly)
+		} else if sym.isInterface() || sym.isStruct() {
+			if pyWrapOnly {
+				g.genExtClass(sym)
+			}
+		}
+	} else {
+		if sym.isSlice() {
+			g.genSlice(sym, extTypes, pyWrapOnly)
 		}
 	}
 }
@@ -58,16 +68,20 @@ func (g *pyGen) genTypeHandlePtr(sym *symbol) {
 	g.gofile.Printf("}\n")
 }
 
+func nonPtrName(nm string) string {
+	if nm[0] == '*' {
+		return nm[1:]
+	}
+	return nm
+}
+
 func (g *pyGen) genTypeHandle(sym *symbol) {
 	gonm := sym.gofmt()
 	ptrnm := gonm
 	if ptrnm[:1] != "*" {
 		ptrnm = "*" + ptrnm
 	}
-	py2go := sym.py2go
-	if py2go[0] == '*' {
-		py2go = py2go[1:]
-	}
+	py2go := nonPtrName(sym.py2go)
 	g.gofile.Printf("\n// Converters for non-pointer handles for type: %s\n", gonm)
 	g.gofile.Printf("func %s(h CGoHandle) %s {\n", py2go, ptrnm)
 	g.gofile.Indent()
@@ -91,13 +105,14 @@ func (g *pyGen) genTypeHandle(sym *symbol) {
 func (g *pyGen) genExtClass(sym *symbol) {
 	pkgname := sym.gopkg.Name()
 	g.pywrap.Printf(`
-# Python type for interface %[1]s.%[2]s
+# Python type for %[4]s
 class %[2]s(GoClass):
 	""%[3]q""
 `,
 		pkgname,
 		sym.id,
 		sym.doc,
+		sym.goname,
 	)
 	g.pywrap.Indent()
 	g.pywrap.Printf("def __init__(self, *args, **kwargs):\n")

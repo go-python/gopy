@@ -13,14 +13,14 @@ import (
 )
 
 // Package ties types.Package and ast.Package together.
-// Package also collects informations about structs and funcs.
+// Package also collects information about specific types (structs, ifaces, etc)
 type Package struct {
 	pkg *types.Package
 	n   int // number of entities to wrap
 	sz  types.Sizes
 	doc *doc.Package
 
-	syms    *symtab
+	syms    *symtab // note: this is now *always* = symbols.current
 	objs    map[string]Object
 	consts  []Const
 	vars    []Var
@@ -29,27 +29,26 @@ type Package struct {
 	funcs   []Func
 }
 
+// accumulates all the packages processed
+var Packages []*Package
+
 // NewPackage creates a new Package, tying types.Package and ast.Package together.
 func NewPackage(pkg *types.Package, doc *doc.Package) (*Package, error) {
-	// protection for parallel tests
-	universeMutex.Lock()
-	defer universeMutex.Unlock()
-	universe.pkg = pkg // FIXME(sbinet)
-
+	fmt.Printf("\n--- Processing package: %v ---\n", pkg.Path())
 	sz := int64(reflect.TypeOf(int(0)).Size())
 	p := &Package{
 		pkg:  pkg,
 		n:    0,
 		sz:   &types.StdSizes{WordSize: sz, MaxAlign: sz},
 		doc:  doc,
-		syms: newSymtab(pkg, nil),
+		syms: current,
 		objs: map[string]Object{},
 	}
-	p.syms.addImport(pkg)
 	err := p.process()
 	if err != nil {
 		return nil, err
 	}
+	Packages = append(Packages, p)
 	return p, err
 }
 
@@ -176,6 +175,9 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 // process collects informations about a go package.
 func (p *Package) process() error {
 	var err error
+
+	p.syms.pkg = p.pkg
+	p.syms.addImport(p.pkg)
 
 	funcs := make(map[string]Func)
 	structs := make(map[string]Struct)
