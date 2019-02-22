@@ -16,7 +16,8 @@ import (
 
 var (
 	universeMutex sync.Mutex
-	universe      *symtab
+	universe      *symtab // universe contains Go global types that are not genrated
+	current       *symtab // current contains all symbols from current multi-package gen run
 )
 
 func hash(s string) string {
@@ -212,9 +213,27 @@ func (s *symbol) idname() string {
 	return strings.Replace(s.gofmt(), ".", "_", -1)
 }
 
+// pyPkgId returns the python package-qualified version of Id
+func (s *symbol) pyPkgId(curPkg *types.Package) string {
+	uidx := strings.Index(s.id, "_")
+	if uidx < 0 {
+		return s.id // shouldn't happen
+	}
+	pnm := s.gopkg.Name()
+	idnm := strings.TrimPrefix(s.id[uidx+1:], pnm+"_") // in case it has that redundantly
+	if s.gopkg != curPkg {
+		return pnm + "." + idnm
+	} else {
+		return idnm
+	}
+}
+
+//////////////////////////////////////////////////////////////
+// symtab
+
 // symtab is a table of symbols in a go package
 type symtab struct {
-	pkg     *types.Package
+	pkg     *types.Package // current package only -- can change depending..
 	syms    map[string]*symbol
 	imports map[string]string // other packages to import b/c we refer to their types
 	parent  *symtab
@@ -850,6 +869,9 @@ func (sym *symtab) print() {
 
 func init() {
 
+	universe = newSymtab(nil, nil)
+	universe.parent = nil
+
 	look := types.Universe.Lookup
 	syms := map[string]*symbol{
 		"bool": {
@@ -1188,9 +1210,6 @@ func init() {
 		syms[n] = &sym
 	}
 
-	universe = &symtab{
-		pkg:    nil,
-		syms:   syms,
-		parent: nil,
-	}
+	universe.syms = syms
+	current = newSymtab(nil, universe)
 }

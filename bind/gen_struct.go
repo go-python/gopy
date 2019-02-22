@@ -10,15 +10,15 @@ import (
 )
 
 func (g *pyGen) genStruct(s Struct) {
-	pkgname := s.Package().Name()
+	strNm := s.obj.Name()
 	g.pywrap.Printf(`
-# Python type for struct %[1]s.%[2]s
-class %[2]s(GoClass):
-	""%[3]q""
+# Python type for struct %[3]s
+class %[1]s(GoClass):
+	""%[2]q""
 `,
-		pkgname,
-		s.ID(),
+		strNm,
 		s.Doc(),
+		s.GoName(),
 	)
 	g.pywrap.Indent()
 	g.genStructInit(s)
@@ -28,6 +28,7 @@ class %[2]s(GoClass):
 }
 
 func (g *pyGen) genStructInit(s Struct) {
+	pkgname := g.outname
 	qNm := s.GoName()
 
 	numFields := s.Struct().NumFields()
@@ -54,11 +55,11 @@ in which case a new Go object is constructed first
 	g.pywrap.Outdent()
 	g.pywrap.Printf("else:\n")
 	g.pywrap.Indent()
-	g.pywrap.Printf("self.handle = _%s_CTor()\n", s.ID())
+	g.pywrap.Printf("self.handle = _%s.%s_CTor()\n", pkgname, s.ID())
 
 	for i := 0; i < numFields; i++ {
 		field := s.Struct().Field(i)
-		if !field.Exported() || f.Embedded() {
+		if !field.Exported() || field.Embedded() {
 			continue
 		}
 		g.pywrap.Printf("if  %[1]d < len(args):\n", i)
@@ -99,7 +100,6 @@ in which case a new Go object is constructed first
 }
 
 func (g *pyGen) genStructMembers(s Struct) {
-	//pkgname := s.Package().Name()
 	typ := s.Struct()
 	for i := 0; i < typ.NumFields(); i++ {
 		f := typ.Field(i)
@@ -112,9 +112,9 @@ func (g *pyGen) genStructMembers(s Struct) {
 }
 
 func (g *pyGen) genStructMemberGetter(s Struct, i int, f types.Object) {
-	pkgname := s.Package().Name()
+	pkgname := g.outname
 	ft := f.Type()
-	ret := g.pkg.syms.symtype(ft)
+	ret := current.symtype(ft)
 	if ret == nil {
 		return
 	}
@@ -153,9 +153,9 @@ func (g *pyGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 }
 
 func (g *pyGen) genStructMemberSetter(s Struct, i int, f types.Object) {
-	pkgname := s.Package().Name()
+	pkgname := g.outname
 	ft := f.Type()
-	ret := g.pkg.syms.symtype(ft)
+	ret := current.symtype(ft)
 	if ret == nil {
 		return
 	}
@@ -202,15 +202,15 @@ func (g *pyGen) genStructMethods(s Struct) {
 // Interface
 
 func (g *pyGen) genInterface(ifc Interface) {
-	pkgname := ifc.Package().Name()
+	strNm := ifc.obj.Name()
 	g.pywrap.Printf(`
-# Python type for interface %[1]s.%[2]s
-class %[2]s(GoClass):
-	""%[3]q""
+# Python type for interface %[3]s
+class %[1]s(GoClass):
+	""%[2]q""
 `,
-		pkgname,
-		ifc.ID(),
+		strNm,
 		ifc.Doc(),
+		ifc.GoName(),
 	)
 	g.pywrap.Indent()
 	g.genIfaceInit(ifc)
@@ -219,8 +219,6 @@ class %[2]s(GoClass):
 }
 
 func (g *pyGen) genIfaceInit(ifc Interface) {
-	// pkgname := ifc.Package().Name()
-
 	g.pywrap.Printf("def __init__(self, *args, **kwargs):\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf(`"""

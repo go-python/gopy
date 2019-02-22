@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/gonuts/commander"
@@ -19,13 +18,13 @@ import (
 func gopyMakeCmdBuild() *commander.Command {
 	cmd := &commander.Command{
 		Run:       gopyRunCmdBuild,
-		UsageLine: "build <go-package-name>",
+		UsageLine: "build <go-package-name> [other-go-package...]",
 		Short:     "generate and compile (C)Python language bindings for Go",
 		Long: `
-build generates and compiles (C)Python language bindings for a Go package.
+build generates and compiles (C)Python language bindings for Go package(s).
 
 ex:
- $ gopy build [options] <go-package-name>
+ $ gopy build [options] <go-package-name> [other-go-package...]
  $ gopy build github.com/go-python/gopy/_examples/hi
 `,
 		Flag: *flag.NewFlagSet("gopy-build", flag.ExitOnError),
@@ -33,6 +32,7 @@ ex:
 
 	cmd.Flag.String("vm", "python", "path to python interpreter")
 	cmd.Flag.String("output", "", "output directory for bindings")
+	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	return cmd
 }
@@ -47,70 +47,56 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 
 	var (
 		odir    = cmdr.Flag.Lookup("output").Value.Get().(string)
+		name    = cmdr.Flag.Lookup("name").Value.Get().(string)
 		vm      = cmdr.Flag.Lookup("vm").Value.Get().(string)
 		symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 	)
 
-	path := args[0]
+	cmdstr := argStr()
 
-	return runBuild(odir, path, vm, symbols)
-}
-
-func runBuild(odir, path, vm string, symbols bool) error {
-	fmt.Printf("\n###############################################\nBuilding package: %v into %v\n\n", path, odir)
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pkg, err := newPackage(path)
-	if err != nil {
-		return fmt.Errorf("gopy-build: go/build.Import failed with path=%q: %v", path, err)
-	}
-
-	// go-get it to tickle the GOPATH cache (and make sure it compiles
-	// correctly)
-	cmd := exec.Command(
-		"go", "get", pkg.ImportPath(),
-	)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		return err
-	}
-
-	if odir == "" {
-		odir = cwd
-	} else {
-		err = os.MkdirAll(odir, 0755)
+	for _, path := range args {
+		pkg, err := newPackage(path)
+		if name == "" {
+			name = pkg.Name()
+		}
 		if err != nil {
-			return fmt.Errorf("gopy-build: could not create output directory: %v", err)
+			return fmt.Errorf("gopy-build: go/build.Import failed with path=%q: %v", path, err)
 		}
 	}
-	odir, err = filepath.Abs(odir)
+	return runBuild(odir, name, cmdstr, vm, symbols)
+}
+
+func runBuild(odir, outname, cmdstr, vm string, symbols bool) error {
+	var err error
+	odir, err = genOutDir(odir)
+	if err != nil {
+		return err
+	}
+	err = genPkg(odir, outname, cmdstr, vm)
 	if err != nil {
 		return err
 	}
 
-	err = genPkg(odir, pkg, vm)
-	if err != nil {
-		return err
-	}
-
-	buildname := pkg.Name()
-	pkgname := pkg.Name()
+	buildname := outname + "_go"
 	var cmdout []byte
 	os.Chdir(odir)
 
-	err = os.Remove(pkgname + ".c")
+	err = os.Remove(outname + ".c")
 
 	fmt.Printf("executing command: go build -buildmode=c-shared ...\n")
-	buildname = buildname + "_go"
-	cmd = getBuildCommand(odir, buildname, odir, symbols)
-	err = cmd.Run()
+	args := []string{"build", "-buildmode=c-shared"}
+	if !symbols {
+		// These flags will omit the various symbol tables, thereby
+		// reducing the final size of the binary. From https://golang.org/cmd/link/
+		// -s Omit the symbol table and debug information
+		// -w Omit the DWARF symbol table
+		args = append(args, "-ldflags=-s -w")
+	}
+	args = append(args, "-o", buildname+libExt, ".")
+	cmd := exec.Command("go", args...)
+	cmdout, err = cmd.CombinedOutput()
 	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
 		return err
 	}
 
@@ -118,7 +104,7 @@ func runBuild(odir, path, vm string, symbols bool) error {
 	cmd = exec.Command(vm, "build.py")
 	cmdout, err = cmd.CombinedOutput()
 	if err != nil {
-		fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(cmdout))
+		fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
 		return err
 	}
 
@@ -126,7 +112,7 @@ func runBuild(odir, path, vm string, symbols bool) error {
 	cmd = exec.Command(vm+"-config", "--cflags") // todo: need minor version!
 	cflags, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(cflags))
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cflags))
 		return err
 	}
 
@@ -134,12 +120,12 @@ func runBuild(odir, path, vm string, symbols bool) error {
 	cmd = exec.Command(vm+"-config", "--ldflags")
 	ldflags, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(ldflags))
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(ldflags))
 		return err
 	}
 
-	modlib := "_" + pkgname + libExt
-	gccargs := []string{pkgname + ".c", "-dynamiclib", pkgname + "_go" + libExt, "-o", modlib}
+	modlib := "_" + outname + libExt
+	gccargs := []string{outname + ".c", "-dynamiclib", outname + "_go" + libExt, "-o", modlib}
 	gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(cflags)), " ")...)
 	gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(ldflags)), " ")...)
 
@@ -151,31 +137,5 @@ func runBuild(odir, path, vm string, symbols bool) error {
 		return err
 	}
 
-	// if libExt == ".dylib" {
-	// 	// python doesn't recognize .dylib but mac wants .dylib -- otherwise it makes a weird extra dir
-	// // atually still makes the weird symbols dir -- need the ldflags=-s -w to get rid of it
-	// 	os.Symlink(modlib, "_"+pkgname+".so")
-	// }
-
 	return err
-}
-
-func getBuildCommand(wbuild string, buildname string, work string, symbols bool) (cmd *exec.Cmd) {
-	args := []string{"build", "-buildmode=c-shared"}
-	if !symbols {
-		// These flags will omit the various symbol tables, thereby
-		// reducing the final size of the binary. From https://golang.org/cmd/link/
-		// -s Omit the symbol table and debug information
-		// -w Omit the DWARF symbol table
-		args = append(args, "-ldflags=-s -w")
-	}
-	args = append(args, "-o", filepath.Join(wbuild, buildname)+libExt, ".")
-	cmd = exec.Command(
-		"go", args...,
-	)
-	cmd.Dir = work
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd
 }

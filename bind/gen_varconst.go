@@ -9,10 +9,12 @@ import (
 )
 
 func (g *pyGen) genVarGetter(v Var) {
-	pkgname := g.pkg.Name()
+	gopkg := g.pkg.Name()
+	pkgname := g.outname
 	cgoFn := v.Name() // plain name is the getter
-	qFn := "_" + pkgname + "." + cgoFn
-	qVn := pkgname + "." + v.Name()
+	qCgoFn := gopkg + "_" + cgoFn
+	qFn := "_" + pkgname + "." + qCgoFn
+	qVn := gopkg + "." + v.Name()
 
 	g.pywrap.Printf("def %s():\n", cgoFn)
 	g.pywrap.Indent()
@@ -25,8 +27,8 @@ func (g *pyGen) genVarGetter(v Var) {
 	g.pywrap.Outdent()
 	g.pywrap.Printf("\n")
 
-	g.gofile.Printf("//export %s\n", cgoFn)
-	g.gofile.Printf("func %s() %s {\n", cgoFn, v.sym.cgoname)
+	g.gofile.Printf("//export %s\n", qCgoFn)
+	g.gofile.Printf("func %s() %s {\n", qCgoFn, v.sym.cgoname)
 	g.gofile.Indent()
 	g.gofile.Printf("return ")
 	if v.sym.go2py != "" {
@@ -42,14 +44,16 @@ func (g *pyGen) genVarGetter(v Var) {
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n\n")
 
-	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [])\n", cgoFn, v.sym.cpyname)
+	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [])\n", qCgoFn, v.sym.cpyname)
 }
 
 func (g *pyGen) genVarSetter(v Var) {
-	pkgname := g.pkg.Name()
+	gopkg := g.pkg.Name()
+	pkgname := g.outname
 	cgoFn := fmt.Sprintf("Set%s", v.Name())
-	qFn := "_" + pkgname + "." + cgoFn
-	qVn := pkgname + "." + v.Name()
+	qCgoFn := gopkg + "_" + cgoFn
+	qFn := "_" + pkgname + "." + qCgoFn
+	qVn := gopkg + "." + v.Name()
 
 	g.pywrap.Printf("def %s(value):\n", cgoFn)
 	g.pywrap.Indent()
@@ -65,8 +69,8 @@ func (g *pyGen) genVarSetter(v Var) {
 	g.pywrap.Outdent()
 	g.pywrap.Printf("\n")
 
-	g.gofile.Printf("//export %s\n", cgoFn)
-	g.gofile.Printf("func %s(val %s) {\n", cgoFn, v.sym.cgoname)
+	g.gofile.Printf("//export %s\n", qCgoFn)
+	g.gofile.Printf("func %s(val %s) {\n", qCgoFn, v.sym.cgoname)
 	g.gofile.Indent()
 	if v.sym.go2py != "" {
 		g.gofile.Printf("%s = %s(val)%s", qVn, v.sym.py2go, v.sym.py2goParenEx)
@@ -77,7 +81,7 @@ func (g *pyGen) genVarSetter(v Var) {
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n\n")
 
-	g.pybuild.Printf("mod.add_function('%s', None, [param('%s', 'val')])\n", cgoFn, v.sym.cpyname)
+	g.pybuild.Printf("mod.add_function('%s', None, [param('%s', 'val')])\n", qCgoFn, v.sym.cpyname)
 }
 
 func (g *pyGen) genConstValue(c Const) {
