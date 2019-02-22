@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/goki/gopy/bind"
 	"github.com/pkg/errors"
@@ -27,10 +28,45 @@ var (
 	fset = token.NewFileSet()
 )
 
-func genPkg(odir string, p *bind.Package, vm string) error {
-	var err error
-	var ogo, opyb, opyw, omk *os.File
+// argStr returns the full command args as a string, without path to exe
+func argStr() string {
+	ma := make([]string, len(os.Args))
+	copy(ma, os.Args)
+	_, cmd := filepath.Split(ma[0])
+	ma[0] = cmd
+	return strings.Join(ma, " ")
+}
 
+// genOutDir makes the output directory and returns its absolute path
+func genOutDir(odir string) (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if odir == "" {
+		odir = cwd
+	} else {
+		err = os.MkdirAll(odir, 0755)
+		if err != nil {
+			return odir, fmt.Errorf("gopy-gen: could not create output directory: %v", err)
+		}
+	}
+	odir, err = filepath.Abs(odir)
+	if err != nil {
+		return odir, fmt.Errorf("gopy-gen: could not infer absolute path to output directory: %v", err)
+	}
+	return odir, nil
+}
+
+// genPkg generates output for all the current packages that have been parsed,
+// in the given output directory
+func genPkg(odir, outname, cmdstr, vm string) error {
+	var err error
+	odir, err = genOutDir(odir)
+	if err != nil {
+		return err
+	}
 	if !filepath.IsAbs(vm) {
 		vm, err = exec.LookPath(vm)
 		if err != nil {
@@ -42,53 +78,10 @@ func genPkg(odir string, p *bind.Package, vm string) error {
 	if err != nil {
 		return err
 	}
-
+	err = bind.GenPyBind(odir, outname, cmdstr, vm, libExt, pyvers)
 	if err != nil {
-		return err
+		log.Println(err)
 	}
-
-	ogo, err = os.Create(filepath.Join(odir, p.Name()+".go"))
-	if err != nil {
-		return err
-	}
-	defer ogo.Close()
-	opyb, err = os.Create(filepath.Join(odir, "build.py"))
-	if err != nil {
-		return err
-	}
-	defer opyb.Close()
-	opyw, err = os.Create(filepath.Join(odir, p.Name()+".py"))
-	if err != nil {
-		return err
-	}
-	defer opyw.Close()
-	omk, err = os.Create(filepath.Join(odir, "Makefile"))
-	if err != nil {
-		return err
-	}
-	defer omk.Close()
-
-	oinit, err := os.Create(filepath.Join(odir, "__init__.py"))
-	if err != nil {
-		return err
-	}
-	oinit.Close()
-
-	err = bind.GenPyBind(ogo, opyb, opyw, omk, fset, p, vm, libExt, pyvers)
-	if err != nil {
-		return err
-	}
-
-	if err != nil {
-		if list, _ := err.(bind.ErrorList); len(list) > 0 {
-			for _, err := range list {
-				log.Printf("%v\n", err)
-			}
-		} else {
-			log.Printf("%v\n", err)
-		}
-	}
-
 	return err
 }
 

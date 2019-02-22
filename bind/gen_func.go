@@ -45,7 +45,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym Func) bool {
 	nargs = len(args)
 	for i := 0; i < nargs; i++ {
 		arg := args[i]
-		sarg := g.pkg.syms.symtype(arg.GoType())
+		sarg := current.symtype(arg.GoType())
 		if sarg == nil {
 			// panic(fmt.Errorf(
 			// 	"gopy: could not find symbol for %q",
@@ -79,7 +79,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym Func) bool {
 
 		g.pybuild.Printf("mod.add_function('%s', ", fsym.ID())
 
-		g.pywrap.Printf("def %s(", fsym.ID())
+		g.pywrap.Printf("def %s(", fsym.GoName())
 
 	}
 
@@ -87,7 +87,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym Func) bool {
 	nres = len(res)
 	if nres > 0 {
 		ret := res[0]
-		sret := g.pkg.syms.symtype(ret.GoType())
+		sret := current.symtype(ret.GoType())
 		if sret == nil {
 			panic(fmt.Errorf(
 				"gopy: could not find symbol for %q",
@@ -151,7 +151,7 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym Func) {
 		}
 	}
 
-	pkgname := fsym.Package().Name()
+	pkgname := g.outname
 
 	sig := fsym.Signature()
 	res := sig.Results()
@@ -197,16 +197,17 @@ if err != nil {
 	}
 
 	// pywrap output
-	mnm := fsym.GoName()
+	mnm := fsym.ID()
 	if isMethod {
-		mnm = sym.id + "_" + mnm
+		mnm = sym.id + "_" + fsym.GoName()
 	}
 	rvHasHandle := false
 	if nres > 0 {
 		ret := res[0]
 		if !rvIsErr && ret.sym.hasHandle() {
 			rvHasHandle = true
-			g.pywrap.Printf("return %s(handle=_%s.%s(", ret.sym.id, pkgname, mnm)
+			cvnm := ret.sym.pyPkgId(g.pkg.pkg)
+			g.pywrap.Printf("return %s(handle=_%s.%s(", cvnm, pkgname, mnm)
 		} else {
 			g.pywrap.Printf("return _%s.%s(", pkgname, mnm)
 		}
