@@ -24,21 +24,27 @@ func (g *pyGen) genSlice(slc *symbol, extTypes, pyWrapOnly bool) {
 
 	// todo: maybe check for named type here or something?
 	pysnm := slc.id
-	if !strings.Contains(pysnm, "SliceOf_") {
+	if !strings.Contains(pysnm, "Slice_") {
 		pysnm = strings.TrimPrefix(pysnm, pkgname+"_")
+	}
+
+	gocl := "go."
+	if pkgname == "go" {
+		gocl = ""
 	}
 
 	if !extTypes || pyWrapOnly {
 		// todo: inherit from collections.Iterable too?
 		g.pywrap.Printf(`
 # Python type for slice %[4]s
-class %[2]s(GoClass):
+class %[2]s(%[5]sGoClass):
 	""%[3]q""
 `,
 			pkgname,
 			pysnm,
 			slc.doc,
 			slc.goname,
+			gocl,
 		)
 		g.pywrap.Indent()
 	}
@@ -62,6 +68,11 @@ func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool) {
 	typ := slc.GoType().Underlying().(*types.Slice)
 	esym := current.symtype(typ.Elem())
 
+	gocl := "go."
+	if slc.gopkg.Name() == "go" {
+		gocl = ""
+	}
+
 	if !extTypes || pyWrapOnly {
 		g.pywrap.Printf("def __init__(self, *args, **kwargs):\n")
 		g.pywrap.Indent()
@@ -74,6 +85,10 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Printf("if len(kwargs) == 1 and 'handle' in kwargs:\n")
 		g.pywrap.Indent()
 		g.pywrap.Printf("self.handle = kwargs['handle']\n")
+		g.pywrap.Outdent()
+		g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], %sGoClass):\n", gocl)
+		g.pywrap.Indent()
+		g.pywrap.Printf("self.handle = args[0].handle\n")
 		g.pywrap.Outdent()
 		g.pywrap.Printf("else:\n")
 		g.pywrap.Indent()

@@ -13,7 +13,7 @@ func (g *pyGen) genStruct(s Struct) {
 	strNm := s.obj.Name()
 	g.pywrap.Printf(`
 # Python type for struct %[3]s
-class %[1]s(GoClass):
+class %[1]s(go.GoClass):
 	""%[2]q""
 `,
 		strNm,
@@ -52,6 +52,10 @@ in which case a new Go object is constructed first
 	g.pywrap.Printf("if len(kwargs) == 1 and 'handle' in kwargs:\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf("self.handle = kwargs['handle']\n")
+	g.pywrap.Outdent()
+	g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], go.GoClass):\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("self.handle = args[0].handle\n")
 	g.pywrap.Outdent()
 	g.pywrap.Printf("else:\n")
 	g.pywrap.Indent()
@@ -124,7 +128,8 @@ func (g *pyGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	g.pywrap.Printf("def %[1]s(self):\n", f.Name())
 	g.pywrap.Indent()
 	if ret.hasHandle() {
-		g.pywrap.Printf("return %s(handle=_%s.%s(self.handle))\n", ret.id, pkgname, cgoFn)
+		cvnm := ret.pyPkgId(g.pkg.pkg)
+		g.pywrap.Printf("return %s(handle=_%s.%s(self.handle))\n", cvnm, pkgname, cgoFn)
 	} else {
 		g.pywrap.Printf("return _%s.%s(self.handle)\n", pkgname, cgoFn)
 	}
@@ -163,7 +168,7 @@ func (g *pyGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	g.pywrap.Printf("@%s.setter\n", f.Name())
 	g.pywrap.Printf("def %[1]s(self, value):\n", f.Name())
 	g.pywrap.Indent()
-	g.pywrap.Printf("if isinstance(value, GoClass):\n")
+	g.pywrap.Printf("if isinstance(value, go.GoClass):\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf("_%s.%s(self.handle, value.handle)\n", pkgname, cgoFn)
 	g.pywrap.Outdent()
@@ -202,7 +207,7 @@ func (g *pyGen) genInterface(ifc Interface) {
 	strNm := ifc.obj.Name()
 	g.pywrap.Printf(`
 # Python type for interface %[3]s
-class %[1]s(GoClass):
+class %[1]s(go.GoClass):
 	""%[2]q""
 `,
 		strNm,
@@ -225,6 +230,10 @@ handle=A Go-side object is always initialized with an explicit handle=arg
 	g.pywrap.Printf("if len(kwargs) == 1 and 'handle' in kwargs:\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf("self.handle = kwargs['handle']\n")
+	g.pywrap.Outdent()
+	g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], go.GoClass):\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("self.handle = args[0].handle\n")
 	g.pywrap.Outdent()
 	g.pywrap.Printf("else:\n")
 	g.pywrap.Indent()
