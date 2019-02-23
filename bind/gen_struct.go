@@ -73,7 +73,6 @@ in which case a new Go object is constructed first
 	}
 	g.pywrap.Outdent()
 	g.pywrap.Outdent()
-	g.pywrap.Printf("\n")
 
 	for _, m := range s.meths {
 		if m.GoName() == "String" {
@@ -130,7 +129,6 @@ func (g *pyGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 		g.pywrap.Printf("return _%s.%s(self.handle)\n", pkgname, cgoFn)
 	}
 	g.pywrap.Outdent()
-	g.pywrap.Printf("\n")
 
 	g.gofile.Printf("//export %s\n", cgoFn)
 	g.gofile.Printf("func %s(handle CGoHandle) %s {\n", cgoFn, ret.cgoname)
@@ -174,7 +172,6 @@ func (g *pyGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	g.pywrap.Printf("_%s.%s(self.handle, value)\n", pkgname, cgoFn)
 	g.pywrap.Outdent()
 	g.pywrap.Outdent()
-	g.pywrap.Printf("\n")
 
 	g.gofile.Printf("//export %s\n", cgoFn)
 	g.gofile.Printf("func %s(handle CGoHandle, val %s) {\n", cgoFn, ret.cgoname)
@@ -234,7 +231,6 @@ handle=A Go-side object is always initialized with an explicit handle=arg
 	g.pywrap.Printf("self.handle = 0\n")
 	g.pywrap.Outdent()
 	g.pywrap.Outdent()
-	g.pywrap.Printf("\n")
 
 	for _, m := range ifc.meths {
 		if m.GoName() == "String" {

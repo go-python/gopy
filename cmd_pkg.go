@@ -52,11 +52,10 @@ ex:
 }
 
 func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
-	if len(args) != 1 {
-		log.Printf("expect a fully qualified go package name as argument\n")
-		return fmt.Errorf(
-			"gopy-pkg: expect a fully qualified go package name as argument",
-		)
+	if len(args) == 0 {
+		err := fmt.Errorf("gopy: expect a fully qualified go package name as argument")
+		log.Println(err)
+		return err
 	}
 
 	var (
@@ -131,7 +130,7 @@ func buildPkgRecurse(odir, path, rootdir, pathdir string, exmap map[string]struc
 	drs := dirs.Dirs(pathdir)
 	for _, dr := range drs {
 		_, ex := exmap[dr]
-		if ex || dr[0] == '.' || dr == "testdata" || dr == "internal" || dr == "python" {
+		if ex || dr[0] == '.' || dr == "testdata" || dr == "internal" || dr == "python" || dr[0] == '_' {
 			continue
 		}
 		sp := filepath.Join(pathdir, dr)

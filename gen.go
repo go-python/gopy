@@ -7,25 +7,19 @@ package main
 import (
 	"fmt"
 	"go/ast"
-	"go/build"
 	"go/doc"
-	"go/importer"
 	"go/parser"
-	"go/scanner"
 	"go/token"
-	"go/types"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"golang.org/x/tools/go/packages"
+
 	"github.com/goki/gopy/bind"
 	"github.com/pkg/errors"
-)
-
-var (
-	fset = token.NewFileSet()
 )
 
 // argStr returns the full command args as a string, without path to exe
@@ -85,32 +79,6 @@ func genPkg(odir, outname, cmdstr, vm string) error {
 	return err
 }
 
-func parseFiles(dir string, fnames []string) ([]*ast.File, error) {
-	var (
-		files []*ast.File
-		err   error
-	)
-
-	for _, fname := range fnames {
-		path := filepath.Join(dir, fname)
-		file, errf := parser.ParseFile(fset, path, nil, parser.AllErrors)
-		if errf != nil {
-			err = errf
-			if list, _ := err.(scanner.ErrorList); len(list) > 0 {
-				for _, err := range list {
-
-					log.Printf("%v\n", err)
-				}
-			} else {
-				log.Printf("%v\n", err)
-			}
-		}
-		files = append(files, file)
-	}
-
-	return files, err
-}
-
 func newPackage(path string) (*bind.Package, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -132,7 +100,8 @@ func newPackage(path string) (*bind.Package, error) {
 		return nil, err
 	}
 
-	bpkg, err := build.Import(path, cwd, 0)
+	// golang.org/x/tools/go/packages supports loading of std library packages too
+	bpkgs, err := packages.Load(&packages.Config{Mode: packages.LoadTypes}, path)
 	if err != nil {
 		log.Printf("error resolving import path [%s]: %v\n",
 			path,
@@ -141,28 +110,19 @@ func newPackage(path string) (*bind.Package, error) {
 		return nil, err
 	}
 
-	pkg, err := importer.Default().Import(bpkg.ImportPath)
-	if err != nil {
-		log.Printf("error importing package [%v]: %v\n",
-			bpkg.ImportPath,
-			err,
-		)
+	bpkg := bpkgs[0] // only ever have one at a time
+	dir, _ := filepath.Split(bpkg.GoFiles[0])
+	p := bpkg.Types
+
+	if bpkg.Name == "main" {
+		err = fmt.Errorf("gopy: skipping 'main' package %q", bpkg.PkgPath)
+		fmt.Println(err)
 		return nil, err
 	}
 
-	p, err := newPackageFrom(bpkg, pkg)
-	if err != nil {
-		log.Printf("%v\n", err)
-		return nil, err
-	}
-
-	return p, err
-}
-
-func newPackageFrom(bpkg *build.Package, p *types.Package) (*bind.Package, error) {
-
+	fset := token.NewFileSet()
 	var pkgast *ast.Package
-	pkgs, err := parser.ParseDir(fset, bpkg.Dir, nil, parser.ParseComments)
+	pkgs, err := parser.ParseDir(fset, dir, nil, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +131,6 @@ func newPackageFrom(bpkg *build.Package, p *types.Package) (*bind.Package, error
 		return nil, fmt.Errorf("gopy: could not find AST for package %q", p.Name())
 	}
 
-	pkgdoc := doc.New(pkgast, bpkg.ImportPath, 0)
-
+	pkgdoc := doc.New(pkgast, bpkg.PkgPath, 0)
 	return bind.NewPackage(p, pkgdoc)
 }
