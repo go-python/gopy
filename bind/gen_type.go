@@ -33,16 +33,20 @@ func (g *pyGen) genType(sym *symbol, extTypes, pyWrapOnly bool) {
 	}
 
 	if extTypes {
-		if sym.isSlice() {
+		if sym.isSlice() || sym.isArray() {
 			g.genSlice(sym, extTypes, pyWrapOnly)
+		} else if sym.isMap() {
+			g.genMap(sym, extTypes, pyWrapOnly)
 		} else if sym.isInterface() || sym.isStruct() {
 			if pyWrapOnly {
 				g.genExtClass(sym)
 			}
 		}
 	} else {
-		if sym.isSlice() {
+		if sym.isSlice() || sym.isArray() {
 			g.genSlice(sym, extTypes, pyWrapOnly)
+		} else if sym.isMap() {
+			g.genMap(sym, extTypes, pyWrapOnly)
 		}
 	}
 }
