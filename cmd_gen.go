@@ -36,11 +36,10 @@ ex:
 func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 	var err error
 
-	if len(args) != 1 {
-		log.Printf("expect a fully qualified go package name as argument\n")
-		return fmt.Errorf(
-			"gopy-gen: expect a fully qualified go package name as argument",
-		)
+	if len(args) == 0 {
+		err := fmt.Errorf("gopy: expect a fully qualified go package name as argument")
+		log.Println(err)
+		return err
 	}
 
 	cmdstr := argStr()

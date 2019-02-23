@@ -302,5 +302,4 @@ if err != nil {
 
 	g.pywrap.Printf("\n")
 	g.pywrap.Outdent()
-	g.pywrap.Printf("\n")
 }
