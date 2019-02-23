@@ -57,10 +57,6 @@ class %[2]s(%[5]sGoClass):
 	}
 }
 
-// todo: only basic ctor for out-of-package scope slices
-// and have standard slices avail in a gopy library
-// that is imported always, and we always refer to those there..
-
 func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool) {
 	pkgname := g.outname
 	slNm := slc.id
@@ -90,21 +86,23 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Indent()
 		g.pywrap.Printf("self.handle = args[0].handle\n")
 		g.pywrap.Outdent()
-		g.pywrap.Printf("else:\n")
-		g.pywrap.Indent()
-		g.pywrap.Printf("self.handle = _%s_CTor()\n", qNm)
-		g.pywrap.Printf("if len(args) > 0:\n")
-		g.pywrap.Indent()
-		g.pywrap.Printf("if not isinstance(args[0], collections.Iterable):\n")
-		g.pywrap.Indent()
-		g.pywrap.Printf("raise TypeError('%s.__init__ takes a sequence as argument')\n", slNm)
-		g.pywrap.Outdent()
-		g.pywrap.Printf("for elt in args[0]:\n")
-		g.pywrap.Indent()
-		g.pywrap.Printf("_%s_append(self.handle, elt)\n", qNm)
-		g.pywrap.Outdent()
-		g.pywrap.Outdent()
-		g.pywrap.Outdent()
+		if slc.isSlice() {
+			g.pywrap.Printf("else:\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("self.handle = _%s_CTor()\n", qNm)
+			g.pywrap.Printf("if len(args) > 0:\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("if not isinstance(args[0], collections.Iterable):\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("raise TypeError('%s.__init__ takes a sequence as argument')\n", slNm)
+			g.pywrap.Outdent()
+			g.pywrap.Printf("for elt in args[0]:\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("_%s_append(self.handle, elt)\n", qNm)
+			g.pywrap.Outdent()
+			g.pywrap.Outdent()
+			g.pywrap.Outdent()
+		}
 		g.pywrap.Outdent()
 
 		// for _, m := range slc.meths {
@@ -130,26 +128,32 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Printf("return _%s_elem(self.handle, idx)\n", qNm)
 		g.pywrap.Outdent()
 
-		g.pywrap.Printf("def __setitem__(self, idx, value):\n")
-		g.pywrap.Indent()
-		g.pywrap.Printf("if idx >= len(self):\n")
-		g.pywrap.Indent()
-		g.pywrap.Printf("raise IndexError('slice index out of range')\n")
-		g.pywrap.Outdent()
-		g.pywrap.Printf("_%s_set(self.handle, idx, value)\n", qNm)
-		g.pywrap.Outdent()
+		if slc.isSlice() {
+			g.pywrap.Printf("def __setitem__(self, idx, value):\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("if idx >= len(self):\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("raise IndexError('slice index out of range')\n")
+			g.pywrap.Outdent()
+			if esym.hasHandle() {
+				g.pywrap.Printf("_%s_set(self.handle, idx, value.handle)\n", qNm)
+			} else {
+				g.pywrap.Printf("_%s_set(self.handle, idx, value)\n", qNm)
+			}
+			g.pywrap.Outdent()
 
-		g.pywrap.Printf("def __iadd__(self, value):\n")
-		g.pywrap.Indent()
-		g.pywrap.Printf("if not isinstance(value, collections.Iterable):\n")
-		g.pywrap.Indent()
-		g.pywrap.Printf("raise TypeError('%s.__iadd__ takes a sequence as argument')\n", slNm)
-		g.pywrap.Outdent()
-		g.pywrap.Printf("for elt in value:\n")
-		g.pywrap.Indent()
-		g.pywrap.Printf("_%s_append(self.handle, elt)\n", qNm)
-		g.pywrap.Outdent()
-		g.pywrap.Outdent()
+			g.pywrap.Printf("def __iadd__(self, value):\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("if not isinstance(value, collections.Iterable):\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("raise TypeError('%s.__iadd__ takes a sequence as argument')\n", slNm)
+			g.pywrap.Outdent()
+			g.pywrap.Printf("for elt in value:\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("_%s_append(self.handle, elt)\n", qNm)
+			g.pywrap.Outdent()
+			g.pywrap.Outdent()
+		}
 
 		g.pywrap.Printf("def __iter__(self):\n")
 		g.pywrap.Indent()
@@ -166,16 +170,18 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Printf("return _%s_elem(self.handle, self.index)\n", qNm)
 		g.pywrap.Outdent()
 
-		g.pywrap.Printf("def append(self, value):\n")
-		g.pywrap.Indent()
-		if esym.hasHandle() {
-			g.pywrap.Printf("_%s_append(self.handle, value.handle)\n", qNm)
-		} else {
-			g.pywrap.Printf("_%s_append(self.handle, value)\n", qNm)
-		}
-		g.pywrap.Outdent()
+		if slc.isSlice() {
+			g.pywrap.Printf("def append(self, value):\n")
+			g.pywrap.Indent()
+			if esym.hasHandle() {
+				g.pywrap.Printf("_%s_append(self.handle, value.handle)\n", qNm)
+			} else {
+				g.pywrap.Printf("_%s_append(self.handle, value)\n", qNm)
+			}
+			g.pywrap.Outdent()
 
-		g.pywrap.Outdent()
+			g.pywrap.Outdent()
+		}
 		g.pywrap.Printf("\n")
 
 		// g.pywrap.Printf("	def __repr__(self):
@@ -221,8 +227,6 @@ otherwise parameter is a python list that we copy from
 
 		g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'), [param('%s', 'handle'), param('int', 'idx')])\n", slNm, esym.cpyname, PyHandle)
 
-		// todo: append?
-
 		g.gofile.Printf("//export %s_set\n", slNm)
 		g.gofile.Printf("func %s_set(handle CGoHandle, idx int, value %s) {\n", slNm, esym.cgoname)
 		g.gofile.Indent()
@@ -237,18 +241,20 @@ otherwise parameter is a python list that we copy from
 
 		g.pybuild.Printf("mod.add_function('%s_set', None, [param('%s', 'handle'), param('int', 'idx'), param('%v', 'value')])\n", slNm, PyHandle, esym.cpyname)
 
-		g.gofile.Printf("//export %s_append\n", slNm)
-		g.gofile.Printf("func %s_append(handle CGoHandle, value %s) {\n", slNm, esym.cgoname)
-		g.gofile.Indent()
-		g.gofile.Printf("s := ptrFmHandle_%s(handle)\n", slNm)
-		if esym.py2go != "" {
-			g.gofile.Printf("*s = append(*s, %s(value)%s)\n", esym.py2go, esym.py2goParenEx)
-		} else {
-			g.gofile.Printf("*s = append(*s, value)\n")
-		}
-		g.gofile.Outdent()
-		g.gofile.Printf("}\n\n")
+		if slc.isSlice() {
+			g.gofile.Printf("//export %s_append\n", slNm)
+			g.gofile.Printf("func %s_append(handle CGoHandle, value %s) {\n", slNm, esym.cgoname)
+			g.gofile.Indent()
+			g.gofile.Printf("s := ptrFmHandle_%s(handle)\n", slNm)
+			if esym.py2go != "" {
+				g.gofile.Printf("*s = append(*s, %s(value)%s)\n", esym.py2go, esym.py2goParenEx)
+			} else {
+				g.gofile.Printf("*s = append(*s, value)\n")
+			}
+			g.gofile.Outdent()
+			g.gofile.Printf("}\n\n")
 
-		g.pybuild.Printf("mod.add_function('%s_append', None, [param('%s', 'handle'), param('%s', 'value')])\n", slNm, PyHandle, esym.cpyname)
+			g.pybuild.Printf("mod.add_function('%s_append', None, [param('%s', 'handle'), param('%s', 'value')])\n", slNm, PyHandle, esym.cpyname)
+		}
 	}
 }
