@@ -106,7 +106,7 @@ func (g *pyGen) genExtClass(sym *symbol) {
 	pkgname := sym.gopkg.Name()
 	g.pywrap.Printf(`
 # Python type for %[4]s
-class %[2]s(GoClass):
+class %[2]s(go.GoClass):
 	""%[3]q""
 `,
 		pkgname,
@@ -124,6 +124,10 @@ handle=A Go-side object is always initialized with an explicit handle=arg
 	g.pywrap.Printf("if len(kwargs) == 1 and 'handle' in kwargs:\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf("self.handle = kwargs['handle']\n")
+	g.pywrap.Outdent()
+	g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], go.GoClass):\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("self.handle = args[0].handle\n")
 	g.pywrap.Outdent()
 	g.pywrap.Printf("else:\n")
 	g.pywrap.Indent()
