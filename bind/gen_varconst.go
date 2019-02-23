@@ -58,7 +58,7 @@ func (g *pyGen) genVarSetter(v Var) {
 	g.pywrap.Printf("def %s(value):\n", cgoFn)
 	g.pywrap.Indent()
 	g.pywrap.Printf("%s\n%s Sets Go Variable: %s\n%s\n%s\n", `"""`, cgoFn, qVn, v.doc, `"""`)
-	g.pywrap.Printf("if isinstance(value, GoClass):\n")
+	g.pywrap.Printf("if isinstance(value, go.GoClass):\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf("%s(value.handle)\n", qFn)
 	g.pywrap.Outdent()

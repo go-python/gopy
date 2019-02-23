@@ -105,10 +105,17 @@ os.chdir(cwd)
 
 %[6]s
 
+`
+
+	GoPkgDefs = `
 class GoClass(object):
 	"""GoClass is the base class for all GoPy wrapper classes"""
 	pass
 	
+class nil(GoClass):
+	"""nil is the nil pointer in Go"""
+	def __init__(self):
+		self.handle = 0
 `
 
 	// 3 = gencmd, 4 = vm, 5 = libext
@@ -257,9 +264,14 @@ func (g *pyGen) genPkg(p *Package) {
 	g.pkg = p
 	g.pywrap = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
 	g.genPyWrapPreamble()
-	g.genExtTypesPyWrap()
-	g.genAll()
-	g.genPkgWrapOut()
+	if p == goPackage {
+		g.genGoPkg()
+		g.genPkgWrapOut()
+	} else {
+		g.genExtTypesPyWrap()
+		g.genAll()
+		g.genPkgWrapOut()
+	}
 	g.pkg = nil
 }
 
@@ -282,13 +294,21 @@ func (g *pyGen) genPyBuildPreamble() {
 func (g *pyGen) genPyWrapPreamble() {
 	n := g.pkg.pkg.Name()
 	pkgimport := g.pkg.pkg.Path()
-	pkgDoc := g.pkg.doc.Doc
+	pkgDoc := ""
+	if g.pkg.doc != nil {
+		pkgDoc = g.pkg.doc.Doc
+	}
 	if pkgDoc != "" {
 		pkgDoc = `"""` + "\n" + pkgDoc + "\n" + `"""`
 	}
 
 	// import other packages for other types that we might use
 	impstr := ""
+	if g.pkg.Name() == "go" {
+		impstr += GoPkgDefs
+	} else {
+		impstr += fmt.Sprintf("from %s import go\n", g.outname)
+	}
 	imps := g.pkg.pkg.Imports()
 	for _, im := range imps {
 		ipath := im.Path()
@@ -411,4 +431,19 @@ func (g *pyGen) genConst(c Const) {
 func (g *pyGen) genVar(v Var) {
 	g.genVarGetter(v)
 	g.genVarSetter(v)
+}
+
+func (g *pyGen) genGoPkg() {
+	g.gofile.Printf("\n// ---- Package: %s ---\n", g.pkg.Name())
+
+	g.gofile.Printf("\n// ---- Types ---\n")
+	g.pywrap.Printf("\n# ---- Types ---\n")
+	names := universe.names()
+	for _, n := range names {
+		sym := universe.sym(n)
+		if !sym.isType() || sym.gopkg != g.pkg.pkg {
+			continue
+		}
+		g.genType(sym, false, false) // not exttypes
+	}
 }
