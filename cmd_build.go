@@ -82,7 +82,14 @@ func runBuild(odir, outname, cmdstr, vm string, symbols bool) error {
 
 	err = os.Remove(outname + ".c")
 
-	fmt.Printf("executing command: go build -buildmode=c-shared ...\n")
+	fmt.Printf("executing command: goimports -w %v\n", outname+".go")
+	cmd := exec.Command("goimports", "-w", outname+".go")
+	cmdout, err = cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
+		return err
+	}
+
 	args := []string{"build", "-buildmode=c-shared"}
 	if !symbols {
 		// These flags will omit the various symbol tables, thereby
@@ -92,7 +99,8 @@ func runBuild(odir, outname, cmdstr, vm string, symbols bool) error {
 		args = append(args, "-ldflags=-s -w")
 	}
 	args = append(args, "-o", buildname+libExt, ".")
-	cmd := exec.Command("go", args...)
+	fmt.Printf("executing command: go %v\n", strings.Join(args, " "))
+	cmd = exec.Command("go", args...)
 	cmdout, err = cmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
