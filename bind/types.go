@@ -72,8 +72,8 @@ type Struct struct {
 
 	id    string
 	doc   string
-	ctors []Func
-	meths []Func
+	ctors []*Func
+	meths []*Func
 
 	prots Protocol
 }
@@ -92,27 +92,31 @@ func newStruct(p *Package, obj *types.TypeName) (*Struct, error) {
 	return s, nil
 }
 
-func (s Struct) Package() *Package {
+func (s *Struct) Obj() *types.TypeName {
+	return s.obj
+}
+
+func (s *Struct) Package() *Package {
 	return s.pkg
 }
 
-func (s Struct) ID() string {
+func (s *Struct) ID() string {
 	return s.sym.id
 }
 
-func (s Struct) Doc() string {
+func (s *Struct) Doc() string {
 	return s.sym.doc
 }
 
-func (s Struct) GoType() types.Type {
+func (s *Struct) GoType() types.Type {
 	return s.sym.GoType()
 }
 
-func (s Struct) GoName() string {
+func (s *Struct) GoName() string {
 	return s.sym.goname
 }
 
-func (s Struct) Struct() *types.Struct {
+func (s *Struct) Struct() *types.Struct {
 	return s.sym.GoType().Underlying().(*types.Struct)
 }
 
@@ -127,7 +131,7 @@ type Interface struct {
 
 	id    string
 	doc   string
-	meths []Func
+	meths []*Func
 }
 
 func newInterface(p *Package, obj *types.TypeName) (*Interface, error) {
@@ -144,28 +148,28 @@ func newInterface(p *Package, obj *types.TypeName) (*Interface, error) {
 	return s, nil
 }
 
-func (s Interface) Package() *Package {
-	return s.pkg
+func (it *Interface) Package() *Package {
+	return it.pkg
 }
 
-func (s Interface) ID() string {
-	return s.sym.id
+func (it *Interface) ID() string {
+	return it.sym.id
 }
 
-func (s Interface) Doc() string {
-	return s.sym.doc
+func (it *Interface) Doc() string {
+	return it.sym.doc
 }
 
-func (s Interface) GoType() types.Type {
-	return s.sym.GoType()
+func (it *Interface) GoType() types.Type {
+	return it.sym.GoType()
 }
 
-func (s Interface) GoName() string {
-	return s.sym.goname
+func (it *Interface) GoName() string {
+	return it.sym.goname
 }
 
-func (s Interface) Interface() *types.Interface {
-	return s.sym.GoType().Underlying().(*types.Interface)
+func (it *Interface) Interface() *types.Interface {
+	return it.sym.GoType().Underlying().(*types.Interface)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -232,6 +236,7 @@ type Func struct {
 	pkg  *Package
 	sig  *Signature
 	typ  types.Type
+	obj  types.Object
 	name string
 
 	id   string
@@ -258,6 +263,7 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 	}
 
 	return &Func{
+		obj:  obj,
 		pkg:  p,
 		sig:  sv,
 		typ:  obj.Type(),
@@ -269,35 +275,39 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 	}, nil
 }
 
-func (f Func) Package() *Package {
+func (f *Func) Obj() types.Object {
+	return f.obj
+}
+
+func (f *Func) Package() *Package {
 	return f.pkg
 }
 
-func (f Func) ID() string {
+func (f *Func) ID() string {
 	return f.id
 }
 
-func (f Func) Doc() string {
+func (f *Func) Doc() string {
 	return f.doc
 }
 
-func (f Func) GoType() types.Type {
+func (f *Func) GoType() types.Type {
 	return f.typ
 }
 
-func (f Func) GoName() string {
+func (f *Func) GoName() string {
 	return f.name
 }
 
-func (f Func) GoFmt() string {
+func (f *Func) GoFmt() string {
 	return f.pkg.Name() + "." + f.name
 }
 
-func (f Func) Signature() *Signature {
+func (f *Func) Signature() *Signature {
 	return f.sig
 }
 
-func (f Func) Return() types.Type {
+func (f *Func) Return() types.Type {
 	return f.ret
 }
 
@@ -327,10 +337,10 @@ func newConst(p *Package, o *types.Const) (*Const, error) {
 	}, nil
 }
 
-func (c Const) ID() string         { return c.id }
-func (c Const) Doc() string        { return c.doc }
-func (c Const) GoName() string     { return c.obj.Name() }
-func (c Const) GoType() types.Type { return c.obj.Type() }
+func (c *Const) ID() string         { return c.id }
+func (c *Const) Doc() string        { return c.doc }
+func (c *Const) GoName() string     { return c.obj.Name() }
+func (c *Const) GoType() types.Type { return c.obj.Type() }
 
 ///////////////////////////////////////////////////////////////////////////////////
 //  Var

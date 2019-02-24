@@ -94,7 +94,8 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 		}
 	}
 
-	excl := strings.Split(exclude, ",")
+	defex := []string{"testdata", "internal", "python", "examples", "cmd"}
+	excl := append(strings.Split(exclude, ","), defex...)
 	exmap := make(map[string]struct{})
 	for i := range excl {
 		ex := strings.TrimSpace(excl[i])
@@ -130,7 +131,7 @@ func buildPkgRecurse(odir, path, rootdir, pathdir string, exmap map[string]struc
 	drs := dirs.Dirs(pathdir)
 	for _, dr := range drs {
 		_, ex := exmap[dr]
-		if ex || dr[0] == '.' || dr == "testdata" || dr == "internal" || dr == "python" || dr[0] == '_' {
+		if ex || dr[0] == '.' || dr[0] == '_' {
 			continue
 		}
 		sp := filepath.Join(pathdir, dr)

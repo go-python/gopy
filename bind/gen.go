@@ -125,6 +125,7 @@ class nil(GoClass):
 
 GOCMD=go
 GOBUILD=$(GOCMD) build
+GOIMPORTS=goimports
 PYTHON=%[4]s
 PYTHON_CFG=$(PYTHON)-config
 GCC=gcc
@@ -143,6 +144,8 @@ build:
 	# build target builds the generated files -- this is what gopy build does..
 	# this will otherwise be built during go build and may be out of date
 	- rm %[1]s.c
+	# goimports is needed to ensure that the imports list is valid
+	$(GOIMPORTS) -w %[1]s.go
 	# generate %[1]s_go$(LIBEXT) from %[1]s.go -- the cgo wrappers to go functions
 	$(GOBUILD) -buildmode=c-shared -ldflags="-s -w" -o %[1]s_go$(LIBEXT) %[1]s.go
 	# use pybindgen to build the %[1]s.c file which are the CPython wrappers to cgo wrappers..
@@ -378,7 +381,10 @@ func (g *pyGen) genAll() {
 	names := current.names()
 	for _, n := range names {
 		sym := current.sym(n)
-		if !sym.isType() || sym.gopkg != g.pkg.pkg {
+		if sym.gopkg.Path() != g.pkg.pkg.Path() { // sometimes the package is not the same!!  yikes!
+			continue
+		}
+		if !sym.isType() {
 			continue
 		}
 		g.genType(sym, false, false) // not exttypes
@@ -386,25 +392,25 @@ func (g *pyGen) genAll() {
 
 	g.pywrap.Printf("\n\n#---- Constants from Go: Python can only ask that you please don't change these! ---\n")
 	for _, c := range g.pkg.consts {
-		g.genConst(&c)
+		g.genConst(c)
 	}
 
 	g.gofile.Printf("\n\n// ---- Global Variables: can only use functions to access ---\n")
 	g.pywrap.Printf("\n\n# ---- Global Variables: can only use functions to access ---\n")
 	for _, v := range g.pkg.vars {
-		g.genVar(&v)
+		g.genVar(v)
 	}
 
 	g.gofile.Printf("\n\n// ---- Interfaces ---\n")
 	g.pywrap.Printf("\n\n# ---- Interfaces ---\n")
 	for _, ifc := range g.pkg.ifaces {
-		g.genInterface(&ifc)
+		g.genInterface(ifc)
 	}
 
 	g.gofile.Printf("\n\n// ---- Structs ---\n")
 	g.pywrap.Printf("\n\n# ---- Structs ---\n")
 	for _, s := range g.pkg.structs {
-		g.genStruct(&s)
+		g.genStruct(s)
 	}
 
 	// note: these are extracted from reg functions that return full
@@ -413,14 +419,14 @@ func (g *pyGen) genAll() {
 	g.pywrap.Printf("\n\n# ---- Constructors ---\n")
 	for _, s := range g.pkg.structs {
 		for _, ctor := range s.ctors {
-			g.genFunc(&ctor)
+			g.genFunc(ctor)
 		}
 	}
 
 	g.gofile.Printf("\n\n// ---- Functions ---\n")
 	g.pywrap.Printf("\n\n# ---- Functions ---\n")
 	for _, f := range g.pkg.funcs {
-		g.genFunc(&f)
+		g.genFunc(f)
 	}
 }
 
@@ -432,7 +438,10 @@ func (g *pyGen) genGoPkg() {
 	names := universe.names()
 	for _, n := range names {
 		sym := universe.sym(n)
-		if !sym.isType() || sym.gopkg != g.pkg.pkg {
+		if sym.gopkg == nil {
+			continue
+		}
+		if !sym.isType() || sym.gopkg.Path() != g.pkg.pkg.Path() {
 			continue
 		}
 		g.genType(sym, false, false) // not exttypes

@@ -224,7 +224,7 @@ func (s *symbol) pyPkgId(curPkg *types.Package) string {
 		return s.id // shouldn't happen
 	}
 	idnm := strings.TrimPrefix(s.id[uidx+1:], pnm+"_") // in case it has that redundantly
-	if s.gopkg != curPkg {
+	if s.gopkg.Path() != curPkg.Path() {
 		return pnm + "." + idnm
 	} else {
 		return idnm
