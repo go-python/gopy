@@ -78,13 +78,13 @@ type Struct struct {
 	prots Protocol
 }
 
-func newStruct(p *Package, obj *types.TypeName) (Struct, error) {
+func newStruct(p *Package, obj *types.TypeName) (*Struct, error) {
 	sym := p.syms.symtype(obj.Type())
 	if sym == nil {
-		panic(fmt.Errorf("no such object [%s] in symbols table", obj.Id()))
+		return nil, fmt.Errorf("no such object [%s] in symbols table", obj.Id())
 	}
 	sym.doc = p.getDoc("", obj)
-	s := Struct{
+	s := &Struct{
 		pkg: p,
 		sym: sym,
 		obj: obj,
@@ -130,13 +130,13 @@ type Interface struct {
 	meths []Func
 }
 
-func newInterface(p *Package, obj *types.TypeName) (Interface, error) {
+func newInterface(p *Package, obj *types.TypeName) (*Interface, error) {
 	sym := p.syms.symtype(obj.Type())
 	if sym == nil {
-		panic(fmt.Errorf("no such object [%s] in symbols table", obj.Id()))
+		return nil, fmt.Errorf("no such object [%s] in symbols table", obj.Id())
 	}
 	sym.doc = p.getDoc("", obj)
-	s := Interface{
+	s := &Interface{
 		pkg: p,
 		sym: sym,
 		obj: obj,
@@ -178,17 +178,30 @@ type Signature struct {
 	recv *Var
 }
 
-func newSignatureFrom(pkg *Package, sig *types.Signature) *Signature {
+func newSignatureFrom(pkg *Package, sig *types.Signature) (*Signature, error) {
 	var recv *Var
+	var err error
 	if sig.Recv() != nil {
-		recv = newVarFrom(pkg, sig.Recv())
+		recv, err = newVarFrom(pkg, sig.Recv())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	rv, err := newVarsFrom(pkg, sig.Results())
+	if err != nil {
+		return nil, err
+	}
+	av, err := newVarsFrom(pkg, sig.Params())
+	if err != nil {
+		return nil, err
 	}
 
 	return &Signature{
-		ret:  newVarsFrom(pkg, sig.Results()),
-		args: newVarsFrom(pkg, sig.Params()),
+		ret:  rv,
+		args: av,
 		recv: recv,
-	}
+	}, nil
 }
 
 func newSignature(pkg *Package, recv *Var, params, results []*Var) *Signature {
@@ -228,10 +241,10 @@ type Func struct {
 	ctor bool       // true if this is a newXXX function
 }
 
-func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signature) (Func, error) {
+func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signature) (*Func, error) {
 	err, ret, haserr := isPyCompatFunc(sig)
 	if err != nil {
-		return Func{}, err
+		return nil, err
 	}
 
 	id := obj.Pkg().Name() + "_" + obj.Name()
@@ -239,9 +252,14 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 		id = obj.Pkg().Name() + "_" + parent + "_" + obj.Name()
 	}
 
-	return Func{
+	sv, err := newSignatureFrom(p, sig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Func{
 		pkg:  p,
-		sig:  newSignatureFrom(p, sig),
+		sig:  sv,
 		typ:  obj.Type(),
 		name: obj.Name(),
 		id:   id,
@@ -292,36 +310,21 @@ type Const struct {
 	obj *types.Const
 	id  string
 	doc string
-	f   Func
 }
 
-func newConst(p *Package, o *types.Const) Const {
+func newConst(p *Package, o *types.Const) (*Const, error) {
 	pkg := o.Pkg()
 	sym := p.syms.symtype(o.Type())
 	id := pkg.Name() + "_" + o.Name()
 	doc := p.getDoc("", o)
 
-	res := []*Var{newVar(p, o.Type(), "ret", o.Name(), doc)}
-	sig := newSignature(p, nil, nil, res)
-	fct := Func{
-		pkg:  p,
-		sig:  sig,
-		typ:  nil,
-		name: o.Name(),
-		id:   id + "_get",
-		doc:  doc,
-		ret:  o.Type(),
-		err:  false,
-	}
-
-	return Const{
+	return &Const{
 		pkg: p,
 		sym: sym,
 		obj: o,
 		id:  id,
 		doc: doc,
-		f:   fct,
-	}
+	}, nil
 }
 
 func (c Const) ID() string         { return c.id }
@@ -344,7 +347,7 @@ func (v *Var) Name() string {
 	return v.name
 }
 
-func newVar(p *Package, typ types.Type, objname, name, doc string) *Var {
+func newVar(p *Package, typ types.Type, objname, name, doc string) (*Var, error) {
 	sym := p.syms.symtype(typ)
 	if sym == nil {
 		typname, _, _ := p.syms.typeNamePkg(typ)
@@ -360,7 +363,7 @@ func newVar(p *Package, typ types.Type, objname, name, doc string) *Var {
 		}
 		sym = p.syms.symtype(typ)
 		if sym == nil {
-			panic(fmt.Errorf("could not find symbol for type [%s]!", typ.String()))
+			return nil, fmt.Errorf("could not find symbol for type [%s]!", typ.String())
 		}
 	}
 	return &Var{
@@ -369,18 +372,24 @@ func newVar(p *Package, typ types.Type, objname, name, doc string) *Var {
 		id:   p.Name() + "_" + objname,
 		doc:  doc,
 		name: name,
-	}
+	}, nil
 }
 
-func newVarsFrom(p *Package, tuple *types.Tuple) []*Var {
+func newVarsFrom(p *Package, tuple *types.Tuple) ([]*Var, error) {
 	vars := make([]*Var, 0, tuple.Len())
+	var lsterr error
 	for i := 0; i < tuple.Len(); i++ {
-		vars = append(vars, newVarFrom(p, tuple.At(i)))
+		nv, err := newVarFrom(p, tuple.At(i))
+		if err != nil {
+			lsterr = err
+		} else {
+			vars = append(vars, nv)
+		}
 	}
-	return vars
+	return vars, lsterr
 }
 
-func newVarFrom(p *Package, v *types.Var) *Var {
+func newVarFrom(p *Package, v *types.Var) (*Var, error) {
 	return newVar(p, v.Type(), v.Name(), v.Name(), p.getDoc("", v))
 }
 

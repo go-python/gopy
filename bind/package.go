@@ -208,19 +208,21 @@ func (p *Package) process() error {
 			p.addVar(obj)
 
 		case *types.Func:
-			funcs[name], err = newFuncFrom(p, "", obj, obj.Type().(*types.Signature))
+			fv, err := newFuncFrom(p, "", obj, obj.Type().(*types.Signature))
 			if err != nil {
 				continue
 			}
+			funcs[name] = *fv
 
 		case *types.TypeName:
 			named := obj.Type().(*types.Named)
 			switch typ := named.Underlying().(type) {
 			case *types.Struct:
-				structs[name], err = newStruct(p, obj)
+				sv, err := newStruct(p, obj)
 				if err != nil {
 					return err
 				}
+				structs[name] = *sv
 
 			case *types.Basic:
 				// ok. handled by p.syms-types
@@ -229,10 +231,11 @@ func (p *Package) process() error {
 				// ok. handled by p.syms-types
 
 			case *types.Interface:
-				ifaces[name], err = newInterface(p, obj)
+				iv, err := newInterface(p, obj)
 				if err != nil {
 					return err
 				}
+				ifaces[name] = *iv
 
 			case *types.Signature:
 				// ok. handled by p.syms-types
@@ -289,7 +292,7 @@ func (p *Package) process() error {
 			if err != nil {
 				continue
 			}
-			s.meths = append(s.meths, m)
+			s.meths = append(s.meths, *m)
 			if isStringer(meth.Obj()) {
 				s.prots |= ProtoStringer
 			}
@@ -308,7 +311,7 @@ func (p *Package) process() error {
 			if err != nil {
 				continue
 			}
-			ifc.meths = append(ifc.meths, m)
+			ifc.meths = append(ifc.meths, *m)
 		}
 		p.addInterface(ifc)
 	}
@@ -344,11 +347,17 @@ func (p *Package) process() error {
 }
 
 func (p *Package) addConst(obj *types.Const) {
-	p.consts = append(p.consts, newConst(p, obj))
+	nc, err := newConst(p, obj)
+	if err == nil {
+		p.consts = append(p.consts, *nc)
+	}
 }
 
 func (p *Package) addVar(obj *types.Var) {
-	p.vars = append(p.vars, *newVarFrom(p, obj))
+	nv, err := newVarFrom(p, obj)
+	if err == nil {
+		p.vars = append(p.vars, *nv)
+	}
 }
 
 func (p *Package) addStruct(s Struct) {

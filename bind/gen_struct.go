@@ -9,7 +9,7 @@ import (
 	"go/types"
 )
 
-func (g *pyGen) genStruct(s Struct) {
+func (g *pyGen) genStruct(s *Struct) {
 	strNm := s.obj.Name()
 	g.pywrap.Printf(`
 # Python type for struct %[3]s
@@ -27,19 +27,11 @@ class %[1]s(go.GoClass):
 	g.pywrap.Outdent()
 }
 
-func (g *pyGen) genStructInit(s Struct) {
+func (g *pyGen) genStructInit(s *Struct) {
 	pkgname := g.outname
 	qNm := s.GoName()
 
 	numFields := s.Struct().NumFields()
-	numPublic := numFields
-	for i := 0; i < s.Struct().NumFields(); i++ {
-		f := s.Struct().Field(i)
-		if !f.Exported() {
-			numPublic--
-			continue
-		}
-	}
 
 	g.pywrap.Printf("def __init__(self, *args, **kwargs):\n")
 	g.pywrap.Indent()
@@ -62,17 +54,21 @@ in which case a new Go object is constructed first
 	g.pywrap.Printf("self.handle = _%s.%s_CTor()\n", pkgname, s.ID())
 
 	for i := 0; i < numFields; i++ {
-		field := s.Struct().Field(i)
-		if !field.Exported() || field.Embedded() {
+		f := s.Struct().Field(i)
+		if !f.Exported() || f.Embedded() {
+			continue
+		}
+		ftyp := current.symtype(f.Type())
+		if ftyp == nil || ftyp.isSignature() || (ftyp.isPointer() && ftyp.isBasic()) {
 			continue
 		}
 		g.pywrap.Printf("if  %[1]d < len(args):\n", i)
 		g.pywrap.Indent()
-		g.pywrap.Printf("self.%s = args[%d]\n", field.Name(), i)
+		g.pywrap.Printf("self.%s = args[%d]\n", f.Name(), i)
 		g.pywrap.Outdent()
-		g.pywrap.Printf("if %[1]q in kwargs:\n", field.Name())
+		g.pywrap.Printf("if %[1]q in kwargs:\n", f.Name())
 		g.pywrap.Indent()
-		g.pywrap.Printf("self.%[1]s = kwargs[%[1]q]\n", field.Name())
+		g.pywrap.Printf("self.%[1]s = kwargs[%[1]q]\n", f.Name())
 		g.pywrap.Outdent()
 	}
 	g.pywrap.Outdent()
@@ -102,11 +98,15 @@ in which case a new Go object is constructed first
 
 }
 
-func (g *pyGen) genStructMembers(s Struct) {
+func (g *pyGen) genStructMembers(s *Struct) {
 	typ := s.Struct()
 	for i := 0; i < typ.NumFields(); i++ {
 		f := typ.Field(i)
 		if !f.Exported() || f.Embedded() {
+			continue
+		}
+		ftyp := current.symtype(f.Type())
+		if ftyp == nil || ftyp.isSignature() || (ftyp.isPointer() && ftyp.isBasic()) {
 			continue
 		}
 		g.genStructMemberGetter(s, i, f)
@@ -114,7 +114,7 @@ func (g *pyGen) genStructMembers(s Struct) {
 	}
 }
 
-func (g *pyGen) genStructMemberGetter(s Struct, i int, f types.Object) {
+func (g *pyGen) genStructMemberGetter(s *Struct, i int, f types.Object) {
 	pkgname := g.outname
 	ft := f.Type()
 	ret := current.symtype(ft)
@@ -141,9 +141,9 @@ func (g *pyGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	g.gofile.Printf("op := ptrFmHandle_%s(handle)\nreturn ", s.ID())
 	if ret.go2py != "" {
 		if ret.hasHandle() && !ret.isPtrOrIface() {
-			g.gofile.Printf("%s(&op.%s)", ret.go2py, f.Name())
+			g.gofile.Printf("%s(&op.%s)%s", ret.go2py, f.Name(), ret.go2pyParenEx)
 		} else {
-			g.gofile.Printf("%s(op.%s)", ret.go2py, f.Name())
+			g.gofile.Printf("%s(op.%s)%s", ret.go2py, f.Name(), ret.go2pyParenEx)
 		}
 	} else {
 		g.gofile.Printf("op.%s", f.Name())
@@ -155,7 +155,7 @@ func (g *pyGen) genStructMemberGetter(s Struct, i int, f types.Object) {
 	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [param('%s', 'handle')])\n", cgoFn, ret.cpyname, PyHandle)
 }
 
-func (g *pyGen) genStructMemberSetter(s Struct, i int, f types.Object) {
+func (g *pyGen) genStructMemberSetter(s *Struct, i int, f types.Object) {
 	pkgname := g.outname
 	ft := f.Type()
 	ret := current.symtype(ft)
@@ -182,7 +182,7 @@ func (g *pyGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	g.gofile.Printf("func %s(handle CGoHandle, val %s) {\n", cgoFn, ret.cgoname)
 	g.gofile.Indent()
 	g.gofile.Printf("op := ptrFmHandle_%s(handle)\n", s.ID())
-	if ret.go2py != "" {
+	if ret.py2go != "" {
 		g.gofile.Printf("op.%s = %s(val)%s", f.Name(), ret.py2go, ret.py2goParenEx)
 	} else {
 		g.gofile.Printf("op.%s = val", f.Name())
@@ -194,16 +194,16 @@ func (g *pyGen) genStructMemberSetter(s Struct, i int, f types.Object) {
 	g.pybuild.Printf("mod.add_function('%s', None, [param('%s', 'handle'), param('%s', 'val')])\n", cgoFn, PyHandle, ret.cpyname)
 }
 
-func (g *pyGen) genStructMethods(s Struct) {
+func (g *pyGen) genStructMethods(s *Struct) {
 	for _, m := range s.meths {
-		g.genMethod(s, m)
+		g.genMethod(s, &m)
 	}
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Interface
 
-func (g *pyGen) genInterface(ifc Interface) {
+func (g *pyGen) genInterface(ifc *Interface) {
 	strNm := ifc.obj.Name()
 	g.pywrap.Printf(`
 # Python type for interface %[3]s
@@ -220,7 +220,7 @@ class %[1]s(go.GoClass):
 	g.pywrap.Outdent()
 }
 
-func (g *pyGen) genIfaceInit(ifc Interface) {
+func (g *pyGen) genIfaceInit(ifc *Interface) {
 	g.pywrap.Printf("def __init__(self, *args, **kwargs):\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf(`"""
@@ -252,8 +252,8 @@ handle=A Go-side object is always initialized with an explicit handle=arg
 	}
 }
 
-func (g *pyGen) genIfaceMethods(ifc Interface) {
+func (g *pyGen) genIfaceMethods(ifc *Interface) {
 	for _, m := range ifc.meths {
-		g.genIfcMethod(ifc, m)
+		g.genIfcMethod(ifc, &m)
 	}
 }

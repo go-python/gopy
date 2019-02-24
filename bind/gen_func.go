@@ -12,7 +12,7 @@ import (
 // genFuncSig generates just the signature for binding
 // returns false if function is not suitable for python
 // binding (e.g., multiple return values)
-func (g *pyGen) genFuncSig(sym *symbol, fsym Func) bool {
+func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 	isMethod := (sym != nil)
 
 	if fsym.sig == nil {
@@ -47,19 +47,19 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym Func) bool {
 		arg := args[i]
 		sarg := current.symtype(arg.GoType())
 		if sarg == nil {
-			// panic(fmt.Errorf(
-			// 	"gopy: could not find symbol for %q",
-			// 	arg.Name(),
-			// ))
 			return false
 		}
 		// note: this is enforced in creation of Func, in newFuncFrom
 		if sarg.isSignature() { // no support for func args
 			return false
 		}
-		goArgs = append(goArgs, fmt.Sprintf("%s %s", arg.Name(), sarg.cgoname))
-		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", sarg.cpyname, arg.Name()))
-		wpArgs = append(wpArgs, arg.Name())
+		anm := arg.Name()
+		if anm == "" {
+			anm = fmt.Sprintf("arg_%d", i)
+		}
+		goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, sarg.cgoname))
+		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", sarg.cpyname, anm))
+		wpArgs = append(wpArgs, anm)
 	}
 
 	switch {
@@ -121,25 +121,25 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym Func) bool {
 	return true
 }
 
-func (g *pyGen) genFunc(o Func) {
+func (g *pyGen) genFunc(o *Func) {
 	if g.genFuncSig(nil, o) {
 		g.genFuncBody(nil, o)
 	}
 }
 
-func (g *pyGen) genMethod(s Struct, o Func) {
+func (g *pyGen) genMethod(s *Struct, o *Func) {
 	if g.genFuncSig(s.sym, o) {
 		g.genFuncBody(s.sym, o)
 	}
 }
 
-func (g *pyGen) genIfcMethod(ifc Interface, o Func) {
+func (g *pyGen) genIfcMethod(ifc *Interface, o *Func) {
 	if g.genFuncSig(ifc.sym, o) {
 		g.genFuncBody(ifc.sym, o)
 	}
 }
 
-func (g *pyGen) genFuncBody(sym *symbol, fsym Func) {
+func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	isMethod := (sym != nil)
 	isIface := false
 	symNm := ""
@@ -183,7 +183,7 @@ if err != nil {
 				fmt.Printf("gopy: programmer error: empty zval zero value in symbol: %v\n", ret.sym)
 			}
 			if ret.sym.go2py != "" {
-				g.gofile.Printf("return %s(%s)\n", ret.sym.go2py, ret.sym.zval)
+				g.gofile.Printf("return %s(%s)%s\n", ret.sym.go2py, ret.sym.zval, ret.sym.go2pyParenEx)
 			} else {
 				g.gofile.Printf("return %s\n", ret.sym.zval)
 			}
@@ -220,18 +220,22 @@ if err != nil {
 	if isMethod {
 		wrapArgs = append(wrapArgs, "self.handle")
 	}
-	for _, arg := range args {
+	for i, arg := range args {
 		na := ""
+		anm := arg.Name()
+		if anm == "" {
+			anm = fmt.Sprintf("arg_%d", i)
+		}
 		if arg.sym.py2go != "" {
-			na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, arg.Name(), arg.sym.py2goParenEx)
+			na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, anm, arg.sym.py2goParenEx)
 		} else {
-			na = arg.Name()
+			na = anm
 		}
 		callArgs = append(callArgs, na)
 		if arg.sym.hasHandle() {
-			wrapArgs = append(wrapArgs, fmt.Sprintf("%s.handle", arg.Name()))
+			wrapArgs = append(wrapArgs, fmt.Sprintf("%s.handle", anm))
 		} else {
-			wrapArgs = append(wrapArgs, arg.Name())
+			wrapArgs = append(wrapArgs, anm)
 		}
 	}
 
@@ -266,7 +270,8 @@ if err != nil {
 		g.gofile.Printf("%s(%s)", fsym.GoFmt(), strings.Join(callArgs, ", "))
 	}
 	if hasRetCvt {
-		g.gofile.Printf(")")
+		ret := res[0]
+		g.gofile.Printf(")%s", ret.sym.go2pyParenEx)
 	}
 	if rvIsErr || nres == 2 {
 		g.gofile.Printf("\n")
@@ -284,9 +289,9 @@ if err != nil {
 			ret := res[0]
 			if ret.sym.go2py != "" {
 				if ret.sym.hasHandle() && !ret.sym.isPtrOrIface() {
-					g.gofile.Printf("return %s(&cret)", ret.sym.go2py)
+					g.gofile.Printf("return %s(&cret)%s", ret.sym.go2py, ret.sym.go2pyParenEx)
 				} else {
-					g.gofile.Printf("return %s(cret)", ret.sym.go2py)
+					g.gofile.Printf("return %s(cret)%s", ret.sym.go2py, ret.sym.go2pyParenEx)
 				}
 			} else {
 				g.gofile.Printf("return cret")
@@ -294,7 +299,7 @@ if err != nil {
 		}
 	} else if hasAddrOfTmp {
 		ret := res[0]
-		g.gofile.Printf("\nreturn %s(&cret)", ret.sym.go2py)
+		g.gofile.Printf("\nreturn %s(&cret)%s", ret.sym.go2py, ret.sym.go2pyParenEx)
 	}
 	g.gofile.Printf("\n")
 	g.gofile.Outdent()
