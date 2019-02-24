@@ -11,14 +11,29 @@ import (
 
 func (g *pyGen) genStruct(s *Struct) {
 	strNm := s.obj.Name()
+
+	base := "go.GoClass"
+
+	numFields := s.Struct().NumFields()
+	if numFields > 0 {
+		f := s.Struct().Field(0)
+		if f.Embedded() {
+			ftyp := current.symtype(f.Type())
+			if ftyp != nil {
+				base = ftyp.pyPkgId(s.sym.gopkg)
+			}
+		}
+	}
+
 	g.pywrap.Printf(`
 # Python type for struct %[3]s
-class %[1]s(go.GoClass):
+class %[1]s(%[4]s):
 	""%[2]q""
 `,
 		strNm,
 		s.Doc(),
 		s.GoName(),
+		base,
 	)
 	g.pywrap.Indent()
 	g.genStructInit(s)
@@ -196,7 +211,7 @@ func (g *pyGen) genStructMemberSetter(s *Struct, i int, f types.Object) {
 
 func (g *pyGen) genStructMethods(s *Struct) {
 	for _, m := range s.meths {
-		g.genMethod(s, &m)
+		g.genMethod(s, m)
 	}
 }
 
@@ -254,6 +269,6 @@ handle=A Go-side object is always initialized with an explicit handle=arg
 
 func (g *pyGen) genIfaceMethods(ifc *Interface) {
 	for _, m := range ifc.meths {
-		g.genIfcMethod(ifc, &m)
+		g.genIfcMethod(ifc, m)
 	}
 }

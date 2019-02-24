@@ -22,11 +22,11 @@ type Package struct {
 
 	syms    *symtab // note: this is now *always* = symbols.current
 	objs    map[string]Object
-	consts  []Const
-	vars    []Var
-	structs []Struct
-	ifaces  []Interface
-	funcs   []Func
+	consts  []*Const
+	vars    []*Var
+	structs []*Struct
+	ifaces  []*Interface
+	funcs   []*Func
 }
 
 // accumulates all the packages processed
@@ -179,9 +179,9 @@ func (p *Package) process() error {
 	p.syms.pkg = p.pkg
 	p.syms.addImport(p.pkg)
 
-	funcs := make(map[string]Func)
-	structs := make(map[string]Struct)
-	ifaces := make(map[string]Interface)
+	funcs := make(map[string]*Func)
+	structs := make(map[string]*Struct)
+	ifaces := make(map[string]*Interface)
 
 	scope := p.pkg.Scope()
 	for _, name := range scope.Names() {
@@ -212,7 +212,7 @@ func (p *Package) process() error {
 			if err != nil {
 				continue
 			}
-			funcs[name] = *fv
+			funcs[name] = fv
 
 		case *types.TypeName:
 			named := obj.Type().(*types.Named)
@@ -222,7 +222,7 @@ func (p *Package) process() error {
 				if err != nil {
 					return err
 				}
-				structs[name] = *sv
+				structs[name] = sv
 
 			case *types.Basic:
 				// ok. handled by p.syms-types
@@ -235,7 +235,7 @@ func (p *Package) process() error {
 				if err != nil {
 					return err
 				}
-				ifaces[name] = *iv
+				ifaces[name] = iv
 
 			case *types.Signature:
 				// ok. handled by p.syms-types
@@ -261,65 +261,6 @@ func (p *Package) process() error {
 
 	}
 
-	// remove ctors from funcs.
-	// add methods.
-	for sname, s := range structs {
-		for name, fct := range funcs {
-			ret := fct.Return()
-			if ret == nil {
-				continue
-			}
-			retptr, retIsPtr := ret.(*types.Pointer)
-
-			if ret == s.GoType() || (retIsPtr && retptr == s.GoType()) {
-				delete(funcs, name)
-				fct.doc = p.getDoc(sname, scope.Lookup(name))
-				fct.ctor = true
-				s.ctors = append(s.ctors, fct)
-				structs[sname] = s
-			}
-		}
-
-		ptyp := types.NewPointer(s.GoType())
-		p.syms.addType(nil, ptyp)
-		mset := types.NewMethodSet(ptyp)
-		for i := 0; i < mset.Len(); i++ {
-			meth := mset.At(i)
-			if !meth.Obj().Exported() {
-				continue
-			}
-			m, err := newFuncFrom(p, sname, meth.Obj(), meth.Type().(*types.Signature))
-			if err != nil {
-				continue
-			}
-			s.meths = append(s.meths, *m)
-			if isStringer(meth.Obj()) {
-				s.prots |= ProtoStringer
-			}
-		}
-		p.addStruct(s)
-	}
-
-	for iname, ifc := range ifaces {
-		mset := types.NewMethodSet(ifc.GoType())
-		for i := 0; i < mset.Len(); i++ {
-			meth := mset.At(i)
-			if !meth.Obj().Exported() {
-				continue
-			}
-			m, err := newFuncFrom(p, iname, meth.Obj(), meth.Type().(*types.Signature))
-			if err != nil {
-				continue
-			}
-			ifc.meths = append(ifc.meths, *m)
-		}
-		p.addInterface(ifc)
-	}
-
-	for _, fct := range funcs {
-		p.addFunc(fct)
-	}
-
 	// attach docstrings to methods
 	for _, n := range p.syms.names() {
 		sym := p.syms.syms[n]
@@ -343,34 +284,105 @@ func (p *Package) process() error {
 			}
 		}
 	}
+
+	// remove ctors from funcs.
+	// add methods.
+	for sname, s := range structs {
+		styp := s.GoType()
+		ptyp := types.NewPointer(styp)
+		p.syms.addType(nil, ptyp)
+		for name, fct := range funcs {
+			if !fct.Obj().Exported() {
+				continue
+			}
+			ret := fct.Return()
+			if ret == nil {
+				continue
+			}
+			retptr, retIsPtr := ret.(*types.Pointer)
+
+			if ret == styp || (retIsPtr && retptr.Elem() == styp) {
+				delete(funcs, name)
+				fct.doc = p.getDoc(sname, scope.Lookup(name))
+				fct.ctor = true
+				s.ctors = append(s.ctors, fct)
+				structs[sname] = s
+				continue
+			}
+		}
+
+		ntyp, ok := styp.(*types.Named)
+		if !ok {
+			continue
+		}
+
+		nmeth := ntyp.NumMethods()
+		for mi := 0; mi < nmeth; mi++ {
+			meth := ntyp.Method(mi)
+			if !meth.Exported() {
+				continue
+			}
+			msig := meth.Type().(*types.Signature)
+			m, err := newFuncFrom(p, sname, meth, msig)
+			if err != nil {
+				continue
+			}
+			s.meths = append(s.meths, m)
+			if isStringer(meth) {
+				s.prots |= ProtoStringer
+			}
+		}
+		p.addStruct(s)
+	}
+
+	for iname, ifc := range ifaces {
+		mset := types.NewMethodSet(ifc.GoType())
+		for i := 0; i < mset.Len(); i++ {
+			meth := mset.At(i)
+			if !meth.Obj().Exported() {
+				continue
+			}
+			m, err := newFuncFrom(p, iname, meth.Obj(), meth.Type().(*types.Signature))
+			if err != nil {
+				continue
+			}
+			ifc.meths = append(ifc.meths, m)
+		}
+		p.addInterface(ifc)
+	}
+
+	for _, fct := range funcs {
+		p.addFunc(fct)
+	}
+
 	return err
 }
 
 func (p *Package) addConst(obj *types.Const) {
 	nc, err := newConst(p, obj)
 	if err == nil {
-		p.consts = append(p.consts, *nc)
+		p.consts = append(p.consts, nc)
 	}
 }
 
 func (p *Package) addVar(obj *types.Var) {
 	nv, err := newVarFrom(p, obj)
 	if err == nil {
-		p.vars = append(p.vars, *nv)
+		p.vars = append(p.vars, nv)
 	}
 }
 
-func (p *Package) addStruct(s Struct) {
+func (p *Package) addStruct(s *Struct) {
 	p.structs = append(p.structs, s)
 	p.objs[s.GoName()] = s
 }
 
-func (p *Package) addInterface(ifc Interface) {
+func (p *Package) addInterface(ifc *Interface) {
 	p.ifaces = append(p.ifaces, ifc)
 	p.objs[ifc.GoName()] = ifc
 }
 
-func (p *Package) addFunc(f Func) {
+func (p *Package) addFunc(f *Func) {
 	p.funcs = append(p.funcs, f)
 	p.objs[f.GoName()] = f
 }
