@@ -88,6 +88,7 @@ type symbol struct {
 	cpyname      string // type name of entity for cgo - python -- handle..
 	pysig        string // type string for doc-signatures
 	go2py        string // name of go->py converter function
+	go2pyParenEx string // extra parentheses needed at end of go2py (beyond 1 default)
 	py2go        string // name of py->go converter function
 	py2goParenEx string // extra parentheses needed at end of py2go (beyond 1 default)
 	zval         string // zero value representation
@@ -357,7 +358,10 @@ func (sym *symtab) addSymbol(obj types.Object) error {
 			cgoname: n, // todo: type names!
 			cpyname: n,
 		}
-		return sym.addType(obj, obj.Type())
+		tsym := sym.symtype(obj.Type())
+		if tsym == nil {
+			return sym.addType(obj, obj.Type())
+		}
 
 	case *types.Var:
 		sym.syms[fn] = &symbol{
@@ -369,7 +373,10 @@ func (sym *symtab) addSymbol(obj types.Object) error {
 			cgoname: n,
 			cpyname: n,
 		}
-		return sym.addType(obj, obj.Type())
+		tsym := sym.symtype(obj.Type())
+		if tsym == nil {
+			return sym.addType(obj, obj.Type())
+		}
 
 	case *types.Func:
 		sig := obj.Type().Underlying().(*types.Signature)
@@ -426,6 +433,10 @@ func isPyCompatFunc(sig *types.Signature) (error, types.Type, bool) {
 	haserr := false
 	res := sig.Results()
 	var ret types.Type
+
+	if sig.Variadic() {
+		return fmt.Errorf("gopy: not yet supporting variadic functions: %s", sig.String()), ret, haserr
+	}
 
 	switch res.Len() {
 	case 2:
@@ -535,6 +546,12 @@ func (sym *symtab) addType(obj types.Object, t types.Type) error {
 				py2go += "(" + styp.py2go
 				py2goParEx = ")"
 			}
+			go2py := styp.goname
+			go2pyParEx := ""
+			if styp.go2py != "" {
+				go2py = styp.go2py + "(" + go2py
+				go2pyParEx = ")"
+			}
 
 			sym.syms[fn] = &symbol{
 				gopkg:        pkg,
@@ -546,7 +563,8 @@ func (sym *symtab) addType(obj types.Object, t types.Type) error {
 				cgoname:      styp.cgoname,
 				cpyname:      styp.cpyname,
 				pysig:        styp.pysig,
-				go2py:        styp.cgoname,
+				go2py:        go2py,
+				go2pyParenEx: go2pyParEx,
 				py2go:        py2go,
 				py2goParenEx: py2goParEx,
 				zval:         styp.zval,
@@ -622,6 +640,9 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 			return fmt.Errorf("gopy: could not retrieve array-elt symbol for %q", enam)
 		}
 	}
+	if elsym.isSignature() {
+		return fmt.Errorf("gopy: array value type cannot be signature / func: %q", enam)
+	}
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -658,8 +679,11 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		}
 		elsym = sym.sym(enam)
 		if elsym == nil {
-			return fmt.Errorf("gopy: map key type must be named type if outside current package: %q", enam)
+			return fmt.Errorf("gopy: map value type must be named type if outside current package: %q", enam)
 		}
+	}
+	if elsym.isSignature() {
+		return fmt.Errorf("gopy: map value type cannot be signature / func: %q", enam)
 	}
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
@@ -701,6 +725,9 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		}
 		n = "[]" + elsym.goname
 	}
+	if elsym.isSignature() {
+		return fmt.Errorf("gopy: slice value type cannot be signature / func: %q", enam)
+	}
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -722,6 +749,21 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 	fn := sym.fullTypeString(t)
 	typ := t.Underlying().(*types.Struct)
 	kind |= skStruct
+	// add our type first before adding fields -- prevents loops!
+	sym.syms[fn] = &symbol{
+		gopkg:   pkg,
+		goobj:   obj,
+		gotyp:   t,
+		kind:    kind,
+		id:      id,
+		goname:  n,
+		cgoname: "CGoHandle",
+		cpyname: PyHandle,
+		pysig:   "object",
+		go2py:   "handleFmPtr_" + id,
+		py2go:   "*ptrFmHandle_" + id,
+		zval:    "nil",
+	}
 	for i := 0; i < typ.NumFields(); i++ {
 		if isPrivate(typ.Field(i).Name()) {
 			continue
@@ -742,20 +784,6 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 				continue
 			}
 		}
-	}
-	sym.syms[fn] = &symbol{
-		gopkg:   pkg,
-		goobj:   obj,
-		gotyp:   t,
-		kind:    kind,
-		id:      id,
-		goname:  n,
-		cgoname: "CGoHandle",
-		cpyname: PyHandle,
-		pysig:   "object",
-		go2py:   "handleFmPtr_" + id,
-		py2go:   "*ptrFmHandle_" + id,
-		zval:    "nil",
 	}
 	return nil
 }

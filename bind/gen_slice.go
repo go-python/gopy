@@ -214,13 +214,13 @@ otherwise parameter is a python list that we copy from
 		g.pybuild.Printf("mod.add_function('%s_len', retval('int'), [param('%s', 'handle')])\n", slNm, PyHandle)
 
 		g.gofile.Printf("//export %s_elem\n", slNm)
-		g.gofile.Printf("func %s_elem(handle CGoHandle, idx int) %s {\n", slNm, esym.cgoname)
+		g.gofile.Printf("func %s_elem(handle CGoHandle, _idx int) %s {\n", slNm, esym.cgoname)
 		g.gofile.Indent()
 		g.gofile.Printf("s := *ptrFmHandle_%s(handle)\n", slNm)
 		if esym.go2py != "" {
-			g.gofile.Printf("return %s(s[idx])\n", esym.go2py)
+			g.gofile.Printf("return %s(s[_idx])%s\n", esym.go2py, esym.go2pyParenEx)
 		} else {
-			g.gofile.Printf("return s[idx]\n")
+			g.gofile.Printf("return s[_idx]\n")
 		}
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
@@ -228,13 +228,13 @@ otherwise parameter is a python list that we copy from
 		g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'), [param('%s', 'handle'), param('int', 'idx')])\n", slNm, esym.cpyname, PyHandle)
 
 		g.gofile.Printf("//export %s_set\n", slNm)
-		g.gofile.Printf("func %s_set(handle CGoHandle, idx int, value %s) {\n", slNm, esym.cgoname)
+		g.gofile.Printf("func %s_set(handle CGoHandle, _idx int, _vl %s) {\n", slNm, esym.cgoname)
 		g.gofile.Indent()
 		g.gofile.Printf("s := *ptrFmHandle_%s(handle)\n", slNm)
 		if esym.py2go != "" {
-			g.gofile.Printf("s[idx] = %s(value)%s\n", esym.py2go, esym.py2goParenEx)
+			g.gofile.Printf("s[_idx] = %s(_vl)%s\n", esym.py2go, esym.py2goParenEx)
 		} else {
-			g.gofile.Printf("s[idx] = value\n")
+			g.gofile.Printf("s[_idx] = _vl\n")
 		}
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
@@ -243,13 +243,13 @@ otherwise parameter is a python list that we copy from
 
 		if slc.isSlice() {
 			g.gofile.Printf("//export %s_append\n", slNm)
-			g.gofile.Printf("func %s_append(handle CGoHandle, value %s) {\n", slNm, esym.cgoname)
+			g.gofile.Printf("func %s_append(handle CGoHandle, _vl %s) {\n", slNm, esym.cgoname)
 			g.gofile.Indent()
 			g.gofile.Printf("s := ptrFmHandle_%s(handle)\n", slNm)
 			if esym.py2go != "" {
-				g.gofile.Printf("*s = append(*s, %s(value)%s)\n", esym.py2go, esym.py2goParenEx)
+				g.gofile.Printf("*s = append(*s, %s(_vl)%s)\n", esym.py2go, esym.py2goParenEx)
 			} else {
-				g.gofile.Printf("*s = append(*s, value)\n")
+				g.gofile.Printf("*s = append(*s, _vl)\n")
 			}
 			g.gofile.Outdent()
 			g.gofile.Printf("}\n\n")

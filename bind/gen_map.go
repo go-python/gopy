@@ -183,40 +183,40 @@ otherwise parameter is a python list that we copy from
 		g.pybuild.Printf("mod.add_function('%s_len', retval('int'), [param('%s', 'handle')])\n", slNm, PyHandle)
 
 		g.gofile.Printf("//export %s_elem\n", slNm)
-		g.gofile.Printf("func %s_elem(handle CGoHandle, key %s) %s {\n", slNm, ksym.cgoname, esym.cgoname)
+		g.gofile.Printf("func %s_elem(handle CGoHandle, _ky %s) %s {\n", slNm, ksym.cgoname, esym.cgoname)
 		g.gofile.Indent()
 		g.gofile.Printf("s := *ptrFmHandle_%s(handle)\n", slNm)
 		if esym.go2py != "" {
 			if ksym.py2go != "" {
-				g.gofile.Printf("return %s(s[%s(key)%s])\n", esym.go2py, ksym.py2go, ksym.py2goParenEx)
+				g.gofile.Printf("return %s(s[%s(_ky)%s])%s\n", esym.go2py, ksym.py2go, ksym.py2goParenEx, esym.go2pyParenEx)
 			} else {
-				g.gofile.Printf("return %s(s[key])\n", esym.go2py)
+				g.gofile.Printf("return %s(s[_ky])%s\n", esym.go2py, esym.go2pyParenEx)
 			}
 		} else {
 			if ksym.py2go != "" {
-				g.gofile.Printf("return s[%s(key)%s]\n", ksym.py2go, ksym.py2goParenEx)
+				g.gofile.Printf("return s[%s(_ky)%s]\n", ksym.py2go, ksym.py2goParenEx)
 			} else {
-				g.gofile.Printf("return s[key]\n")
+				g.gofile.Printf("return s[_ky]\n")
 			}
 		}
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
 
-		g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'), [param('%s', 'handle'), param('%s', 'key')])\n", slNm, esym.cpyname, PyHandle, ksym.cpyname)
+		g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'), [param('%s', 'handle'), param('%s', '_ky')])\n", slNm, esym.cpyname, PyHandle, ksym.cpyname)
 
 		g.gofile.Printf("//export %s_set\n", slNm)
-		g.gofile.Printf("func %s_set(handle CGoHandle, key %s, value %s) {\n", slNm, ksym.cgoname, esym.cgoname)
+		g.gofile.Printf("func %s_set(handle CGoHandle, _ky %s, _vl %s) {\n", slNm, ksym.cgoname, esym.cgoname)
 		g.gofile.Indent()
 		g.gofile.Printf("s := *ptrFmHandle_%s(handle)\n", slNm)
 		if ksym.py2go != "" {
-			g.gofile.Printf("s[%s(key)%s] = ", ksym.py2go, ksym.py2goParenEx)
+			g.gofile.Printf("s[%s(_ky)%s] = ", ksym.py2go, ksym.py2goParenEx)
 		} else {
-			g.gofile.Printf("s[key] = ")
+			g.gofile.Printf("s[_ky] = ")
 		}
 		if esym.py2go != "" {
-			g.gofile.Printf("%s(value)%s\n", esym.py2go, esym.py2goParenEx)
+			g.gofile.Printf("%s(_vl)%s\n", esym.py2go, esym.py2goParenEx)
 		} else {
-			g.gofile.Printf("value\n")
+			g.gofile.Printf("_vl\n")
 		}
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
