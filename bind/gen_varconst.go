@@ -8,7 +8,22 @@ import (
 	"fmt"
 )
 
-func (g *pyGen) genVarGetter(v Var) {
+func (g *pyGen) genConst(c *Const) {
+	if c.sym.isSignature() || isErrorType(c.sym.gotyp) {
+		return
+	}
+	g.genConstValue(c)
+}
+
+func (g *pyGen) genVar(v *Var) {
+	if v.sym.isSignature() || isErrorType(v.sym.gotyp) {
+		return
+	}
+	g.genVarGetter(v)
+	g.genVarSetter(v)
+}
+
+func (g *pyGen) genVarGetter(v *Var) {
 	gopkg := g.pkg.Name()
 	pkgname := g.outname
 	cgoFn := v.Name() // plain name is the getter
@@ -33,9 +48,9 @@ func (g *pyGen) genVarGetter(v Var) {
 	g.gofile.Printf("return ")
 	if v.sym.go2py != "" {
 		if v.sym.hasHandle() && !v.sym.isPtrOrIface() {
-			g.gofile.Printf("%s(&%s)", v.sym.go2py, qVn)
+			g.gofile.Printf("%s(&%s)%s", v.sym.go2py, qVn, v.sym.go2pyParenEx)
 		} else {
-			g.gofile.Printf("%s(%s)", v.sym.go2py, qVn)
+			g.gofile.Printf("%s(%s)%s", v.sym.go2py, qVn, v.sym.go2pyParenEx)
 		}
 	} else {
 		g.gofile.Printf("%s", qVn)
@@ -47,10 +62,10 @@ func (g *pyGen) genVarGetter(v Var) {
 	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [])\n", qCgoFn, v.sym.cpyname)
 }
 
-func (g *pyGen) genVarSetter(v Var) {
+func (g *pyGen) genVarSetter(v *Var) {
 	gopkg := g.pkg.Name()
 	pkgname := g.outname
-	cgoFn := fmt.Sprintf("Set%s", v.Name())
+	cgoFn := fmt.Sprintf("Set_%s", v.Name())
 	qCgoFn := gopkg + "_" + cgoFn
 	qFn := "_" + pkgname + "." + qCgoFn
 	qVn := gopkg + "." + v.Name()
@@ -72,7 +87,7 @@ func (g *pyGen) genVarSetter(v Var) {
 	g.gofile.Printf("//export %s\n", qCgoFn)
 	g.gofile.Printf("func %s(val %s) {\n", qCgoFn, v.sym.cgoname)
 	g.gofile.Indent()
-	if v.sym.go2py != "" {
+	if v.sym.py2go != "" {
 		g.gofile.Printf("%s = %s(val)%s", qVn, v.sym.py2go, v.sym.py2goParenEx)
 	} else {
 		g.gofile.Printf("%s = val", qVn)
@@ -84,7 +99,7 @@ func (g *pyGen) genVarSetter(v Var) {
 	g.pybuild.Printf("mod.add_function('%s', None, [param('%s', 'val')])\n", qCgoFn, v.sym.cpyname)
 }
 
-func (g *pyGen) genConstValue(c Const) {
+func (g *pyGen) genConstValue(c *Const) {
 	// constants go directly into wrapper as-is
 	g.pywrap.Printf("%s = %s\n", c.GoName(), c.obj.Val().ExactString())
 }

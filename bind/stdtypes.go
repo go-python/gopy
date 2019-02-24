@@ -24,30 +24,10 @@ func makeGoPackage() {
 func addStdSliceMaps() {
 	makeGoPackage()
 	gopk := goPackage.pkg
-	universe.addSliceType(gopk, nil, types.NewSlice(universe.sym("int").gotyp), skType,
-		"Slice_int", "Slice_int")
-	universe.addSliceType(gopk, nil, types.NewSlice(universe.sym("int64").gotyp), skType,
-		"Slice_int64", "Slice_int64")
-	universe.addSliceType(gopk, nil, types.NewSlice(universe.sym("int32").gotyp), skType,
-		"Slice_int32", "Slice_int32")
-	universe.addSliceType(gopk, nil, types.NewSlice(universe.sym("int16").gotyp), skType,
-		"Slice_int16", "Slice_int16")
-	universe.addSliceType(gopk, nil, types.NewSlice(universe.sym("int8").gotyp), skType,
-		"Slice_int8", "Slice_int8")
-	universe.addSliceType(gopk, nil, types.NewSlice(universe.sym("uint").gotyp), skType,
-		"Slice_uint", "Slice_uint")
-	universe.addSliceType(gopk, nil, types.NewSlice(universe.sym("uint64").gotyp), skType,
-		"Slice_uint64", "Slice_uint64")
-	universe.addSliceType(gopk, nil, types.NewSlice(universe.sym("uint32").gotyp), skType,
-		"Slice_uint32", "Slice_uint32")
-	universe.addSliceType(gopk, nil, types.NewSlice(universe.sym("uint16").gotyp), skType,
-		"Slice_uint16", "Slice_uint16")
-	universe.addSliceType(gopk, nil, types.NewSlice(universe.sym("uint8").gotyp), skType,
-		"Slice_uint8", "Slice_uint8")
-	universe.addSliceType(gopk, nil, types.NewSlice(universe.sym("float64").gotyp), skType,
-		"Slice_float64", "Slice_float64")
-	universe.addSliceType(gopk, nil, types.NewSlice(universe.sym("float32").gotyp), skType,
-		"Slice_float32", "Slice_float32")
+	sltyps := []string{"int", "int64", "int32", "int16", "int8", "uint", "uint64", "uint32", "uint16", "uint8", "bool", "byte", "rune", "float64", "float32", "string"}
+	for _, tn := range sltyps {
+		universe.addSliceType(gopk, nil, types.NewSlice(universe.sym(tn).gotyp), skType, "Slice_"+tn, "[]"+tn)
+	}
 }
 
 // stdBasicTypes returns the basic int, float etc types as symbols
@@ -234,6 +214,21 @@ func stdBasicTypes() map[string]*symbol {
 			zval:    "0",
 		},
 
+		"uintptr": {
+			gopkg:   look("uintptr").Pkg(),
+			goobj:   look("uintptr"),
+			gotyp:   look("uintptr").Type(),
+			kind:    skType | skBasic,
+			goname:  "uintptr",
+			id:      "uintptr",
+			cpyname: "uint64_t",
+			cgoname: "C.ulonglong",
+			pysig:   "long",
+			go2py:   "C.ulonglong",
+			py2go:   "uintptr",
+			zval:    "0",
+		},
+
 		"float32": {
 			gopkg:   look("float32").Pkg(),
 			goobj:   look("float32"),
@@ -264,6 +259,7 @@ func stdBasicTypes() map[string]*symbol {
 			zval:    "0",
 		},
 
+		// todo: not currently supported -- need converters etc
 		"complex64": {
 			gopkg:   look("complex64").Pkg(),
 			goobj:   look("complex64"),
