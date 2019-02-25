@@ -57,6 +57,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		if anm == "" {
 			anm = fmt.Sprintf("arg_%d", i)
 		}
+		anm = pySafeName(anm)
 		goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, sarg.cgoname))
 		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", sarg.cpyname, anm))
 		wpArgs = append(wpArgs, anm)
@@ -226,6 +227,7 @@ if err != nil {
 		if anm == "" {
 			anm = fmt.Sprintf("arg_%d", i)
 		}
+		anm = pySafeName(anm)
 		if arg.sym.py2go != "" {
 			na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, anm, arg.sym.py2goParenEx)
 		} else {

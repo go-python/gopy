@@ -27,7 +27,7 @@ var PyHandle = "int64_t"
 // var CGoHandle = "*C.char"
 // var PyHandle = "char*"
 
-// 3 = libcfg, 4 = GoHandle, 5 = CGoHandle, 6 = all imports
+// 3 = libcfg, 4 = GoHandle, 5 = CGoHandle, 6 = all imports, 7 = mainstr
 const (
 	goPreamble = `/*
 cgo stubs for package %[1]s.
@@ -48,7 +48,13 @@ import (
 	%[6]s
 )
 
-func main() {}
+// main doesn't do anything
+func main() { }
+
+// so main code goes in init
+func init() {
+	%[7]s
+}
 
 // type for the handle -- int64 for speed (can switch to string)
 type GoHandle %[4]s
@@ -168,12 +174,13 @@ build:
 // GenPyBind generates a .go file, build.py file to enable pybindgen to create python bindings,
 // and wrapper .py file(s) that are loaded as the interface to the package with shadow
 // python-side classes
-func GenPyBind(odir, outname, cmdstr, vm, libext string, lang int) error {
+func GenPyBind(odir, outname, cmdstr, vm, mainstr, libext string, lang int) error {
 	gen := &pyGen{
 		odir:    odir,
 		outname: outname,
 		cmdstr:  cmdstr,
 		vm:      vm,
+		mainstr: mainstr,
 		libext:  libext,
 		lang:    lang,
 	}
@@ -198,6 +205,7 @@ type pyGen struct {
 	outname string // overall output (package) name
 	cmdstr  string // overall command (embedded in generated files)
 	vm      string // python interpreter
+	mainstr string // main function code string
 	libext  string
 	lang    int // c-python api version (2,3)
 }
@@ -286,7 +294,7 @@ func (g *pyGen) genGoPreamble() {
 	pypath, pyonly := filepath.Split(g.vm)
 	pyroot, _ := filepath.Split(filepath.Clean(pypath))
 	libcfg := filepath.Join(filepath.Join(filepath.Join(pyroot, "lib"), "pkgconfig"), pyonly+".pc")
-	g.gofile.Printf(goPreamble, g.outname, g.cmdstr, libcfg, GoHandle, CGoHandle, pkgimport)
+	g.gofile.Printf(goPreamble, g.outname, g.cmdstr, libcfg, GoHandle, CGoHandle, pkgimport, g.mainstr)
 	g.gofile.Printf("\n// --- generated code for package: %[1]s below: ---\n\n", g.outname)
 }
 

@@ -75,6 +75,110 @@ func (k symkind) String() string {
 	return strings.Join(str, "|")
 }
 
+var pyKeywords = map[string]struct{}{
+	"False": struct{}{}, "None": struct{}{}, "True": struct{}{}, "and": struct{}{}, "as": struct{}{}, "assert": struct{}{}, "break": struct{}{}, "class": struct{}{}, "continue": struct{}{}, "def": struct{}{}, "del": struct{}{}, "elif": struct{}{}, "else": struct{}{}, "except": struct{}{}, "finally": struct{}{}, "for": struct{}{}, "from": struct{}{}, "global": struct{}{}, "if": struct{}{}, "import": struct{}{}, "in": struct{}{}, "is": struct{}{}, "lambda": struct{}{}, "nonlocal": struct{}{}, "not": struct{}{}, "or": struct{}{}, "pass": struct{}{}, "raise": struct{}{}, "return": struct{}{}, "try": struct{}{}, "while": struct{}{}, "with": struct{}{}, "yield": struct{}{},
+}
+
+// pySafeName returns a name that python will not barf on
+func pySafeName(nm string) string {
+	if _, bad := pyKeywords[nm]; bad {
+		return "my" + nm
+	}
+	return nm
+}
+
+// isPyCompatVar checks if var symbol is compatible with python
+func isPyCompatVar(v *symbol) error {
+	if v == nil {
+		return fmt.Errorf("gopy: var symbol not found")
+	}
+	if v.isSignature() {
+		return fmt.Errorf("gopy: var is function signature")
+	}
+	if v.isPointer() && v.isBasic() {
+		return fmt.Errorf("gopy: var is pointer to basic type")
+	}
+	if isErrorType(v.gotyp) {
+		return fmt.Errorf("gopy: var is error type")
+	}
+	if v.gotyp.String() == "interface{}" {
+		return fmt.Errorf("gopy: var is interface{}")
+	}
+	return nil
+}
+
+// isPyCompatField checks if field is compatible with python
+func isPyCompatField(f *types.Var) (error, *symbol) {
+	if !f.Exported() || f.Embedded() {
+		return fmt.Errorf("gopy: field not exported or is embedded"), nil
+	}
+	ftyp := current.symtype(f.Type())
+	return isPyCompatVar(ftyp), ftyp
+}
+
+// isPyCompatFunc checks if function signature is a python-compatible function.
+// Returns nil if function is compatible, err message if not.
+// Also returns the return type of the function
+// extra bool is true if 2nd arg is an error type, which is only
+// supported form of multi-return-value functions
+func isPyCompatFunc(sig *types.Signature) (error, types.Type, bool) {
+	haserr := false
+	res := sig.Results()
+	var ret types.Type
+
+	if sig.Variadic() {
+		return fmt.Errorf("gopy: not yet supporting variadic functions: %s", sig.String()), ret, haserr
+	}
+
+	switch res.Len() {
+	case 2:
+		if !isErrorType(res.At(1).Type()) {
+			return fmt.Errorf("gopy: second result value must be of type error: %s", sig.String()), ret, haserr
+		}
+		haserr = true
+		ret = res.At(0).Type()
+	case 1:
+		if isErrorType(res.At(0).Type()) {
+			haserr = true
+			ret = nil
+		} else {
+			ret = res.At(0).Type()
+		}
+	case 0:
+		ret = nil
+	default:
+		return fmt.Errorf("gopy: too many results to return: %s", sig.String()), ret, haserr
+	}
+
+	if ret != nil {
+		if _, isChan := ret.(*types.Chan); isChan {
+			return fmt.Errorf("gopy: channel types not supported: %s", sig.String()), ret, haserr
+		}
+		if ret.String() == "interface{}" {
+			return fmt.Errorf("gopy: interface{} return type not supported: %s", sig.String()), ret, haserr
+		}
+	}
+
+	args := sig.Params()
+	nargs := args.Len()
+	for i := 0; i < nargs; i++ {
+		arg := args.At(i)
+		argt := arg.Type()
+		if _, isSig := argt.(*types.Signature); isSig {
+			return fmt.Errorf("gopy: func args (signature) not supported: %s", sig.String()), ret, haserr
+		}
+		if _, isChan := argt.(*types.Chan); isChan {
+			return fmt.Errorf("gopy: channel types not supported: %s", sig.String()), ret, haserr
+		}
+		if ptyp, isPtr := argt.(*types.Pointer); isPtr {
+			if _, isBasic := ptyp.Elem().(*types.Basic); isBasic {
+				return fmt.Errorf("gopy: args as pointers to basic types not supported: %s", sig.String()), ret, haserr
+			}
+		}
+	}
+	return nil, ret, haserr
+}
+
 // symbol is an exported symbol in a go package
 type symbol struct {
 	kind         symkind
@@ -218,6 +322,14 @@ func (s *symbol) pyPkgId(curPkg *types.Package) string {
 	pnm := s.gopkg.Name()
 	if pnm == "go" {
 		return pnm + "." + s.id
+	}
+	if s.isMap() || s.isSlice() || s.isArray() {
+		//		idnm := strings.TrimPrefix(s.id[uidx+1:], pnm+"_") // in case it has that redundantly
+		if s.gopkg.Path() != curPkg.Path() {
+			return pnm + "." + s.id
+		} else {
+			return s.id
+		}
 	}
 	uidx := strings.Index(s.id, "_")
 	if uidx < 0 {
@@ -422,64 +534,6 @@ func (sym *symtab) processTuple(tuple *types.Tuple) error {
 		}
 	}
 	return nil
-}
-
-// isPyCompatFunc checks if function signature is a python-compatible function.
-// Returns nil if function is compatible, err message if not.
-// Also returns the return type of the function
-// extra bool is true if 2nd arg is an error type, which is only
-// supported form of multi-return-value functions
-func isPyCompatFunc(sig *types.Signature) (error, types.Type, bool) {
-	haserr := false
-	res := sig.Results()
-	var ret types.Type
-
-	if sig.Variadic() {
-		return fmt.Errorf("gopy: not yet supporting variadic functions: %s", sig.String()), ret, haserr
-	}
-
-	switch res.Len() {
-	case 2:
-		if !isErrorType(res.At(1).Type()) {
-			return fmt.Errorf("gopy: second result value must be of type error: %s", sig.String()), ret, haserr
-		}
-		haserr = true
-		ret = res.At(0).Type()
-	case 1:
-		if isErrorType(res.At(0).Type()) {
-			haserr = true
-			ret = nil
-		} else {
-			ret = res.At(0).Type()
-		}
-	case 0:
-		ret = nil
-	default:
-		return fmt.Errorf("gopy: too many results to return: %s", sig.String()), ret, haserr
-	}
-
-	if _, isChan := ret.(*types.Chan); isChan {
-		return fmt.Errorf("gopy: channel types not supported: %s", sig.String()), ret, haserr
-	}
-
-	args := sig.Params()
-	nargs := args.Len()
-	for i := 0; i < nargs; i++ {
-		arg := args.At(i)
-		argt := arg.Type()
-		if _, isSig := argt.(*types.Signature); isSig {
-			return fmt.Errorf("gopy: func args (signature) not supported: %s", sig.String()), ret, haserr
-		}
-		if _, isChan := argt.(*types.Chan); isChan {
-			return fmt.Errorf("gopy: channel types not supported: %s", sig.String()), ret, haserr
-		}
-		if ptyp, isPtr := argt.(*types.Pointer); isPtr {
-			if _, isBasic := ptyp.Elem().(*types.Basic); isBasic {
-				return fmt.Errorf("gopy: args as pointers to basic types not supported: %s", sig.String()), ret, haserr
-			}
-		}
-	}
-	return nil, ret, haserr
 }
 
 // typeNamePkg gets the goname and package for a given types.Type -- deals with
