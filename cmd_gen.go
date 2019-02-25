@@ -30,6 +30,7 @@ ex:
 	cmd.Flag.String("vm", "python", "path to python interpreter")
 	cmd.Flag.String("output", "", "output directory for bindings")
 	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
+	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library")
 	return cmd
 }
 
@@ -45,9 +46,10 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 	cmdstr := argStr()
 
 	var (
-		odir = cmdr.Flag.Lookup("output").Value.Get().(string)
-		vm   = cmdr.Flag.Lookup("vm").Value.Get().(string)
-		name = cmdr.Flag.Lookup("name").Value.Get().(string)
+		odir    = cmdr.Flag.Lookup("output").Value.Get().(string)
+		vm      = cmdr.Flag.Lookup("vm").Value.Get().(string)
+		name    = cmdr.Flag.Lookup("name").Value.Get().(string)
+		mainstr = cmdr.Flag.Lookup("main").Value.Get().(string)
 	)
 
 	if vm == "" {
@@ -64,7 +66,7 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 		}
 	}
 
-	err = genPkg(odir, name, cmdstr, vm)
+	err = genPkg(odir, name, cmdstr, vm, mainstr)
 	if err != nil {
 		return err
 	}

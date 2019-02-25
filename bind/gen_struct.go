@@ -63,11 +63,7 @@ in which case a new Go object is constructed first
 
 	for i := 0; i < numFields; i++ {
 		f := s.Struct().Field(i)
-		if !f.Exported() || f.Embedded() {
-			continue
-		}
-		ftyp := current.symtype(f.Type())
-		if ftyp == nil || ftyp.isSignature() || (ftyp.isPointer() && ftyp.isBasic()) {
+		if err, _ := isPyCompatField(f); err != nil {
 			continue
 		}
 		g.pywrap.Printf("if  %[1]d < len(args):\n", i)
@@ -110,15 +106,14 @@ func (g *pyGen) genStructMembers(s *Struct) {
 	typ := s.Struct()
 	for i := 0; i < typ.NumFields(); i++ {
 		f := typ.Field(i)
-		if !f.Exported() || f.Embedded() {
-			continue
-		}
-		ftyp := current.symtype(f.Type())
-		if ftyp == nil || ftyp.isSignature() || (ftyp.isPointer() && ftyp.isBasic()) {
+		err, ftyp := isPyCompatField(f)
+		if err != nil {
 			continue
 		}
 		g.genStructMemberGetter(s, i, f)
-		g.genStructMemberSetter(s, i, f)
+		if !ftyp.isArray() {
+			g.genStructMemberSetter(s, i, f)
+		}
 	}
 }
 
