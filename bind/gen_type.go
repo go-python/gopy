@@ -62,7 +62,11 @@ func (g *pyGen) genTypeHandlePtr(sym *symbol) {
 	g.gofile.Printf("return nil\n")
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
-	g.gofile.Printf("return p.(%[1]s)\n", gonm)
+	// if sym.isStruct() {
+	// 	g.gofile.Printf("return gopyh.Embed(p, reflect.TypeOf(%s{})).(%s)\n", nonPtrName(gonm), gonm)
+	// } else {
+	g.gofile.Printf("return p.(%s)\n", gonm)
+	// }
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
 	g.gofile.Printf("func %s(p interface{})%s CGoHandle {\n", sym.go2py, sym.go2pyParenEx)
@@ -82,7 +86,7 @@ func nonPtrName(nm string) string {
 func (g *pyGen) genTypeHandle(sym *symbol) {
 	gonm := sym.gofmt()
 	ptrnm := gonm
-	if ptrnm[:1] != "*" {
+	if ptrnm[0] != '*' {
 		ptrnm = "*" + ptrnm
 	}
 	py2go := nonPtrName(sym.py2go)
@@ -95,7 +99,11 @@ func (g *pyGen) genTypeHandle(sym *symbol) {
 	g.gofile.Printf("return nil\n")
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
-	g.gofile.Printf("return p.(%[1]s)\n", ptrnm)
+	// if sym.isStruct() {
+	// 	g.gofile.Printf("return gopyh.Embed(p, reflect.TypeOf(%s{})).(%s)\n", nonPtrName(gonm), ptrnm)
+	// } else {
+	g.gofile.Printf("return p.(%s)\n", ptrnm)
+	// }
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
 	g.gofile.Printf("func %s(p interface{})%s CGoHandle {\n", sym.go2py, sym.go2pyParenEx)
