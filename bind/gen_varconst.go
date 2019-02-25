@@ -9,18 +9,20 @@ import (
 )
 
 func (g *pyGen) genConst(c *Const) {
-	if c.sym.isSignature() || isErrorType(c.sym.gotyp) {
+	if isPyCompatVar(c.sym) != nil {
 		return
 	}
 	g.genConstValue(c)
 }
 
 func (g *pyGen) genVar(v *Var) {
-	if v.sym.isSignature() || isErrorType(v.sym.gotyp) {
+	if isPyCompatVar(v.sym) != nil {
 		return
 	}
 	g.genVarGetter(v)
-	g.genVarSetter(v)
+	if !v.sym.isArray() {
+		g.genVarSetter(v)
+	}
 }
 
 func (g *pyGen) genVarGetter(v *Var) {

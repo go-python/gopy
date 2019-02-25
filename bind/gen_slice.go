@@ -15,14 +15,14 @@ func (g *pyGen) genSlice(slc *symbol, extTypes, pyWrapOnly bool) {
 	if slc.isPointer() {
 		return // todo: not sure what to do..
 	}
-	_, ok := slc.GoType().Underlying().(*types.Slice)
-	if !ok {
+	_, isslc := slc.GoType().Underlying().(*types.Slice)
+	_, isary := slc.GoType().Underlying().(*types.Array)
+	if !isslc && !isary {
 		return
 	}
 
 	pkgname := slc.gopkg.Name()
 
-	// todo: maybe check for named type here or something?
 	pysnm := slc.id
 	if !strings.Contains(pysnm, "Slice_") {
 		pysnm = strings.TrimPrefix(pysnm, pkgname+"_")
@@ -61,8 +61,12 @@ func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool) {
 	pkgname := g.outname
 	slNm := slc.id
 	qNm := pkgname + "." + slNm
-	typ := slc.GoType().Underlying().(*types.Slice)
-	esym := current.symtype(typ.Elem())
+	var esym *symbol
+	if typ, ok := slc.GoType().Underlying().(*types.Slice); ok {
+		esym = current.symtype(typ.Elem())
+	} else if typ, ok := slc.GoType().Underlying().(*types.Array); ok {
+		esym = current.symtype(typ.Elem())
+	}
 
 	gocl := "go."
 	if slc.gopkg.Name() == "go" {

@@ -33,6 +33,7 @@ ex:
 	cmd.Flag.String("vm", "python", "path to python interpreter")
 	cmd.Flag.String("output", "", "output directory for bindings")
 	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
+	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	return cmd
 }
@@ -47,6 +48,7 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 	var (
 		odir    = cmdr.Flag.Lookup("output").Value.Get().(string)
 		name    = cmdr.Flag.Lookup("name").Value.Get().(string)
+		mainstr = cmdr.Flag.Lookup("main").Value.Get().(string)
 		vm      = cmdr.Flag.Lookup("vm").Value.Get().(string)
 		symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 	)
@@ -62,19 +64,21 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 			return fmt.Errorf("gopy-build: go/build.Import failed with path=%q: %v", path, err)
 		}
 	}
-	return runBuild(odir, name, cmdstr, vm, symbols)
+	return runBuild(odir, name, cmdstr, vm, mainstr, symbols)
 }
 
-func runBuild(odir, outname, cmdstr, vm string, symbols bool) error {
+func runBuild(odir, outname, cmdstr, vm, mainstr string, symbols bool) error {
 	var err error
 	odir, err = genOutDir(odir)
 	if err != nil {
 		return err
 	}
-	err = genPkg(odir, outname, cmdstr, vm)
+	err = genPkg(odir, outname, cmdstr, vm, mainstr)
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("\n--- building package ---\n")
 
 	buildname := outname + "_go"
 	var cmdout []byte
@@ -82,7 +86,7 @@ func runBuild(odir, outname, cmdstr, vm string, symbols bool) error {
 
 	err = os.Remove(outname + ".c")
 
-	fmt.Printf("executing command: goimports -w %v\n", outname+".go")
+	fmt.Printf("goimports -w %v\n", outname+".go")
 	cmd := exec.Command("goimports", "-w", outname+".go")
 	cmdout, err = cmd.CombinedOutput()
 	if err != nil {
@@ -99,7 +103,7 @@ func runBuild(odir, outname, cmdstr, vm string, symbols bool) error {
 		args = append(args, "-ldflags=-s -w")
 	}
 	args = append(args, "-o", buildname+libExt, ".")
-	fmt.Printf("executing command: go %v\n", strings.Join(args, " "))
+	fmt.Printf("go %v\n", strings.Join(args, " "))
 	cmd = exec.Command("go", args...)
 	cmdout, err = cmd.CombinedOutput()
 	if err != nil {
@@ -107,7 +111,7 @@ func runBuild(odir, outname, cmdstr, vm string, symbols bool) error {
 		return err
 	}
 
-	fmt.Printf("executing command: %v build.py\n", vm)
+	fmt.Printf("%v build.py\n", vm)
 	cmd = exec.Command(vm, "build.py")
 	cmdout, err = cmd.CombinedOutput()
 	if err != nil {
@@ -115,7 +119,7 @@ func runBuild(odir, outname, cmdstr, vm string, symbols bool) error {
 		return err
 	}
 
-	fmt.Printf("executing command: %v-config --cflags\n", vm)
+	fmt.Printf("%v-config --cflags\n", vm)
 	cmd = exec.Command(vm+"-config", "--cflags") // todo: need minor version!
 	cflags, err := cmd.CombinedOutput()
 	if err != nil {
@@ -123,7 +127,7 @@ func runBuild(odir, outname, cmdstr, vm string, symbols bool) error {
 		return err
 	}
 
-	fmt.Printf("executing command: %v-config --ldflags\n", vm)
+	fmt.Printf("%v-config --ldflags\n", vm)
 	cmd = exec.Command(vm+"-config", "--ldflags")
 	ldflags, err := cmd.CombinedOutput()
 	if err != nil {
@@ -136,7 +140,7 @@ func runBuild(odir, outname, cmdstr, vm string, symbols bool) error {
 	gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(cflags)), " ")...)
 	gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(ldflags)), " ")...)
 
-	fmt.Printf("executing command: gcc %v\n", strings.Join(gccargs, " "))
+	fmt.Printf("gcc %v\n", strings.Join(gccargs, " "))
 	cmd = exec.Command("gcc", gccargs...)
 	cmdout, err = cmd.CombinedOutput()
 	if err != nil {

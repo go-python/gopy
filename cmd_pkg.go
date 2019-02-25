@@ -39,6 +39,7 @@ ex:
 	cmd.Flag.String("vm", "python", "path to python interpreter")
 	cmd.Flag.String("output", "", "output directory for root of package")
 	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
+	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	cmd.Flag.String("exclude", "", "comma-separated list of package names to exclude")
 	cmd.Flag.String("user", "", "username on https://www.pypa.io/en/latest/ for package name suffix")
@@ -61,6 +62,7 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 	var (
 		odir    = cmdr.Flag.Lookup("output").Value.Get().(string)
 		name    = cmdr.Flag.Lookup("name").Value.Get().(string)
+		mainstr = cmdr.Flag.Lookup("main").Value.Get().(string)
 		vm      = cmdr.Flag.Lookup("vm").Value.Get().(string)
 		symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 		exclude = cmdr.Flag.Lookup("exclude").Value.Get().(string)
@@ -115,7 +117,7 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 		}
 		buildPkgRecurse(odir, path, rootdir, rootdir, exmap)
 	}
-	return runBuild(odir, name, cmdstr, vm, symbols)
+	return runBuild(odir, name, cmdstr, vm, mainstr, symbols)
 }
 
 func buildPkgRecurse(odir, path, rootdir, pathdir string, exmap map[string]struct{}) {
