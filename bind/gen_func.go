@@ -265,7 +265,11 @@ if err != nil {
 	}
 
 	if isMethod {
-		g.gofile.Printf("vifc.(%s).%s(%s)", symNm, fsym.GoName(), strings.Join(callArgs, ", "))
+		if sym.isStruct() {
+			g.gofile.Printf("gopyh.Embed(vifc, reflect.TypeOf(%s{})).(%s).%s(%s)", nonPtrName(symNm), symNm, fsym.GoName(), strings.Join(callArgs, ", "))
+		} else {
+			g.gofile.Printf("vifc.(%s).%s(%s)", symNm, fsym.GoName(), strings.Join(callArgs, ", "))
+		}
 	} else {
 		g.gofile.Printf("%s(%s)", fsym.GoFmt(), strings.Join(callArgs, ", "))
 	}

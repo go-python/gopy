@@ -35,6 +35,7 @@ var (
 	mu      sync.RWMutex
 )
 
+// IfaceIsNil returns true if interface or value represented by interface is nil
 func IfaceIsNil(it interface{}) bool {
 	if it == nil {
 		return true
@@ -45,6 +46,51 @@ func IfaceIsNil(it interface{}) bool {
 		return v.IsNil()
 	}
 	return false
+}
+
+// NonPtrValue returns the non-pointer underlying value
+func NonPtrValue(v reflect.Value) reflect.Value {
+	for v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	return v
+}
+
+// PtrValue returns the pointer version (Addr()) of the underlying value if
+// the value is not already a Ptr
+func PtrValue(v reflect.Value) reflect.Value {
+	if v.CanAddr() && v.Kind() != reflect.Ptr {
+		v = v.Addr()
+	}
+	return v
+}
+
+// Embed returns the embedded struct (in first field only) of given type within given struct
+func Embed(stru interface{}, embed reflect.Type) interface{} {
+	if IfaceIsNil(stru) {
+		return nil
+	}
+	v := NonPtrValue(reflect.ValueOf(stru))
+	typ := v.Type()
+	if typ == embed {
+		return PtrValue(v).Interface()
+	}
+	if typ.NumField() == 0 {
+		return nil
+	}
+	f := typ.Field(0)
+	if f.Type.Kind() == reflect.Struct && f.Anonymous { // anon only avail on StructField fm typ
+		vf := v.Field(0)
+		vfpi := PtrValue(vf).Interface()
+		if f.Type == embed {
+			return vfpi
+		}
+		rv := Embed(vfpi, embed)
+		if rv != nil {
+			return rv
+		}
+	}
+	return nil
 }
 
 // Register registers a new variable instance

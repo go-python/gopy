@@ -374,6 +374,7 @@ func (p *Package) addVar(obj *types.Var) {
 
 func (p *Package) addStruct(s *Struct) {
 	p.structs = append(p.structs, s)
+	s.idx = len(p.structs) - 1
 	p.objs[s.GoName()] = s
 }
 
@@ -391,4 +392,30 @@ func (p *Package) addFunc(f *Func) {
 func (p *Package) Lookup(o types.Object) (Object, bool) {
 	obj, ok := p.objs[o.Name()]
 	return obj, ok
+}
+
+func (p *Package) sortStructEmbeds() {
+	for {
+		nswap := 0
+		for _, s := range p.structs {
+			emb := s.FirstEmbed()
+			if emb == nil {
+				continue
+			}
+			emss, ok := p.objs[emb.goname]
+			if !ok {
+				continue
+			}
+			ems := emss.(*Struct)
+			if ems.idx > s.idx {
+				nswap++
+				p.structs[s.idx], p.structs[ems.idx] = p.structs[ems.idx], p.structs[s.idx]
+				s.idx, ems.idx = ems.idx, s.idx
+			}
+		}
+		if nswap == 0 {
+			break
+		}
+		// fmt.Printf("%s nswap: %v\n", p.pkg.Path(), nswap)
+	}
 }

@@ -13,16 +13,9 @@ func (g *pyGen) genStruct(s *Struct) {
 	strNm := s.obj.Name()
 
 	base := "go.GoClass"
-
-	numFields := s.Struct().NumFields()
-	if numFields > 0 {
-		f := s.Struct().Field(0)
-		if f.Embedded() {
-			ftyp := current.symtype(f.Type())
-			if ftyp != nil {
-				base = ftyp.pyPkgId(s.sym.gopkg)
-			}
-		}
+	emb := s.FirstEmbed()
+	if emb != nil {
+		base = emb.pyPkgId(s.sym.gopkg)
 	}
 
 	g.pywrap.Printf(`
