@@ -74,6 +74,7 @@ type Struct struct {
 	doc   string
 	ctors []*Func
 	meths []*Func
+	idx   int // index position in list of structs
 
 	prots Protocol
 }
@@ -118,6 +119,24 @@ func (s *Struct) GoName() string {
 
 func (s *Struct) Struct() *types.Struct {
 	return s.sym.GoType().Underlying().(*types.Struct)
+}
+
+// FirstEmbed returns the first embedded type in the class
+func (s *Struct) FirstEmbed() *symbol {
+	st := s.Struct()
+	numFields := st.NumFields()
+	if numFields == 0 {
+		return nil
+	}
+	f := s.Struct().Field(0)
+	if !f.Embedded() {
+		return nil
+	}
+	ftyp := current.symtype(f.Type())
+	if ftyp == nil {
+		return nil
+	}
+	return ftyp
 }
 
 ///////////////////////////////////////////////////////////////////////////////////

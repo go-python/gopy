@@ -409,6 +409,7 @@ func (g *pyGen) genAll() {
 
 	g.gofile.Printf("\n\n// ---- Structs ---\n")
 	g.pywrap.Printf("\n\n# ---- Structs ---\n")
+	g.pkg.sortStructEmbeds()
 	for _, s := range g.pkg.structs {
 		g.genStruct(s)
 	}
