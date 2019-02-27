@@ -87,7 +87,7 @@ func pySafeName(nm string) string {
 	return nm
 }
 
-// isPyCompatVar checks if var symbol is compatible with python
+// isPyCompatVar checks if var is compatible with python
 func isPyCompatVar(v *symbol) error {
 	if v == nil {
 		return fmt.Errorf("gopy: var symbol not found")
@@ -103,6 +103,31 @@ func isPyCompatVar(v *symbol) error {
 	}
 	if v.gotyp.String() == "interface{}" {
 		return fmt.Errorf("gopy: var is interface{}")
+	}
+	if _, isChan := v.gotyp.(*types.Chan); isChan {
+		return fmt.Errorf("gopy: var is channel type")
+	}
+	return nil
+}
+
+// isPyCompatType checks if type is compatible with python
+func isPyCompatType(typ types.Type) error {
+	if _, isSig := typ.(*types.Signature); isSig {
+		return fmt.Errorf("gopy: type is function signature")
+	}
+	if ptyp, isPtr := typ.(*types.Pointer); isPtr {
+		if _, isBasic := ptyp.Elem().(*types.Basic); isBasic {
+			return fmt.Errorf("gopy: type is pointer to basic type")
+		}
+	}
+	if isErrorType(typ) {
+		return fmt.Errorf("gopy: type is error type")
+	}
+	if _, isChan := typ.(*types.Chan); isChan {
+		return fmt.Errorf("gopy: type is channel type")
+	}
+	if typ.String() == "interface{}" {
+		return fmt.Errorf("gopy: type is interface{}")
 	}
 	return nil
 }
@@ -151,11 +176,8 @@ func isPyCompatFunc(sig *types.Signature) (error, types.Type, bool) {
 	}
 
 	if ret != nil {
-		if _, isChan := ret.(*types.Chan); isChan {
-			return fmt.Errorf("gopy: channel types not supported: %s", sig.String()), ret, haserr
-		}
-		if ret.String() == "interface{}" {
-			return fmt.Errorf("gopy: interface{} return type not supported: %s", sig.String()), ret, haserr
+		if err := isPyCompatType(ret); err != nil {
+			return err, ret, haserr
 		}
 	}
 
@@ -164,16 +186,8 @@ func isPyCompatFunc(sig *types.Signature) (error, types.Type, bool) {
 	for i := 0; i < nargs; i++ {
 		arg := args.At(i)
 		argt := arg.Type()
-		if _, isSig := argt.(*types.Signature); isSig {
-			return fmt.Errorf("gopy: func args (signature) not supported: %s", sig.String()), ret, haserr
-		}
-		if _, isChan := argt.(*types.Chan); isChan {
-			return fmt.Errorf("gopy: channel types not supported: %s", sig.String()), ret, haserr
-		}
-		if ptyp, isPtr := argt.(*types.Pointer); isPtr {
-			if _, isBasic := ptyp.Elem().(*types.Basic); isBasic {
-				return fmt.Errorf("gopy: args as pointers to basic types not supported: %s", sig.String()), ret, haserr
-			}
+		if err := isPyCompatType(argt); err != nil {
+			return err, ret, haserr
 		}
 	}
 	return nil, ret, haserr
@@ -322,6 +336,9 @@ func (s *symbol) pyPkgId(curPkg *types.Package) string {
 	pnm := s.gopkg.Name()
 	if pnm == "go" {
 		return pnm + "." + s.id
+	}
+	if _, has := thePyGen.pkgmap[s.gopkg.Path()]; !has {
+		return s.id
 	}
 	if s.isMap() || s.isSlice() || s.isArray() {
 		//		idnm := strings.TrimPrefix(s.id[uidx+1:], pnm+"_") // in case it has that redundantly
