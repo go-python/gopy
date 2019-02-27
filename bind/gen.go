@@ -214,6 +214,8 @@ build:
 // endif
 //
 
+var thePyGen *pyGen
+
 // GenPyBind generates a .go file, build.py file to enable pybindgen to create python bindings,
 // and wrapper .py file(s) that are loaded as the interface to the package with shadow
 // python-side classes
@@ -227,7 +229,9 @@ func GenPyBind(odir, outname, cmdstr, vm, mainstr, libext string, lang int) erro
 		libext:  libext,
 		lang:    lang,
 	}
+	thePyGen = gen
 	err := gen.gen()
+	thePyGen = nil
 	if err != nil {
 		return err
 	}
