@@ -39,8 +39,9 @@ package main
 
 /*
 #cgo pkg-config: %[3]s
-#define Py_LIMITED_API
+// #define Py_LIMITED_API // need full API for PyRun*
 #include <Python.h>
+// btw, static inline is trick for avoiding need for extra .c file
 */
 import "C"
 import (
@@ -51,9 +52,39 @@ import (
 // main doesn't do anything
 func main() { }
 
-// so main code goes in init
-func init() {
+// initialization functions -- can be called from python after library is loaded
+// GoPyInitRunFile runs a separate python file -- call in GoPyInit if it
+// steals the main thread e.g., for GUI event loop, as in GoGi startup.
+
+//export GoPyInit
+func GoPyInit() {
 	%[7]s
+}
+
+var initRunFile string
+
+//export GoPyInitRunFile
+func GoPyInitRunFile() {
+	if initRunFile == "" {
+		return
+	}
+	fn := C.CString(initRunFile)
+	// need to encode char* into wchar_t* -- yuk!
+	var wargs [3]*C.wchar_t
+	wargs[0] = C.Py_DecodeLocale(C.CString(os.Args[0]), nil)
+	// todo: could use -i or -m depending..
+	wargs[1] = C.Py_DecodeLocale(C.CString("-i"), nil)
+	wargs[2] = C.Py_DecodeLocale(fn, nil)
+
+	C.Py_Main(3, &wargs[0])
+
+	// fp := C.fopen(fn, C.CString("r"))
+	// C.PyRun_SimpleFileExFlags(fp, fn, 1, nil)
+}
+
+//export GoPyInitRunFileSet
+func GoPyInitRunFileSet(fname *C.char) {
+	initRunFile = C.GoString(fname)
 }
 
 // type for the handle -- int64 for speed (can switch to string)
@@ -87,6 +118,9 @@ import sys
 
 mod = Module('_%[1]s')
 mod.add_include('"%[1]s_go.h"')
+mod.add_function('GoPyInitRunFileSet', None, [param('char*', 'fname')])
+mod.add_function('GoPyInitRunFile', None, [])
+mod.add_function('GoPyInit', None, [])
 `
 
 	// 3 = specific package name, 4 = spec pkg path, 5 = doc, 6 = imports
@@ -122,6 +156,15 @@ class nil(GoClass):
 	"""nil is the nil pointer in Go"""
 	def __init__(self):
 		self.handle = 0
+		
+def InitRunFileSet(fname):
+	"""set a filename to be run when GoPyInitRunFile() is called (e.g., from Init() function) -- this is needed if the Init function steals the main thread, e.g., for starting a GUI event loop -- execution proceeds in the called function."""
+	_%[1]s.GoPyInitRunFileSet(fname)
+	
+def Init():
+	"""calls the GoPyInit function, which runs the 'main' code string that was passed using -main arg to gopy"""
+	_%[1]s.GoPyInit()
+	
 `
 
 	// 3 = gencmd, 4 = vm, 5 = libext
@@ -153,13 +196,13 @@ build:
 	# goimports is needed to ensure that the imports list is valid
 	$(GOIMPORTS) -w %[1]s.go
 	# generate %[1]s_go$(LIBEXT) from %[1]s.go -- the cgo wrappers to go functions
-	$(GOBUILD) -buildmode=c-shared -ldflags="-s -w" -o %[1]s_go$(LIBEXT) %[1]s.go
+	$(GOBUILD) -buildmode=c-shared -ldflags="-w" -o %[1]s_go$(LIBEXT) %[1]s.go
 	# use pybindgen to build the %[1]s.c file which are the CPython wrappers to cgo wrappers..
 	# note: pip install pybindgen to get pybindgen if this fails
 	$(PYTHON) build.py
 	# build the _%[1]s$(LIBEXT) library that contains the cgo and CPython wrappers
 	# generated %[1]s.py python wrapper imports this c-code package
-	$(GCC) %[1]s.c -dynamiclib %[1]s_go$(LIBEXT) -o _%[1]s$(LIBEXT) $(CFLAGS) $(LDFLAGS)
+	$(GCC) %[1]s.c -dynamiclib %[1]s_go$(LIBEXT) -o _%[1]s$(LIBEXT) $(CFLAGS) $(LDFLAGS) -w
 	
 `
 )
@@ -316,7 +359,7 @@ func (g *pyGen) genPyWrapPreamble() {
 	// import other packages for other types that we might use
 	impstr := ""
 	if g.pkg.Name() == "go" {
-		impstr += GoPkgDefs
+		impstr += fmt.Sprintf(GoPkgDefs, g.outname)
 	} else {
 		impstr += fmt.Sprintf("from %s import go\n", g.outname)
 	}
@@ -331,9 +374,9 @@ func (g *pyGen) genPyWrapPreamble() {
 	g.pywrap.Printf(PyWrapPreamble, g.outname, g.cmdstr, n, pkgimport, pkgDoc, impstr)
 }
 
-// StripOutputFromCmd removes -output from command -- needed for putting in
-// Makefiles
-func StripOutputFromCmd(cmdstr string) string {
+// CmdStrToMakefile does what is needed to make the command string suitable for makefiles
+// * removes -output
+func CmdStrToMakefile(cmdstr string) string {
 	if oidx := strings.Index(cmdstr, "-output="); oidx > 0 {
 		spidx := strings.Index(cmdstr[oidx:], " ")
 		cmdstr = cmdstr[:oidx] + cmdstr[oidx+spidx+1:]
@@ -343,7 +386,7 @@ func StripOutputFromCmd(cmdstr string) string {
 
 func (g *pyGen) genMakefile() {
 	gencmd := strings.Replace(g.cmdstr, "gopy build", "gopy gen", 1)
-	gencmd = StripOutputFromCmd(gencmd)
+	gencmd = CmdStrToMakefile(gencmd)
 	g.makefile.Printf(MakefileTemplate, g.outname, g.cmdstr, gencmd, g.vm, g.libext)
 }
 

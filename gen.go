@@ -28,6 +28,11 @@ func argStr() string {
 	copy(ma, os.Args)
 	_, cmd := filepath.Split(ma[0])
 	ma[0] = cmd
+	for i := range ma {
+		if strings.HasPrefix(ma[i], "-main=") {
+			ma[i] = "-main=\"" + ma[i][6:] + "\""
+		}
+	}
 	return strings.Join(ma, " ")
 }
 
