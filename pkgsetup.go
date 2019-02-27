@@ -144,7 +144,7 @@ func GenPyPkgSetup(odir, pkgname, cmdstr, user, version, author, email, desc, ur
 	rf.Close()
 
 	_, pyonly := filepath.Split(vm)
-	gencmd := bind.StripOutputFromCmd(cmdstr)
+	gencmd := bind.CmdStrToMakefile(cmdstr)
 
 	mf, err := os.Create(filepath.Join(odir, "Makefile"))
 	if err != nil {
