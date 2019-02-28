@@ -258,15 +258,16 @@ type Func struct {
 	obj  types.Object
 	name string
 
-	id   string
-	doc  string
-	ret  types.Type // return type, if any
-	err  bool       // true if original go func has comma-error
-	ctor bool       // true if this is a newXXX function
+	id     string
+	doc    string
+	ret    types.Type // return type, if any
+	err    bool       // true if original go func has comma-error
+	ctor   bool       // true if this is a newXXX function
+	hasfun bool       // true if this function has a function argument
 }
 
 func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signature) (*Func, error) {
-	err, ret, haserr := isPyCompatFunc(sig)
+	err, ret, haserr, hasfun := isPyCompatFunc(sig)
 	if err != nil {
 		return nil, err
 	}
@@ -282,15 +283,16 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 	}
 
 	return &Func{
-		obj:  obj,
-		pkg:  p,
-		sig:  sv,
-		typ:  obj.Type(),
-		name: obj.Name(),
-		id:   id,
-		doc:  p.getDoc(parent, obj),
-		ret:  ret,
-		err:  haserr,
+		obj:    obj,
+		pkg:    p,
+		sig:    sv,
+		typ:    obj.Type(),
+		name:   obj.Name(),
+		id:     id,
+		doc:    p.getDoc(parent, obj),
+		ret:    ret,
+		err:    haserr,
+		hasfun: hasfun,
 	}, nil
 }
 

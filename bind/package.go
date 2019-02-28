@@ -87,7 +87,7 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 
 	case *types.Func:
 		sig := o.Type().(*types.Signature)
-		err, _, _ := isPyCompatFunc(sig)
+		err, _, _, _ := isPyCompatFunc(sig)
 		if err != nil {
 			return ""
 		}

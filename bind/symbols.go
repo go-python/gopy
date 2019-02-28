@@ -87,14 +87,22 @@ func pySafeName(nm string) string {
 	return nm
 }
 
+// pySafeArg returns an arg name that python will not barf on
+func pySafeArg(anm string, idx int) string {
+	if anm == "" {
+		anm = fmt.Sprintf("arg_%d", idx)
+	}
+	return pySafeName(anm)
+}
+
 // isPyCompatVar checks if var is compatible with python
 func isPyCompatVar(v *symbol) error {
 	if v == nil {
 		return fmt.Errorf("gopy: var symbol not found")
 	}
-	if v.isSignature() {
-		return fmt.Errorf("gopy: var is function signature")
-	}
+	// if v.isSignature() {
+	// 	return fmt.Errorf("gopy: var is function signature")
+	// }
 	if v.isPointer() && v.isBasic() {
 		return fmt.Errorf("gopy: var is pointer to basic type")
 	}
@@ -112,9 +120,9 @@ func isPyCompatVar(v *symbol) error {
 
 // isPyCompatType checks if type is compatible with python
 func isPyCompatType(typ types.Type) error {
-	if _, isSig := typ.(*types.Signature); isSig {
-		return fmt.Errorf("gopy: type is function signature")
-	}
+	// if _, isSig := typ.(*types.Signature); isSig {
+	// 	return fmt.Errorf("gopy: type is function signature")
+	// }
 	if ptyp, isPtr := typ.(*types.Pointer); isPtr {
 		if _, isBasic := ptyp.Elem().(*types.Basic); isBasic {
 			return fmt.Errorf("gopy: type is pointer to basic type")
@@ -144,21 +152,22 @@ func isPyCompatField(f *types.Var) (error, *symbol) {
 // isPyCompatFunc checks if function signature is a python-compatible function.
 // Returns nil if function is compatible, err message if not.
 // Also returns the return type of the function
-// extra bool is true if 2nd arg is an error type, which is only
+// haserr is true if 2nd arg is an error type, which is only
 // supported form of multi-return-value functions
-func isPyCompatFunc(sig *types.Signature) (error, types.Type, bool) {
-	haserr := false
+// hasfun is true if one of the args is a function signature
+func isPyCompatFunc(sig *types.Signature) (err error, ret types.Type, haserr, hasfun bool) {
 	res := sig.Results()
-	var ret types.Type
 
 	if sig.Variadic() {
-		return fmt.Errorf("gopy: not yet supporting variadic functions: %s", sig.String()), ret, haserr
+		err = fmt.Errorf("gopy: not yet supporting variadic functions: %s", sig.String())
+		return
 	}
 
 	switch res.Len() {
 	case 2:
 		if !isErrorType(res.At(1).Type()) {
-			return fmt.Errorf("gopy: second result value must be of type error: %s", sig.String()), ret, haserr
+			err = fmt.Errorf("gopy: second result value must be of type error: %s", sig.String())
+			return
 		}
 		haserr = true
 		ret = res.At(0).Type()
@@ -172,12 +181,13 @@ func isPyCompatFunc(sig *types.Signature) (error, types.Type, bool) {
 	case 0:
 		ret = nil
 	default:
-		return fmt.Errorf("gopy: too many results to return: %s", sig.String()), ret, haserr
+		err = fmt.Errorf("gopy: too many results to return: %s", sig.String())
+		return
 	}
 
 	if ret != nil {
-		if err := isPyCompatType(ret); err != nil {
-			return err, ret, haserr
+		if err = isPyCompatType(ret); err != nil {
+			return
 		}
 	}
 
@@ -186,11 +196,19 @@ func isPyCompatFunc(sig *types.Signature) (error, types.Type, bool) {
 	for i := 0; i < nargs; i++ {
 		arg := args.At(i)
 		argt := arg.Type()
-		if err := isPyCompatType(argt); err != nil {
-			return err, ret, haserr
+		if err = isPyCompatType(argt); err != nil {
+			return
+		}
+		if _, isSig := argt.(*types.Signature); isSig {
+			if !hasfun {
+				hasfun = true
+			} else {
+				err = fmt.Errorf("gopy: only one function signature arg allowed: %s", sig.String())
+				return
+			}
 		}
 	}
-	return nil, ret, haserr
+	return
 }
 
 // symbol is an exported symbol in a go package
@@ -210,6 +228,7 @@ type symbol struct {
 	py2go        string // name of py->go converter function
 	py2goParenEx string // extra parentheses needed at end of py2go (beyond 1 default)
 	zval         string // zero value representation
+	pyfmt        string // python Py_BuildValue / Py_ParseTuple formatting string
 }
 
 func isPrivate(s string) bool {
@@ -276,7 +295,7 @@ func (s *symbol) isPtrOrIface() bool {
 }
 
 func (s *symbol) hasHandle() bool {
-	return !s.isBasic()
+	return !s.isBasic() && !s.isSignature()
 }
 
 func (s *symbol) hasConverter() bool {
@@ -509,7 +528,7 @@ func (sym *symtab) addSymbol(obj types.Object) error {
 
 	case *types.Func:
 		sig := obj.Type().Underlying().(*types.Signature)
-		err, _, _ := isPyCompatFunc(sig)
+		err, _, _, _ := isPyCompatFunc(sig)
 		if err == nil {
 			sym.syms[fn] = &symbol{
 				gopkg:   pkg,
@@ -861,11 +880,54 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 
 func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
 	fn := sym.fullTypeString(t)
-	//typ := t.(*types.Signature)
 	kind |= skSignature
-	if (kind & skNamed) == 0 {
-		id = hash(id)
+	// if (kind & skNamed) == 0 {
+	// 	id = hash(id)
+	// }
+
+	py2g := fmt.Sprintf("%s { ", fn)
+
+	sig := t.(*types.Signature)
+	args := sig.Params()
+	nargs := args.Len()
+	// todo: this va_list thing is when you're in a var arg function
+	// inside of c -- not for building dynamically
+	// need to use the ... var args version in C -- need to put
+	// all this arg building code into c.. :(
+	if nargs > 0 {
+		py2g += "var vl C.va_list; "
+		fm := ""
+		for i := 0; i < nargs; i++ {
+			arg := args.At(i)
+			argt := arg.Type()
+			asym := sym.symtype(argt)
+			if asym == nil {
+				err := sym.addType(arg, argt)
+				if err != nil {
+					return err
+				}
+				asym = sym.symtype(argt)
+				if asym == nil {
+					return fmt.Errorf("type still not found: %s", argt.String())
+				}
+			}
+			if i == 0 {
+				py2g += "C.va_start(vl, "
+			} else if i == nargs-1 {
+				py2g += "C.va_end(vl, "
+			} else {
+				py2g += "C.va_add(vl, "
+			}
+			py2g += pySafeArg(arg.Name(), i) + "); "
+			fm += asym.pyfmt
+
+		}
+		py2g += fmt.Sprintf("C.PyObject_CallObject(_fun_arg, C.Py_VaBuildValue(%q, vl)) ", fm)
+	} else {
+		py2g += "C.PyObject_CallObject(_fun_arg, nil) "
 	}
+	py2g += "}"
+
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
 		goobj:   obj,
@@ -873,18 +935,18 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 		kind:    kind,
 		id:      id,
 		goname:  n,
-		cgoname: "CGoHandle",
-		cpyname: PyHandle,
+		cgoname: "*C.PyObject",
+		cpyname: "PyObject*",
 		pysig:   "callable",
 		go2py:   "?",
-		py2go:   "?",
+		py2go:   py2g,
 	}
 	return nil
 }
 
 func (sym *symtab) addMethod(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
 	sig := t.Underlying().(*types.Signature)
-	err, _, _ := isPyCompatFunc(sig)
+	err, _, _, _ := isPyCompatFunc(sig)
 	if err == nil {
 		fn := types.ObjectString(obj, nil)
 		kind |= skFunc
