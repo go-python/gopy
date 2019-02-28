@@ -7,15 +7,15 @@ from __future__ import print_function
 
 from funcs import go, funcs
 
-def cbfun():
-    print("in python cbfun!!")
+def cbfun(val):
+    print("in python cbfun: val", val)
 
 class MyClass(object):
     def __init__(self, *args, **kwargs):
         self.misc = 2
     
-    def ClassFun(self):
-        print("in python class fun!!")
+    def ClassFun(self, val):
+        print("in python class fun: val", val)
         
     
 fs = funcs.FunStruct()
