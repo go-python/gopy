@@ -44,14 +44,20 @@ package main
 // btw, static inline is trick for avoiding need for extra .c file
 // the following are used for build value -- switch on reflect.Kind
 // or the types equivalent
-static inline PyObject* py_build_int64(int64_t val) {
+static inline PyObject* gopy_build_bool(uint8_t val) {
+	return Py_BuildValue("b", val);
+}
+static inline PyObject* gopy_build_int64(int64_t val) {
 	return Py_BuildValue("k", val);
 }
-static inline PyObject* py_build_float64(double val) {
+static inline PyObject* gopy_build_uint64(uint64_t val) {
+	return Py_BuildValue("K", val);
+}
+static inline PyObject* gopy_build_float64(double val) {
 	return Py_BuildValue("d", val);
 }
-static inline PyObject* py_build_string(const char* val) {
-	return Py_BuildValue("d", val);
+static inline PyObject* gopy_build_string(const char* val) {
+	return Py_BuildValue("s", val);
 }
 */
 import "C"

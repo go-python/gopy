@@ -12,11 +12,17 @@ func (g *pyGen) genConst(c *Const) {
 	if isPyCompatVar(c.sym) != nil {
 		return
 	}
+	if c.sym.isSignature() {
+		return
+	}
 	g.genConstValue(c)
 }
 
 func (g *pyGen) genVar(v *Var) {
 	if isPyCompatVar(v.sym) != nil {
+		return
+	}
+	if v.sym.isSignature() {
 		return
 	}
 	g.genVarGetter(v)

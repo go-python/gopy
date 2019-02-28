@@ -7,23 +7,33 @@ from __future__ import print_function
 
 from funcs import go, funcs
 
-def cbfun(val):
-    print("in python cbfun: val", val)
+def cbfun(afs, ival, sval):
+    tfs = funcs.FunStruct(handle=afs)
+    print("in python cbfun: FieldI: ", tfs.FieldI, " FieldS: ", tfs.FieldS, " ival: ", ival, " sval: ", sval)
+
+def cbfunif(afs, ival, ifval):
+    tfs = funcs.FunStruct(handle=afs)
+    print("in python cbfunif: FieldI: ", tfs.FieldI, " FieldS: ", tfs.FieldS, " ival: ", ival, " ifval: ", ifval)
 
 class MyClass(object):
     def __init__(self, *args, **kwargs):
         self.misc = 2
     
-    def ClassFun(self, val):
-        print("in python class fun: val", val)
+    def ClassFun(self, afs, ival, sval):
+        tfs = funcs.FunStruct(handle=afs)
+        print("in python class fun: FieldI: ", tfs.FieldI, " FieldS: ", tfs.FieldS, " ival: ", ival, " sval: ", sval)
         
     
 fs = funcs.FunStruct()
+fs.FieldS = "str field"
+fs.FieldI = 42
 fs.CallBack(22, cbfun)
+
+fs.CallBackIf(22, cbfunif)
 
 cls = MyClass()
 
-fs.CallBack(22, cls.ClassFun)
+fs.CallBack(32, cls.ClassFun)
 
 # print("funcs.GetF1()...")
 # f1 = funcs.GetF1()
