@@ -49,17 +49,13 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		if sarg == nil {
 			return false
 		}
-		// note: this is enforced in creation of Func, in newFuncFrom
-		if sarg.isSignature() { // no support for func args
-			return false
-		}
-		anm := arg.Name()
-		if anm == "" {
-			anm = fmt.Sprintf("arg_%d", i)
-		}
-		anm = pySafeName(anm)
+		anm := pySafeArg(arg.Name(), i)
 		goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, sarg.cgoname))
-		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", sarg.cpyname, anm))
+		if sarg.cpyname == "PyObject*" {
+			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s', transfer_ownership=False)", sarg.cpyname, anm))
+		} else {
+			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", sarg.cpyname, anm))
+		}
 		wpArgs = append(wpArgs, anm)
 	}
 
@@ -172,6 +168,13 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 
 	g.gofile.Printf(" {\n")
 	g.gofile.Indent()
+	if fsym.hasfun {
+		for i, arg := range args {
+			if arg.sym.isSignature() {
+				g.gofile.Printf("_fun_arg := %s\n", pySafeArg(arg.Name(), i))
+			}
+		}
+	}
 	if isMethod {
 		g.gofile.Printf(
 			`vifc, err := gopyh.VarFmHandleTry((gopyh.CGoHandle)(_handle), "%s")
@@ -223,15 +226,15 @@ if err != nil {
 	}
 	for i, arg := range args {
 		na := ""
-		anm := arg.Name()
-		if anm == "" {
-			anm = fmt.Sprintf("arg_%d", i)
-		}
-		anm = pySafeName(anm)
-		if arg.sym.py2go != "" {
-			na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, anm, arg.sym.py2goParenEx)
+		anm := pySafeArg(arg.Name(), i)
+		if arg.sym.isSignature() {
+			na = fmt.Sprintf("%s", arg.sym.py2go)
 		} else {
-			na = anm
+			if arg.sym.py2go != "" {
+				na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, anm, arg.sym.py2goParenEx)
+			} else {
+				na = anm
+			}
 		}
 		callArgs = append(callArgs, na)
 		if arg.sym.hasHandle() {

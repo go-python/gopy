@@ -47,6 +47,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "boolGoToPy",
 			py2go:   "boolPyToGo",
 			zval:    "false",
+			pyfmt:   "", // todo:
 		},
 
 		"byte": {
@@ -62,6 +63,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.char",
 			py2go:   "byte",
 			zval:    "0",
+			pyfmt:   "b",
 		},
 
 		"int": {
@@ -77,6 +79,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.long",
 			py2go:   "int",
 			zval:    "0",
+			pyfmt:   "i",
 		},
 
 		"int8": {
@@ -92,6 +95,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.char",
 			py2go:   "int8",
 			zval:    "0",
+			pyfmt:   "b",
 		},
 
 		"int16": {
@@ -107,6 +111,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.short",
 			py2go:   "int16",
 			zval:    "0",
+			pyfmt:   "h",
 		},
 
 		"int32": {
@@ -122,6 +127,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.long",
 			py2go:   "int32",
 			zval:    "0",
+			pyfmt:   "i",
 		},
 
 		"int64": {
@@ -137,6 +143,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.longlong",
 			py2go:   "int64",
 			zval:    "0",
+			pyfmt:   "k",
 		},
 
 		"uint": {
@@ -152,6 +159,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.uint",
 			py2go:   "uint",
 			zval:    "0",
+			pyfmt:   "I",
 		},
 
 		"uint8": {
@@ -167,6 +175,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.uchar",
 			py2go:   "uint8",
 			zval:    "0",
+			pyfmt:   "B",
 		},
 
 		"uint16": {
@@ -182,6 +191,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.ushort",
 			py2go:   "uint16",
 			zval:    "0",
+			pyfmt:   "H",
 		},
 
 		"uint32": {
@@ -197,6 +207,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.ulong",
 			py2go:   "uint32",
 			zval:    "0",
+			pyfmt:   "I",
 		},
 
 		"uint64": {
@@ -212,6 +223,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.ulonglong",
 			py2go:   "uint64",
 			zval:    "0",
+			pyfmt:   "K",
 		},
 
 		"uintptr": {
@@ -227,6 +239,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.ulonglong",
 			py2go:   "uintptr",
 			zval:    "0",
+			pyfmt:   "K",
 		},
 
 		"float32": {
@@ -242,6 +255,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.float",
 			py2go:   "float32",
 			zval:    "0",
+			pyfmt:   "f",
 		},
 
 		"float64": {
@@ -257,6 +271,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.double",
 			py2go:   "float64",
 			zval:    "0",
+			pyfmt:   "d",
 		},
 
 		// todo: not currently supported -- need converters etc
@@ -273,6 +288,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "cgopy_cnv_go2py_complex64",
 			py2go:   "cgopy_cnv_py2go_complex64",
 			zval:    "0",
+			pyfmt:   "O&",
 		},
 
 		"complex128": {
@@ -288,6 +304,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "cgopy_cnv_go2py_complex128",
 			py2go:   "cgopy_cnv_py2go_complex128",
 			zval:    "0",
+			pyfmt:   "O&",
 		},
 
 		"string": {
@@ -303,6 +320,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.CString",
 			py2go:   "C.GoString",
 			zval:    `""`,
+			pyfmt:   "O&",
 		},
 
 		"rune": { // FIXME(sbinet) py2/py3
@@ -318,6 +336,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.long",
 			py2go:   "rune",
 			zval:    "0",
+			pyfmt:   "i",
 		},
 
 		"error": {
@@ -333,6 +352,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.CString",
 			py2go:   "C.GoString",
 			zval:    `""`,
+			pyfmt:   "O&",
 		},
 	}
 
@@ -350,6 +370,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.longlong",
 			py2go:   "int",
 			zval:    "0",
+			pyfmt:   "k",
 		}
 		syms["uint"] = &symbol{
 			gopkg:   look("uint").Pkg(),
@@ -364,6 +385,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.ulonglong",
 			py2go:   "uint",
 			zval:    "0",
+			pyfmt:   "K",
 		}
 	}
 

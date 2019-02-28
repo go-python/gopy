@@ -4,41 +4,51 @@
 
 package funcs
 
-import (
-	"github.com/go-python/gopy/_examples/cpkg"
-)
+import "fmt"
 
-var (
-	F1 func()
-	F2 Func
-	F3 S1
-	F4 S2
-	F5 []func()
-	F6 []Func
-	F7 [2]func()
-	F8 [3]Func
-)
-
-type Func func()
-
-type S1 struct {
-	F1 Func
-	F2 []Func
-	F3 [4]Func
+type FunStruct struct {
+	FieldI int
 }
 
-type S2 struct {
-	F1 func()
-	F2 []func()
-	F3 [5]func()
+func (fs *FunStruct) CallBack(arg1 int, fun func(a1 int)) {
+	fun(arg1)
 }
 
-func init() {
-	F1 = func() {
-		cpkg.Printf("calling F1\n")
-	}
-
-	F2 = Func(func() {
-		cpkg.Printf("calling F2\n")
-	})
+func (fs *FunStruct) OtherMeth(arg1 int, args string) {
+	fmt.Printf("arg1: %d args: %s\n", arg1, args)
 }
+
+// var (
+// 	F1 func()
+// 	F2 Func
+// 	F3 S1
+// 	F4 S2
+// 	F5 []func()
+// 	F6 []Func
+// 	F7 [2]func()
+// 	F8 [3]Func
+// )
+//
+// type Func func()
+//
+// type S1 struct {
+// 	F1 Func
+// 	F2 []Func
+// 	F3 [4]Func
+// }
+//
+// type S2 struct {
+// 	F1 func()
+// 	F2 []func()
+// 	F3 [5]func()
+// }
+//
+// func init() {
+// 	F1 = func() {
+// 		cpkg.Printf("calling F1\n")
+// 	}
+//
+// 	F2 = Func(func() {
+// 		cpkg.Printf("calling F2\n")
+// 	})
+// }
