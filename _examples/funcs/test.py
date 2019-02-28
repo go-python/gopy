@@ -5,26 +5,44 @@
 ## py2/py3 compat
 from __future__ import print_function
 
-import funcs
+from funcs import go, funcs
 
-print("funcs.GetF1()...")
-f1 = funcs.GetF1()
-print("f1()= %s" % f1())
+def cbfun():
+    print("in python cbfun!!")
 
-print("funcs.GetF2()...")
-f2 = funcs.GetF2()
-print("f2()= %s" % f2())
+class MyClass(object):
+    def __init__(self, *args, **kwargs):
+        self.misc = 2
+    
+    def ClassFun(self):
+        print("in python class fun!!")
+        
+    
+fs = funcs.FunStruct()
+fs.CallBack(22, cbfun)
 
-print("s1 = funcs.S1()...")
-s1 = funcs.S1()
-print("s1.F1 = funcs.GetF2()...")
-s1.F1 = funcs.GetF2()
-print("s1.F1() = %s" % s1.F1())
+cls = MyClass()
 
-print("s2 = funcs.S2()...")
-s2 = funcs.S2()
-print("s2.F1 = funcs.GetF1()...")
-s2.F1 = funcs.GetF1()
-print("s2.F1() = %s" % s2.F1())
+fs.CallBack(22, cls.ClassFun)
 
-print("OK")
+# print("funcs.GetF1()...")
+# f1 = funcs.GetF1()
+# print("f1()= %s" % f1())
+# 
+# print("funcs.GetF2()...")
+# f2 = funcs.GetF2()
+# print("f2()= %s" % f2())
+# 
+# print("s1 = funcs.S1()...")
+# s1 = funcs.S1()
+# print("s1.F1 = funcs.GetF2()...")
+# s1.F1 = funcs.GetF2()
+# print("s1.F1() = %s" % s1.F1())
+# 
+# print("s2 = funcs.S2()...")
+# s2 = funcs.S2()
+# print("s2.F1 = funcs.GetF1()...")
+# s2.F1 = funcs.GetF1()
+# print("s2.F1() = %s" % s2.F1())
+# 
+#print("OK")
