@@ -100,9 +100,6 @@ func isPyCompatVar(v *symbol) error {
 	if v == nil {
 		return fmt.Errorf("gopy: var symbol not found")
 	}
-	// if v.isSignature() {
-	// 	return fmt.Errorf("gopy: var is function signature")
-	// }
 	if v.isPointer() && v.isBasic() {
 		return fmt.Errorf("gopy: var is pointer to basic type")
 	}
@@ -120,9 +117,7 @@ func isPyCompatVar(v *symbol) error {
 
 // isPyCompatType checks if type is compatible with python
 func isPyCompatType(typ types.Type) error {
-	// if _, isSig := typ.(*types.Signature); isSig {
-	// 	return fmt.Errorf("gopy: type is function signature")
-	// }
+	typ = typ.Underlying()
 	if ptyp, isPtr := typ.(*types.Pointer); isPtr {
 		if _, isBasic := ptyp.Elem().(*types.Basic); isBasic {
 			return fmt.Errorf("gopy: type is pointer to basic type")
@@ -146,6 +141,9 @@ func isPyCompatField(f *types.Var) (error, *symbol) {
 		return fmt.Errorf("gopy: field not exported or is embedded"), nil
 	}
 	ftyp := current.symtype(f.Type())
+	if _, isSig := f.Type().Underlying().(*types.Signature); isSig {
+		return fmt.Errorf("gopy: type is function signature"), nil
+	}
 	return isPyCompatVar(ftyp), ftyp
 }
 
@@ -189,6 +187,9 @@ func isPyCompatFunc(sig *types.Signature) (err error, ret types.Type, haserr, ha
 		if err = isPyCompatType(ret); err != nil {
 			return
 		}
+		if _, isSig := ret.Underlying().(*types.Signature); isSig {
+			return
+		}
 	}
 
 	args := sig.Params()
@@ -199,7 +200,7 @@ func isPyCompatFunc(sig *types.Signature) (err error, ret types.Type, haserr, ha
 		if err = isPyCompatType(argt); err != nil {
 			return
 		}
-		if _, isSig := argt.(*types.Signature); isSig {
+		if _, isSig := argt.Underlying().(*types.Signature); isSig {
 			if !hasfun {
 				hasfun = true
 			} else {
@@ -554,6 +555,7 @@ func (sym *symtab) addSymbol(obj types.Object) error {
 	return nil
 }
 
+// processTuple ensures that all types in a tuple are in sym table
 func (sym *symtab) processTuple(tuple *types.Tuple) error {
 	if tuple == nil {
 		return nil
@@ -570,6 +572,55 @@ func (sym *symtab) processTuple(tuple *types.Tuple) error {
 		}
 	}
 	return nil
+}
+
+// buildTuple returns a string of Go code that builds a PyTuple
+// for the given tuple (e.g., function args).
+// varnm is the name of the local variable for the built tuple
+func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string) (string, error) {
+	sz := tuple.Len()
+	if sz == 0 {
+		return "", fmt.Errorf("buildTuple: no elements")
+	}
+	bstr := fmt.Sprintf("%s := C.PyTuple_New(%d); ", varnm, sz)
+	for i := 0; i < sz; i++ {
+		v := tuple.At(i)
+		typ := v.Type()
+		anm := pySafeArg(v.Name(), i)
+		vsym := sym.symtype(typ)
+		if vsym == nil {
+			err := sym.addType(v, typ)
+			if err != nil {
+				return "", err
+			}
+			vsym = sym.symtype(typ)
+			if vsym == nil {
+				return "", fmt.Errorf("buildTuple: type still not found: %s", typ.String())
+			}
+		}
+		bt, isb := typ.Underlying().(*types.Basic)
+		switch {
+		case vsym.hasHandle(): // note: assuming int64 handles
+			bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_int64(C.int64_t(%s(%s)%s))); ", varnm, i, vsym.go2py, anm, vsym.go2pyParenEx)
+		case isb:
+			bk := bt.Kind()
+			switch {
+			case bk >= types.Int && bk <= types.Int64:
+				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_int64(C.int64_t(%s))); ", varnm, i, anm)
+			case bk >= types.Uint && bk <= types.Uintptr:
+				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_uint64(C.uint64_t(%s))); ", varnm, i, anm)
+			case bk >= types.Float32 && bk <= types.Float64:
+				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_float64(C.double(%s))); ", varnm, i, anm)
+			case bk == types.String:
+				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_string(C.CString(%s))); ", varnm, i, anm)
+			case bk == types.Bool:
+				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_bool(C.uint8_t(boolGoToPy(%s)))); ", varnm, i, anm)
+			}
+		default:
+			return "", fmt.Errorf("buildTuple: type not handled: %s", typ.String())
+		}
+	}
+	return bstr, nil
 }
 
 // typeNamePkg gets the goname and package for a given types.Type -- deals with
@@ -879,44 +930,43 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 }
 
 func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
-	fn := sym.fullTypeString(t)
+	fn := sym.fullTypeString(t.Underlying())
 	kind |= skSignature
-	// if (kind & skNamed) == 0 {
-	// 	id = hash(id)
-	// }
 
-	py2g := fmt.Sprintf("%s { ", fn)
+	py2g := fmt.Sprintf("%s { ", n)
 
-	sig := t.(*types.Signature)
+	sig := t.Underlying().(*types.Signature)
 	args := sig.Params()
+	rets := sig.Results()
+	if rets.Len() > 0 { // todo 1
+		return fmt.Errorf("multiple return values not supported")
+	}
+	retstr := ""
+	if rets.Len() == 1 {
+		retstr = "_fcret := "
+	}
 	nargs := args.Len()
-	// todo: this va_list thing is when you're in a var arg function
-	// inside of c -- not for building dynamically
-	// need to use the ... var args version in C -- need to put
-	// all this arg building code into c.. :(
 	if nargs > 0 {
-		py2g += fmt.Sprintf("_fcargs := C.PyTuple_New(%d); ", nargs)
-		for i := 0; i < nargs; i++ {
-			arg := args.At(i)
-			argt := arg.Type()
-			anm := pySafeArg(arg.Name(), i)
-			asym := sym.symtype(argt)
-			if asym == nil {
-				err := sym.addType(arg, argt)
-				if err != nil {
-					return err
-				}
-				asym = sym.symtype(argt)
-				if asym == nil {
-					return fmt.Errorf("type still not found: %s", argt.String())
-				}
-			}
-			// todo: switch on type
-			py2g += fmt.Sprintf("C.PyTuple_SetItem(_fcargs, %d, C.py_build_int64(C.int64_t(%s))); ", i, anm)
+		bstr, err := sym.buildTuple(args, "_fcargs")
+		if err != nil {
+			return err
 		}
-		py2g += fmt.Sprintf("C.PyObject_CallObject(_fun_arg, _fcargs) ")
+		py2g += bstr + retstr
+		py2g += fmt.Sprintf("C.PyObject_CallObject(_fun_arg, _fcargs); ")
 	} else {
-		py2g += "C.PyObject_CallObject(_fun_arg, nil) "
+		py2g += retstr + "C.PyObject_CallObject(_fun_arg, nil); "
+	}
+	if rets.Len() == 1 {
+		ret := rets.At(0)
+		rsym := sym.symtype(ret.Type())
+		if rsym == nil {
+			return fmt.Errorf("return type not supported: %s", n)
+		}
+		if rsym.py2go != "" {
+			py2g += fmt.Sprintf("return %s(_fcret)%s", rsym.py2go, rsym.py2goParenEx)
+		} else {
+			py2g += "return _fcret"
+		}
 	}
 	py2g += "}"
 

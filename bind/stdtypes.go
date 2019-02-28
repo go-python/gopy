@@ -320,7 +320,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "C.CString",
 			py2go:   "C.GoString",
 			zval:    `""`,
-			pyfmt:   "O&",
+			pyfmt:   "s",
 		},
 
 		"rune": { // FIXME(sbinet) py2/py3

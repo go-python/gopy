@@ -8,13 +8,20 @@ import "fmt"
 
 type FunStruct struct {
 	FieldI int
+	FieldS string
 }
 
-func (fs *FunStruct) CallBack(arg1 int, fun func(a1 int)) {
-	fun(arg1)
+func (fs *FunStruct) CallBack(arg1 int, fun func(afs *FunStruct, a1 int, s1 string)) {
+	fun(fs, arg1, fs.FieldS)
+}
+
+func (fs *FunStruct) CallBackIf(arg1 int, fun func(afs *FunStruct, a1 int, if1 interface{})) {
+	fun(fs, arg1, fs.FieldS)
 }
 
 func (fs *FunStruct) OtherMeth(arg1 int, args string) {
+	fs.FieldI = arg1
+	fs.FieldS = args
 	fmt.Printf("arg1: %d args: %s\n", arg1, args)
 }
 
