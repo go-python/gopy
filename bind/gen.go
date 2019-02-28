@@ -42,6 +42,17 @@ package main
 // #define Py_LIMITED_API // need full API for PyRun*
 #include <Python.h>
 // btw, static inline is trick for avoiding need for extra .c file
+// the following are used for build value -- switch on reflect.Kind
+// or the types equivalent
+static inline PyObject* py_build_int64(int64_t val) {
+	return Py_BuildValue("k", val);
+}
+static inline PyObject* py_build_float64(double val) {
+	return Py_BuildValue("d", val);
+}
+static inline PyObject* py_build_string(const char* val) {
+	return Py_BuildValue("d", val);
+}
 */
 import "C"
 import (

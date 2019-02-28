@@ -895,11 +895,11 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 	// need to use the ... var args version in C -- need to put
 	// all this arg building code into c.. :(
 	if nargs > 0 {
-		py2g += "var vl C.va_list; "
-		fm := ""
+		py2g += fmt.Sprintf("_fcargs := C.PyTuple_New(%d); ", nargs)
 		for i := 0; i < nargs; i++ {
 			arg := args.At(i)
 			argt := arg.Type()
+			anm := pySafeArg(arg.Name(), i)
 			asym := sym.symtype(argt)
 			if asym == nil {
 				err := sym.addType(arg, argt)
@@ -911,18 +911,10 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 					return fmt.Errorf("type still not found: %s", argt.String())
 				}
 			}
-			if i == 0 {
-				py2g += "C.va_start(vl, "
-			} else if i == nargs-1 {
-				py2g += "C.va_end(vl, "
-			} else {
-				py2g += "C.va_add(vl, "
-			}
-			py2g += pySafeArg(arg.Name(), i) + "); "
-			fm += asym.pyfmt
-
+			// todo: switch on type
+			py2g += fmt.Sprintf("C.PyTuple_SetItem(_fcargs, %d, C.py_build_int64(C.int64_t(%s))); ", i, anm)
 		}
-		py2g += fmt.Sprintf("C.PyObject_CallObject(_fun_arg, C.Py_VaBuildValue(%q, vl)) ", fm)
+		py2g += fmt.Sprintf("C.PyObject_CallObject(_fun_arg, _fcargs) ")
 	} else {
 		py2g += "C.PyObject_CallObject(_fun_arg, nil) "
 	}
