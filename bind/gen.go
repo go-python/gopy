@@ -80,6 +80,13 @@ func GoPyInit() {
 
 var initRunFile string
 
+//export GoPyInitEndInterp
+func GoPyInitEndInterp() {
+	mt := C.PyThreadState_Get()
+	C.PyThreadState_Clear(mt)
+	C.Py_EndInterpreter(mt)
+}
+
 //export GoPyInitRunFile
 func GoPyInitRunFile() {
 	if initRunFile == "" {
