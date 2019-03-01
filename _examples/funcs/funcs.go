@@ -15,7 +15,9 @@ func (fs *FunStruct) CallBack(arg1 int, fun func(afs *FunStruct, a1 int, s1 stri
 	fun(fs, arg1, fs.FieldS)
 }
 
-func (fs *FunStruct) CallBackIf(arg1 int, fun func(afs *FunStruct, a1 int, if1 interface{})) {
+type RecvFunc func(afs *FunStruct, a1 int, if1 interface{})
+
+func (fs *FunStruct) CallBackIf(arg1 int, fun RecvFunc) {
 	fun(fs, arg1, fs.FieldS)
 }
 

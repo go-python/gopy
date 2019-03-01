@@ -746,11 +746,9 @@ func (sym *symtab) addType(obj types.Object, t types.Type) error {
 			if !m.Exported() {
 				continue
 			}
-			if true {
-				mid := id + "_" + m.Name()
-				mname := m.Name()
-				sym.addMethod(pkg, m, m.Type(), skFunc, mid, mname)
-			}
+			mid := id + "_" + m.Name()
+			mname := m.Name()
+			sym.addMethod(pkg, m, m.Type(), skFunc, mid, mname)
 		}
 
 	default:
@@ -930,10 +928,11 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 }
 
 func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
-	fn := sym.fullTypeString(t.Underlying())
+	fn := sym.fullTypeString(t)
 	kind |= skSignature
 
-	py2g := fmt.Sprintf("%s { ", n)
+	nsig := typeGoName(t.Underlying())
+	py2g := fmt.Sprintf("%s { ", nsig)
 
 	sig := t.Underlying().(*types.Signature)
 	args := sig.Params()
@@ -945,6 +944,11 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 	if rets.Len() == 1 {
 		retstr = "_fcret := "
 	}
+
+	py2g += "if C.PyCallable_Check(_fun_arg) == 0 { return }\n"
+	py2g += "C.PyEval_InitThreads()\n"
+	py2g += "_gstate := C.PyGILState_Ensure()\n"
+
 	nargs := args.Len()
 	if nargs > 0 {
 		bstr, err := sym.buildTuple(args, "_fcargs")
@@ -952,10 +956,11 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 			return err
 		}
 		py2g += bstr + retstr
-		py2g += fmt.Sprintf("C.PyObject_CallObject(_fun_arg, _fcargs); ")
+		py2g += fmt.Sprintf("C.PyObject_CallObject(_fun_arg, _fcargs)\n")
 	} else {
-		py2g += retstr + "C.PyObject_CallObject(_fun_arg, nil); "
+		py2g += retstr + "C.PyObject_CallObject(_fun_arg, nil)\n"
 	}
+	py2g += "C.PyGILState_Release(_gstate)\n"
 	if rets.Len() == 1 {
 		ret := rets.At(0)
 		rsym := sym.symtype(ret.Type())
