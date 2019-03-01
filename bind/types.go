@@ -394,7 +394,7 @@ func newVar(p *Package, typ types.Type, objname, name, doc string) (*Var, error)
 		}
 		sym = p.syms.symtype(typ)
 		if sym == nil {
-			return nil, fmt.Errorf("could not find symbol for type [%s]!", typ.String())
+			return nil, fmt.Errorf("could not find symbol for type: %s!", typ.String())
 		}
 	}
 	return &Var{
