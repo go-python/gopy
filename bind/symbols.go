@@ -947,7 +947,6 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 
 	py2g += "if C.PyCallable_Check(_fun_arg) == 0 { return }\n"
 	py2g += "_gstate := C.PyGILState_Ensure()\n"
-
 	nargs := args.Len()
 	if nargs > 0 {
 		bstr, err := sym.buildTuple(args, "_fcargs")
@@ -956,10 +955,11 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 		}
 		py2g += bstr + retstr
 		py2g += fmt.Sprintf("C.PyObject_CallObject(_fun_arg, _fcargs)\n")
-		py2g += "C.Py_DECREF(_fcargs)\n"
+		py2g += "C.gopy_decref(_fcargs)\n"
 	} else {
 		py2g += retstr + "C.PyObject_CallObject(_fun_arg, nil)\n"
 	}
+	py2g += "C.gopy_err_handle()\n"
 	py2g += "C.PyGILState_Release(_gstate)\n"
 	if rets.Len() == 1 {
 		ret := rets.At(0)

@@ -59,6 +59,17 @@ static inline PyObject* gopy_build_float64(double val) {
 static inline PyObject* gopy_build_string(const char* val) {
 	return Py_BuildValue("s", val);
 }
+static inline void gopy_decref(PyObject* obj) { // macro
+	Py_DECREF(obj);
+}
+static inline void gopy_incref(PyObject* obj) { // macro
+	Py_INCREF(obj);
+}
+static inline void gopy_err_handle() {
+	if(PyErr_Occurred() != NULL) {
+		PyErr_Print();
+	}
+}
 #if PY_VERSION_HEX >= 0x03000000
 extern PyObject* PyInit__%[1]s(void);
 static inline void gopy_load_mod() {
@@ -272,7 +283,7 @@ build:
 	$(GOIMPORTS) -w %[1]s.go
 	# this will otherwise be built during go build and may be out of date
 	- rm %[1]s.c %[1]s_go.h
-	touch $[1]s_go.h
+	touch %[1]s_go.h
 	# this will fail but is needed to generate the .c file that then allows go build to work
 	- $(PYTHON) build.py >& /dev/null
 	# generate %[1]s_go.h from %[1]s.go -- unfortunately no way to build .h only
@@ -282,7 +293,7 @@ build:
 	$(PYTHON) build.py
 	# build the executable
 	- rm %[1]s_go$(LIBEXT)
-	$(GOBUILD)
+	$(GOBUILD) -o py%[1]s
 	
 `
 )
