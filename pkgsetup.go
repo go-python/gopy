@@ -96,7 +96,7 @@ gen:
 
 build:
 	$(MAKE) -C %[1]s build
-	
+
 install:
 	# this does a local install of the package, building the sdist and then directly installing it
 	rm -rf dist build */*.egg-info *.egg-info
@@ -105,7 +105,7 @@ install:
 
 install-exe:
 	# install executable into /usr/local/bin
-	cp %[1]s /usr/local/bin
+	cp %[1]s/%[1]s /usr/local/bin
 
 `
 )
