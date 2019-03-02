@@ -124,15 +124,9 @@ func (g *pyGen) genFunc(o *Func) {
 	}
 }
 
-func (g *pyGen) genMethod(s *Struct, o *Func) {
-	if g.genFuncSig(s.sym, o) {
-		g.genFuncBody(s.sym, o)
-	}
-}
-
-func (g *pyGen) genIfcMethod(ifc *Interface, o *Func) {
-	if g.genFuncSig(ifc.sym, o) {
-		g.genFuncBody(ifc.sym, o)
+func (g *pyGen) genMethod(s *symbol, o *Func) {
+	if g.genFuncSig(s, o) {
+		g.genFuncBody(s, o)
 	}
 }
 

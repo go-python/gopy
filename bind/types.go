@@ -64,7 +64,7 @@ const (
 	ProtoStringer Protocol = 1 << iota
 )
 
-// Struct collects informations about a go struct.
+// Struct collects information about a go struct.
 type Struct struct {
 	pkg *Package
 	sym *symbol
@@ -142,7 +142,7 @@ func (s *Struct) FirstEmbed() *symbol {
 ///////////////////////////////////////////////////////////////////////////////////
 //  Interface
 
-// Interface collects informations about a go struct.
+// Interface collects information about a go struct.
 type Interface struct {
 	pkg *Package
 	sym *symbol
@@ -189,6 +189,112 @@ func (it *Interface) GoName() string {
 
 func (it *Interface) Interface() *types.Interface {
 	return it.sym.GoType().Underlying().(*types.Interface)
+}
+
+///////////////////////////////////////////////////////////////////////////////////
+//  Slice
+
+// Slice collects information about a go struct.
+type Slice struct {
+	pkg *Package
+	sym *symbol
+	obj *types.TypeName
+
+	id    string
+	doc   string
+	meths []*Func
+	prots Protocol
+}
+
+func newSlice(p *Package, obj *types.TypeName) (*Slice, error) {
+	sym := p.syms.symtype(obj.Type())
+	if sym == nil {
+		return nil, fmt.Errorf("no such object [%s] in symbols table", obj.Id())
+	}
+	sym.doc = p.getDoc("", obj)
+	s := &Slice{
+		pkg: p,
+		sym: sym,
+		obj: obj,
+	}
+	return s, nil
+}
+
+func (it *Slice) Package() *Package {
+	return it.pkg
+}
+
+func (it *Slice) ID() string {
+	return it.sym.id
+}
+
+func (it *Slice) Doc() string {
+	return it.sym.doc
+}
+
+func (it *Slice) GoType() types.Type {
+	return it.sym.GoType()
+}
+
+func (it *Slice) GoName() string {
+	return it.sym.goname
+}
+
+func (it *Slice) Slice() *types.Slice {
+	return it.sym.GoType().Underlying().(*types.Slice)
+}
+
+///////////////////////////////////////////////////////////////////////////////////
+//  Map
+
+// Map collects information about a go map.
+type Map struct {
+	pkg *Package
+	sym *symbol
+	obj *types.TypeName
+
+	id    string
+	doc   string
+	meths []*Func
+	prots Protocol
+}
+
+func newMap(p *Package, obj *types.TypeName) (*Map, error) {
+	sym := p.syms.symtype(obj.Type())
+	if sym == nil {
+		return nil, fmt.Errorf("no such object [%s] in symbols table", obj.Id())
+	}
+	sym.doc = p.getDoc("", obj)
+	s := &Map{
+		pkg: p,
+		sym: sym,
+		obj: obj,
+	}
+	return s, nil
+}
+
+func (it *Map) Package() *Package {
+	return it.pkg
+}
+
+func (it *Map) ID() string {
+	return it.sym.id
+}
+
+func (it *Map) Doc() string {
+	return it.sym.doc
+}
+
+func (it *Map) GoType() types.Type {
+	return it.sym.GoType()
+}
+
+func (it *Map) GoName() string {
+	return it.sym.goname
+}
+
+func (it *Map) Map() *types.Map {
+	return it.sym.GoType().Underlying().(*types.Map)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -250,7 +356,7 @@ func (sig *Signature) Recv() *Var {
 ///////////////////////////////////////////////////////////////////////////////////
 //  Func
 
-// Func collects informations about a go func/method.
+// Func collects information about a go func/method.
 type Func struct {
 	pkg  *Package
 	sig  *Signature
