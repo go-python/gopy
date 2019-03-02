@@ -124,6 +124,7 @@ func runBuild(exe bool, odir, outname, cmdstr, vm, mainstr string, symbols bool)
 
 		err = os.Remove(outname + "_go" + libExt)
 
+		fmt.Printf("go build\n")
 		cmd = exec.Command("go", "build")
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
