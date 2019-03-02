@@ -956,6 +956,7 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 		}
 		py2g += bstr + retstr
 		py2g += fmt.Sprintf("C.PyObject_CallObject(_fun_arg, _fcargs)\n")
+		py2g += "C.Py_DECREF(_fcargs)\n"
 	} else {
 		py2g += retstr + "C.PyObject_CallObject(_fun_arg, nil)\n"
 	}
