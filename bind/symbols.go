@@ -946,7 +946,6 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 	}
 
 	py2g += "if C.PyCallable_Check(_fun_arg) == 0 { return }\n"
-	py2g += "C.PyEval_InitThreads()\n"
 	py2g += "_gstate := C.PyGILState_Ensure()\n"
 
 	nargs := args.Len()
