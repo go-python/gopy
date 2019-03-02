@@ -26,6 +26,8 @@ type Package struct {
 	vars    []*Var
 	structs []*Struct
 	ifaces  []*Interface
+	slices  []*Slice
+	maps    []*Map
 	funcs   []*Func
 }
 
@@ -182,6 +184,8 @@ func (p *Package) process() error {
 	funcs := make(map[string]*Func)
 	structs := make(map[string]*Struct)
 	ifaces := make(map[string]*Interface)
+	slices := make(map[string]*Slice)
+	maps := make(map[string]*Map)
 
 	scope := p.pkg.Scope()
 	for _, name := range scope.Names() {
@@ -220,7 +224,8 @@ func (p *Package) process() error {
 			case *types.Struct:
 				sv, err := newStruct(p, obj)
 				if err != nil {
-					return err
+					fmt.Println(err)
+					continue
 				}
 				structs[name] = sv
 
@@ -233,7 +238,8 @@ func (p *Package) process() error {
 			case *types.Interface:
 				iv, err := newInterface(p, obj)
 				if err != nil {
-					return err
+					fmt.Println(err)
+					continue
 				}
 				ifaces[name] = iv
 
@@ -241,21 +247,29 @@ func (p *Package) process() error {
 				// ok. handled by p.syms-types
 
 			case *types.Slice:
-				// ok. handled by p.syms-types
+				sl, err := newSlice(p, obj)
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+				slices[name] = sl
 
 			case *types.Map:
-				// ok. handled by p.syms-types
+				mp, err := newMap(p, obj)
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+				maps[name] = mp
 
 			case *types.Chan:
 				continue // don't handle
 
 			default:
-				//TODO(sbinet)
 				panic(fmt.Errorf("not yet supported: %v (%T)", typ, obj))
 			}
 
 		default:
-			//TODO(sbinet)
 			panic(fmt.Errorf("not yet supported: %v (%T)", obj, obj))
 		}
 
@@ -351,6 +365,56 @@ func (p *Package) process() error {
 		p.addInterface(ifc)
 	}
 
+	for sname, s := range slices {
+		styp := s.GoType()
+		ntyp, ok := styp.(*types.Named)
+		if !ok {
+			continue
+		}
+		nmeth := ntyp.NumMethods()
+		for mi := 0; mi < nmeth; mi++ {
+			meth := ntyp.Method(mi)
+			if !meth.Exported() {
+				continue
+			}
+			msig := meth.Type().(*types.Signature)
+			m, err := newFuncFrom(p, sname, meth, msig)
+			if err != nil {
+				continue
+			}
+			s.meths = append(s.meths, m)
+			if isStringer(meth) {
+				s.prots |= ProtoStringer
+			}
+		}
+		p.addSlice(s)
+	}
+
+	for sname, s := range maps {
+		styp := s.GoType()
+		ntyp, ok := styp.(*types.Named)
+		if !ok {
+			continue
+		}
+		nmeth := ntyp.NumMethods()
+		for mi := 0; mi < nmeth; mi++ {
+			meth := ntyp.Method(mi)
+			if !meth.Exported() {
+				continue
+			}
+			msig := meth.Type().(*types.Signature)
+			m, err := newFuncFrom(p, sname, meth, msig)
+			if err != nil {
+				continue
+			}
+			s.meths = append(s.meths, m)
+			if isStringer(meth) {
+				s.prots |= ProtoStringer
+			}
+		}
+		p.addMap(s)
+	}
+
 	for _, fct := range funcs {
 		p.addFunc(fct)
 	}
@@ -381,6 +445,16 @@ func (p *Package) addStruct(s *Struct) {
 func (p *Package) addInterface(ifc *Interface) {
 	p.ifaces = append(p.ifaces, ifc)
 	p.objs[ifc.GoName()] = ifc
+}
+
+func (p *Package) addSlice(slc *Slice) {
+	p.slices = append(p.slices, slc)
+	p.objs[slc.GoName()] = slc
+}
+
+func (p *Package) addMap(mp *Map) {
+	p.maps = append(p.maps, mp)
+	p.objs[mp.GoName()] = mp
 }
 
 func (p *Package) addFunc(f *Func) {

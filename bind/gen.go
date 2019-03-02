@@ -206,10 +206,6 @@ class nil(GoClass):
 	def __init__(self):
 		self.handle = 0
 		
-def InitRunFileSet(fname):
-	"""set a filename to be run when GoPyInitRunFile() is called (e.g., from Init() function) -- this is needed if the Init function steals the main thread, e.g., for starting a GUI event loop -- execution proceeds in the called function."""
-	_%[1]s.GoPyInitRunFileSet(fname)
-	
 def Init():
 	"""calls the GoPyInit function, which runs the 'main' code string that was passed using -main arg to gopy"""
 	_%[1]s.GoPyInit()
@@ -285,9 +281,9 @@ build:
 	- rm %[1]s.c %[1]s_go.h
 	touch %[1]s_go.h
 	# this will fail but is needed to generate the .c file that then allows go build to work
-	- $(PYTHON) build.py >& /dev/null
+	- $(PYTHON) build.py >/dev/null 2>&1
 	# generate %[1]s_go.h from %[1]s.go -- unfortunately no way to build .h only
-	$(GOBUILD) -buildmode=c-shared -o %[1]s_go$(LIBEXT)
+	$(GOBUILD) -buildmode=c-shared -o %[1]s_go$(LIBEXT) >/dev/null 2>&1
 	# use pybindgen to build the %[1]s.c file which are the CPython wrappers to cgo wrappers..
 	# note: pip install pybindgen to get pybindgen if this fails
 	$(PYTHON) build.py
@@ -417,9 +413,9 @@ func (g *pyGen) genPkg(p *Package) {
 	g.genPyWrapPreamble()
 	if p == goPackage {
 		g.genGoPkg()
+		g.genExtTypesPyWrap()
 		g.genPkgWrapOut()
 	} else {
-		g.genExtTypesPyWrap()
 		g.genAll()
 		g.genPkgWrapOut()
 	}
@@ -571,6 +567,18 @@ func (g *pyGen) genAll() {
 	g.pkg.sortStructEmbeds()
 	for _, s := range g.pkg.structs {
 		g.genStruct(s)
+	}
+
+	g.gofile.Printf("\n\n// ---- Slices ---\n")
+	g.pywrap.Printf("\n\n# ---- Slices ---\n")
+	for _, s := range g.pkg.slices {
+		g.genSlice(s.sym, false, false, s)
+	}
+
+	g.gofile.Printf("\n\n// ---- Maps ---\n")
+	g.pywrap.Printf("\n\n# ---- Maps ---\n")
+	for _, m := range g.pkg.maps {
+		g.genMap(m.sym, false, false, m)
 	}
 
 	// note: these are extracted from reg functions that return full

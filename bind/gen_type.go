@@ -34,19 +34,24 @@ func (g *pyGen) genType(sym *symbol, extTypes, pyWrapOnly bool) {
 
 	if extTypes {
 		if sym.isSlice() || sym.isArray() {
-			g.genSlice(sym, extTypes, pyWrapOnly)
+			g.genSlice(sym, extTypes, pyWrapOnly, nil)
 		} else if sym.isMap() {
-			g.genMap(sym, extTypes, pyWrapOnly)
+			g.genMap(sym, extTypes, pyWrapOnly, nil)
 		} else if sym.isInterface() || sym.isStruct() {
 			if pyWrapOnly {
 				g.genExtClass(sym)
 			}
 		}
 	} else {
-		if sym.isSlice() || sym.isArray() {
-			g.genSlice(sym, extTypes, pyWrapOnly)
-		} else if sym.isMap() {
-			g.genMap(sym, extTypes, pyWrapOnly)
+		if g.pkg == goPackage {
+			if sym.isSlice() {
+				g.genSlice(sym, extTypes, pyWrapOnly, nil)
+			} else if sym.isMap() {
+				g.genMap(sym, extTypes, pyWrapOnly, nil)
+			}
+		}
+		if sym.isArray() {
+			g.genSlice(sym, extTypes, pyWrapOnly, nil)
 		}
 	}
 }
@@ -116,9 +121,10 @@ func (g *pyGen) genTypeHandle(sym *symbol) {
 // genExtClass generates minimal python wrappers for external classes (struct, interface, etc)
 func (g *pyGen) genExtClass(sym *symbol) {
 	pkgname := sym.gopkg.Name()
+	// note: all external wrapper classes are defined in base go.py module, so we exclude go.
 	g.pywrap.Printf(`
 # Python type for %[4]s
-class %[2]s(go.GoClass):
+class %[2]s(GoClass):
 	""%[3]q""
 `,
 		pkgname,
@@ -137,9 +143,13 @@ handle=A Go-side object is always initialized with an explicit handle=arg
 	g.pywrap.Indent()
 	g.pywrap.Printf("self.handle = kwargs['handle']\n")
 	g.pywrap.Outdent()
-	g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], go.GoClass):\n")
+	g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], GoClass):\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf("self.handle = args[0].handle\n")
+	g.pywrap.Outdent()
+	g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], int):\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("self.handle = args[0]\n")
 	g.pywrap.Outdent()
 	g.pywrap.Printf("else:\n")
 	g.pywrap.Indent()

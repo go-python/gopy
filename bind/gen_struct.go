@@ -203,7 +203,7 @@ func (g *pyGen) genStructMemberSetter(s *Struct, i int, f types.Object) {
 
 func (g *pyGen) genStructMethods(s *Struct) {
 	for _, m := range s.meths {
-		g.genMethod(s, m)
+		g.genMethod(s.sym, m)
 	}
 }
 
@@ -265,6 +265,6 @@ handle=A Go-side object is always initialized with an explicit handle=arg
 
 func (g *pyGen) genIfaceMethods(ifc *Interface) {
 	for _, m := range ifc.meths {
-		g.genIfcMethod(ifc, m)
+		g.genMethod(ifc.sym, m)
 	}
 }
