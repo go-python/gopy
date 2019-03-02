@@ -66,7 +66,8 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 		}
 	}
 
-	err = genPkg(odir, name, cmdstr, vm, mainstr)
+	// false = library version
+	err = genPkg(false, odir, name, cmdstr, vm, mainstr)
 	if err != nil {
 		return err
 	}

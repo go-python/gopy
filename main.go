@@ -23,6 +23,7 @@ func run(args []string) error {
 			gopyMakeCmdGen(),
 			gopyMakeCmdBuild(),
 			gopyMakeCmdPkg(),
+			gopyMakeCmdExe(),
 		},
 		Flag: *flag.NewFlagSet("gopy", flag.ExitOnError),
 	}

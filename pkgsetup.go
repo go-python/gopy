@@ -103,6 +103,10 @@ install:
 	$(PYTHON) setup.py sdist
 	$(PIP) install dist/*.tar.gz
 
+install-exe:
+	# install executable into /usr/local/bin
+	cp %[1]s /usr/local/bin
+
 `
 )
 

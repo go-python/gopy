@@ -7,6 +7,10 @@ from __future__ import print_function
 
 from funcs import go, funcs
 
+fs = funcs.FunStruct()
+fs.FieldS = "str field"
+fs.FieldI = 42
+
 def cbfun(afs, ival, sval):
     tfs = funcs.FunStruct(handle=afs)
     print("in python cbfun: FieldI: ", tfs.FieldI, " FieldS: ", tfs.FieldS, " ival: ", ival, " sval: ", sval)
@@ -22,11 +26,10 @@ class MyClass(object):
     def ClassFun(self, afs, ival, sval):
         tfs = funcs.FunStruct(handle=afs)
         print("in python class fun: FieldI: ", tfs.FieldI, " FieldS: ", tfs.FieldS, " ival: ", ival, " sval: ", sval)
-        
+
+    def CallSelf(self):
+        fs.CallBack(77, self.ClassFun)
     
-fs = funcs.FunStruct()
-fs.FieldS = "str field"
-fs.FieldI = 42
 fs.CallBack(22, cbfun)
 
 fs.CallBackIf(22, cbfunif)
@@ -34,6 +37,8 @@ fs.CallBackIf(22, cbfunif)
 cls = MyClass()
 
 fs.CallBack(32, cls.ClassFun)
+
+cls.CallSelf()
 
 # print("funcs.GetF1()...")
 # f1 = funcs.GetF1()
