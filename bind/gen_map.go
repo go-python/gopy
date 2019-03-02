@@ -11,7 +11,8 @@ import (
 
 // extTypes = these are types external to any targeted packages
 // pyWrapOnly = only generate python wrapper code, not go code
-func (g *pyGen) genMap(slc *symbol, extTypes, pyWrapOnly bool) {
+// mpob = Map object -- for methods
+func (g *pyGen) genMap(slc *symbol, extTypes, pyWrapOnly bool, mpob *Map) {
 	if slc.isPointer() {
 		return // todo: not sure what to do..
 	}
@@ -29,7 +30,7 @@ func (g *pyGen) genMap(slc *symbol, extTypes, pyWrapOnly bool) {
 	}
 
 	gocl := "go."
-	if pkgname == "go" {
+	if g.pkg == goPackage {
 		gocl = ""
 	}
 
@@ -50,8 +51,9 @@ class %[2]s(%[5]sGoClass):
 	}
 
 	g.genMapInit(slc, extTypes, pyWrapOnly)
-	// g.genMapMembers(slc)
-	// g.genMapMethods(slc)
+	if mpob != nil {
+		g.genMapMethods(mpob)
+	}
 	if !extTypes || pyWrapOnly {
 		g.pywrap.Outdent()
 	}
@@ -66,7 +68,7 @@ func (g *pyGen) genMapInit(slc *symbol, extTypes, pyWrapOnly bool) {
 	ksym := current.symtype(typ.Key())
 
 	gocl := "go."
-	if slc.gopkg.Name() == "go" {
+	if g.pkg == goPackage {
 		gocl = ""
 	}
 
@@ -86,6 +88,10 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], %sGoClass):\n", gocl)
 		g.pywrap.Indent()
 		g.pywrap.Printf("self.handle = args[0].handle\n")
+		g.pywrap.Outdent()
+		g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], int):\n")
+		g.pywrap.Indent()
+		g.pywrap.Printf("self.handle = args[0]\n")
 		g.pywrap.Outdent()
 		g.pywrap.Printf("else:\n")
 		g.pywrap.Indent()
@@ -222,5 +228,11 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("}\n\n")
 
 		g.pybuild.Printf("mod.add_function('%s_set', None, [param('%s', 'handle'), param('%s', 'key'), param('%s', 'value')])\n", slNm, PyHandle, ksym.cpyname, esym.cpyname)
+	}
+}
+
+func (g *pyGen) genMapMethods(s *Map) {
+	for _, m := range s.meths {
+		g.genMethod(s.sym, m)
 	}
 }

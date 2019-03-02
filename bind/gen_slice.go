@@ -11,7 +11,8 @@ import (
 
 // extTypes = these are types external to any targeted packages
 // pyWrapOnly = only generate python wrapper code, not go code
-func (g *pyGen) genSlice(slc *symbol, extTypes, pyWrapOnly bool) {
+// slob = official slice object -- for package-processed slices -- has methods
+func (g *pyGen) genSlice(slc *symbol, extTypes, pyWrapOnly bool, slob *Slice) {
 	if slc.isPointer() {
 		return // todo: not sure what to do..
 	}
@@ -29,7 +30,7 @@ func (g *pyGen) genSlice(slc *symbol, extTypes, pyWrapOnly bool) {
 	}
 
 	gocl := "go."
-	if pkgname == "go" {
+	if g.pkg == goPackage {
 		gocl = ""
 	}
 
@@ -50,8 +51,9 @@ class %[2]s(%[5]sGoClass):
 	}
 
 	g.genSliceInit(slc, extTypes, pyWrapOnly)
-	// g.genSliceMembers(slc)
-	// g.genSliceMethods(slc)
+	if slob != nil {
+		g.genSliceMethods(slob)
+	}
 	if !extTypes || pyWrapOnly {
 		g.pywrap.Outdent()
 	}
@@ -69,7 +71,7 @@ func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool) {
 	}
 
 	gocl := "go."
-	if slc.gopkg.Name() == "go" {
+	if g.pkg == goPackage {
 		gocl = ""
 	}
 
@@ -89,6 +91,10 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], %sGoClass):\n", gocl)
 		g.pywrap.Indent()
 		g.pywrap.Printf("self.handle = args[0].handle\n")
+		g.pywrap.Outdent()
+		g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], int):\n")
+		g.pywrap.Indent()
+		g.pywrap.Printf("self.handle = args[0]\n")
 		g.pywrap.Outdent()
 		if slc.isSlice() {
 			g.pywrap.Printf("else:\n")
@@ -183,10 +189,7 @@ otherwise parameter is a python list that we copy from
 				g.pywrap.Printf("_%s_append(self.handle, value)\n", qNm)
 			}
 			g.pywrap.Outdent()
-
-			g.pywrap.Outdent()
 		}
-		g.pywrap.Printf("\n")
 
 		// g.pywrap.Printf("	def __repr__(self):
 		//        cret = _cffi_helper.lib.cgo_func_0x3243646956_str(self.cgopy)
@@ -260,5 +263,11 @@ otherwise parameter is a python list that we copy from
 
 			g.pybuild.Printf("mod.add_function('%s_append', None, [param('%s', 'handle'), param('%s', 'value')])\n", slNm, PyHandle, esym.cpyname)
 		}
+	}
+}
+
+func (g *pyGen) genSliceMethods(s *Slice) {
+	for _, m := range s.meths {
+		g.genMethod(s.sym, m)
 	}
 }
