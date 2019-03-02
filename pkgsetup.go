@@ -105,7 +105,7 @@ install:
 
 install-exe:
 	# install executable into /usr/local/bin
-	cp %[1]s/%[1]s /usr/local/bin
+	cp %[1]s/py%[1]s /usr/local/bin/
 
 `
 )
