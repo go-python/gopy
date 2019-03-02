@@ -21,25 +21,27 @@ import (
 // https://packaging.python.org/tutorials/packaging-projects/
 // https://docs.python.org/3/tutorial/modules.html
 
-func gopyMakeCmdPkg() *commander.Command {
+func gopyMakeCmdExe() *commander.Command {
 	cmd := &commander.Command{
-		Run:       gopyRunCmdPkg,
-		UsageLine: "pkg <go-package-name> [other-go-package...]",
-		Short:     "generate and compile (C)Python language bindings for Go, and make a python package",
+		Run:       gopyRunCmdExe,
+		UsageLine: "exe <go-package-name> [other-go-package...]",
+		Short:     "generate and compile (C)Python language bindings for Go, and make a standalone python executable with all the code -- must provide suitable main function code",
 		Long: `
-pkg generates and compiles (C)Python language bindings for a Go package, including subdirectories, and generates python module packaging suitable for distribution.  if setup.py file does not yet exist in the target directory, then it along with other default packaging files are created, using arguments.  Typically you create initial default versions of these files and then edit them, and after that, only regenerate the go binding files.
+exe generates and compiles (C)Python language bindings for a Go package, including subdirectories, and generates a standalone python executable and associated module packaging suitable for distribution.  if setup.py file does not yet exist in the target directory, then it along with other default packaging files are created, using arguments.  Typically you create initial default versions of these files and then edit them, and after that, only regenerate the go binding files.
+
+The primary need for an exe instead of a pkg dynamic library is when the main thread must be used for something other than running the python interpreter, such as for a GUI library where the main thread must be used for running the GUI event loop (e.g., GoGi).
 
 ex:
- $ gopy pkg [options] <go-package-name> [other-go-package...]
- $ gopy pkg github.com/go-python/gopy/_examples/hi
+ $ gopy exe [options] <go-package-name> [other-go-package...]
+ $ gopy exe github.com/go-python/gopy/_examples/hi
 `,
-		Flag: *flag.NewFlagSet("gopy-pkg", flag.ExitOnError),
+		Flag: *flag.NewFlagSet("gopy-exe", flag.ExitOnError),
 	}
 
 	cmd.Flag.String("vm", "python", "path to python interpreter")
 	cmd.Flag.String("output", "", "output directory for root of package")
 	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
-	cmd.Flag.String("main", "", "code string to run in the go GoPyInit() function in the cgo library")
+	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library -- defaults to GoPyMainRun() but typically should be overriden")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	cmd.Flag.String("exclude", "", "comma-separated list of package names to exclude")
 	cmd.Flag.String("user", "", "username on https://www.pypa.io/en/latest/ for package name suffix")
@@ -52,7 +54,7 @@ ex:
 	return cmd
 }
 
-func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
+func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 	if len(args) == 0 {
 		err := fmt.Errorf("gopy: expect a fully qualified go package name as argument")
 		log.Println(err)
@@ -117,27 +119,6 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 		}
 		buildPkgRecurse(odir, path, rootdir, rootdir, exmap)
 	}
-	// false = lib / pkg version
-	return runBuild(false, odir, name, cmdstr, vm, mainstr, symbols)
-}
-
-func buildPkgRecurse(odir, path, rootdir, pathdir string, exmap map[string]struct{}) {
-	reldir, _ := filepath.Rel(rootdir, pathdir)
-	if reldir == "" {
-		newPackage(path)
-	} else {
-		pkgpath := path + "/" + reldir
-		newPackage(pkgpath)
-	}
-
-	//	now try all subdirs
-	drs := dirs.Dirs(pathdir)
-	for _, dr := range drs {
-		_, ex := exmap[dr]
-		if ex || dr[0] == '.' || dr[0] == '_' {
-			continue
-		}
-		sp := filepath.Join(pathdir, dr)
-		buildPkgRecurse(odir, path, rootdir, sp, exmap)
-	}
+	// true = exe version
+	return runBuild(true, odir, name, cmdstr, vm, mainstr, symbols)
 }

@@ -64,16 +64,19 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 			return fmt.Errorf("gopy-build: go/build.Import failed with path=%q: %v", path, err)
 		}
 	}
-	return runBuild(odir, name, cmdstr, vm, mainstr, symbols)
+	// false = library instead of exe
+	return runBuild(false, odir, name, cmdstr, vm, mainstr, symbols)
 }
 
-func runBuild(odir, outname, cmdstr, vm, mainstr string, symbols bool) error {
+// runBuild calls genPkg and then executes commands to build the resulting files
+// exe = executable mode to build an executable instead of a library
+func runBuild(exe bool, odir, outname, cmdstr, vm, mainstr string, symbols bool) error {
 	var err error
 	odir, err = genOutDir(odir)
 	if err != nil {
 		return err
 	}
-	err = genPkg(odir, outname, cmdstr, vm, mainstr)
+	err = genPkg(exe, odir, outname, cmdstr, vm, mainstr)
 	if err != nil {
 		return err
 	}
@@ -84,7 +87,7 @@ func runBuild(odir, outname, cmdstr, vm, mainstr string, symbols bool) error {
 	var cmdout []byte
 	os.Chdir(odir)
 
-	err = os.Remove(outname + ".c")
+	os.Remove(outname + ".c") // may fail, we don't care
 
 	fmt.Printf("goimports -w %v\n", outname+".go")
 	cmd := exec.Command("goimports", "-w", outname+".go")
@@ -94,58 +97,94 @@ func runBuild(odir, outname, cmdstr, vm, mainstr string, symbols bool) error {
 		return err
 	}
 
-	args := []string{"build", "-buildmode=c-shared"}
-	if !symbols {
-		// These flags will omit the various symbol tables, thereby
-		// reducing the final size of the binary. From https://golang.org/cmd/link/
-		// -s Omit the symbol table and debug information
-		// -w Omit the DWARF symbol table
-		args = append(args, "-ldflags=-s -w")
-	}
-	args = append(args, "-o", buildname+libExt, ".")
-	fmt.Printf("go %v\n", strings.Join(args, " "))
-	cmd = exec.Command("go", args...)
-	cmdout, err = cmd.CombinedOutput()
-	if err != nil {
-		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
-		return err
-	}
+	if exe {
+		of, err := os.Create(buildname + ".h") // overwrite existing
+		of.Close()
 
-	fmt.Printf("%v build.py\n", vm)
-	cmd = exec.Command(vm, "build.py")
-	cmdout, err = cmd.CombinedOutput()
-	if err != nil {
-		fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
-		return err
-	}
+		fmt.Printf("%v build.py   # will fail, but needed to generate .c file\n", vm)
+		cmd = exec.Command(vm, "build.py")
+		cmd.Run() // will fail, we don't care about errors
 
-	fmt.Printf("%v-config --cflags\n", vm)
-	cmd = exec.Command(vm+"-config", "--cflags") // todo: need minor version!
-	cflags, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cflags))
-		return err
-	}
+		args := []string{"build", "-buildmode=c-shared", "-o", buildname + libExt, "."}
+		fmt.Printf("go %v\n", strings.Join(args, " "))
+		cmd = exec.Command("go", args...)
+		cmdout, err = cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+			return err
+		}
 
-	fmt.Printf("%v-config --ldflags\n", vm)
-	cmd = exec.Command(vm+"-config", "--ldflags")
-	ldflags, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(ldflags))
-		return err
-	}
+		fmt.Printf("%v build.py   # should work this time\n", vm)
+		cmd = exec.Command(vm, "build.py")
+		cmdout, err = cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+			return err
+		}
 
-	modlib := "_" + outname + libExt
-	gccargs := []string{outname + ".c", "-dynamiclib", outname + "_go" + libExt, "-o", modlib}
-	gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(cflags)), " ")...)
-	gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(ldflags)), " ")...)
+		err = os.Remove(outname + "_go" + libExt)
 
-	fmt.Printf("gcc %v\n", strings.Join(gccargs, " "))
-	cmd = exec.Command("gcc", gccargs...)
-	cmdout, err = cmd.CombinedOutput()
-	if err != nil {
-		fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(cmdout))
-		return err
+		cmd = exec.Command("go", "build")
+		cmdout, err = cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+			return err
+		}
+
+	} else {
+		args := []string{"build", "-buildmode=c-shared"}
+		if !symbols {
+			// These flags will omit the various symbol tables, thereby
+			// reducing the final size of the binary. From https://golang.org/cmd/link/
+			// -s Omit the symbol table and debug information
+			// -w Omit the DWARF symbol table
+			args = append(args, "-ldflags=-s -w")
+		}
+		args = append(args, "-o", buildname+libExt, ".")
+		fmt.Printf("go %v\n", strings.Join(args, " "))
+		cmd = exec.Command("go", args...)
+		cmdout, err = cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+			return err
+		}
+
+		fmt.Printf("%v build.py\n", vm)
+		cmd = exec.Command(vm, "build.py")
+		cmdout, err = cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
+			return err
+		}
+
+		fmt.Printf("%v-config --cflags\n", vm)
+		cmd = exec.Command(vm+"-config", "--cflags") // todo: need minor version!
+		cflags, err := cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cflags))
+			return err
+		}
+
+		fmt.Printf("%v-config --ldflags\n", vm)
+		cmd = exec.Command(vm+"-config", "--ldflags")
+		ldflags, err := cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(ldflags))
+			return err
+		}
+
+		modlib := "_" + outname + libExt
+		gccargs := []string{outname + ".c", "-dynamiclib", outname + "_go" + libExt, "-o", modlib}
+		gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(cflags)), " ")...)
+		gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(ldflags)), " ")...)
+
+		fmt.Printf("gcc %v\n", strings.Join(gccargs, " "))
+		cmd = exec.Command("gcc", gccargs...)
+		cmdout, err = cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(cmdout))
+			return err
+		}
 	}
 
 	return err
