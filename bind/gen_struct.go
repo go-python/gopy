@@ -82,13 +82,15 @@ in which case a new Go object is constructed first
 	g.pywrap.Outdent()
 	g.pywrap.Outdent()
 
-	for _, m := range s.meths {
-		if m.GoName() == "String" {
-			g.pywrap.Printf("def __str__(self):\n")
-			g.pywrap.Indent()
-			g.pywrap.Printf("return self.String()\n")
-			g.pywrap.Outdent()
-			g.pywrap.Printf("\n")
+	if s.prots&ProtoStringer != 0 {
+		for _, m := range s.meths {
+			if isStringer(m.obj) {
+				g.pywrap.Printf("def __str__(self):\n")
+				g.pywrap.Indent()
+				g.pywrap.Printf("return self.String()\n")
+				g.pywrap.Outdent()
+				g.pywrap.Printf("\n")
+			}
 		}
 	}
 

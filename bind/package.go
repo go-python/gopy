@@ -29,6 +29,7 @@ type Package struct {
 	slices  []*Slice
 	maps    []*Map
 	funcs   []*Func
+	// calls   []*Signature // todo: could optimize calls back into python to gen once
 }
 
 // accumulates all the packages processed
@@ -480,11 +481,12 @@ func (p *Package) sortStructEmbeds() {
 			if !ok {
 				continue
 			}
-			ems := emss.(*Struct)
-			if ems.idx > s.idx {
-				nswap++
-				p.structs[s.idx], p.structs[ems.idx] = p.structs[ems.idx], p.structs[s.idx]
-				s.idx, ems.idx = ems.idx, s.idx
+			if ems, isstru := emss.(*Struct); isstru {
+				if ems.idx > s.idx {
+					nswap++
+					p.structs[s.idx], p.structs[ems.idx] = p.structs[ems.idx], p.structs[s.idx]
+					s.idx, ems.idx = ems.idx, s.idx
+				}
 			}
 		}
 		if nswap == 0 {
