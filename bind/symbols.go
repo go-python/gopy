@@ -677,6 +677,9 @@ func (sym *symtab) addType(obj types.Object, t types.Type) error {
 		return fmt.Errorf("gopy: channel type not supported: %s\n", n)
 
 	case *types.Named:
+		if !typ.Obj().Exported() {
+			return fmt.Errorf("gopy: non-exported named type: %s\n", n)
+		}
 		kind |= skNamed
 		var err error
 		switch st := typ.Underlying().(type) {

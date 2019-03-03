@@ -400,7 +400,20 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 		err:    haserr,
 		hasfun: hasfun,
 	}, nil
-}
+
+	// todo: could optimize by generating code once for each type of callback
+	// but probably not worth the effort required to link everything up..
+	// if hasfun {
+	// 	args := sv.args
+	// 	for i := range args {
+	// 		arg := args[i]
+	// 		if arg.sym.isSignature() {
+	//        // todo: need to make sure not already on the list, etc
+	// 			p.calls = append(p.calls, arg)
+	// 		}
+	// 	}
+	// }
+} //
 
 func (f *Func) Obj() types.Object {
 	return f.obj

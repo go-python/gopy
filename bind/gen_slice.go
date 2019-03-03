@@ -50,7 +50,7 @@ class %[2]s(%[5]sGoClass):
 		g.pywrap.Indent()
 	}
 
-	g.genSliceInit(slc, extTypes, pyWrapOnly)
+	g.genSliceInit(slc, extTypes, pyWrapOnly, slob)
 	if slob != nil {
 		g.genSliceMethods(slob)
 	}
@@ -59,7 +59,7 @@ class %[2]s(%[5]sGoClass):
 	}
 }
 
-func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool) {
+func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool, slob *Slice) {
 	pkgname := g.outname
 	slNm := slc.id
 	qNm := pkgname + "." + slNm
@@ -115,15 +115,18 @@ otherwise parameter is a python list that we copy from
 		}
 		g.pywrap.Outdent()
 
-		// for _, m := range slc.meths {
-		// 	if m.GoName() == "String" {
-		// 		g.pywrap.Printf("def __str__(self):\n")
-		// 		g.pywrap.Indent()
-		// 		g.pywrap.Printf("return self.String()\n")
-		// 		g.pywrap.Outdent()
-		// 		g.pywrap.Printf("\n")
-		// 	}
-		// }
+		if slob != nil && slob.prots&ProtoStringer != 0 {
+			for _, m := range slob.meths {
+				if isStringer(m.obj) {
+					g.pywrap.Printf("def __str__(self):\n")
+					g.pywrap.Indent()
+					g.pywrap.Printf("return self.String()\n")
+					g.pywrap.Outdent()
+					g.pywrap.Printf("\n")
+				}
+			}
+		}
+
 		g.pywrap.Printf("def __len__(self):\n")
 		g.pywrap.Indent()
 		g.pywrap.Printf("return _%s_len(self.handle)\n", qNm)
@@ -188,6 +191,16 @@ otherwise parameter is a python list that we copy from
 			} else {
 				g.pywrap.Printf("_%s_append(self.handle, value)\n", qNm)
 			}
+			g.pywrap.Outdent()
+			g.pywrap.Printf("def copy(self, src):\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf(`""" copy emulates the go copy function, copying elements into this list from source list, up to min of size of each list """
+`)
+			g.pywrap.Printf("mx = min(len(self), len(src))\n")
+			g.pywrap.Printf("for i in range(mx):\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("self[i] = src[i]\n")
+			g.pywrap.Outdent()
 			g.pywrap.Outdent()
 		}
 

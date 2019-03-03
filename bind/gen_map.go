@@ -50,7 +50,7 @@ class %[2]s(%[5]sGoClass):
 		g.pywrap.Indent()
 	}
 
-	g.genMapInit(slc, extTypes, pyWrapOnly)
+	g.genMapInit(slc, extTypes, pyWrapOnly, mpob)
 	if mpob != nil {
 		g.genMapMethods(mpob)
 	}
@@ -59,7 +59,7 @@ class %[2]s(%[5]sGoClass):
 	}
 }
 
-func (g *pyGen) genMapInit(slc *symbol, extTypes, pyWrapOnly bool) {
+func (g *pyGen) genMapInit(slc *symbol, extTypes, pyWrapOnly bool, mpob *Map) {
 	pkgname := g.outname
 	slNm := slc.id
 	qNm := pkgname + "." + slNm
@@ -110,15 +110,18 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Outdent()
 		g.pywrap.Outdent()
 
-		// for _, m := range slc.meths {
-		// 	if m.GoName() == "String" {
-		// 		g.pywrap.Printf("def __str__(self):\n")
-		// 		g.pywrap.Indent()
-		// 		g.pywrap.Printf("return self.String()\n")
-		// 		g.pywrap.Outdent()
-		// 		g.pywrap.Printf("\n")
-		// 	}
-		// }
+		if mpob != nil && mpob.prots&ProtoStringer != 0 {
+			for _, m := range mpob.meths {
+				if isStringer(m.obj) {
+					g.pywrap.Printf("def __str__(self):\n")
+					g.pywrap.Indent()
+					g.pywrap.Printf("return self.String()\n")
+					g.pywrap.Outdent()
+					g.pywrap.Printf("\n")
+				}
+			}
+		}
+
 		g.pywrap.Printf("def __len__(self):\n")
 		g.pywrap.Indent()
 		g.pywrap.Printf("return _%s_len(self.handle)\n", qNm)
