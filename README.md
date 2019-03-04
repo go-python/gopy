@@ -7,8 +7,9 @@ gopy
 
 `gopy` generates (and compiles) a `CPython` extension module from a `go` package.
 
-**WARNING** `gopy` is currently not compatible with `Go>=1.6` and its improved `CGo` rules as documented in [cmd/cgo](https://golang.org/cmd/cgo/#hdr-Passing_pointers).
-To be able to run a `CPython` module generated with `Go>=1.6`, one needs to export `GODEBUG=cgocheck=0` to disable the `CGo` rules runtime checker. (see [issue 83](https://github.com/go-python/gopy/issues/83) for more informations.)
+This is a newly-improved version that works with current (e.g., 1.12) versions of Go, and uses unique int64 handles to interface with python, so that no pointers are interchanged, making everything safe for the more recent moving garbage collector.
+
+It also supports python modules having any number of Go packages, and generates a separate .py module file for each package, which link into a single common binding library.  It has been tested extensively on reproducing complex Go code in large libraries -- most stuff "just works".
 
 ## Installation
 
@@ -40,47 +41,106 @@ gopy -
 
 Commands:
 
-    bind        generate and compile (C)Python language bindings for Go
     gen         generate (C)Python language bindings for Go
+    build       generate and compile 
+    pkg         generate and compile, automatically including subdirs
+                    also creates all the python files needed to install module
+    exe         like pkg but makes a standalone executable with go packages bultin
+                    this is particularly useful when using -main arg to start process on
+                    main thread -- python interpreter can run on another thread.
 
 Use "gopy help <command>" for more information about a command.
 
 
 $ gopy help gen
-Usage: gopy gen <go-package-name>
+Usage: gopy gen <go-package-name> [other-go-package...]
 
-gen generates (C)Python language bindings for a Go package.
+gen generates (C)Python language bindings for Go package(s).
 
 ex:
- $ gopy gen [options] <go-package-name>
+ $ gopy gen [options] <go-package-name> [other-go-package...]
  $ gopy gen github.com/go-python/gopy/_examples/hi
 
 Options:
-  -api="cpython": bindings API to use (cpython, cffi)
+  -main="": code string to run in the go main() function in the cgo library
+  -name="": name of output package (otherwise name of first package is used)
   -output="": output directory for bindings
   -vm="python": path to python interpreter
 
-$ gopy help bind
-Usage: gopy bind <go-package-name>
+$ gopy help build
+Usage: gopy build <go-package-name> [other-go-package...]
 
-bind generates and compiles (C)Python language bindings for a Go package.
+build generates and compiles (C)Python language bindings for Go package(s).
 
 ex:
- $ gopy bind [options] <go-package-name>
- $ gopy bind github.com/go-python/gopy/_examples/hi
+ $ gopy build [options] <go-package-name> [other-go-package...]
+ $ gopy build github.com/go-python/gopy/_examples/hi
 
 Options:
-  -api="cpython": bindings API to use (cpython, cffi)
+  -main="": code string to run in the go main() function in the cgo library
+  -name="": name of output package (otherwise name of first package is used)
   -output="": output directory for bindings
   -symbols=true: include symbols in output
   -vm="python": path to python interpreter
-  -work=false: print the name of temporary work directory and do not delete it when exiting
+
+$ gopy help pkg
+Usage: gopy pkg <go-package-name> [other-go-package...]
+
+pkg generates and compiles (C)Python language bindings for a Go package, including subdirectories, and generates python module packaging suitable for distribution.  if setup.py file does not yet exist in the target directory, then it along with other default packaging files are created, using arguments.  Typically you create initial default versions of these files and then edit them, and after that, only regenerate the go binding files.
+
+ex:
+ $ gopy pkg [options] <go-package-name> [other-go-package...]
+ $ gopy pkg github.com/go-python/gopy/_examples/hi
+
+Options:
+  -author="gopy": author name
+  -desc="": short description of project (long comes from README.md)
+  -email="gopy@example.com": author email
+  -exclude="": comma-separated list of package names to exclude
+  -main="": code string to run in the go GoPyInit() function in the cgo library
+  -name="": name of output package (otherwise name of first package is used)
+  -output="": output directory for root of package
+  -symbols=true: include symbols in output
+  -url="https://github.com/go-python/gopy": home page for project
+  -user="": username on https://www.pypa.io/en/latest/ for package name suffix
+  -version="0.1.0": semantic version number -- can use e.g., git to get this from tag and pass as argument
+  -vm="python": path to python interpreter
+
+
+$ gopy help exe
+Usage: gopy exe <go-package-name> [other-go-package...]
+
+exe generates and compiles (C)Python language bindings for a Go package, including subdirectories, and generates a standalone python executable and associated module packaging suitable for distribution.  if setup.py file does not yet exist in the target directory, then it along with other default packaging files are created, using arguments.  Typically you create initial default versions of these files and then edit them, and after that, only regenerate the go binding files.
+
+The primary need for an exe instead of a pkg dynamic library is when the main thread must be used for something other than running the python interpreter, such as for a GUI library where the main thread must be used for running the GUI event loop (e.g., GoGi).
+
+ex:
+ $ gopy exe [options] <go-package-name> [other-go-package...]
+ $ gopy exe github.com/go-python/gopy/_examples/hi
+
+Options:
+  -author="gopy": author name
+  -desc="": short description of project (long comes from README.md)
+  -email="gopy@example.com": author email
+  -exclude="": comma-separated list of package names to exclude
+  -main="": code string to run in the go main() function in the cgo library -- defaults to GoPyMainRun() but typically should be overriden
+  -name="": name of output package (otherwise name of first package is used)
+  -output="": output directory for root of package
+  -symbols=true: include symbols in output
+  -url="https://github.com/go-python/gopy": home page for project
+  -user="": username on https://www.pypa.io/en/latest/ for package name suffix
+  -version="0.1.0": semantic version number -- can use e.g., git to get this from tag and pass as argument
+  -vm="python": path to python interpreter
+
+
 ```
 
 
 ## Examples
 
 ### From the `python` shell
+
+NOTE: following not yet working:
 
 `gopy` comes with a little `python` module allowing to wrap and compile `go`
 packages directly from the `python` interactive shell:
@@ -101,7 +161,7 @@ package hi exposes a few Go functions to be wrapped and used from Python.
 
 ### From the command line
 ```sh
-$ gopy bind -output=out github.com/go-python/gopy/_examples/hi
+$ gopy build -output=out github.com/go-python/gopy/_examples/hi
 $ ls out
 hi.so
 
@@ -186,7 +246,6 @@ To know what features are supported on what backends, please refer to the
 - wrap `go` structs into `python` classes **[DONE]**
 - better pythonization: turn `go` `errors` into `python` exceptions **[DONE]**
 - wrap arrays and slices into types implementing `tp_as_sequence` **[DONE]**
-- only `python-2` supported for now **[DONE]**
 - Windows only supported with the `cffi` backend
 
 ## Contribute
@@ -196,3 +255,4 @@ When you want to contribute a patch or some code to `gopy`, please send a pull
 request against the `gopy` issue tracker **AND** a pull request against
 [go-python/license](https://github.com/go-python/license) adding yourself to the
 `AUTHORS` and `CONTRIBUTORS` files.
+
