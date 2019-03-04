@@ -57,6 +57,9 @@ func (g *pyGen) genType(sym *symbol, extTypes, pyWrapOnly bool) {
 }
 
 func (g *pyGen) genTypeHandlePtr(sym *symbol) {
+	if sym.goname == "interface{}" {
+		return
+	}
 	gonm := sym.gofmt()
 	g.gofile.Printf("\n// Converters for pointer handles for type: %s\n", gonm)
 	g.gofile.Printf("func %s(h CGoHandle) %s {\n", sym.py2go, gonm)

@@ -60,10 +60,13 @@ static inline PyObject* gopy_build_string(const char* val) {
 	return Py_BuildValue("s", val);
 }
 static inline void gopy_decref(PyObject* obj) { // macro
-	Py_DECREF(obj);
+	Py_XDECREF(obj);
 }
 static inline void gopy_incref(PyObject* obj) { // macro
-	Py_INCREF(obj);
+	Py_XINCREF(obj);
+}
+static inline int gopy_method_check(PyObject* obj) { // macro
+	return PyMethod_Check(obj);
 }
 static inline void gopy_err_handle() {
 	if(PyErr_Occurred() != NULL) {
@@ -606,6 +609,10 @@ func (g *pyGen) genGoPkg() {
 	names := universe.names()
 	for _, n := range names {
 		sym := universe.sym(n)
+		if sym.gopkg == nil && sym.goname == "interface{}" {
+			g.genType(sym, false, false)
+			continue
+		}
 		if sym.gopkg == nil {
 			continue
 		}

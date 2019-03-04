@@ -106,9 +106,9 @@ func isPyCompatVar(v *symbol) error {
 	if isErrorType(v.gotyp) {
 		return fmt.Errorf("gopy: var is error type")
 	}
-	if v.gotyp.String() == "interface{}" {
-		return fmt.Errorf("gopy: var is interface{}")
-	}
+	// if v.gotyp.String() == "interface{}" {
+	// 	return fmt.Errorf("gopy: var is interface{}")
+	// }
 	if _, isChan := v.gotyp.(*types.Chan); isChan {
 		return fmt.Errorf("gopy: var is channel type")
 	}
@@ -129,9 +129,9 @@ func isPyCompatType(typ types.Type) error {
 	if _, isChan := typ.(*types.Chan); isChan {
 		return fmt.Errorf("gopy: type is channel type")
 	}
-	if typ.String() == "interface{}" {
-		return fmt.Errorf("gopy: type is interface{}")
-	}
+	// if typ.String() == "interface{}" {
+	// 	return fmt.Errorf("gopy: type is interface{}")
+	// }
 	return nil
 }
 
@@ -143,6 +143,9 @@ func isPyCompatField(f *types.Var) (error, *symbol) {
 	ftyp := current.symtype(f.Type())
 	if _, isSig := f.Type().Underlying().(*types.Signature); isSig {
 		return fmt.Errorf("gopy: type is function signature"), nil
+	}
+	if f.Type().Underlying().String() == "interface{}" {
+		return fmt.Errorf("gopy: type is interface{}"), nil
 	}
 	return isPyCompatVar(ftyp), ftyp
 }
@@ -188,6 +191,11 @@ func isPyCompatFunc(sig *types.Signature) (err error, ret types.Type, haserr, ha
 			return
 		}
 		if _, isSig := ret.Underlying().(*types.Signature); isSig {
+			err = fmt.Errorf("gopy: return type is signature")
+			return
+		}
+		if ret.Underlying().String() == "interface{}" {
+			err = fmt.Errorf("gopy: return type is interface{}")
 			return
 		}
 	}
@@ -581,12 +589,33 @@ func (sym *symtab) processTuple(tuple *types.Tuple) error {
 // buildTuple returns a string of Go code that builds a PyTuple
 // for the given tuple (e.g., function args).
 // varnm is the name of the local variable for the built tuple
-func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string) (string, error) {
+// if methvar is non-empty, check if given PyObject* variable is a method,
+// and if so, add the self arg for it in the first position, and set the var
+// to be the actual method function.
+func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string, methvar string) (string, error) {
 	sz := tuple.Len()
 	if sz == 0 {
 		return "", fmt.Errorf("buildTuple: no elements")
 	}
-	bstr := fmt.Sprintf("%s := C.PyTuple_New(%d); ", varnm, sz)
+	// todo: https://www.reddit.com/r/Python/comments/3618cd/calling_back_python_instance_methods_from_c/
+	// could not get this to work reliably -- worked fine in simple funcs test case, but not when
+	// using in pyemergent..
+	//
+	// bstr := fmt.Sprintf("var %s *C.PyObject\n", varnm)
+	// bstr += fmt.Sprintf("_pyargstidx := 0\n")
+	// bstr += fmt.Sprintf("_pyargidx := C.long(0)\n")
+	// if methvar != "" {
+	// 	bstr += fmt.Sprintf("if C.gopy_method_check(%s) != 0 {\n", methvar)
+	// 	bstr += fmt.Sprintf("\tC.gopy_incref(%s)\n", methvar)
+	// 	bstr += fmt.Sprintf("\t%s = C.PyTuple_New(%d)\n", varnm, sz+1)
+	// 	bstr += fmt.Sprintf("\tC.PyTuple_SetItem(%s, 0, C.PyMethod_Self(%s))\n", varnm, methvar)
+	// 	bstr += fmt.Sprintf("\t_pyargstidx = 1\n")
+	// 	bstr += fmt.Sprintf("\t%[1]s = C.PyMethod_Function(%[1]s)\n", methvar)
+	// 	bstr += fmt.Sprintf("} else {\n")
+	// 	bstr += fmt.Sprintf("\t%s = C.PyTuple_New(%d)\n", varnm, sz)
+	// 	bstr += fmt.Sprintf("}\n")
+	// }
+	bstr := fmt.Sprintf("%s := C.PyTuple_New(%d)\n", varnm, sz)
 	for i := 0; i < sz; i++ {
 		v := tuple.At(i)
 		typ := v.Type()
@@ -602,23 +631,27 @@ func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string) (string, error) 
 				return "", fmt.Errorf("buildTuple: type still not found: %s", typ.String())
 			}
 		}
+		// bstr += fmt.Sprintf("_pyargidx = C.long(_pyargstidx + %d)\n", i)
+
 		bt, isb := typ.Underlying().(*types.Basic)
 		switch {
+		case vsym.goname == "interface{}":
+			bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_string(%s(%s)%s))\n", varnm, i, vsym.go2py, anm, vsym.go2pyParenEx)
 		case vsym.hasHandle(): // note: assuming int64 handles
-			bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_int64(C.int64_t(%s(%s)%s))); ", varnm, i, vsym.go2py, anm, vsym.go2pyParenEx)
+			bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_int64(C.int64_t(%s(%s)%s)))\n", varnm, i, vsym.go2py, anm, vsym.go2pyParenEx)
 		case isb:
 			bk := bt.Kind()
 			switch {
 			case bk >= types.Int && bk <= types.Int64:
-				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_int64(C.int64_t(%s))); ", varnm, i, anm)
+				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_int64(C.int64_t(%s)))\n", varnm, i, anm)
 			case bk >= types.Uint && bk <= types.Uintptr:
-				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_uint64(C.uint64_t(%s))); ", varnm, i, anm)
+				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_uint64(C.uint64_t(%s)))\n", varnm, i, anm)
 			case bk >= types.Float32 && bk <= types.Float64:
-				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_float64(C.double(%s))); ", varnm, i, anm)
+				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_float64(C.double(%s)))\n", varnm, i, anm)
 			case bk == types.String:
-				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_string(C.CString(%s))); ", varnm, i, anm)
+				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_string(C.CString(%s)))\n", varnm, i, anm)
 			case bk == types.Bool:
-				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_bool(C.uint8_t(boolGoToPy(%s)))); ", varnm, i, anm)
+				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_bool(C.uint8_t(boolGoToPy(%s))))\n", varnm, i, anm)
 			}
 		default:
 			return "", fmt.Errorf("buildTuple: type not handled: %s", typ.String())
@@ -956,7 +989,7 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 	py2g += "_gstate := C.PyGILState_Ensure()\n"
 	nargs := args.Len()
 	if nargs > 0 {
-		bstr, err := sym.buildTuple(args, "_fcargs")
+		bstr, err := sym.buildTuple(args, "_fcargs", "_fun_arg")
 		if err != nil {
 			return err
 		}
@@ -964,6 +997,7 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 		py2g += fmt.Sprintf("C.PyObject_CallObject(_fun_arg, _fcargs)\n")
 		py2g += "C.gopy_decref(_fcargs)\n"
 	} else {
+		// todo: methods not supported for no-args case -- requires self arg..
 		py2g += retstr + "C.PyObject_CallObject(_fun_arg, nil)\n"
 	}
 	py2g += "C.gopy_err_handle()\n"
@@ -1059,19 +1093,37 @@ func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t type
 		return nil
 	}
 
-	sym.syms[fn] = &symbol{
-		gopkg:   pkg,
-		goobj:   obj,
-		gotyp:   t,
-		kind:    kind,
-		id:      id,
-		goname:  n,
-		cgoname: "CGoHandle",
-		cpyname: PyHandle,
-		pysig:   "object",
-		go2py:   "handleFmPtr_" + id,
-		py2go:   "ptrFmHandle_" + id,
-		zval:    "nil",
+	if fn == "interface{}" {
+		sym.syms[fn] = &symbol{
+			gopkg:        pkg,
+			goobj:        obj,
+			gotyp:        t,
+			kind:         kind,
+			id:           id,
+			goname:       n,
+			cgoname:      "*C.char",
+			cpyname:      "char*",
+			pysig:        "str",
+			go2py:        `C.CString(fmt.Sprintf("%s",`,
+			go2pyParenEx: "))",
+			py2go:        "C.GoString",
+			zval:         `""`,
+		}
+	} else {
+		sym.syms[fn] = &symbol{
+			gopkg:   pkg,
+			goobj:   obj,
+			gotyp:   t,
+			kind:    kind,
+			id:      id,
+			goname:  n,
+			cgoname: "CGoHandle",
+			cpyname: PyHandle,
+			pysig:   "object",
+			go2py:   "handleFmPtr_" + id,
+			py2go:   "ptrFmHandle_" + id,
+			zval:    "nil",
+		}
 	}
 	return nil
 }
