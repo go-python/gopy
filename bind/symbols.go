@@ -598,8 +598,8 @@ func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string, methvar string) 
 		return "", fmt.Errorf("buildTuple: no elements")
 	}
 	// todo: https://www.reddit.com/r/Python/comments/3618cd/calling_back_python_instance_methods_from_c/
-	// could not get this to work reliably -- worked fine in simple funcs test case, but not when
-	// using in pyemergent..
+	// could not get this to work across threads for methods -- and furthermore the basic version with
+	// CallObject works fine within the same thread, so all this extra work seems unnecessary.
 	//
 	// bstr := fmt.Sprintf("var %s *C.PyObject\n", varnm)
 	// bstr += fmt.Sprintf("_pyargstidx := 0\n")
