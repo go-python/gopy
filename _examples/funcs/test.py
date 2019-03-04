@@ -19,7 +19,7 @@ def cbfunif(afs, ival, ifval):
     tfs = funcs.FunStruct(handle=afs)
     print("in python cbfunif: FieldI: ", tfs.FieldI, " FieldS: ", tfs.FieldS, " ival: ", ival, " ifval: ", ifval)
 
-class MyClass(object):
+class MyClass(go.GoClass):
     def __init__(self, *args, **kwargs):
         self.misc = 2
     
@@ -36,9 +36,11 @@ fs.CallBackIf(22, cbfunif)
 
 cls = MyClass()
 
-fs.CallBack(32, cls.ClassFun)
-
-cls.CallSelf()
+for i in range(10):
+    fs.CallBack(22, cbfun)
+    fs.CallBackIf(22, cbfunif)
+    fs.CallBack(32, cls.ClassFun)
+    cls.CallSelf()
 
 # print("funcs.GetF1()...")
 # f1 = funcs.GetF1()
