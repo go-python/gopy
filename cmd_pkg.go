@@ -117,8 +117,7 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 		}
 		buildPkgRecurse(odir, path, rootdir, rootdir, exmap)
 	}
-	// false = lib / pkg version
-	return runBuild(false, odir, name, cmdstr, vm, mainstr, symbols)
+	return runBuild("pkg", odir, name, cmdstr, vm, mainstr, symbols)
 }
 
 func buildPkgRecurse(odir, path, rootdir, pathdir string, exmap map[string]struct{}) {

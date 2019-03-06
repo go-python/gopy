@@ -38,6 +38,7 @@ class %[1]s(%[4]s):
 func (g *pyGen) genStructInit(s *Struct) {
 	pkgname := g.outname
 	qNm := s.GoName()
+	// strNm := s.obj.Name()
 
 	numFields := s.Struct().NumFields()
 
@@ -92,7 +93,36 @@ in which case a new Go object is constructed first
 				g.pywrap.Printf("\n")
 			}
 		}
+	} else {
+		g.pywrap.Printf("def __str__(self):\n")
+		g.pywrap.Indent()
+		g.pywrap.Printf("pr = [(p, getattr(self, p)) for p in dir(self) if not p.startswith('__')]\n")
+		// g.pywrap.Printf("print(pr)\n")
+		g.pywrap.Printf("sv = '%s { '\n", qNm)
+		g.pywrap.Printf("for v in pr:\n")
+		g.pywrap.Indent()
+		g.pywrap.Printf("if not callable(v[1]):\n")
+		g.pywrap.Indent()
+		g.pywrap.Printf("sv += v[0] + '=' + str(v[1]) + ', '\n")
+		g.pywrap.Outdent()
+		g.pywrap.Outdent()
+		g.pywrap.Printf("return sv + '}'\n")
+		g.pywrap.Outdent()
 	}
+
+	g.pywrap.Printf("def __repr__(self):\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("pr = [(p, getattr(self, p)) for p in dir(self) if not p.startswith('__')]\n")
+	g.pywrap.Printf("sv = '%s ( '\n", qNm)
+	g.pywrap.Printf("for v in pr:\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("if not callable(v[1]):\n")
+	g.pywrap.Indent()
+	g.pywrap.Printf("sv += v[0] + '=' + str(v[1]) + ', '\n")
+	g.pywrap.Outdent()
+	g.pywrap.Outdent()
+	g.pywrap.Printf("return sv + ')'\n")
+	g.pywrap.Outdent()
 
 	// go ctor
 	ctNm := s.ID() + "_CTor"

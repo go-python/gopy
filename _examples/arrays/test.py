@@ -9,7 +9,8 @@ a = [1,2,3,4]
 b = arrays.CreateArray()
 print ("Python list:", a)
 print ("Go array: ", b)
-print ("arrays.IntSum from Python list:", arrays.IntSum(a))
+# note: only support slices as converted from python -- arrays don't make sense
+#print ("arrays.IntSum from Python list:", arrays.IntSum(a))
 print ("arrays.IntSum from Go array:", arrays.IntSum(b))
 
 print("OK")

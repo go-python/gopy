@@ -19,7 +19,7 @@ s1 = structs.S1()
 print("s1 = %s" %(s1,))
 
 try:
-    s1 = structs.S1(1)
+    s1 = structs.S1()
 except Exception as err:
     print("caught error: %s" % (err,))
     pass
@@ -31,12 +31,9 @@ except Exception as err:
     print("caught error: %s" % (err,))
     pass
 
+ 
 print("s2 = structs.S2()")
 s2 = structs.S2()
-print("s2 = %s" % (s2,))
-
-print("s2 = structs.S2(1)")
-s2 = structs.S2(1)
 print("s2 = %s" % (s2,))
 
 try:
@@ -44,9 +41,9 @@ try:
 except Exception as err:
     print("caught error: %s" % (err,))
     pass
-
+ 
 try:
-    s2 = structs.S2(42)
+    s2 = structs.S2(Public=42)
     print("s2 = %s" % (s2,))
     print("s2.Public = %s" % (s2.Public,))
     print("s2.private = %s" % (s2.private,))
@@ -56,7 +53,7 @@ except Exception as err:
 
 class S2Child(structs.S2):
     def __init__(self, a, b):
-        super(S2Child, self).__init__(a)
+        super(S2Child, self).__init__()
         self.local = b
     def __str__(self):
         return ("S2Child{S2: %s, local: %d}"
