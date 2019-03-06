@@ -60,9 +60,9 @@ class %[2]s(%[5]sGoClass):
 }
 
 func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool, slob *Slice) {
-	pkgname := g.outname
+	pkgname := slc.gopkg.Name()
 	slNm := slc.id
-	qNm := pkgname + "." + slNm
+	qNm := g.outname + "." + slNm // this is only for referring to the _ .go package!
 	var esym *symbol
 	if typ, ok := slc.GoType().Underlying().(*types.Slice); ok {
 		esym = current.symtype(typ.Elem())
@@ -108,7 +108,7 @@ otherwise parameter is a python list that we copy from
 			g.pywrap.Outdent()
 			g.pywrap.Printf("for elt in args[0]:\n")
 			g.pywrap.Indent()
-			g.pywrap.Printf("_%s_append(self.handle, elt)\n", qNm)
+			g.pywrap.Printf("self.append(elt)\n")
 			g.pywrap.Outdent()
 			g.pywrap.Outdent()
 			g.pywrap.Outdent()
@@ -122,10 +122,24 @@ otherwise parameter is a python list that we copy from
 					g.pywrap.Indent()
 					g.pywrap.Printf("return self.String()\n")
 					g.pywrap.Outdent()
-					g.pywrap.Printf("\n")
 				}
 			}
+		} else {
+			g.pywrap.Printf("def __str__(self):\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("s = '%s.%s len: ' + str(len(self)) + ' handle: ' + str(self.handle) + ' ['\n", pkgname, slNm)
+			g.pywrap.Printf("if len(self) < 120:\n")
+			g.pywrap.Indent()
+			g.pywrap.Println("s += ', '.join(map(str, self)) + ']'")
+			g.pywrap.Outdent()
+			g.pywrap.Println("return s")
+			g.pywrap.Outdent()
 		}
+
+		g.pywrap.Printf("def __repr__(self):\n")
+		g.pywrap.Indent()
+		g.pywrap.Printf("return '%s.%s([' + ', '.join(map(str, self)) + '])'\n", pkgname, slNm)
+		g.pywrap.Outdent()
 
 		g.pywrap.Printf("def __len__(self):\n")
 		g.pywrap.Indent()
@@ -134,27 +148,28 @@ otherwise parameter is a python list that we copy from
 
 		g.pywrap.Printf("def __getitem__(self, idx):\n")
 		g.pywrap.Indent()
-		g.pywrap.Printf("if idx >= len(self):\n")
+		g.pywrap.Printf("if idx < len(self):\n")
 		g.pywrap.Indent()
+		g.pywrap.Printf("return _%s_elem(self.handle, idx)\n", qNm)
+		g.pywrap.Outdent()
 		g.pywrap.Printf("raise IndexError('slice index out of range')\n")
 		g.pywrap.Outdent()
-		g.pywrap.Printf("return _%s_elem(self.handle, idx)\n", qNm)
+
+		g.pywrap.Printf("def __setitem__(self, idx, value):\n")
+		g.pywrap.Indent()
+		g.pywrap.Printf("if idx < len(self):\n")
+		g.pywrap.Indent()
+		if esym.hasHandle() {
+			g.pywrap.Printf("_%s_set(self.handle, idx, value.handle)\n", qNm)
+		} else {
+			g.pywrap.Printf("_%s_set(self.handle, idx, value)\n", qNm)
+		}
+		g.pywrap.Println("return")
+		g.pywrap.Outdent()
+		g.pywrap.Printf("raise IndexError('slice index out of range')\n")
 		g.pywrap.Outdent()
 
 		if slc.isSlice() {
-			g.pywrap.Printf("def __setitem__(self, idx, value):\n")
-			g.pywrap.Indent()
-			g.pywrap.Printf("if idx >= len(self):\n")
-			g.pywrap.Indent()
-			g.pywrap.Printf("raise IndexError('slice index out of range')\n")
-			g.pywrap.Outdent()
-			if esym.hasHandle() {
-				g.pywrap.Printf("_%s_set(self.handle, idx, value.handle)\n", qNm)
-			} else {
-				g.pywrap.Printf("_%s_set(self.handle, idx, value)\n", qNm)
-			}
-			g.pywrap.Outdent()
-
 			g.pywrap.Printf("def __iadd__(self, value):\n")
 			g.pywrap.Indent()
 			g.pywrap.Printf("if not isinstance(value, collections.Iterable):\n")
@@ -163,24 +178,27 @@ otherwise parameter is a python list that we copy from
 			g.pywrap.Outdent()
 			g.pywrap.Printf("for elt in value:\n")
 			g.pywrap.Indent()
-			g.pywrap.Printf("_%s_append(self.handle, elt)\n", qNm)
+			g.pywrap.Printf("self.append(elt)\n")
 			g.pywrap.Outdent()
+			g.pywrap.Printf("return self\n")
 			g.pywrap.Outdent()
 		}
 
 		g.pywrap.Printf("def __iter__(self):\n")
 		g.pywrap.Indent()
-		g.pywrap.Printf("return self\n")
+		g.pywrap.Println("self.index = 0")
+		g.pywrap.Println("return self")
 		g.pywrap.Outdent()
 
 		g.pywrap.Printf("def __next__(self):\n")
 		g.pywrap.Indent()
-		g.pywrap.Printf("if self.index >= len(self):\n")
+		g.pywrap.Printf("if self.index < len(self):\n")
 		g.pywrap.Indent()
-		g.pywrap.Printf("raise StopIteration\n")
+		g.pywrap.Printf("rv = _%s_elem(self.handle, self.index)\n", qNm)
+		g.pywrap.Println("self.index = self.index + 1")
+		g.pywrap.Println("return rv")
 		g.pywrap.Outdent()
-		g.pywrap.Printf("self.index = self.index + 1\n")
-		g.pywrap.Printf("return _%s_elem(self.handle, self.index)\n", qNm)
+		g.pywrap.Printf("raise StopIteration\n")
 		g.pywrap.Outdent()
 
 		if slc.isSlice() {
@@ -203,12 +221,6 @@ otherwise parameter is a python list that we copy from
 			g.pywrap.Outdent()
 			g.pywrap.Outdent()
 		}
-
-		// g.pywrap.Printf("	def __repr__(self):
-		//        cret = _cffi_helper.lib.cgo_func_0x3243646956_str(self.cgopy)
-		//        ret = _cffi_helper.cffi_cgopy_cnv_c2py_string(cret)
-		//        return ret
-
 	}
 
 	if !extTypes || !pyWrapOnly {

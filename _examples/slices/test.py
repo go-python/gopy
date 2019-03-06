@@ -3,13 +3,13 @@
 # license that can be found in the LICENSE file.
 
 from __future__ import print_function
-import slices
+import slices, go
 
 a = [1,2,3,4]
 b = slices.CreateSlice()
 print ("Python list:", a)
 print ("Go slice: ", b)
-print ("slices.IntSum from Python list:", slices.IntSum(a))
+print ("slices.IntSum from Python list:", slices.IntSum(go.Slice_int(a)))
 print ("slices.IntSum from Go slice:", slices.IntSum(b))
 
 su8 = slices.SliceUint8([1,2])

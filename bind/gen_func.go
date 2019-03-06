@@ -91,8 +91,11 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 				ret.Name(),
 			))
 		}
-		// todo: check for pointer return type
-		g.pybuild.Printf("retval('%s')", sret.cpyname)
+		if sret.cpyname == "PyObject*" {
+			g.pybuild.Printf("retval('%s', caller_owns_return=True)", sret.cpyname)
+		} else {
+			g.pybuild.Printf("retval('%s')", sret.cpyname)
+		}
 		goRet = fmt.Sprintf("%s", sret.cgoname)
 	} else {
 		g.pybuild.Printf("None")

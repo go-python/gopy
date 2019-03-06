@@ -15,10 +15,12 @@ import seqs
 ### test docs
 print("doc(seqs): %s" % repr(seqs.__doc__).lstrip('u'))
 
-print("arr = seqs.Array(xrange(2))")
-arr = seqs.Array(xrange(2))
-print("arr = %s" % (arr,))
+# note: arrays not settable from python -- use slices instead
 
+# print("arr = seqs.Array(xrange(2))")
+# arr = seqs.Array(xrange(2))
+# print("arr = %s" % (arr,))
+# 
 print("s = seqs.Slice()")
 s = seqs.Slice()
 print("s = %s" % (s,))

@@ -119,6 +119,5 @@ func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 		}
 		buildPkgRecurse(odir, path, rootdir, rootdir, exmap)
 	}
-	// true = exe version
-	return runBuild(true, odir, name, cmdstr, vm, mainstr, symbols)
+	return runBuild("exe", odir, name, cmdstr, vm, mainstr, symbols)
 }

@@ -8,11 +8,13 @@ from __future__ import print_function
 import pointers
 
 print("s = pointers.S(2)")
-s = pointers.S(2)
+s = pointers.S(Value=2)
 print("s = %s" % (s,))
 print("s.Value = %s" % (s.Value,))
 
-print("pointers.Inc(s)")
-print("s.Value = %s" % (s.Value,))
+# note: pointers to basic types (int) not supported - would
+# require a handle -- could to, but probably not worth it..
+#print("pointers.Inc(s)")
+#print("s.Value = %s" % (s.Value,))
 
 print("OK")
