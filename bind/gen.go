@@ -27,7 +27,7 @@ var PyHandle = "int64_t"
 // var CGoHandle = "*C.char"
 // var PyHandle = "char*"
 
-// 3 = libcfg, 4 = GoHandle, 5 = CGoHandle, 6 = all imports, 7 = mainstr
+// 3 = libcfg, 4 = GoHandle, 5 = CGoHandle, 6 = all imports, 7 = mainstr, 8 = exe pre C, 9 = exe pre go
 const (
 	goPreamble = `/*
 cgo stubs for package %[1]s.
@@ -41,7 +41,8 @@ package main
 #cgo pkg-config: %[3]s
 // #define Py_LIMITED_API // need full API for PyRun*
 #include <Python.h>
-// btw, static inline is trick for avoiding need for extra .c file
+typedef uint8_t bool;
+// static inline is trick for avoiding need for extra .c file
 // the following are used for build value -- switch on reflect.Kind
 // or the types equivalent
 static inline PyObject* gopy_build_bool(uint8_t val) {
@@ -73,17 +74,7 @@ static inline void gopy_err_handle() {
 		PyErr_Print();
 	}
 }
-#if PY_VERSION_HEX >= 0x03000000
-extern PyObject* PyInit__%[1]s(void);
-static inline void gopy_load_mod() {
-	PyImport_AppendInittab("_%[1]s", PyInit__%[1]s);
-}
-#else
-extern void* init__%[1]s(void);
-static inline void gopy_load_mod() {
-	PyImport_AppendInittab("_%[1]s", init__%[1]s);
-}
-#endif
+%[8]s
 */
 import "C"
 import (
@@ -105,21 +96,6 @@ func GoPyInit() {
 	%[7]s
 }
 
-// wchar version of startup args
-var wargs []*C.wchar_t
-
-//export GoPyMainRun
-func GoPyMainRun() {
-	// need to encode char* into wchar_t*
-	for i := range os.Args {
-		wargs = append(wargs, C.Py_DecodeLocale(C.CString(os.Args[i]), nil))
-	}
-	C.gopy_load_mod()
-	C.Py_Initialize()
-	C.PyEval_InitThreads()
-	C.Py_Main(C.int(len(wargs)), &wargs[0])
-}
-
 // type for the handle -- int64 for speed (can switch to string)
 type GoHandle %[4]s
 type CGoHandle %[5]s
@@ -138,6 +114,58 @@ func boolPyToGo(b C.char) bool {
 		return true
 	}
 	return false
+}
+
+func complex64GoToPy(c complex64) *C.PyObject {
+	return C.PyComplex_FromDoubles(C.double(real(c)), C.double(imag(c)))
+}
+
+func complex64PyToGo(o *C.PyObject) complex64 {
+	v := C.PyComplex_AsCComplex(o)
+	return complex(float32(v.real), float32(v.imag))
+}
+
+func complex128GoToPy(c complex128) *C.PyObject {
+	return C.PyComplex_FromDoubles(C.double(real(c)), C.double(imag(c)))
+}
+
+func complex128PyToGo(o *C.PyObject) complex128 {
+	v := C.PyComplex_AsCComplex(o)
+	return complex(float64(v.real), float64(v.imag))
+}
+
+%[9]s
+`
+
+	goExePreambleC = `
+#if PY_VERSION_HEX >= 0x03000000
+extern PyObject* PyInit__%[1]s(void);
+static inline void gopy_load_mod() {
+	PyImport_AppendInittab("_%[1]s", PyInit__%[1]s);
+}
+#else
+extern void* init__%[1]s(void);
+static inline void gopy_load_mod() {
+	PyImport_AppendInittab("_%[1]s", init__%[1]s);
+}
+#endif
+
+`
+
+	goExePreambleGo = `
+// wchar version of startup args
+var wargs []*C.wchar_t
+
+//export GoPyMainRun
+func GoPyMainRun() {
+	// need to encode char* into wchar_t*
+	for i := range os.Args {
+		wargs = append(wargs, C.Py_DecodeLocale(C.CString(os.Args[i]), nil))
+	}
+	C.gopy_load_mod()
+	C.Py_Initialize()
+	C.PyEval_InitThreads()
+	C.Py_Main(C.int(len(wargs)), &wargs[0])
 }
 
 `
@@ -212,8 +240,8 @@ class nil(GoClass):
 def Init():
 	"""calls the GoPyInit function, which runs the 'main' code string that was passed using -main arg to gopy"""
 	_%[1]s.GoPyInit()
-	
-`
+
+	`
 
 	// 3 = gencmd, 4 = vm, 5 = libext
 	MakefileTemplate = `# Makefile for python interface for package %[1]s.
@@ -309,9 +337,10 @@ var thePyGen *pyGen
 // GenPyBind generates a .go file, build.py file to enable pybindgen to create python bindings,
 // and wrapper .py file(s) that are loaded as the interface to the package with shadow
 // python-side classes
-func GenPyBind(exe bool, odir, outname, cmdstr, vm, mainstr, libext string, lang int) error {
+// mode = gen, build, pkg, exe
+func GenPyBind(mode string, odir, outname, cmdstr, vm, mainstr, libext string, lang int) error {
 	gen := &pyGen{
-		exe:     exe,
+		mode:    mode,
 		odir:    odir,
 		outname: outname,
 		cmdstr:  cmdstr,
@@ -339,7 +368,7 @@ type pyGen struct {
 	err    ErrorList
 	pkgmap map[string]struct{} // map of package paths
 
-	exe     bool   // build exe instead of lib
+	mode    string // mode: gen, build, pkg, exe
 	odir    string // output directory
 	outname string // overall output (package) name
 	cmdstr  string // overall command (embedded in generated files)
@@ -433,10 +462,16 @@ func (g *pyGen) genGoPreamble() {
 	pypath, pyonly := filepath.Split(g.vm)
 	pyroot, _ := filepath.Split(filepath.Clean(pypath))
 	libcfg := filepath.Join(filepath.Join(filepath.Join(pyroot, "lib"), "pkgconfig"), pyonly+".pc")
-	if g.exe && g.mainstr == "" {
+	if g.mode == "exe" && g.mainstr == "" {
 		g.mainstr = "GoPyMainRun()" // default is just to run main
 	}
-	g.gofile.Printf(goPreamble, g.outname, g.cmdstr, libcfg, GoHandle, CGoHandle, pkgimport, g.mainstr)
+	exeprec := ""
+	exeprego := ""
+	if g.mode == "exe" {
+		exeprec = goExePreambleC
+		exeprego = goExePreambleGo
+	}
+	g.gofile.Printf(goPreamble, g.outname, g.cmdstr, libcfg, GoHandle, CGoHandle, pkgimport, g.mainstr, exeprec, exeprego)
 	g.gofile.Printf("\n// --- generated code for package: %[1]s below: ---\n\n", g.outname)
 }
 
@@ -460,17 +495,25 @@ func (g *pyGen) genPyWrapPreamble() {
 	if g.pkg.Name() == "go" {
 		impstr += fmt.Sprintf(GoPkgDefs, g.outname)
 	} else {
-		impstr += fmt.Sprintf("from %s import go\n", g.outname)
+		if g.mode == "gen" || g.mode == "build" {
+			impstr += fmt.Sprintf("import go\n")
+		} else {
+			impstr += fmt.Sprintf("from %s import go\n", g.outname)
+		}
 	}
 	imps := g.pkg.pkg.Imports()
 	for _, im := range imps {
 		ipath := im.Path()
 		if _, has := g.pkgmap[ipath]; has {
-			impstr += fmt.Sprintf("from %s import %s\n", g.outname, im.Name())
+			if g.mode == "gen" || g.mode == "build" {
+				impstr += fmt.Sprintf("import %s\n", im.Name())
+			} else {
+				impstr += fmt.Sprintf("from %s import %s\n", g.outname, im.Name())
+			}
 		}
 	}
 
-	if g.exe {
+	if g.mode == "exe" {
 		g.pywrap.Printf(PyWrapExePreamble, g.outname, g.cmdstr, n, pkgimport, pkgDoc, impstr)
 	} else {
 		g.pywrap.Printf(PyWrapPreamble, g.outname, g.cmdstr, n, pkgimport, pkgDoc, impstr)
@@ -490,7 +533,7 @@ func CmdStrToMakefile(cmdstr string) string {
 func (g *pyGen) genMakefile() {
 	gencmd := strings.Replace(g.cmdstr, "gopy build", "gopy gen", 1)
 	gencmd = CmdStrToMakefile(gencmd)
-	if g.exe {
+	if g.mode == "exe" {
 		g.makefile.Printf(MakefileExeTemplate, g.outname, g.cmdstr, gencmd, g.vm, g.libext)
 	} else {
 		g.makefile.Printf(MakefileTemplate, g.outname, g.cmdstr, gencmd, g.vm, g.libext)

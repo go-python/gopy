@@ -7,7 +7,7 @@ from __future__ import print_function
 
 import gostrings
 
-print("S1 = %s" % (gostrings.GetS1(),))
+print("S1 = %s" % (gostrings.S1(),))
 print("GetString() = %s" % (gostrings.GetString(),))
 
 print("OK")

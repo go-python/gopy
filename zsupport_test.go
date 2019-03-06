@@ -7,15 +7,14 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 )
 
 func testPkg(t *testing.T, table pkg) {
-	backends := table.lang
-	if backends == nil {
-		backends = []string{"py2"}
-	}
+	backends := []string{"py3"} // , "py2"}
 	for _, be := range backends {
+		fmt.Printf("looping over backends: %s in %s\n", be, backends)
 		vm, ok := testBackends[be]
 		if !ok || vm == "" {
 			// backend not available.
@@ -23,36 +22,17 @@ func testPkg(t *testing.T, table pkg) {
 			continue
 		}
 		switch be {
-		case "py2":
-			t.Run("py2-python2", func(t *testing.T) {
-				t.Parallel()
-				testPkgBackend(t, vm, "cpython", table)
-			})
-		case "py2-cffi":
-			t.Run(be, func(t *testing.T) {
-				t.Parallel()
-				testPkgBackend(t, vm, "cffi", table)
-			})
+		// case "py2":
+		// 	t.Run("py2-python2", func(t *testing.T) {
+		// 		// t.Parallel()
+		// 		testPkgBackend(t, vm, table)
+		// 	})
 		case "py3":
 			t.Run(be, func(t *testing.T) {
-				t.Parallel()
-				testPkgBackend(t, vm, "cpython", table)
+				// t.Parallel()
+				testPkgBackend(t, vm, table)
 			})
-		case "py3-cffi":
-			t.Run(be, func(t *testing.T) {
-				t.Parallel()
-				testPkgBackend(t, vm, "cffi", table)
-			})
-		case "pypy2-cffi":
-			t.Run(be, func(t *testing.T) {
-				t.Parallel()
-				testPkgBackend(t, vm, "cffi", table)
-			})
-		case "pypy3-cffi":
-			t.Run(be, func(t *testing.T) {
-				t.Parallel()
-				testPkgBackend(t, vm, "cffi", table)
-			})
+			return
 		default:
 			t.Errorf("invalid backend name %q", be)
 		}

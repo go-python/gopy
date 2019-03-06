@@ -60,6 +60,12 @@ func (p *printer) Printf(format string, args ...interface{}) {
 	}
 }
 
+func (p *printer) Println(out string) {
+	if _, err := fmt.Fprintln(p, out); err != nil {
+		panic(fmt.Sprintf("printer: %v", err))
+	}
+}
+
 func (p *printer) Indent() {
 	p.indentText = append(p.indentText, p.indentEach...)
 }

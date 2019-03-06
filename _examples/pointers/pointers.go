@@ -15,6 +15,8 @@ func Inc(s *S) {
 	s.Value++
 }
 
+// note: pointers to basic types are not supported -- would
+// require a handle -- could to, but probably not worth it..
 type MyInt int
 
 // IncInt increments an integer

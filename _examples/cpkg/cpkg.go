@@ -7,7 +7,7 @@ package cpkg
 //#include <stdio.h>
 //#include <string.h>
 //#include <stdlib.h>
-//void cpkg_printf(const char *str) {
+//static inline void cpkg_printf(const char *str) {
 //	fprintf(stdout, "%s", str);
 //	fflush(stdout);
 //}

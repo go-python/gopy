@@ -57,35 +57,37 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 
 	for _, path := range args {
 		pkg, err := newPackage(path)
-		if name == "" {
-			name = pkg.Name()
-		}
 		if err != nil {
 			return fmt.Errorf("gopy-build: go/build.Import failed with path=%q: %v", path, err)
 		}
+		if name == "" {
+			name = pkg.Name()
+		}
 	}
-	// false = library instead of exe
-	return runBuild(false, odir, name, cmdstr, vm, mainstr, symbols)
+	return runBuild("build", odir, name, cmdstr, vm, mainstr, symbols)
 }
 
 // runBuild calls genPkg and then executes commands to build the resulting files
 // exe = executable mode to build an executable instead of a library
-func runBuild(exe bool, odir, outname, cmdstr, vm, mainstr string, symbols bool) error {
+// mode = gen, build, pkg, exe
+func runBuild(mode string, odir, outname, cmdstr, vm, mainstr string, symbols bool) error {
 	var err error
 	odir, err = genOutDir(odir)
 	if err != nil {
 		return err
 	}
-	err = genPkg(exe, odir, outname, cmdstr, vm, mainstr)
+	err = genPkg(mode, odir, outname, cmdstr, vm, mainstr)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("\n--- building package ---\n")
+	fmt.Printf("\n--- building package ---\n%s\n", cmdstr)
 
 	buildname := outname + "_go"
 	var cmdout []byte
+	cwd, err := os.Getwd()
 	os.Chdir(odir)
+	defer os.Chdir(cwd)
 
 	os.Remove(outname + ".c") // may fail, we don't care
 
@@ -97,7 +99,7 @@ func runBuild(exe bool, odir, outname, cmdstr, vm, mainstr string, symbols bool)
 		return err
 	}
 
-	if exe {
+	if mode == "exe" {
 		of, err := os.Create(buildname + ".h") // overwrite existing
 		of.Close()
 

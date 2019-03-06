@@ -6,10 +6,9 @@
 // We may want to wrap and import it just for its side-effects.
 package empty
 
-import (
-	"github.com/go-python/gopy/_examples/cpkg"
-)
+import "fmt"
 
 func init() {
-	cpkg.Printf("empty.init()... [CALLED]\n")
+	// todo: not sure why init is not being called!
+	fmt.Printf("empty.init()... [CALLED]\n")
 }

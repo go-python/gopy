@@ -9,23 +9,23 @@ import hi
 print("--- doc(hi)...")
 print(hi.__doc__)
 
-print("--- hi.GetUniverse():", hi.GetUniverse())
-print("--- hi.GetVersion():", hi.GetVersion())
+print("--- hi.Universe:", hi.Universe)
+print("--- hi.Version:", hi.Version)
 
-print("--- hi.GetDebug():",hi.GetDebug())
-print("--- hi.SetDebug(true)")
-hi.SetDebug(True)
-print("--- hi.GetDebug():",hi.GetDebug())
-print("--- hi.SetDebug(false)")
-hi.SetDebug(False)
-print("--- hi.GetDebug():",hi.GetDebug())
+print("--- hi.Debug():",hi.Debug())
+print("--- hi.Set_Debug(true)")
+hi.Set_Debug(True)
+print("--- hi.Debug():",hi.Debug())
+print("--- hi.Set_Debug(false)")
+hi.Set_Debug(False)
+print("--- hi.Debug():",hi.Debug())
 
-print("--- hi.GetAnon():",hi.GetAnon())
+print("--- hi.Anon():",hi.Anon())
 anon = hi.NewPerson('you',24)
 print("--- new anon:",anon)
-print("--- hi.SetAnon(hi.NewPerson('you', 24))...")
-hi.SetAnon(anon)
-print("--- hi.GetAnon():",hi.GetAnon())
+print("--- hi.Set_Anon(hi.NewPerson('you', 24))...")
+hi.Set_Anon(anon)
+print("--- hi.Anon():",hi.Anon())
 
 print("--- doc(hi.Hi)...")
 print(hi.Hi.__doc__)
@@ -167,8 +167,8 @@ print(c)
 
 ## test Couple.__init__
 print("--- Couple.__init__")
-c = hi.Couple(hi.Person("p1", 42))
-print(c)
+#c = hi.Couple(hi.Person("p1", 42))
+#print(c)
 c = hi.Couple(hi.Person("p1", 42), hi.Person("p2", 52))
 print(c)
 c = hi.Couple(P1=hi.Person("p1", 42), P2=hi.Person("p2", 52))
@@ -217,7 +217,7 @@ del objs
 print("--- testing GC... [ok]")
 
 print("--- testing array...")
-arr = hi.GetIntArray()
+arr = hi.IntArray()
 print("arr:",arr)
 print("len(arr):",len(arr))
 print("arr[0]:",arr[0])
@@ -238,7 +238,7 @@ except Exception as err:
     pass
 
 print("--- testing slice...")
-s = hi.GetIntSlice()
+s = hi.IntSlice()
 print("slice:",s)
 print("len(slice):",len(s))
 print("slice[0]:",s[0])
@@ -251,6 +251,7 @@ except Exception as err:
     pass
 s[1] = 42
 print("slice:",s)
+print("slice repr:",s.__repr__())
 print("len(slice):",len(s))
 try:
     print("mem(slice):",len(memoryview(s)))

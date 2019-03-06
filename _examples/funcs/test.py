@@ -5,7 +5,7 @@
 ## py2/py3 compat
 from __future__ import print_function
 
-from funcs import go, funcs
+import go, funcs
 
 fs = funcs.FunStruct()
 fs.FieldS = "str field"
@@ -30,36 +30,43 @@ class MyClass(go.GoClass):
     def CallSelf(self):
         fs.CallBack(77, self.ClassFun)
     
+print("fs.CallBack(22, cbfun)...")
 fs.CallBack(22, cbfun)
 
+print("fs.CallBackIf(22, cbfun)...")
 fs.CallBackIf(22, cbfunif)
 
 cls = MyClass()
 
-for i in range(10):
-    fs.CallBack(22, cbfun)
-    fs.CallBackIf(22, cbfunif)
-    fs.CallBack(32, cls.ClassFun)
-    cls.CallSelf()
+# note: no special code needed to work with methods in callback (PyObject_CallObject just works)
+# BUT it does NOT work if the callback is initiated from a different thread!  Then only regular
+# functions work.
+print("fs.CallBack(32, cls.ClassFun)...")
+fs.CallBack(32, cls.ClassFun)
 
-# print("funcs.GetF1()...")
-# f1 = funcs.GetF1()
+print("cls.CallSelf...")
+cls.CallSelf()
+
+# todo: not currently supported:
+
+# print("funcs.F1()...")
+# f1 = funcs.F1()
 # print("f1()= %s" % f1())
 # 
-# print("funcs.GetF2()...")
-# f2 = funcs.GetF2()
+# print("funcs.F2()...")
+# f2 = funcs.F2()
 # print("f2()= %s" % f2())
 # 
 # print("s1 = funcs.S1()...")
 # s1 = funcs.S1()
-# print("s1.F1 = funcs.GetF2()...")
-# s1.F1 = funcs.GetF2()
+# print("s1.F1 = funcs.F2()...")
+# s1.F1 = funcs.F2()
 # print("s1.F1() = %s" % s1.F1())
 # 
 # print("s2 = funcs.S2()...")
 # s2 = funcs.S2()
-# print("s2.F1 = funcs.GetF1()...")
-# s2.F1 = funcs.GetF1()
+# print("s2.F1 = funcs.F1()...")
+# s2.F1 = funcs.F1()
 # print("s2.F1() = %s" % s2.F1())
-# 
-#print("OK")
+
+print("OK")
