@@ -154,7 +154,7 @@ Options:
 
 ### From the `python` shell
 
-NOTE: following not yet working:
+NOTE: following not yet working in new version:
 
 `gopy` comes with a little `python` module allowing to wrap and compile `go`
 packages directly from the `python` interactive shell:
@@ -180,7 +180,7 @@ $ ls out
 hi.so
 
 $ cd out
-$ python2
+$ python3
 >>> import hi
 >>> dir(hi)
 ['Add', 'Concat', 'Hello', 'Hi', 'NewPerson', 'Person', '__doc__', '__file__', '__name__', '__package__']
@@ -193,44 +193,8 @@ hello you from go
 You can also run:
 
 ```sh
-go test -v -run=TestBind
-=== RUN   TestBind
-processing "Add"...
-processing "Concat"...
-processing "Hello"...
-processing "Hi"...
-processing "NewPerson"...
-processing "Person"...
-processing "Add"...
-processing "Concat"...
-processing "Hello"...
-processing "Hi"...
-processing "NewPerson"...
-processing "Person"...
-github.com/go-python/gopy/_examples/hi
-_/home/binet/dev/go/root/tmp/gopy-431003574
---- hi.Hi()...
-hi from go
---- hi.Hello('you')...
-hello you from go
---- hi.Add(1, 41)...
-42
---- hi.Concat('4', '2')...
-42
---- doc(hi.Person):
-Person is a simple struct
-
---- p = hi.Person()...
-<hi.Person object at 0x7fc46cc330f0>
-['Age', 'Name', '__class__', '__delattr__', '__doc__', '__format__', '__getattribute__', '__hash__', '__init__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__']
---- p.Name: None
---- p.Age: None
---- doc(p):
-Person is a simple struct
-
---- PASS: TestBind (2.13s)
-PASS
-ok  	github.com/go-python/gopy	2.135s
+go test -v -run=TestHi
+...
 ```
 
 ## Binding generation using Docker (for cross-platform builds)
@@ -257,10 +221,7 @@ To know what features are supported on what backends, please refer to the
 
 ## Limitations
 
-- wrap `go` structs into `python` classes **[DONE]**
-- better pythonization: turn `go` `errors` into `python` exceptions **[DONE]**
-- wrap arrays and slices into types implementing `tp_as_sequence` **[DONE]**
-- Windows only supported with the `cffi` backend
+- Windows completely untested, likely needs something special.
 
 ## Contribute
 
