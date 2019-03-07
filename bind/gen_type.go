@@ -43,7 +43,7 @@ func (g *pyGen) genType(sym *symbol, extTypes, pyWrapOnly bool) {
 			}
 		}
 	} else {
-		if g.pkg == goPackage {
+		if g.pkg == goPackage || !sym.isNamed() { // only named types are generated separately
 			if sym.isSlice() {
 				g.genSlice(sym, extTypes, pyWrapOnly, nil)
 			} else if sym.isMap() {

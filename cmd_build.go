@@ -101,6 +101,7 @@ func runBuild(mode string, odir, outname, cmdstr, vm, mainstr string, symbols bo
 
 	if mode == "exe" {
 		of, err := os.Create(buildname + ".h") // overwrite existing
+		fmt.Fprintf(of, "typedef uint8_t bool;\n")
 		of.Close()
 
 		fmt.Printf("%v build.py   # will fail, but needed to generate .c file\n", vm)

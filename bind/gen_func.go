@@ -19,6 +19,11 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		return false
 	}
 
+	gname, _, err := extractPythonName(fsym.GoName(), fsym.Doc())
+	if err != nil {
+		return false
+	}
+
 	sig := fsym.sig
 	args := sig.Params()
 	res := sig.Results()
@@ -68,7 +73,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 
 		g.pybuild.Printf("mod.add_function('%s', ", mnm)
 
-		g.pywrap.Printf("def %s(", fsym.GoName())
+		g.pywrap.Printf("def %s(", gname)
 
 	default:
 		g.gofile.Printf("\n//export %s\n", fsym.ID())
@@ -76,7 +81,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 
 		g.pybuild.Printf("mod.add_function('%s', ", fsym.ID())
 
-		g.pywrap.Printf("def %s(", fsym.GoName())
+		g.pywrap.Printf("def %s(", gname)
 
 	}
 
@@ -147,6 +152,8 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 
 	pkgname := g.outname
 
+	_, gdoc, _ := extractPythonName(fsym.GoName(), fsym.Doc())
+
 	sig := fsym.Signature()
 	res := sig.Results()
 	args := sig.Params()
@@ -162,6 +169,8 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 
 	g.pywrap.Printf(":\n")
 	g.pywrap.Indent()
+	g.pywrap.Printf(`"""%s"""`, gdoc)
+	g.pywrap.Printf("\n")
 
 	g.gofile.Printf(" {\n")
 	g.gofile.Indent()
