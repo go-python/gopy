@@ -35,8 +35,20 @@ type Package struct {
 // accumulates all the packages processed
 var Packages []*Package
 
+// ResetPackages resets any accumulated packages -- needed when doing tests
+func ResetPackages() {
+	universeMutex.Lock()
+	defer universeMutex.Unlock()
+	Packages = nil
+	makeGoPackage()
+	current = newSymtab(nil, universe)
+}
+
 // NewPackage creates a new Package, tying types.Package and ast.Package together.
 func NewPackage(pkg *types.Package, doc *doc.Package) (*Package, error) {
+	// protection for parallel tests
+	universeMutex.Lock()
+	defer universeMutex.Unlock()
 	fmt.Printf("\n--- Processing package: %v ---\n", pkg.Path())
 	sz := int64(reflect.TypeOf(int(0)).Size())
 	p := &Package{

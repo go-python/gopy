@@ -309,8 +309,8 @@ build:
 	# goimports is needed to ensure that the imports list is valid
 	$(GOIMPORTS) -w %[1]s.go
 	# this will otherwise be built during go build and may be out of date
-	- rm %[1]s.c %[1]s_go.h
-	touch %[1]s_go.h
+	- rm %[1]s.c 
+	echo "typedef uint8_t bool;" > %[1]s_go.h
 	# this will fail but is needed to generate the .c file that then allows go build to work
 	- $(PYTHON) build.py >/dev/null 2>&1
 	# generate %[1]s_go.h from %[1]s.go -- unfortunately no way to build .h only
@@ -468,7 +468,7 @@ func (g *pyGen) genGoPreamble() {
 	exeprec := ""
 	exeprego := ""
 	if g.mode == "exe" {
-		exeprec = goExePreambleC
+		exeprec = fmt.Sprintf(goExePreambleC, g.outname)
 		exeprego = goExePreambleGo
 	}
 	g.gofile.Printf(goPreamble, g.outname, g.cmdstr, libcfg, GoHandle, CGoHandle, pkgimport, g.mainstr, exeprec, exeprego)

@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build go1.7
-
 package main
 
 import (
@@ -12,7 +10,7 @@ import (
 )
 
 func testPkg(t *testing.T, table pkg) {
-	backends := []string{"py3"} // , "py2"}
+	backends := []string{"py2", "py3"}
 	for _, be := range backends {
 		fmt.Printf("looping over backends: %s in %s\n", be, backends)
 		vm, ok := testBackends[be]
@@ -22,17 +20,16 @@ func testPkg(t *testing.T, table pkg) {
 			continue
 		}
 		switch be {
-		// case "py2":
-		// 	t.Run("py2-python2", func(t *testing.T) {
-		// 		// t.Parallel()
-		// 		testPkgBackend(t, vm, table)
-		// 	})
+		case "py2":
+			t.Run(be, func(t *testing.T) {
+				// t.Parallel()
+				testPkgBackend(t, vm, table)
+			})
 		case "py3":
 			t.Run(be, func(t *testing.T) {
 				// t.Parallel()
 				testPkgBackend(t, vm, table)
 			})
-			return
 		default:
 			t.Errorf("invalid backend name %q", be)
 		}
