@@ -24,5 +24,5 @@ _examples/simple | yes | yes
 _examples/sliceptr | yes | yes
 _examples/slices | yes | yes
 _examples/structs | yes | yes
-_examples/unicode | yes | yes
+_examples/unicode | no | yes
 _examples/vars | yes | yes

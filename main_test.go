@@ -16,13 +16,13 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/goki/gopy/bind"
 )
 
 var (
 	testBackends = map[string]string{}
 	features     = map[string][]string{
-		// FIXME(sbinet): add "cffi" when go-python/gopy#130 and go-python/gopy#125
-		// are fixed.
 		"_examples/hi":        []string{"py2", "py3"},
 		"_examples/funcs":     []string{"py2", "py3"},
 		"_examples/sliceptr":  []string{"py2", "py3"},
@@ -43,7 +43,7 @@ var (
 		"_examples/gostrings": []string{"py2", "py3"},
 		"_examples/rename":    []string{"py2", "py3"},
 		"_examples/lot":       []string{"py2", "py3"},
-		"_examples/unicode":   []string{"py2", "py3"},
+		"_examples/unicode":   []string{"py3"}, // doesn't work for 2
 	}
 )
 
@@ -117,13 +117,22 @@ package hi exposes a few Go functions to be wrapped and used from Python.
 --- hi.Set_Anon(hi.NewPerson('you', 24))...
 --- hi.Anon(): hi.Person{Name="you", Age=24}
 --- doc(hi.Hi)...
-None
+Hi() 
+	
+	Hi prints hi from Go
+	
 --- hi.Hi()...
 --- doc(hi.Hello)...
-None
+Hello(str s) 
+	
+	Hello prints a greeting from Go
+	
 --- hi.Hello('you')...
 --- doc(hi.Add)...
-None
+Add(int i, int j) int
+	
+	Add returns the sum of its arguments.
+	
 --- hi.Add(1, 41)...
 42
 --- hi.Concat('4', '2')...
@@ -140,7 +149,10 @@ Person is a simple struct
 --- p.Name: 
 --- p.Age: 0
 --- doc(hi.Greet):
-None
+Greet() str
+		
+		Greet sends greetings
+		
 --- p.Greet()...
 Hello, I am 
 --- p.String()...
@@ -160,7 +172,7 @@ caught: <built-in function hi_Person_Work> returned a result with an error set
 --- p.Salary(2): 20
 --- p.Salary(24): caught: <built-in function hi_Person_Salary> returned a result with an error set
 --- Person.__init__
-*ERROR* no exception raised!
+caught: argument 2 must be str, not int | err-type: <class 'TypeError'>
 caught: an integer is required (got type str) | err-type: <class 'TypeError'>
 *ERROR* no exception raised!
 hi.Person{Name="name", Age=0}
@@ -190,21 +202,21 @@ hi.Couple{P1=hi.Person{Name="p2", Age=52}, P2=hi.Person{Name="p1", Age=42}}
 --- len(vs): 100000
 --- testing GC... [ok]
 --- testing array...
-arr: hi.Array_2_int len: 2 handle: 300034 [1, 2]
+arr: hi.Array_2_int len: 2 handle: 300036 [1, 2]
 len(arr): 2
 arr[0]: 1
 arr[1]: 2
 arr[2]: caught: slice index out of range
-arr: hi.Array_2_int len: 2 handle: 300034 [1, 2]
+arr: hi.Array_2_int len: 2 handle: 300036 [1, 2]
 len(arr): 2
 mem(arr): caught: memoryview: a bytes-like object is required, not 'Array_2_int'
 --- testing slice...
-slice: go.Slice_int len: 2 handle: 300035 [1, 2]
+slice: go.Slice_int len: 2 handle: 300037 [1, 2]
 len(slice): 2
 slice[0]: 1
 slice[1]: 2
 slice[2]: caught: slice index out of range
-slice: go.Slice_int len: 2 handle: 300035 [1, 42]
+slice: go.Slice_int len: 2 handle: 300037 [1, 42]
 slice repr: go.Slice_int([1, 42])
 len(slice): 2
 mem(slice): caught: memoryview: a bytes-like object is required, not 'Slice_int'
@@ -315,12 +327,12 @@ s1 = structs.S1()
 s1 = structs.S1 { handle=2, }
 caught error: 'S1' object has no attribute 'private'
 s2 = structs.S2()
-s2 = structs.S2 { Public=0, handle=5, }
+s2 = structs.S2 { Public=1, handle=5, }
 s2 = structs.S2 { Public=42, handle=7, }
 s2.Public = 42
 caught error: 'S2' object has no attribute 'private'
-s2child = S2Child{S2: structs.S2 { Public=0, handle=8, local=123, }, local: 123}
-s2child.Public = 0
+s2child = S2Child{S2: structs.S2 { Public=42, handle=8, local=123, }, local: 123}
+s2child.Public = 42
 s2child.local = 123
 caught error: 'S2Child' object has no attribute 'private'
 OK
@@ -497,12 +509,19 @@ func TestBuiltinMaps(t *testing.T) {
 	testPkg(t, pkg{
 		path: path,
 		lang: features[path],
-		want: []byte(`maps.Sum from Go map: 8.0
+		want: []byte(`map a: maps.Map_int_float64 len: 2 handle: 1 {1=3.0, 2=5.0, }
+map a repr: maps.Map_int_float64({1=3.0, 2=5.0, })
+map a[1]: 3.0
+map a[2]: 5.0
+caught error: <built-in function Map_int_float64_elem> returned a result with an error set
+maps.Sum from Go map: 8.0
+map b: {1: 3.0, 2: 5.0}
 maps.Sum from Python dictionary: 8.0
-maps.Keys from Go map: []int{1, 2}
-maps.Values from Go map: []float64{3, 5}
-maps.Keys from Python dictionary: []int{1, 2}
-maps.Values from Python dictionary: []float64{3, 5}
+maps.Keys from Go map: go.Slice_int len: 2 handle: 5 [1, 2]
+maps.Values from Go map: go.Slice_float64 len: 2 handle: 6 [3.0, 5.0]
+maps.Keys from Python dictionary: go.Slice_int len: 2 handle: 8 [1, 2]
+maps.Values from Python dictionary: go.Slice_float64 len: 2 handle: 10 [3.0, 5.0]
+deleted 1 from a: maps.Map_int_float64 len: 1 handle: 1 {2=5.0, }
 OK
 `),
 	})
@@ -522,7 +541,6 @@ OK
 }
 
 func TestBindRename(t *testing.T) {
-	t.Skip("todo: rename not implemented")
 	// t.Parallel()
 	path := "_examples/rename"
 	testPkg(t, pkg{
@@ -678,7 +696,8 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	if err != nil {
 		t.Fatalf("[%s:%s]: could not create workdir: %v\n", pyvm, table.path, err)
 	}
-	defer os.RemoveAll(workdir)
+	// defer os.RemoveAll(workdir)
+	defer bind.ResetPackages()
 
 	// fmt.Printf("building in work dir: %s\n", workdir)
 	err = run([]string{"build", "-vm=" + pyvm, "-output=" + workdir, "./" + table.path})

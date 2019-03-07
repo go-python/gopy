@@ -92,10 +92,6 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Indent()
 		g.pywrap.Printf("self.handle = args[0].handle\n")
 		g.pywrap.Outdent()
-		g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], int):\n")
-		g.pywrap.Indent()
-		g.pywrap.Printf("self.handle = args[0]\n")
-		g.pywrap.Outdent()
 		if slc.isSlice() {
 			g.pywrap.Printf("else:\n")
 			g.pywrap.Indent()
@@ -148,6 +144,10 @@ otherwise parameter is a python list that we copy from
 
 		g.pywrap.Printf("def __getitem__(self, idx):\n")
 		g.pywrap.Indent()
+		g.pywrap.Printf("if idx < 0:\n")
+		g.pywrap.Indent()
+		g.pywrap.Printf("idx += len(self)\n")
+		g.pywrap.Outdent()
 		g.pywrap.Printf("if idx < len(self):\n")
 		g.pywrap.Indent()
 		g.pywrap.Printf("return _%s_elem(self.handle, idx)\n", qNm)
@@ -157,6 +157,10 @@ otherwise parameter is a python list that we copy from
 
 		g.pywrap.Printf("def __setitem__(self, idx, value):\n")
 		g.pywrap.Indent()
+		g.pywrap.Printf("if idx < 0:\n")
+		g.pywrap.Indent()
+		g.pywrap.Printf("idx += len(self)\n")
+		g.pywrap.Outdent()
 		g.pywrap.Printf("if idx < len(self):\n")
 		g.pywrap.Indent()
 		if esym.hasHandle() {
@@ -190,7 +194,11 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Println("return self")
 		g.pywrap.Outdent()
 
-		g.pywrap.Printf("def __next__(self):\n")
+		if g.lang == 2 {
+			g.pywrap.Printf("def next(self):\n")
+		} else {
+			g.pywrap.Printf("def __next__(self):\n")
+		}
 		g.pywrap.Indent()
 		g.pywrap.Printf("if self.index < len(self):\n")
 		g.pywrap.Indent()

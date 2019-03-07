@@ -493,6 +493,7 @@ func typeIdName(t types.Type) string {
 		idn = strings.Replace(idn, "]", "_", 1)
 	}
 	idn = strings.Replace(idn, "[]", "Slice_", -1)
+	idn = strings.Replace(idn, "map[", "Map_", -1)
 	idn = strings.Replace(idn, "[", "Map_", -1)
 	idn = strings.Replace(idn, "]", "_", -1)
 	idn = strings.Replace(idn, "{}", "_", -1)
@@ -676,6 +677,31 @@ func (sym *symtab) typeNamePkg(t types.Type) (gonm, idnm string, pkg *types.Pack
 	return
 }
 
+// addTypeIfNew adds given type if it is not already in the symbol table
+// returns the symbol for the type or error if cannot be added
+func (sym *symtab) addTypeIfNew(t types.Type) (*symbol, error) {
+	fn := sym.fullTypeString(t)
+	tsym := sym.sym(fn)
+	if tsym == nil || tsym.goname == "" {
+		tname, _, _ := sym.typeNamePkg(t)
+		tobj := sym.pkg.Scope().Lookup(tname)
+		if tobj != nil {
+			sym.addSymbol(tobj)
+		} else {
+			if ntyp, ok := t.(*types.Named); ok {
+				sym.addType(ntyp.Obj(), t)
+			} else {
+				sym.addType(nil, t)
+			}
+		}
+		tsym = sym.sym(fn)
+		if tsym == nil {
+			return nil, fmt.Errorf("gopy: could not add new type: %q", tname)
+		}
+	}
+	return tsym, nil
+}
+
 func (sym *symtab) addType(obj types.Object, t types.Type) error {
 	fn := sym.fullTypeString(t)
 	n, id, pkg := sym.typeNamePkg(t)
@@ -802,25 +828,12 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 	typ := t.Underlying().(*types.Array)
 	kind |= skArray
 	elt := typ.Elem()
-	enam := sym.fullTypeString(elt)
-	elsym := sym.sym(enam)
-	if elsym == nil || elsym.goname == "" {
-		eltname, _, _ := sym.typeNamePkg(elt)
-		eobj := sym.pkg.Scope().Lookup(eltname)
-		if eobj != nil {
-			sym.addSymbol(eobj)
-		} else {
-			if ntyp, ok := typ.Elem().(*types.Named); ok {
-				sym.addType(ntyp.Obj(), elt)
-			}
-		}
-		elsym = sym.sym(enam)
-		if elsym == nil {
-			return fmt.Errorf("gopy: could not retrieve array-elt symbol for %q", enam)
-		}
+	elsym, err := sym.addTypeIfNew(elt)
+	if err != nil {
+		return err
 	}
 	if elsym.isSignature() {
-		return fmt.Errorf("gopy: array value type cannot be signature / func: %q", enam)
+		return fmt.Errorf("gopy: array value type cannot be signature / func: %q", elsym.goname)
 	}
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
@@ -844,25 +857,19 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 	typ := t.Underlying().(*types.Map)
 	kind |= skMap
 	elt := typ.Elem()
-	enam := sym.fullTypeString(elt)
-	elsym := sym.sym(enam)
-	if elsym == nil || elsym.goname == "" {
-		eltname, _, _ := sym.typeNamePkg(elt)
-		eobj := sym.pkg.Scope().Lookup(eltname)
-		if eobj != nil {
-			sym.addSymbol(eobj)
-		} else {
-			if ntyp, ok := elt.(*types.Named); ok {
-				sym.addType(ntyp.Obj(), elt)
-			}
-		}
-		elsym = sym.sym(enam)
-		if elsym == nil {
-			return fmt.Errorf("gopy: map value type must be named type if outside current package: %q", enam)
-		}
+	elsym, err := sym.addTypeIfNew(elt)
+	if err != nil {
+		return err
 	}
 	if elsym.isSignature() {
-		return fmt.Errorf("gopy: map value type cannot be signature / func: %q", enam)
+		return fmt.Errorf("gopy: map value type cannot be signature / func: %q", elsym.goname)
+	}
+	// add type for keys method
+	keyt := typ.Key()
+	keyslt := types.NewSlice(keyt)
+	_, err = sym.addTypeIfNew(keyslt)
+	if err != nil {
+		return err
 	}
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
@@ -886,26 +893,12 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 	typ := t.Underlying().(*types.Slice)
 	kind |= skSlice
 	elt := typ.Elem()
-	enam := sym.fullTypeString(elt)
-	elsym := sym.sym(enam)
-	if elsym == nil || elsym.goname == "" {
-		eltname, _, _ := sym.typeNamePkg(elt)
-		eobj := sym.pkg.Scope().Lookup(eltname)
-		if eobj != nil {
-			sym.addSymbol(eobj)
-		} else {
-			if ntyp, ok := elt.(*types.Named); ok {
-				sym.addType(ntyp.Obj(), elt)
-			}
-		}
-		elsym = sym.sym(enam)
-		if elsym == nil {
-			return fmt.Errorf("gopy: slice type must be named type if outside current package: %q", enam)
-		}
-		n = "[]" + elsym.goname
+	elsym, err := sym.addTypeIfNew(elt)
+	if err != nil {
+		return err
 	}
 	if elsym.isSignature() {
-		return fmt.Errorf("gopy: slice value type cannot be signature / func: %q", enam)
+		return fmt.Errorf("gopy: slice value type cannot be signature / func: %q", elsym.goname)
 	}
 	sym.syms[fn] = &symbol{
 		gopkg:   pkg,
