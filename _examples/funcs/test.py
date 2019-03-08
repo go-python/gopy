@@ -47,6 +47,13 @@ fs.CallBack(32, cls.ClassFun)
 print("cls.CallSelf...")
 cls.CallSelf()
 
+
+print("fs.ObjArg with nil")
+fs.ObjArg(go.nil)
+
+print("fs.ObjArg with fs")
+fs.ObjArg(fs)
+
 # todo: not currently supported:
 
 # print("funcs.F1()...")

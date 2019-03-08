@@ -31,6 +31,14 @@ func (fs *FunStruct) OtherMeth(arg1 int, args string) {
 	fmt.Printf("arg1: %d args: %s\n", arg1, args)
 }
 
+func (fs *FunStruct) ObjArg(ofs *FunStruct) {
+	if ofs == nil {
+		fmt.Printf("got nil\n")
+	} else {
+		fmt.Printf("ofs FieldI: %d FieldS: %s\n", ofs.FieldI, ofs.FieldS)
+	}
+}
+
 var (
 	F1 func()
 	F2 Func

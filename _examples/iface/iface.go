@@ -15,7 +15,10 @@ type Iface interface {
 }
 
 // T implements Iface
-type T struct{}
+type T struct {
+	FldI int
+	FldS string
+}
 
 func (t *T) F() {
 	cpkg.Printf("t.F [CALLED]\n")
@@ -26,4 +29,14 @@ func CallIface(v Iface) {
 	cpkg.Printf("iface.CallIface...\n")
 	v.F()
 	cpkg.Printf("iface.CallIface... [DONE]\n")
+}
+
+// by default, interface{} is converted to string (most universal type)
+func IfaceString(str interface{}) {
+	cpkg.Printf("iface as string: %v\n", str)
+}
+
+//gopy:interface=handle this magic directive says, treat it as a handle
+func IfaceHandle(ifc interface{}) {
+	cpkg.Printf("iface as handle: %v\n", ifc)
 }

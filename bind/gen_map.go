@@ -72,7 +72,7 @@ func (g *pyGen) genMapInit(slc *symbol, extTypes, pyWrapOnly bool, mpob *Map) {
 	keyslt := types.NewSlice(typ.Key())
 	keyslsym := current.symtype(keyslt)
 	if keyslsym == nil {
-		fmt.Printf("nil key slice type!: %n  map: %v\n", current.fullTypeString(keyslt), slc.goname)
+		fmt.Printf("nil key slice type!: %s map: %s\n", current.fullTypeString(keyslt), slc.goname)
 		return
 	}
 	keyslnm := ""

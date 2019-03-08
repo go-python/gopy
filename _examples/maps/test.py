@@ -8,9 +8,6 @@ import maps
 a = maps.New()
 b = {1: 3.0, 2: 5.0}
 
-print('map a:', a)
-print('map a repr:', a.__repr__())
-
 # set to true to test all the builtin map functionality
 # due to the random nature of map access in Go, this will
 # cause go test to fail randomly so it is off by default
@@ -19,6 +16,9 @@ print('map a repr:', a.__repr__())
 testall = False
 
 if testall:
+    print('map a:', a)
+    print('map a repr:', a.__repr__())
+
     print('map a keys:', a.keys())
     print('map a values:', a.values())
     print('map a items:', a.items())
