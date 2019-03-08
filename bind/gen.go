@@ -230,13 +230,12 @@ import collections
 	
 class GoClass(object):
 	"""GoClass is the base class for all GoPy wrapper classes"""
-	pass
-	
-class nil(GoClass):
-	"""nil is the nil pointer in Go"""
 	def __init__(self):
 		self.handle = 0
-		
+
+# use go.nil for nil pointers 
+nil = GoClass()
+
 def Init():
 	"""calls the GoPyInit function, which runs the 'main' code string that was passed using -main arg to gopy"""
 	_%[1]s.GoPyInit()
