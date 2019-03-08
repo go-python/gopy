@@ -19,10 +19,11 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		return false
 	}
 
-	gname, _, err := extractPythonName(fsym.GoName(), fsym.Doc())
+	gname, gdoc, err := extractPythonName(fsym.GoName(), fsym.Doc())
 	if err != nil {
 		return false
 	}
+	ifchandle, gdoc := isIfaceHandle(gdoc)
 
 	sig := fsym.sig
 	args := sig.Params()
@@ -55,11 +56,16 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 			return false
 		}
 		anm := pySafeArg(arg.Name(), i)
-		goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, sarg.cgoname))
-		if sarg.cpyname == "PyObject*" {
-			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s', transfer_ownership=False)", sarg.cpyname, anm))
+		if ifchandle && arg.sym.goname == "interface{}" {
+			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, CGoHandle))
+			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", PyHandle, anm))
 		} else {
-			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", sarg.cpyname, anm))
+			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, sarg.cgoname))
+			if sarg.cpyname == "PyObject*" {
+				pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s', transfer_ownership=False)", sarg.cpyname, anm))
+			} else {
+				pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", sarg.cpyname, anm))
+			}
 		}
 		wpArgs = append(wpArgs, anm)
 	}
@@ -138,6 +144,15 @@ func (g *pyGen) genMethod(s *symbol, o *Func) {
 	}
 }
 
+func isIfaceHandle(gdoc string) (bool, string) {
+	const PythonIface = "\ngopy:interface=handle"
+	if idx := strings.Index(gdoc, PythonIface); idx > 0 {
+		gdoc = gdoc[:idx] + gdoc[idx+len(PythonIface)+1:]
+		return true, gdoc
+	}
+	return false, gdoc
+}
+
 func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	isMethod := (sym != nil)
 	isIface := false
@@ -153,6 +168,7 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	pkgname := g.outname
 
 	_, gdoc, _ := extractPythonName(fsym.GoName(), fsym.Doc())
+	ifchandle, gdoc := isIfaceHandle(gdoc)
 
 	sig := fsym.Signature()
 	res := sig.Results()
@@ -233,7 +249,9 @@ if err != nil {
 	for i, arg := range args {
 		na := ""
 		anm := pySafeArg(arg.Name(), i)
-		if arg.sym.isSignature() {
+		if ifchandle && arg.sym.goname == "interface{}" {
+			na = fmt.Sprintf(`gopyh.VarFmHandle((gopyh.CGoHandle)(%s), "interface{}")`, anm)
+		} else if arg.sym.isSignature() {
 			na = fmt.Sprintf("%s", arg.sym.py2go)
 		} else {
 			if arg.sym.py2go != "" {
@@ -243,7 +261,13 @@ if err != nil {
 			}
 		}
 		callArgs = append(callArgs, na)
-		if arg.sym.hasHandle() {
+		if arg.sym.goname == "interface{}" {
+			if ifchandle {
+				wrapArgs = append(wrapArgs, fmt.Sprintf("%s.handle", anm))
+			} else {
+				wrapArgs = append(wrapArgs, anm)
+			}
+		} else if arg.sym.hasHandle() {
 			wrapArgs = append(wrapArgs, fmt.Sprintf("%s.handle", anm))
 		} else {
 			wrapArgs = append(wrapArgs, anm)

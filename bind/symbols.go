@@ -106,9 +106,6 @@ func isPyCompatVar(v *symbol) error {
 	if isErrorType(v.gotyp) {
 		return fmt.Errorf("gopy: var is error type")
 	}
-	// if v.gotyp.String() == "interface{}" {
-	// 	return fmt.Errorf("gopy: var is interface{}")
-	// }
 	if _, isChan := v.gotyp.(*types.Chan); isChan {
 		return fmt.Errorf("gopy: var is channel type")
 	}
@@ -129,9 +126,6 @@ func isPyCompatType(typ types.Type) error {
 	if _, isChan := typ.(*types.Chan); isChan {
 		return fmt.Errorf("gopy: type is channel type")
 	}
-	// if typ.String() == "interface{}" {
-	// 	return fmt.Errorf("gopy: type is interface{}")
-	// }
 	return nil
 }
 

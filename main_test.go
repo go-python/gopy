@@ -232,7 +232,9 @@ func TestBindFuncs(t *testing.T) {
 	testPkg(t, pkg{
 		path: path,
 		lang: features[path],
-		want: []byte(`fs.CallBack(22, cbfun)...
+		want: []byte(`got nil
+ofs FieldI: 42 FieldS: str field
+fs.CallBack(22, cbfun)...
 in python cbfun: FieldI:  42  FieldS:  str field  ival:  22  sval:  str field
 fs.CallBackIf(22, cbfun)...
 in python cbfunif: FieldI:  42  FieldS:  str field  ival:  22  ifval:  str field
@@ -240,6 +242,8 @@ fs.CallBack(32, cls.ClassFun)...
 in python class fun: FieldI:  42  FieldS:  str field  ival:  32  sval:  str field
 cls.CallSelf...
 in python class fun: FieldI:  42  FieldS:  str field  ival:  77  sval:  str field
+fs.ObjArg with nil
+fs.ObjArg with fs
 OK
 `),
 	})
@@ -436,10 +440,18 @@ func TestBindInterfaces(t *testing.T) {
 iface.CallIface...
 t.F [CALLED]
 iface.CallIface... [DONE]
+iface as string: test string
+iface as string: 42
+iface as handle: &{0 }
+iface as handle: <nil>
 doc(iface): '\npackage iface tests various aspects of interfaces.\n\n'
 t = iface.T()
 t.F()
 iface.CallIface(t)
+iface.IfaceString("test string"
+iface.IfaceString(str(42))
+iface.IfaceHandle(t)
+iface.IfaceHandle(go.nil)
 OK
 `),
 	})
@@ -509,18 +521,15 @@ func TestBuiltinMaps(t *testing.T) {
 	testPkg(t, pkg{
 		path: path,
 		lang: features[path],
-		want: []byte(`map a: maps.Map_int_float64 len: 2 handle: 1 {1=3.0, 2=5.0, }
-map a repr: maps.Map_int_float64({1=3.0, 2=5.0, })
-map a[1]: 3.0
+		want: []byte(`map a[1]: 3.0
 map a[2]: 5.0
-caught error: <built-in function Map_int_float64_elem> returned a result with an error set
 maps.Sum from Go map: 8.0
 map b: {1: 3.0, 2: 5.0}
 maps.Sum from Python dictionary: 8.0
-maps.Keys from Go map: go.Slice_int len: 2 handle: 5 [1, 2]
-maps.Values from Go map: go.Slice_float64 len: 2 handle: 6 [3.0, 5.0]
-maps.Keys from Python dictionary: go.Slice_int len: 2 handle: 8 [1, 2]
-maps.Values from Python dictionary: go.Slice_float64 len: 2 handle: 10 [3.0, 5.0]
+maps.Keys from Go map: go.Slice_int len: 2 handle: 3 [1, 2]
+maps.Values from Go map: go.Slice_float64 len: 2 handle: 4 [3.0, 5.0]
+maps.Keys from Python dictionary: go.Slice_int len: 2 handle: 6 [1, 2]
+maps.Values from Python dictionary: go.Slice_float64 len: 2 handle: 8 [3.0, 5.0]
 deleted 1 from a: maps.Map_int_float64 len: 1 handle: 1 {2=5.0, }
 OK
 `),
@@ -696,7 +705,7 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	if err != nil {
 		t.Fatalf("[%s:%s]: could not create workdir: %v\n", pyvm, table.path, err)
 	}
-	// defer os.RemoveAll(workdir)
+	defer os.RemoveAll(workdir)
 	defer bind.ResetPackages()
 
 	// fmt.Printf("building in work dir: %s\n", workdir)
