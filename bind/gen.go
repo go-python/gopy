@@ -236,6 +236,13 @@ class GoClass(object):
 # use go.nil for nil pointers 
 nil = GoClass()
 
+# need to explicitly initialize it
+def main():
+	global nil
+	nil = GoClass()
+
+main()
+
 def Init():
 	"""calls the GoPyInit function, which runs the 'main' code string that was passed using -main arg to gopy"""
 	_%[1]s.GoPyInit()
