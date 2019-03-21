@@ -17,14 +17,15 @@ New features:
 
 ## Installation
 
-Currently using [pybindgen](https://pybindgen.readthedocs.io/en/latest/tutorial/) to generate the low-level c-to-python bindings, but support for [cffi](https://cffi.readthedocs.io/en/latest/) should be relatively straightforward for those using PyPy instead of CPython (pybindgen should be significantly faster for CPython apparently).  
+Currently using [pybindgen](https://pybindgen.readthedocs.io/en/latest/tutorial/) to generate the low-level c-to-python bindings, but support for [cffi](https://cffi.readthedocs.io/en/latest/) should be relatively straightforward for those using PyPy instead of CPython (pybindgen should be significantly faster for CPython apparently).  You also need `goimports` to ensure the correct imports are included.
 
 ```sh
 $ python3 -m pip install pybindgen
+$ go get golang.org/x/tools/cmd/goimports
 $ go get github.com/go-python/gopy
 ```
 
-You will need `Go >= 1.5` (no reason not to use the most recent version).
+(This all assumes you have already installed [Go itself](https://golang.org/doc/install), and added `~/go/bin` to your `PATH`).
 
 To [install python modules](https://packaging.python.org/tutorials/packaging-projects/), you will need the python install packages:
 
