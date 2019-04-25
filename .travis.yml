@@ -1,9 +1,9 @@
 language: go
 
 go:
-  - 1.9.x
-  - 1.10.x
+  - 1.12.x
   - 1.11.x
+  - 1.10.x
   - master
 
 matrix:
@@ -33,6 +33,8 @@ before_install:
    - tar xf $TEMPDIR/pypy3.tar.bz2 -C $TEMPDIR
    - sudo ln -s $TEMPDIR/pypy2-$PYPYVERSION-linux64/bin/pypy  /usr/local/bin/pypy
    - sudo ln -s $TEMPDIR/pypy3-$PYPYVERSION-linux64/bin/pypy3 /usr/local/bin/pypy3
+   # install goimports
+   - go get golang.org/x/tools/cmd/goimports
 
 notifications:
   email:
