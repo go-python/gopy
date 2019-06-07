@@ -23,7 +23,7 @@ import (
 var (
 	testBackends = map[string]string{}
 	features     = map[string][]string{
-		"_examples/hi":        []string{"py2", "py3"},
+		"_examples/hi":        []string{"py3"}, // output is different for 2 vs. 3 -- only checking 3 output
 		"_examples/funcs":     []string{"py2", "py3"},
 		"_examples/sliceptr":  []string{"py2", "py3"},
 		"_examples/simple":    []string{"py2", "py3"},
@@ -476,7 +476,7 @@ func TestPyErrors(t *testing.T) {
 	path := "_examples/pyerrors"
 	testPkg(t, pkg{
 		path: path,
-		lang: features[path], // todo: should print out the error message!
+		lang: features[path], // TODO: should print out the error message!
 		want: []byte(`<built-in function pyerrors_Div> returned a result with an error set
 pyerrors.Div(5, 2) = 2
 OK

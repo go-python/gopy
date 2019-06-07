@@ -39,9 +39,12 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		return false
 	}
 
-	goArgs := []string{}
-	pyArgs := []string{}
-	wpArgs := []string{}
+	var (
+		goArgs []string
+		pyArgs []string
+		wpArgs []string
+	)
+
 	if isMethod {
 		goArgs = append(goArgs, "_handle CGoHandle")
 		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '_handle')", PyHandle))
@@ -199,7 +202,7 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	}
 	if isMethod {
 		g.gofile.Printf(
-			`vifc, err := gopyh.VarFmHandleTry((gopyh.CGoHandle)(_handle), "%s")
+			`vifc, err := gopyh.VarFromHandleTry((gopyh.CGoHandle)(_handle), "%s")
 if err != nil {
 `, symNm)
 		g.gofile.Indent()
@@ -249,27 +252,27 @@ if err != nil {
 	for i, arg := range args {
 		na := ""
 		anm := pySafeArg(arg.Name(), i)
-		if ifchandle && arg.sym.goname == "interface{}" {
-			na = fmt.Sprintf(`gopyh.VarFmHandle((gopyh.CGoHandle)(%s), "interface{}")`, anm)
-		} else if arg.sym.isSignature() {
+		switch {
+		case ifchandle && arg.sym.goname == "interface{}":
+			na = fmt.Sprintf(`gopyh.VarFromHandle((gopyh.CGoHandle)(%s), "interface{}")`, anm)
+		case arg.sym.isSignature():
 			na = fmt.Sprintf("%s", arg.sym.py2go)
-		} else {
-			if arg.sym.py2go != "" {
-				na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, anm, arg.sym.py2goParenEx)
-			} else {
-				na = anm
-			}
+		case arg.sym.py2go != "":
+			na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, anm, arg.sym.py2goParenEx)
+		default:
+			na = anm
 		}
 		callArgs = append(callArgs, na)
-		if arg.sym.goname == "interface{}" {
+		switch {
+		case arg.sym.goname == "interface{}":
 			if ifchandle {
 				wrapArgs = append(wrapArgs, fmt.Sprintf("%s.handle", anm))
 			} else {
 				wrapArgs = append(wrapArgs, anm)
 			}
-		} else if arg.sym.hasHandle() {
+		case arg.sym.hasHandle():
 			wrapArgs = append(wrapArgs, fmt.Sprintf("%s.handle", anm))
-		} else {
+		default:
 			wrapArgs = append(wrapArgs, anm)
 		}
 	}
@@ -278,20 +281,19 @@ if err != nil {
 	hasAddrOfTmp := false
 	if nres > 0 {
 		ret := res[0]
-		if rvIsErr {
+		switch {
+		case rvIsErr:
 			g.gofile.Printf("err = ")
-		} else if nres == 2 {
+		case nres == 2:
 			g.gofile.Printf("cret, err := ")
-		} else if ret.sym.hasHandle() && !ret.sym.isPtrOrIface() {
+		case ret.sym.hasHandle() && !ret.sym.isPtrOrIface():
 			hasAddrOfTmp = true
 			g.gofile.Printf("cret := ")
-		} else {
-			if ret.sym.go2py != "" {
-				hasRetCvt = true
-				g.gofile.Printf("return %s(", ret.sym.go2py)
-			} else {
-				g.gofile.Printf("return ")
-			}
+		case ret.sym.go2py != "":
+			hasRetCvt = true
+			g.gofile.Printf("return %s(", ret.sym.go2py)
+		default:
+			g.gofile.Printf("return ")
 		}
 	}
 	g.pywrap.Printf("%s)", strings.Join(wrapArgs, ", "))
@@ -316,14 +318,17 @@ if err != nil {
 		g.gofile.Printf("\n")
 		g.gofile.Printf("if err != nil {\n")
 		g.gofile.Indent()
-		g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, C.CString(err.Error()))\n")
+		g.gofile.Printf("estr := C.CString(err.Error())\n")
+		g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, estr)\n")
 		if rvIsErr {
-			g.gofile.Printf("return C.CString(err.Error())")
+			g.gofile.Printf("return estr\n") // NOTE: leaked string
+		} else {
+			g.gofile.Printf("C.free(unsafe.Pointer(estr))\n") // python should have converted, safe
 		}
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n")
 		if rvIsErr {
-			g.gofile.Printf("return C.CString(\"\")")
+			g.gofile.Printf("return C.CString(\"\")") // NOTE: leaked string
 		} else {
 			ret := res[0]
 			if ret.sym.go2py != "" {

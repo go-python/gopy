@@ -7,5 +7,6 @@
 package main
 
 const (
-	libExt = ".dll"
+	libExt       = ".dll"
+	extraGccArgs = ""
 )

@@ -47,7 +47,7 @@ func stdBasicTypes() map[string]*symbol {
 			go2py:   "boolGoToPy",
 			py2go:   "boolPyToGo",
 			zval:    "false",
-			pyfmt:   "", // todo:
+			pyfmt:   "", // TODO:
 		},
 
 		"byte": {

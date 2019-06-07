@@ -14,7 +14,7 @@ import (
 // slob = official slice object -- for package-processed slices -- has methods
 func (g *pyGen) genSlice(slc *symbol, extTypes, pyWrapOnly bool, slob *Slice) {
 	if slc.isPointer() {
-		return // todo: not sure what to do..
+		return // TODO: not sure what to do..
 	}
 	_, isslc := slc.GoType().Underlying().(*types.Slice)
 	_, isary := slc.GoType().Underlying().(*types.Array)
@@ -35,7 +35,7 @@ func (g *pyGen) genSlice(slc *symbol, extTypes, pyWrapOnly bool, slob *Slice) {
 	}
 
 	if !extTypes || pyWrapOnly {
-		// todo: inherit from collections.Iterable too?
+		// TODO: inherit from collections.Iterable too?
 		g.pywrap.Printf(`
 # Python type for slice %[4]s
 class %[2]s(%[5]sGoClass):
@@ -238,7 +238,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s\n", ctNm)
 		g.gofile.Printf("func %s() CGoHandle {\n", ctNm)
 		g.gofile.Indent()
-		g.gofile.Printf("return CGoHandle(handleFmPtr_%[1]s(&%[2]s{}))\n", slNm, slc.gofmt())
+		g.gofile.Printf("return CGoHandle(handleFromPtr_%[1]s(&%[2]s{}))\n", slNm, slc.gofmt())
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
 
@@ -247,7 +247,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_len\n", slNm)
 		g.gofile.Printf("func %s_len(handle CGoHandle) int {\n", slNm)
 		g.gofile.Indent()
-		g.gofile.Printf("return len(*ptrFmHandle_%s(handle))\n", slNm)
+		g.gofile.Printf("return len(*ptrFromHandle_%s(handle))\n", slNm)
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
 
@@ -256,7 +256,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_elem\n", slNm)
 		g.gofile.Printf("func %s_elem(handle CGoHandle, _idx int) %s {\n", slNm, esym.cgoname)
 		g.gofile.Indent()
-		g.gofile.Printf("s := *ptrFmHandle_%s(handle)\n", slNm)
+		g.gofile.Printf("s := *ptrFromHandle_%s(handle)\n", slNm)
 		if esym.go2py != "" {
 			g.gofile.Printf("return %s(s[_idx])%s\n", esym.go2py, esym.go2pyParenEx)
 		} else {
@@ -270,7 +270,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_set\n", slNm)
 		g.gofile.Printf("func %s_set(handle CGoHandle, _idx int, _vl %s) {\n", slNm, esym.cgoname)
 		g.gofile.Indent()
-		g.gofile.Printf("s := *ptrFmHandle_%s(handle)\n", slNm)
+		g.gofile.Printf("s := *ptrFromHandle_%s(handle)\n", slNm)
 		if esym.py2go != "" {
 			g.gofile.Printf("s[_idx] = %s(_vl)%s\n", esym.py2go, esym.py2goParenEx)
 		} else {
@@ -285,7 +285,7 @@ otherwise parameter is a python list that we copy from
 			g.gofile.Printf("//export %s_append\n", slNm)
 			g.gofile.Printf("func %s_append(handle CGoHandle, _vl %s) {\n", slNm, esym.cgoname)
 			g.gofile.Indent()
-			g.gofile.Printf("s := ptrFmHandle_%s(handle)\n", slNm)
+			g.gofile.Printf("s := ptrFromHandle_%s(handle)\n", slNm)
 			if esym.py2go != "" {
 				g.gofile.Printf("*s = append(*s, %s(_vl)%s)\n", esym.py2go, esym.py2goParenEx)
 			} else {

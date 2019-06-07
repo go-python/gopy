@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/goki/ki/dirs"
+	"github.com/goki/gopy/bind"
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
 )
@@ -91,7 +91,7 @@ func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 
 	setupfn := filepath.Join(odir, "setup.py")
 
-	if _, err = os.Stat(string(setupfn)); os.IsNotExist(err) {
+	if _, err = os.Stat(setupfn); os.IsNotExist(err) {
 		err = GenPyPkgSetup(odir, name, cmdstr, user, version, author, email, desc, url, vm)
 		if err != nil {
 			return err
@@ -113,11 +113,11 @@ func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 	}
 
 	for _, path := range args {
-		rootdir, err := dirs.GoSrcDir(path)
+		rootdir, err := GoSrcDir(path)
 		if err != nil {
 			return err
 		}
 		buildPkgRecurse(odir, path, rootdir, rootdir, exmap)
 	}
-	return runBuild("exe", odir, name, cmdstr, vm, mainstr, symbols)
+	return runBuild(bind.ModeExe, odir, name, cmdstr, vm, mainstr, symbols)
 }
