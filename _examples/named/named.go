@@ -5,7 +5,7 @@
 // package named tests various aspects of named types.
 package named
 
-// todo: not dealing with named basic types -- not very intuitive to use
+// TODO: not dealing with named basic types -- not very intuitive to use
 // in python, as they have to become classes.  instead anything like this
 // is converted to its basic type when used as an arg / return value
 // so you can use them in other methods, but their special type methods

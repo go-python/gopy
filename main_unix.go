@@ -7,5 +7,6 @@
 package main
 
 const (
-	libExt = ".so"
+	libExt       = ".so"
+	extraGccArgs = ""
 )

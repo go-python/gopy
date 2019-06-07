@@ -15,7 +15,7 @@ import (
 
 var (
 	universeMutex sync.Mutex
-	universe      *symtab // universe contains Go global types that are not genrated
+	universe      *symtab // universe contains Go global types that are not generated
 	current       *symtab // current contains all symbols from current multi-package gen run
 )
 
@@ -130,18 +130,18 @@ func isPyCompatType(typ types.Type) error {
 }
 
 // isPyCompatField checks if field is compatible with python
-func isPyCompatField(f *types.Var) (error, *symbol) {
+func isPyCompatField(f *types.Var) (*symbol, error) {
 	if !f.Exported() || f.Embedded() {
-		return fmt.Errorf("gopy: field not exported or is embedded"), nil
+		return nil, fmt.Errorf("gopy: field not exported or is embedded")
 	}
 	ftyp := current.symtype(f.Type())
 	if _, isSig := f.Type().Underlying().(*types.Signature); isSig {
-		return fmt.Errorf("gopy: type is function signature"), nil
+		return nil, fmt.Errorf("gopy: type is function signature")
 	}
 	if f.Type().Underlying().String() == "interface{}" {
-		return fmt.Errorf("gopy: type is interface{}"), nil
+		return nil, fmt.Errorf("gopy: type is interface{}")
 	}
-	return isPyCompatVar(ftyp), ftyp
+	return ftyp, isPyCompatVar(ftyp)
 }
 
 // isPyCompatFunc checks if function signature is a python-compatible function.
@@ -150,7 +150,7 @@ func isPyCompatField(f *types.Var) (error, *symbol) {
 // haserr is true if 2nd arg is an error type, which is only
 // supported form of multi-return-value functions
 // hasfun is true if one of the args is a function signature
-func isPyCompatFunc(sig *types.Signature) (err error, ret types.Type, haserr, hasfun bool) {
+func isPyCompatFunc(sig *types.Signature) (ret types.Type, haserr, hasfun bool, err error) {
 	res := sig.Results()
 
 	if sig.Variadic() {
@@ -488,7 +488,7 @@ func typeIdName(t types.Type) string {
 	}
 	idn = strings.Replace(idn, "[]", "Slice_", -1)
 	idn = strings.Replace(idn, "map[", "Map_", -1)
-	idn = strings.Replace(idn, "[", "Map_", -1)
+	idn = strings.Replace(idn, "[", "_", -1)
 	idn = strings.Replace(idn, "]", "_", -1)
 	idn = strings.Replace(idn, "{}", "_", -1)
 	idn = strings.Replace(idn, "*", "Ptr_", -1)
@@ -511,7 +511,7 @@ func (sym *symtab) addSymbol(obj types.Object) error {
 			kind:    skConst,
 			id:      id,
 			goname:  n,
-			cgoname: n, // todo: type names!
+			cgoname: n, // TODO: type names!
 			cpyname: n,
 		}
 		tsym := sym.symtype(obj.Type())
@@ -536,7 +536,7 @@ func (sym *symtab) addSymbol(obj types.Object) error {
 
 	case *types.Func:
 		sig := obj.Type().Underlying().(*types.Signature)
-		err, _, _, _ := isPyCompatFunc(sig)
+		_, _, _, err := isPyCompatFunc(sig)
 		if err == nil {
 			sym.syms[fn] = &symbol{
 				gopkg:   pkg,
@@ -571,11 +571,12 @@ func (sym *symtab) processTuple(tuple *types.Tuple) error {
 		ivar := tuple.At(i)
 		ityp := ivar.Type()
 		isym := sym.symtype(ityp)
-		if isym == nil {
-			err := sym.addType(ivar, ityp)
-			if err != nil {
-				return err
-			}
+		if isym != nil {
+			continue
+		}
+		err := sym.addType(ivar, ityp)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -592,7 +593,7 @@ func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string, methvar string) 
 	if sz == 0 {
 		return "", fmt.Errorf("buildTuple: no elements")
 	}
-	// todo: https://www.reddit.com/r/Python/comments/3618cd/calling_back_python_instance_methods_from_c/
+	// TODO: https://www.reddit.com/r/Python/comments/3618cd/calling_back_python_instance_methods_from_c/
 	// could not get this to work across threads for methods -- and furthermore the basic version with
 	// CallObject works fine within the same thread, so all this extra work seems unnecessary.
 	//
@@ -610,6 +611,8 @@ func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string, methvar string) 
 	// 	bstr += fmt.Sprintf("\t%s = C.PyTuple_New(%d)\n", varnm, sz)
 	// 	bstr += fmt.Sprintf("}\n")
 	// }
+
+	// TODO: more efficient to use strings.Builder here..
 	bstr := fmt.Sprintf("%s := C.PyTuple_New(%d)\n", varnm, sz)
 	for i := 0; i < sz; i++ {
 		v := tuple.At(i)
@@ -637,11 +640,11 @@ func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string, methvar string) 
 		case isb:
 			bk := bt.Kind()
 			switch {
-			case bk >= types.Int && bk <= types.Int64:
+			case types.Int <= bk && bk <= types.Int64:
 				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_int64(C.int64_t(%s)))\n", varnm, i, anm)
-			case bk >= types.Uint && bk <= types.Uintptr:
+			case types.Uint <= bk && bk <= types.Uintptr:
 				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_uint64(C.uint64_t(%s)))\n", varnm, i, anm)
-			case bk >= types.Float32 && bk <= types.Float64:
+			case types.Float32 <= bk && bk <= types.Float64:
 				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_float64(C.double(%s)))\n", varnm, i, anm)
 			case bk == types.String:
 				bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_string(C.CString(%s)))\n", varnm, i, anm)
@@ -664,8 +667,7 @@ func (sym *symtab) typeNamePkg(t types.Type) (gonm, idnm string, pkg *types.Pack
 	pkg = typePkg(t)
 	if pkg != nil {
 		sym.addImport(pkg)
-	}
-	if pkg == nil {
+	} else {
 		pkg = sym.pkg
 	}
 	return
@@ -676,22 +678,23 @@ func (sym *symtab) typeNamePkg(t types.Type) (gonm, idnm string, pkg *types.Pack
 func (sym *symtab) addTypeIfNew(t types.Type) (*symbol, error) {
 	fn := sym.fullTypeString(t)
 	tsym := sym.sym(fn)
-	if tsym == nil || tsym.goname == "" {
-		tname, _, _ := sym.typeNamePkg(t)
-		tobj := sym.pkg.Scope().Lookup(tname)
-		if tobj != nil {
-			sym.addSymbol(tobj)
+	if tsym != nil && tsym.goname != "" {
+		return tsym, nil
+	}
+	tname, _, _ := sym.typeNamePkg(t)
+	tobj := sym.pkg.Scope().Lookup(tname)
+	if tobj != nil {
+		sym.addSymbol(tobj)
+	} else {
+		if ntyp, ok := t.(*types.Named); ok {
+			sym.addType(ntyp.Obj(), t)
 		} else {
-			if ntyp, ok := t.(*types.Named); ok {
-				sym.addType(ntyp.Obj(), t)
-			} else {
-				sym.addType(nil, t)
-			}
+			sym.addType(nil, t)
 		}
-		tsym = sym.sym(fn)
-		if tsym == nil {
-			return nil, fmt.Errorf("gopy: could not add new type: %q", tname)
-		}
+	}
+	tsym = sym.sym(fn)
+	if tsym == nil {
+		return nil, fmt.Errorf("gopy: could not add new type: %q", tname)
 	}
 	return tsym, nil
 }
@@ -839,8 +842,8 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		cgoname: "CGoHandle", // handles
 		cpyname: PyHandle,
 		pysig:   "[]" + elsym.pysig,
-		go2py:   "handleFmPtr_" + id,
-		py2go:   "*ptrFmHandle_" + id,
+		go2py:   "handleFromPtr_" + id,
+		py2go:   "*ptrFromHandle_" + id,
 		zval:    "nil",
 	}
 	return nil
@@ -875,8 +878,8 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		cgoname: "CGoHandle",
 		cpyname: PyHandle,
 		pysig:   "object",
-		go2py:   "handleFmPtr_" + id,
-		py2go:   "*ptrFmHandle_" + id,
+		go2py:   "handleFromPtr_" + id,
+		py2go:   "*ptrFromHandle_" + id,
 		zval:    "nil",
 	}
 	return nil
@@ -904,8 +907,8 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		cgoname: "CGoHandle",
 		cpyname: PyHandle,
 		pysig:   "[]" + elsym.pysig,
-		go2py:   "handleFmPtr_" + id,
-		py2go:   "*ptrFmHandle_" + id,
+		go2py:   "handleFromPtr_" + id,
+		py2go:   "*ptrFromHandle_" + id,
 		zval:    "nil",
 	}
 	return nil
@@ -926,8 +929,8 @@ func (sym *symtab) addStructType(pkg *types.Package, obj types.Object, t types.T
 		cgoname: "CGoHandle",
 		cpyname: PyHandle,
 		pysig:   "object",
-		go2py:   "handleFmPtr_" + id,
-		py2go:   "*ptrFmHandle_" + id,
+		go2py:   "handleFromPtr_" + id,
+		py2go:   "*ptrFromHandle_" + id,
 		zval:    "nil",
 	}
 	for i := 0; i < typ.NumFields(); i++ {
@@ -964,7 +967,7 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 	sig := t.Underlying().(*types.Signature)
 	args := sig.Params()
 	rets := sig.Results()
-	if rets.Len() > 0 { // todo 1
+	if rets.Len() > 0 { // TODO 1
 		return fmt.Errorf("multiple return values not supported")
 	}
 	retstr := ""
@@ -972,6 +975,7 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 		retstr = "_fcret := "
 	}
 
+	// TODO: use strings.Builder
 	py2g += "if C.PyCallable_Check(_fun_arg) == 0 { return }\n"
 	py2g += "_gstate := C.PyGILState_Ensure()\n"
 	nargs := args.Len()
@@ -984,7 +988,7 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 		py2g += fmt.Sprintf("C.PyObject_CallObject(_fun_arg, _fcargs)\n")
 		py2g += "C.gopy_decref(_fcargs)\n"
 	} else {
-		// todo: methods not supported for no-args case -- requires self arg..
+		// TODO: methods not supported for no-args case -- requires self arg..
 		py2g += retstr + "C.PyObject_CallObject(_fun_arg, nil)\n"
 	}
 	py2g += "C.gopy_err_handle()\n"
@@ -1021,7 +1025,7 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 
 func (sym *symtab) addMethod(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
 	sig := t.Underlying().(*types.Signature)
-	err, _, _, _ := isPyCompatFunc(sig)
+	_, _, _, err := isPyCompatFunc(sig)
 	if err == nil {
 		fn := types.ObjectString(obj, nil)
 		kind |= skFunc
@@ -1064,8 +1068,8 @@ func (sym *symtab) addPointerType(pkg *types.Package, obj types.Object, t types.
 		cgoname: "CGoHandle", // handles
 		cpyname: PyHandle,
 		pysig:   "object",
-		go2py:   "handleFmPtr_" + id,
-		py2go:   "ptrFmHandle_" + id,
+		go2py:   "handleFromPtr_" + id,
+		py2go:   "ptrFromHandle_" + id,
 		zval:    "nil",
 	}
 	return nil
@@ -1107,8 +1111,8 @@ func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t type
 			cgoname: "CGoHandle",
 			cpyname: PyHandle,
 			pysig:   "object",
-			go2py:   "handleFmPtr_" + id,
-			py2go:   "ptrFmHandle_" + id,
+			go2py:   "handleFromPtr_" + id,
+			py2go:   "ptrFromHandle_" + id,
 			zval:    "nil",
 		}
 	}

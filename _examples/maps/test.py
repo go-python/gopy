@@ -29,7 +29,7 @@ if testall:
 print('map a[1]:', a[1])
 print('map a[2]:', a[2])
 
-# todo: not sure why python2 doesn't just catch this error, but it doesn't seem to..
+# TODO: not sure why python2 doesn't just catch this error, but it doesn't seem to..
 # try:
 #     v = a[4]
 # except Exception as err:

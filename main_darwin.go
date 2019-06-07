@@ -8,5 +8,6 @@ package main
 
 const (
 	// libExt = ".dylib"  // theoretically should be this but python only recognizes .so
-	libExt = ".so"
+	libExt       = ".so"
+	extraGccArgs = "-dynamiclib"
 )

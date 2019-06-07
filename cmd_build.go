@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/goki/gopy/bind"
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
 )
@@ -70,7 +71,7 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 // runBuild calls genPkg and then executes commands to build the resulting files
 // exe = executable mode to build an executable instead of a library
 // mode = gen, build, pkg, exe
-func runBuild(mode string, odir, outname, cmdstr, vm, mainstr string, symbols bool) error {
+func runBuild(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string, symbols bool) error {
 	var err error
 	odir, err = genOutDir(odir)
 	if err != nil {
@@ -99,7 +100,7 @@ func runBuild(mode string, odir, outname, cmdstr, vm, mainstr string, symbols bo
 		return err
 	}
 
-	if mode == "exe" {
+	if mode == bind.ModeExe {
 		of, err := os.Create(buildname + ".h") // overwrite existing
 		fmt.Fprintf(of, "typedef uint8_t bool;\n")
 		of.Close()
@@ -162,7 +163,7 @@ func runBuild(mode string, odir, outname, cmdstr, vm, mainstr string, symbols bo
 		}
 
 		fmt.Printf("%v-config --cflags\n", vm)
-		cmd = exec.Command(vm+"-config", "--cflags") // todo: need minor version!
+		cmd = exec.Command(vm+"-config", "--cflags") // TODO: need minor version!
 		cflags, err := cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cflags))
@@ -178,7 +179,7 @@ func runBuild(mode string, odir, outname, cmdstr, vm, mainstr string, symbols bo
 		}
 
 		modlib := "_" + outname + libExt
-		gccargs := []string{outname + ".c", "-dynamiclib", outname + "_go" + libExt, "-o", modlib}
+		gccargs := []string{outname + ".c", extraGccArgs, outname + "_go" + libExt, "-o", modlib}
 		gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(cflags)), " ")...)
 		gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(ldflags)), " ")...)
 

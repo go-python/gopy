@@ -54,7 +54,7 @@ fs.ObjArg(go.nil)
 print("fs.ObjArg with fs")
 fs.ObjArg(fs)
 
-# todo: not currently supported:
+# TODO: not currently supported:
 
 # print("funcs.F1()...")
 # f1 = funcs.F1()

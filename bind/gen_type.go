@@ -15,11 +15,11 @@ func (g *pyGen) genType(sym *symbol, extTypes, pyWrapOnly bool) {
 	}
 
 	if sym.isNamedBasic() {
-		// todo: could have methods!
+		// TODO: could have methods!
 		return
 	}
 
-	// todo: not handling yet:
+	// TODO: not handling yet:
 	if sym.isSignature() {
 		return
 	}
@@ -64,7 +64,7 @@ func (g *pyGen) genTypeHandlePtr(sym *symbol) {
 	g.gofile.Printf("\n// Converters for pointer handles for type: %s\n", gonm)
 	g.gofile.Printf("func %s(h CGoHandle) %s {\n", sym.py2go, gonm)
 	g.gofile.Indent()
-	g.gofile.Printf("p := gopyh.VarFmHandle((gopyh.CGoHandle)(h), %[1]q)\n", gonm)
+	g.gofile.Printf("p := gopyh.VarFromHandle((gopyh.CGoHandle)(h), %[1]q)\n", gonm)
 	g.gofile.Printf("if p == nil {\n")
 	g.gofile.Indent()
 	g.gofile.Printf("return nil\n")
@@ -101,7 +101,7 @@ func (g *pyGen) genTypeHandle(sym *symbol) {
 	g.gofile.Printf("\n// Converters for non-pointer handles for type: %s\n", gonm)
 	g.gofile.Printf("func %s(h CGoHandle) %s {\n", py2go, ptrnm)
 	g.gofile.Indent()
-	g.gofile.Printf("p := gopyh.VarFmHandle((gopyh.CGoHandle)(h), %[1]q)\n", gonm)
+	g.gofile.Printf("p := gopyh.VarFromHandle((gopyh.CGoHandle)(h), %[1]q)\n", gonm)
 	g.gofile.Printf("if p == nil {\n")
 	g.gofile.Indent()
 	g.gofile.Printf("return nil\n")

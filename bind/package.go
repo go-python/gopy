@@ -29,7 +29,7 @@ type Package struct {
 	slices  []*Slice
 	maps    []*Map
 	funcs   []*Func
-	// calls   []*Signature // todo: could optimize calls back into python to gen once
+	// calls   []*Signature // TODO: could optimize calls back into python to gen once
 }
 
 // accumulates all the packages processed
@@ -102,7 +102,7 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 
 	case *types.Func:
 		sig := o.Type().(*types.Signature)
-		err, _, _, _ := isPyCompatFunc(sig)
+		_, _, _, err := isPyCompatFunc(sig)
 		if err != nil {
 			return ""
 		}

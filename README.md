@@ -57,9 +57,9 @@ gopy -
 
 Commands:
 
-    pkg         generate and compile Python bindings for go, automatically including subdirs
+    pkg         generate and compile Python bindings for Go, automatically including subdirs
                     also creates all the python files needed to install module
-    exe         like pkg but makes a standalone executable with go packages bultin
+    exe         like pkg but makes a standalone executable with Go packages bultin
                     this is particularly useful when using -main arg to start process on
     gen         generate (C)Python language bindings for Go
     build       generate and compile 
@@ -71,7 +71,7 @@ Use "gopy help <command>" for more information about a command.
 $ gopy help pkg
 Usage: gopy pkg <go-package-name> [other-go-package...]
 
-pkg generates and compiles (C)Python language bindings for a Go package, including subdirectories, and generates python module packaging suitable for distribution.  if setup.py file does not yet exist in the target directory, then it along with other default packaging files are created, using arguments.  Typically you create initial default versions of these files and then edit them, and after that, only regenerate the go binding files.
+pkg generates and compiles (C)Python language bindings for a Go package, including subdirectories, and generates python module packaging suitable for distribution.  if setup.py file does not yet exist in the target directory, then it is created along with other default packaging files, using arguments.  Typically you create initial default versions of these files and then edit them, and after that, only regenerate the Go binding files.
 
 ex:
  $ gopy pkg [options] <go-package-name> [other-go-package...]
@@ -82,7 +82,7 @@ Options:
   -desc="": short description of project (long comes from README.md)
   -email="gopy@example.com": author email
   -exclude="": comma-separated list of package names to exclude
-  -main="": code string to run in the go GoPyInit() function in the cgo library
+  -main="": code string to run in the Go GoPyInit() function in the cgo library
   -name="": name of output package (otherwise name of first package is used)
   -output="": output directory for root of package
   -symbols=true: include symbols in output
@@ -95,7 +95,7 @@ Options:
 $ gopy help exe
 Usage: gopy exe <go-package-name> [other-go-package...]
 
-exe generates and compiles (C)Python language bindings for a Go package, including subdirectories, and generates a standalone python executable and associated module packaging suitable for distribution.  if setup.py file does not yet exist in the target directory, then it along with other default packaging files are created, using arguments.  Typically you create initial default versions of these files and then edit them, and after that, only regenerate the go binding files.
+exe generates and compiles (C)Python language bindings for a Go package, including subdirectories, and generates a standalone python executable and associated module packaging suitable for distribution.  if setup.py file does not yet exist in the target directory, then it along with other default packaging files are created, using arguments.  Typically you create initial default versions of these files and then edit them, and after that, only regenerate the Go binding files.
 
 The primary need for an exe instead of a pkg dynamic library is when the main thread must be used for something other than running the python interpreter, such as for a GUI library where the main thread must be used for running the GUI event loop (e.g., GoGi).
 
@@ -108,7 +108,7 @@ Options:
   -desc="": short description of project (long comes from README.md)
   -email="gopy@example.com": author email
   -exclude="": comma-separated list of package names to exclude
-  -main="": code string to run in the go main() function in the cgo library -- defaults to GoPyMainRun() but typically should be overriden
+  -main="": code string to run in the Go main() function in the cgo library -- defaults to GoPyMainRun() but typically should be overriden
   -name="": name of output package (otherwise name of first package is used)
   -output="": output directory for root of package
   -symbols=true: include symbols in output
@@ -127,7 +127,7 @@ ex:
  $ gopy gen github.com/go-python/gopy/_examples/hi
 
 Options:
-  -main="": code string to run in the go main() function in the cgo library
+  -main="": code string to run in the Go main() function in the cgo library
   -name="": name of output package (otherwise name of first package is used)
   -output="": output directory for bindings
   -vm="python": path to python interpreter
@@ -142,7 +142,7 @@ ex:
  $ gopy build github.com/go-python/gopy/_examples/hi
 
 Options:
-  -main="": code string to run in the go main() function in the cgo library
+  -main="": code string to run in the Go main() function in the cgo library
   -name="": name of output package (otherwise name of first package is used)
   -output="": output directory for bindings
   -symbols=true: include symbols in output
