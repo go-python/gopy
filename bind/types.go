@@ -121,7 +121,8 @@ func (s *Struct) Struct() *types.Struct {
 	return s.sym.GoType().Underlying().(*types.Struct)
 }
 
-// FirstEmbed returns the first embedded type in the class
+// FirstEmbed returns the first field if it is embedded,
+// supporting convention of placing embedded "parent" types first
 func (s *Struct) FirstEmbed() *symbol {
 	st := s.Struct()
 	numFields := st.NumFields()
@@ -142,7 +143,7 @@ func (s *Struct) FirstEmbed() *symbol {
 ///////////////////////////////////////////////////////////////////////////////////
 //  Interface
 
-// Interface collects information about a go struct.
+// Interface collects information about a go interface.
 type Interface struct {
 	pkg *Package
 	sym *symbol
@@ -194,7 +195,7 @@ func (it *Interface) Interface() *types.Interface {
 ///////////////////////////////////////////////////////////////////////////////////
 //  Slice
 
-// Slice collects information about a go struct.
+// Slice collects information about a go slice.
 type Slice struct {
 	pkg *Package
 	sym *symbol
@@ -373,7 +374,7 @@ type Func struct {
 }
 
 func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signature) (*Func, error) {
-	err, ret, haserr, hasfun := isPyCompatFunc(sig)
+	ret, haserr, hasfun, err := isPyCompatFunc(sig)
 	if err != nil {
 		return nil, err
 	}
@@ -401,14 +402,14 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 		hasfun: hasfun,
 	}, nil
 
-	// todo: could optimize by generating code once for each type of callback
+	// TODO: could optimize by generating code once for each type of callback
 	// but probably not worth the effort required to link everything up..
 	// if hasfun {
 	// 	args := sv.args
 	// 	for i := range args {
 	// 		arg := args[i]
 	// 		if arg.sym.isSignature() {
-	//        // todo: need to make sure not already on the list, etc
+	//        // TODO: need to make sure not already on the list, etc
 	// 			p.calls = append(p.calls, arg)
 	// 		}
 	// 	}

@@ -36,7 +36,8 @@ func IfaceString(str interface{}) {
 	cpkg.Printf("iface as string: %v\n", str)
 }
 
-//gopy:interface=handle this magic directive says, treat it as a handle
+//gopy:interface=handle
+// this magic directive says, treat the interface arg as a handle
 func IfaceHandle(ifc interface{}) {
 	cpkg.Printf("iface as handle: %v\n", ifc)
 }

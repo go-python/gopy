@@ -21,7 +21,7 @@ except AttributeError:
 bytestr = b"Python byte string"
 unicodestr = u"Python Unicode string 🐱"
 
-# todo: need conversion from bytestr to string -- not sure pybindgen can do it?
+# TODO: need conversion from bytestr to string -- not sure pybindgen can do it?
 #bytestr_ret = encoding.HandleString(bytestr)
 unicodestr_ret = encoding.HandleString(unicodestr)
 

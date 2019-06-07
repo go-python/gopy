@@ -15,20 +15,20 @@ type FunStruct struct {
 	FieldS string
 }
 
-func (fs *FunStruct) CallBack(arg1 int, fun func(afs *FunStruct, a1 int, s1 string)) {
-	fun(fs, arg1, fs.FieldS)
+func (fs *FunStruct) CallBack(i int, fun func(fs *FunStruct, i int, s string)) {
+	fun(fs, i, fs.FieldS)
 }
 
-type RecvFunc func(afs *FunStruct, a1 int, if1 interface{})
+type RecvFunc func(fs *FunStruct, i int, v interface{})
 
-func (fs *FunStruct) CallBackIf(arg1 int, fun RecvFunc) {
-	fun(fs, arg1, fs.FieldS)
+func (fs *FunStruct) CallBackIf(i int, fun RecvFunc) {
+	fun(fs, i, fs.FieldS)
 }
 
-func (fs *FunStruct) OtherMeth(arg1 int, args string) {
-	fs.FieldI = arg1
-	fs.FieldS = args
-	fmt.Printf("arg1: %d args: %s\n", arg1, args)
+func (fs *FunStruct) OtherMeth(i int, s string) {
+	fs.FieldI = i
+	fs.FieldS = s
+	fmt.Printf("i=%d s=%s\n", i, s)
 }
 
 func (fs *FunStruct) ObjArg(ofs *FunStruct) {

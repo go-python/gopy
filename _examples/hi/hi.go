@@ -130,20 +130,20 @@ func (p *Person) GetAge() int {
 	return p.Age
 }
 
-func (p *Person) SetName(nm string) {
-	p.Name = nm
+func (p *Person) SetName(n string) {
+	p.Name = n
 }
 
-func (p *Person) SetAge(ag int) {
-	p.Age = ag
+func (p *Person) SetAge(age int) {
+	p.Age = age
 }
 
-func (p *Person) SetFmS2(s2arg structs.S2) {
-	p.Age = s2arg.Public
+func (p *Person) SetFmS2(s2 structs.S2) {
+	p.Age = s2.Public
 }
 
-func (p *Person) SetFmS2Ptr(s2arg *structs.S2) {
-	p.Age = s2arg.Public
+func (p *Person) SetFmS2Ptr(s2 *structs.S2) {
+	p.Age = s2.Public
 }
 
 func (p *Person) ReturnS2Ptr() *structs.S2 {
@@ -178,7 +178,7 @@ type Floats []Float
 // Eval evals float64
 type Eval func(f float64) float64
 
-// PersIface is an interface into the person type
+// PersIface is an interface into the person type.
 type PersIface interface {
 	// GetName returns the name of the person
 	GetName() string
@@ -187,7 +187,7 @@ type PersIface interface {
 	GetAge() int
 
 	// SetName sets name
-	SetName(nm string)
+	SetName(n string)
 
 	// SetAge sets age
 	SetAge(age int)

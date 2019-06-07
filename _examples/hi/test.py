@@ -6,6 +6,9 @@ from __future__ import print_function
 
 import hi
 
+# NOTE: the output from python2 is different from that of 3, and test
+# targets python3 so it appears to fail for 2.
+
 print("--- doc(hi)...")
 print(hi.__doc__)
 
@@ -167,6 +170,8 @@ print(c)
 
 ## test Couple.__init__
 print("--- Couple.__init__")
+# Note: pybindgen does not automatically support varargs, so in general
+# all python calls need to provide the full Go signature of args.
 #c = hi.Couple(hi.Person("p1", 42))
 #print(c)
 c = hi.Couple(hi.Person("p1", 42), hi.Person("p2", 52))

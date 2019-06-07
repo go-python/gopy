@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/goki/ki/dirs"
+	"github.com/goki/gopy/bind"
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
 )
@@ -89,7 +89,7 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 
 	setupfn := filepath.Join(odir, "setup.py")
 
-	if _, err = os.Stat(string(setupfn)); os.IsNotExist(err) {
+	if _, err = os.Stat(setupfn); os.IsNotExist(err) {
 		err = GenPyPkgSetup(odir, name, cmdstr, user, version, author, email, desc, url, vm)
 		if err != nil {
 			return err
@@ -111,26 +111,32 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 	}
 
 	for _, path := range args {
-		rootdir, err := dirs.GoSrcDir(path)
+		rootdir, err := GoSrcDir(path)
 		if err != nil {
 			return err
 		}
 		buildPkgRecurse(odir, path, rootdir, rootdir, exmap)
 	}
-	return runBuild("pkg", odir, name, cmdstr, vm, mainstr, symbols)
+	return runBuild(bind.ModePkg, odir, name, cmdstr, vm, mainstr, symbols)
 }
 
 func buildPkgRecurse(odir, path, rootdir, pathdir string, exmap map[string]struct{}) {
 	reldir, _ := filepath.Rel(rootdir, pathdir)
-	if reldir == "" {
-		newPackage(path)
+	gofiles := GoFiles(pathdir)
+	// fmt.Printf("go files: %s\n", gofiles)
+	if len(gofiles) == 0 || (len(gofiles) == 1 && gofiles[0] == "doc.go") {
+		fmt.Printf("\tskipping dir with no go files or only doc.go file: %s\n", pathdir)
 	} else {
-		pkgpath := path + "/" + reldir
-		newPackage(pkgpath)
+		if reldir == "" {
+			newPackage(path)
+		} else {
+			pkgpath := path + "/" + reldir
+			newPackage(pkgpath)
+		}
 	}
 
 	//	now try all subdirs
-	drs := dirs.Dirs(pathdir)
+	drs := Dirs(pathdir)
 	for _, dr := range drs {
 		_, ex := exmap[dr]
 		if ex || dr[0] == '.' || dr[0] == '_' {

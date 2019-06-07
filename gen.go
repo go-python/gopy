@@ -61,7 +61,7 @@ func genOutDir(odir string) (string, error) {
 // genPkg generates output for all the current packages that have been parsed,
 // in the given output directory
 // mode = gen, build, pkg, exe
-func genPkg(mode string, odir, outname, cmdstr, vm, mainstr string) error {
+func genPkg(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string) error {
 	var err error
 	odir, err = genOutDir(odir)
 	if err != nil {
@@ -78,7 +78,7 @@ func genPkg(mode string, odir, outname, cmdstr, vm, mainstr string) error {
 	if err != nil {
 		return err
 	}
-	err = bind.GenPyBind(mode, odir, outname, cmdstr, vm, mainstr, libExt, pyvers)
+	err = bind.GenPyBind(mode, odir, outname, cmdstr, vm, mainstr, libExt, extraGccArgs, pyvers)
 	if err != nil {
 		log.Println(err)
 	}

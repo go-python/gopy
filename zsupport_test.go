@@ -11,6 +11,7 @@ import (
 
 func testPkg(t *testing.T, table pkg) {
 	backends := []string{"py2", "py3"}
+	// backends := []string{"py3"}
 	for _, be := range backends {
 		fmt.Printf("looping over backends: %s in %s\n", be, backends)
 		vm, ok := testBackends[be]

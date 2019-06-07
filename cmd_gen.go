@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/goki/gopy/bind"
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
 )
@@ -67,7 +68,7 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 	}
 
 	// false = library version
-	err = genPkg("gen", odir, name, cmdstr, vm, mainstr)
+	err = genPkg(bind.ModeGen, odir, name, cmdstr, vm, mainstr)
 	if err != nil {
 		return err
 	}

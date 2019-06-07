@@ -64,7 +64,7 @@ in which case a new Go object is constructed first
 
 	for i := 0; i < numFields; i++ {
 		f := s.Struct().Field(i)
-		if err, _ := isPyCompatField(f); err != nil {
+		if _, err := isPyCompatField(f); err != nil {
 			continue
 		}
 		g.pywrap.Printf("if  %[1]d < len(args):\n", i)
@@ -81,13 +81,14 @@ in which case a new Go object is constructed first
 
 	if s.prots&ProtoStringer != 0 {
 		for _, m := range s.meths {
-			if isStringer(m.obj) {
-				g.pywrap.Printf("def __str__(self):\n")
-				g.pywrap.Indent()
-				g.pywrap.Printf("return self.String()\n")
-				g.pywrap.Outdent()
-				g.pywrap.Printf("\n")
+			if !isStringer(m.obj) {
+				continue
 			}
+			g.pywrap.Printf("def __str__(self):\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("return self.String()\n")
+			g.pywrap.Outdent()
+			g.pywrap.Printf("\n")
 		}
 	} else {
 		g.pywrap.Printf("def __str__(self):\n")
@@ -126,7 +127,7 @@ in which case a new Go object is constructed first
 	g.gofile.Printf("//export %s\n", ctNm)
 	g.gofile.Printf("func %s() CGoHandle {\n", ctNm)
 	g.gofile.Indent()
-	g.gofile.Printf("return CGoHandle(handleFmPtr_%s(&%s{}))\n", s.ID(), qNm)
+	g.gofile.Printf("return CGoHandle(handleFromPtr_%s(&%s{}))\n", s.ID(), qNm)
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
 
@@ -138,7 +139,7 @@ func (g *pyGen) genStructMembers(s *Struct) {
 	typ := s.Struct()
 	for i := 0; i < typ.NumFields(); i++ {
 		f := typ.Field(i)
-		err, ftyp := isPyCompatField(f)
+		ftyp, err := isPyCompatField(f)
 		if err != nil {
 			continue
 		}
@@ -173,7 +174,7 @@ func (g *pyGen) genStructMemberGetter(s *Struct, i int, f types.Object) {
 	g.gofile.Printf("//export %s\n", cgoFn)
 	g.gofile.Printf("func %s(handle CGoHandle) %s {\n", cgoFn, ret.cgoname)
 	g.gofile.Indent()
-	g.gofile.Printf("op := ptrFmHandle_%s(handle)\nreturn ", s.ID())
+	g.gofile.Printf("op := ptrFromHandle_%s(handle)\nreturn ", s.ID())
 	if ret.go2py != "" {
 		if ret.hasHandle() && !ret.isPtrOrIface() {
 			g.gofile.Printf("%s(&op.%s)%s", ret.go2py, f.Name(), ret.go2pyParenEx)
@@ -216,7 +217,7 @@ func (g *pyGen) genStructMemberSetter(s *Struct, i int, f types.Object) {
 	g.gofile.Printf("//export %s\n", cgoFn)
 	g.gofile.Printf("func %s(handle CGoHandle, val %s) {\n", cgoFn, ret.cgoname)
 	g.gofile.Indent()
-	g.gofile.Printf("op := ptrFmHandle_%s(handle)\n", s.ID())
+	g.gofile.Printf("op := ptrFromHandle_%s(handle)\n", s.ID())
 	if ret.py2go != "" {
 		g.gofile.Printf("op.%s = %s(val)%s", f.Name(), ret.py2go, ret.py2goParenEx)
 	} else {
@@ -277,13 +278,14 @@ handle=A Go-side object is always initialized with an explicit handle=arg
 	g.pywrap.Outdent()
 
 	for _, m := range ifc.meths {
-		if m.GoName() == "String" {
-			g.pywrap.Printf("def __str__(self):\n")
-			g.pywrap.Indent()
-			g.pywrap.Printf("return self.String()\n")
-			g.pywrap.Outdent()
-			g.pywrap.Printf("\n")
+		if !isStringer(m.obj) {
+			continue
 		}
+		g.pywrap.Printf("def __str__(self):\n")
+		g.pywrap.Indent()
+		g.pywrap.Printf("return self.String()\n")
+		g.pywrap.Outdent()
+		g.pywrap.Printf("\n")
 	}
 }
 
