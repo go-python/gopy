@@ -32,7 +32,7 @@ type Package struct {
 	// calls   []*Signature // TODO: could optimize calls back into python to gen once
 }
 
-// accumulates all the packages processed
+// Packages accumulates all the packages processed
 var Packages []*Package
 
 // ResetPackages resets any accumulated packages -- needed when doing tests
