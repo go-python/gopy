@@ -73,6 +73,13 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		wpArgs = append(wpArgs, anm)
 	}
 
+	// support for optional arg to run in a separate go routine -- only if no return val
+	if nres == 0 {
+		goArgs = append(goArgs, "goRun C.char")
+		pyArgs = append(pyArgs, "param('bool', 'goRun')")
+		wpArgs = append(wpArgs, "goRun=False")
+	}
+
 	switch {
 	case isMethod:
 		mnm := sym.id + "_" + fsym.GoName()
@@ -83,7 +90,6 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		g.pybuild.Printf("mod.add_function('%s', ", mnm)
 
 		g.pywrap.Printf("def %s(", gname)
-
 	default:
 		g.gofile.Printf("\n//export %s\n", fsym.ID())
 		g.gofile.Printf("func %s(", fsym.ID())
@@ -91,7 +97,6 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		g.pybuild.Printf("mod.add_function('%s', ", fsym.ID())
 
 		g.pywrap.Printf("def %s(", gname)
-
 	}
 
 	goRet := ""
@@ -296,24 +301,43 @@ if err != nil {
 			g.gofile.Printf("return ")
 		}
 	}
+	if nres == 0 {
+		wrapArgs = append(wrapArgs, "goRun")
+	}
 	g.pywrap.Printf("%s)", strings.Join(wrapArgs, ", "))
 	if rvHasHandle {
 		g.pywrap.Printf(")")
 	}
 
+	funCall := ""
 	if isMethod {
 		if sym.isStruct() {
-			g.gofile.Printf("gopyh.Embed(vifc, reflect.TypeOf(%s{})).(%s).%s(%s)", nonPtrName(symNm), symNm, fsym.GoName(), strings.Join(callArgs, ", "))
+			funCall = fmt.Sprintf("gopyh.Embed(vifc, reflect.TypeOf(%s{})).(%s).%s(%s)", nonPtrName(symNm), symNm, fsym.GoName(), strings.Join(callArgs, ", "))
 		} else {
-			g.gofile.Printf("vifc.(%s).%s(%s)", symNm, fsym.GoName(), strings.Join(callArgs, ", "))
+			funCall = fmt.Sprintf("vifc.(%s).%s(%s)", symNm, fsym.GoName(), strings.Join(callArgs, ", "))
 		}
 	} else {
-		g.gofile.Printf("%s(%s)", fsym.GoFmt(), strings.Join(callArgs, ", "))
+		funCall = fmt.Sprintf("%s(%s)", fsym.GoFmt(), strings.Join(callArgs, ", "))
 	}
 	if hasRetCvt {
 		ret := res[0]
-		g.gofile.Printf(")%s", ret.sym.go2pyParenEx)
+		funCall += fmt.Sprintf(")%s", ret.sym.go2pyParenEx)
 	}
+
+	if nres == 0 {
+		g.gofile.Printf("if boolPyToGo(goRun) {\n")
+		g.gofile.Indent()
+		g.gofile.Printf("go %s\n", funCall)
+		g.gofile.Outdent()
+		g.gofile.Printf("} else {\n")
+		g.gofile.Indent()
+		g.gofile.Printf("%s\n", funCall)
+		g.gofile.Outdent()
+		g.gofile.Printf("}")
+	} else {
+		g.gofile.Printf("%s\n", funCall)
+	}
+
 	if rvIsErr || nres == 2 {
 		g.gofile.Printf("\n")
 		g.gofile.Printf("if err != nil {\n")
