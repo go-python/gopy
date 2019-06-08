@@ -658,6 +658,35 @@ func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string, methvar string) 
 	return bstr, nil
 }
 
+// pyObjectToGo returns code that will decodes a PyObject variable of name objnm into a basic go type
+func (sym *symtab) pyObjectToGo(typ types.Type, sy *symbol, objnm string) (string, error) {
+	bstr := ""
+	bt, isb := typ.Underlying().(*types.Basic)
+	switch {
+	// case vsym.goname == "interface{}":
+	// 	bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_string(%s(%s)%s))\n", varnm, i, vsym.go2py, anm, vsym.go2pyParenEx)
+	// case vsym.hasHandle(): // note: assuming int64 handles
+	// 	bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_int64(C.int64_t(%s(%s)%s)))\n", varnm, i, vsym.go2py, anm, vsym.go2pyParenEx)
+	case isb:
+		bk := bt.Kind()
+		switch {
+		case types.Int <= bk && bk <= types.Int64:
+			bstr += fmt.Sprintf("%s(C.PyLong_AsLongLong(%s))", sy.goname, objnm)
+		case types.Uint <= bk && bk <= types.Uintptr:
+			bstr += fmt.Sprintf("%s(C.PyLong_AsUnsignedLongLong(%s))", sy.goname, objnm)
+		case types.Float32 <= bk && bk <= types.Float64:
+			bstr += fmt.Sprintf("%s(C.PyFloat_AsDouble(%s))", sy.goname, objnm)
+		case bk == types.String:
+			bstr += fmt.Sprintf("C.GoString(C.PyBytes_AsString(%s))", objnm)
+		case bk == types.Bool:
+			bstr += fmt.Sprintf("boolPyToGo(C.char(C.PyLong_AsLongLong(%s)))", objnm)
+		}
+	default:
+		return "", fmt.Errorf("pyObjectToGo: type not handled: %s", typ.String())
+	}
+	return bstr, nil
+}
+
 // typeNamePkg gets the goname and package for a given types.Type -- deals with
 // naming for types in other packages, and adds those packages to imports paths.
 // Falls back on sym.pkg if no other package info avail.
@@ -967,16 +996,27 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 	sig := t.Underlying().(*types.Signature)
 	args := sig.Params()
 	rets := sig.Results()
-	if rets.Len() > 0 { // TODO 1
+	if rets.Len() > 1 {
 		return fmt.Errorf("multiple return values not supported")
 	}
 	retstr := ""
+	var ret *types.Var
+	var rsym *symbol
 	if rets.Len() == 1 {
 		retstr = "_fcret := "
+		ret = rets.At(0)
+		rsym = sym.symtype(ret.Type())
+		if rsym == nil {
+			return fmt.Errorf("return type not supported: %s", n)
+		}
 	}
 
 	// TODO: use strings.Builder
-	py2g += "if C.PyCallable_Check(_fun_arg) == 0 { return }\n"
+	if rets.Len() == 0 {
+		py2g += "if C.PyCallable_Check(_fun_arg) == 0 { return }\n"
+	} else {
+		py2g += fmt.Sprintf("if C.PyCallable_Check(_fun_arg) == 0 { return %s(0)%s }\n", rsym.py2go, rsym.py2goParenEx)
+	}
 	py2g += "_gstate := C.PyGILState_Ensure()\n"
 	nargs := args.Len()
 	if nargs > 0 {
@@ -994,16 +1034,11 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 	py2g += "C.gopy_err_handle()\n"
 	py2g += "C.PyGILState_Release(_gstate)\n"
 	if rets.Len() == 1 {
-		ret := rets.At(0)
-		rsym := sym.symtype(ret.Type())
-		if rsym == nil {
-			return fmt.Errorf("return type not supported: %s", n)
+		cvt, err := sym.pyObjectToGo(ret.Type(), rsym, "_fcret")
+		if err != nil {
+			return err
 		}
-		if rsym.py2go != "" {
-			py2g += fmt.Sprintf("return %s(_fcret)%s", rsym.py2go, rsym.py2goParenEx)
-		} else {
-			py2g += "return _fcret"
-		}
+		py2g += fmt.Sprintf("return %s", cvt)
 	}
 	py2g += "}"
 

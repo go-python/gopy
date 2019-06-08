@@ -19,6 +19,11 @@ def cbfunif(afs, ival, ifval):
     tfs = funcs.FunStruct(handle=afs)
     print("in python cbfunif: FieldI: ", tfs.FieldI, " FieldS: ", tfs.FieldS, " ival: ", ival, " ifval: ", ifval)
 
+def cbfunrval(afs, ival, ifval):
+    tfs = funcs.FunStruct(handle=afs)
+    print("in python cbfunrval: FieldI: ", tfs.FieldI, " FieldS: ", tfs.FieldS, " ival: ", ival, " ifval: ", ifval)
+    return True
+    
 class MyClass(go.GoClass):
     def __init__(self, *args, **kwargs):
         self.misc = 2
@@ -33,8 +38,11 @@ class MyClass(go.GoClass):
 print("fs.CallBack(22, cbfun)...")
 fs.CallBack(22, cbfun)
 
-print("fs.CallBackIf(22, cbfun)...")
+print("fs.CallBackIf(22, cbfunif)...")
 fs.CallBackIf(22, cbfunif)
+
+print("fs.CallBackRval(22, cbfunrval)...")
+fs.CallBackRval(22, cbfunrval)
 
 cls = MyClass()
 

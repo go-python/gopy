@@ -25,6 +25,11 @@ func (fs *FunStruct) CallBackIf(i int, fun RecvFunc) {
 	fun(fs, i, fs.FieldS)
 }
 
+func (fs *FunStruct) CallBackRval(i int, fun func(fs *FunStruct, i int, v interface{}) bool) {
+	rv := fun(fs, i, fs.FieldS)
+	fmt.Printf("got return value: %v\n", rv)
+}
+
 func (fs *FunStruct) OtherMeth(i int, s string) {
 	fs.FieldI = i
 	fs.FieldS = s
