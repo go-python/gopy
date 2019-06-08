@@ -30,12 +30,12 @@ var (
 		"_examples/empty":     []string{"py2", "py3"},
 		"_examples/named":     []string{"py2", "py3"},
 		"_examples/structs":   []string{"py2", "py3"},
-		"_examples/consts":    []string{"py2", "py3"},
+		"_examples/consts":    []string{"py2", "py3"}, // 2 doesn't report .666 decimals
 		"_examples/vars":      []string{"py2", "py3"},
 		"_examples/seqs":      []string{"py2", "py3"},
 		"_examples/cgo":       []string{"py2", "py3"},
 		"_examples/pyerrors":  []string{"py2", "py3"},
-		"_examples/iface":     []string{"py2", "py3"},
+		"_examples/iface":     []string{"py2", "py3"}, // output order diff for 2, fails but actually works
 		"_examples/pointers":  []string{"py2", "py3"},
 		"_examples/arrays":    []string{"py2", "py3"},
 		"_examples/slices":    []string{"py2", "py3"},
@@ -90,6 +90,7 @@ func TestGofmt(t *testing.T) {
 func TestHi(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/hi"
+	// NOTE: output differs for python2 -- only valid checking for 3
 	testPkg(t, pkg{
 		path: path,
 		lang: features[path],
@@ -290,7 +291,7 @@ func TestBindPointers(t *testing.T) {
 		path: path,
 		lang: features[path],
 		want: []byte(`s = pointers.S(2)
-s = pointers.S { Value=2, handle=1, }
+s = pointers.S{Value=2, handle=1}
 s.Value = 2
 OK
 `),
@@ -324,18 +325,18 @@ func TestBindStructs(t *testing.T) {
 		path: path,
 		lang: features[path],
 		want: []byte(`s = structs.S()
-s = structs.S { handle=1, }
+s = structs.S{handle=1}
 s.Init()
 s.Upper('boo')= 'BOO'
 s1 = structs.S1()
-s1 = structs.S1 { handle=2, }
+s1 = structs.S1{handle=2}
 caught error: 'S1' object has no attribute 'private'
 s2 = structs.S2()
-s2 = structs.S2 { Public=1, handle=5, }
-s2 = structs.S2 { Public=42, handle=7, }
+s2 = structs.S2{Public=1, handle=5}
+s2 = structs.S2{Public=42, handle=7}
 s2.Public = 42
 caught error: 'S2' object has no attribute 'private'
-s2child = S2Child{S2: structs.S2 { Public=42, handle=8, local=123, }, local: 123}
+s2child = S2Child{S2: structs.S2{Public=42, handle=8, local=123}, local: 123}
 s2child.Public = 42
 s2child.local = 123
 caught error: 'S2Child' object has no attribute 'private'
@@ -347,6 +348,7 @@ OK
 func TestBindConsts(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/consts"
+	// NOTE: python2 does not properly output .666 decimals for unknown reasons.
 	testPkg(t, pkg{
 		path: path,
 		lang: features[path],
@@ -433,6 +435,7 @@ OK
 func TestBindInterfaces(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/iface"
+	// NOTE: python2 outputs this in a different order, so test fails, but results are the same
 	testPkg(t, pkg{
 		path: path,
 		lang: features[path],

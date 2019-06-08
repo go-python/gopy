@@ -162,6 +162,15 @@ func runBuild(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string, sy
 			return err
 		}
 
+		fmt.Printf("go env CC\n")
+		cmd = exec.Command("go", "env", "CC")
+		cccmdb, err := cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cccmdb))
+			return err
+		}
+		cccmd := strings.TrimSpace(string(cccmdb))
+
 		fmt.Printf("%v-config --cflags\n", vm)
 		cmd = exec.Command(vm+"-config", "--cflags") // TODO: need minor version!
 		cflags, err := cmd.CombinedOutput()
@@ -183,8 +192,8 @@ func runBuild(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string, sy
 		gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(cflags)), " ")...)
 		gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(ldflags)), " ")...)
 
-		fmt.Printf("gcc %v\n", strings.Join(gccargs, " "))
-		cmd = exec.Command("gcc", gccargs...)
+		fmt.Printf("%s %v\n", cccmd, strings.Join(gccargs, " "))
+		cmd = exec.Command(cccmd, gccargs...)
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(cmdout))
