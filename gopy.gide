@@ -28,7 +28,7 @@
     "Run Proj"
   ],
   "Find": {
-    "Find": "C.free",
+    "Find": "isInstance",
     "Replace": "VarFromHandle",
     "IgnoreCase": false,
     "Langs": [
@@ -37,6 +37,12 @@
     ],
     "Loc": "FindLocAll",
     "FindHist": [
+      "isInstance",
+      "TRUE",
+      "raise",
+      "error",
+      "argument",
+      "Package",
       "C.free",
       "c.Free",
       "c.free",
@@ -80,13 +86,7 @@
       "testBackends",
       "exe",
       "Exported",
-      "newSignatureFrom",
-      "newFuncFrom",
-      "*Signature",
-      "proto",
-      "gocl",
-      "genExtClass",
-      "g.pkg.pkg.Name()"
+      "newSignatureFrom"
     ],
     "ReplHist": [
       "VarFromHandle",
@@ -115,6 +115,7 @@
     "_examples/hi": true,
     "_examples/hi/gen": false,
     "_examples/iface": true,
+    "_examples/lot": true,
     "_examples/maps": true,
     "_examples/named": true,
     "_examples/pointers": true,

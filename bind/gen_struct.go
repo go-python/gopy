@@ -67,6 +67,9 @@ in which case a new Go object is constructed first
 		if _, err := isPyCompatField(f); err != nil {
 			continue
 		}
+		// TODO: this will accept int args for any handles / object fields
+		// need some kind of additional type-checking logic to prevent that in way
+		// that also allows valid handles to be used..
 		g.pywrap.Printf("if  %[1]d < len(args):\n", i)
 		g.pywrap.Indent()
 		g.pywrap.Printf("self.%s = args[%d]\n", f.Name(), i)
@@ -95,13 +98,23 @@ in which case a new Go object is constructed first
 		g.pywrap.Indent()
 		g.pywrap.Printf("pr = [(p, getattr(self, p)) for p in dir(self) if not p.startswith('__')]\n")
 		// g.pywrap.Printf("print(pr)\n")
-		g.pywrap.Printf("sv = '%s { '\n", qNm)
+		g.pywrap.Printf("sv = '%s{'\n", qNm)
+		g.pywrap.Printf("first = True\n")
 		g.pywrap.Printf("for v in pr:\n")
 		g.pywrap.Indent()
-		g.pywrap.Printf("if not callable(v[1]):\n")
+		g.pywrap.Printf("if callable(v[1]):\n")
 		g.pywrap.Indent()
-		g.pywrap.Printf("sv += v[0] + '=' + str(v[1]) + ', '\n")
+		g.pywrap.Printf("continue\n")
 		g.pywrap.Outdent()
+		g.pywrap.Printf("if first:\n")
+		g.pywrap.Indent()
+		g.pywrap.Printf("first = False\n")
+		g.pywrap.Outdent()
+		g.pywrap.Printf("else:\n")
+		g.pywrap.Indent()
+		g.pywrap.Printf("sv += ', '\n")
+		g.pywrap.Outdent()
+		g.pywrap.Printf("sv += v[0] + '=' + str(v[1])\n")
 		g.pywrap.Outdent()
 		g.pywrap.Printf("return sv + '}'\n")
 		g.pywrap.Outdent()
