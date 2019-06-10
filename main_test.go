@@ -529,6 +529,8 @@ func TestBuiltinMaps(t *testing.T) {
 		lang: features[path],
 		want: []byte(`map a[1]: 3.0
 map a[2]: 5.0
+2 in map: True
+3 in map: False
 maps.Sum from Go map: 8.0
 map b: {1: 3.0, 2: 5.0}
 maps.Sum from Python dictionary: 8.0

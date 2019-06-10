@@ -198,11 +198,7 @@ otherwise parameter is a python list that we copy from
 
 		g.pywrap.Printf("def keys(self):\n")
 		g.pywrap.Indent()
-		if ksym.hasHandle() {
-			g.pywrap.Printf("return %s(handle=_%s_keys(self.handle))\n", keyslnm, qNm)
-		} else {
-			g.pywrap.Printf("return %s(handle=_%s_keys(self.handle))\n", keyslnm, qNm)
-		}
+		g.pywrap.Printf("return %s(handle=_%s_keys(self.handle))\n", keyslnm, qNm)
 		g.pywrap.Outdent()
 
 		g.pywrap.Printf("def values(self):\n")
@@ -230,6 +226,15 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Printf("def __iter__(self):\n")
 		g.pywrap.Indent()
 		g.pywrap.Printf("return iter(self.items())\n")
+		g.pywrap.Outdent()
+
+		g.pywrap.Printf("def __contains__(self, key):\n")
+		g.pywrap.Indent()
+		if ksym.hasHandle() {
+			g.pywrap.Printf("return _%s_contains(self.handle, key.handle)\n", qNm)
+		} else {
+			g.pywrap.Printf("return _%s_contains(self.handle, key)\n", qNm)
+		}
 		g.pywrap.Outdent()
 
 		// g.pywrap.Printf("def __next__(self):\n")
@@ -290,6 +295,22 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("}\n\n")
 
 		g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'), [param('%s', 'handle'), param('%s', '_ky')])\n", slNm, esym.cpyname, PyHandle, ksym.cpyname)
+
+		// contains
+		g.gofile.Printf("//export %s_contains\n", slNm)
+		g.gofile.Printf("func %s_contains(handle CGoHandle, _ky %s) C.char {\n", slNm, ksym.cgoname)
+		g.gofile.Indent()
+		g.gofile.Printf("s := *ptrFromHandle_%s(handle)\n", slNm)
+		if ksym.py2go != "" {
+			g.gofile.Printf("_, ok := s[%s(_ky)%s]\n", ksym.py2go, ksym.py2goParenEx)
+		} else {
+			g.gofile.Printf("_, ok := s[_ky]\n")
+		}
+		g.gofile.Printf("return boolGoToPy(ok)\n")
+		g.gofile.Outdent()
+		g.gofile.Printf("}\n\n")
+
+		g.pybuild.Printf("mod.add_function('%s_contains', retval('bool'), [param('%s', 'handle'), param('%s', '_ky')])\n", slNm, PyHandle, ksym.cpyname)
 
 		// set
 		g.gofile.Printf("//export %s_set\n", slNm)
