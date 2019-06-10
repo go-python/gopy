@@ -28,7 +28,7 @@
     "Run Proj"
   ],
   "Find": {
-    "Find": "genMethod",
+    "Find": "bool",
     "Replace": "VarFromHandle",
     "IgnoreCase": false,
     "Langs": [
@@ -37,6 +37,7 @@
     ],
     "Loc": "FindLocAll",
     "FindHist": [
+      "bool",
       "genMethod",
       "genFuncBody",
       "boolPyToGo",
@@ -85,8 +86,7 @@
       "interface{}",
       "types.New",
       "C.Raise",
-      "mutex",
-      "t.Parallel"
+      "mutex"
     ],
     "ReplHist": [
       "VarFromHandle",
