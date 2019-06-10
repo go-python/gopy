@@ -28,6 +28,8 @@ if testall:
 
 print('map a[1]:', a[1])
 print('map a[2]:', a[2])
+print('2 in map:', 2 in a)
+print('3 in map:', 3 in a)
 
 # TODO: not sure why python2 doesn't just catch this error, but it doesn't seem to..
 # try:
