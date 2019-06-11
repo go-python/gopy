@@ -28,7 +28,7 @@
     "Run Proj"
   ],
   "Find": {
-    "Find": "bool",
+    "Find": "Chdir",
     "Replace": "VarFromHandle",
     "IgnoreCase": false,
     "Langs": [
@@ -37,11 +37,17 @@
     ],
     "Loc": "FindLocAll",
     "FindHist": [
+      "Chdir",
+      "buildTuple",
+      "GoSrcDir",
+      "testPkg",
+      "run(",
+      "run",
+      ") run",
       "bool",
       "genMethod",
       "genFuncBody",
       "boolPyToGo",
-      "buildTuple",
       "could not find symbol",
       "newFuncFrom",
       "*ptrFromHandle",
@@ -54,7 +60,6 @@
       "C.free",
       "c.Free",
       "c.free",
-      "testPkg",
       "VarFmHandle",
       "sliceptr",
       "handle=",
@@ -81,12 +86,7 @@
       "Packages",
       "thePyGen",
       "todo",
-      "with go",
-      "for go",
-      "interface{}",
-      "types.New",
-      "C.Raise",
-      "mutex"
+      "with go"
     ],
     "ReplHist": [
       "VarFromHandle",
@@ -111,6 +111,8 @@
   },
   "OpenDirs": {
     "_examples": true,
+    "_examples/cgo": true,
+    "_examples/consts": true,
     "_examples/funcs": true,
     "_examples/hi": true,
     "_examples/hi/gen": false,
@@ -118,6 +120,7 @@
     "_examples/lot": true,
     "_examples/maps": true,
     "_examples/named": true,
+    "_examples/osfile": true,
     "_examples/pointers": true,
     "_examples/rename": true,
     "_examples/structs": true,

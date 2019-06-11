@@ -113,7 +113,13 @@ func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 	}
 
 	for _, path := range args {
-		rootdir, err := GoSrcDir(path)
+		var rootdir string
+		var err error
+		if strings.HasPrefix(path, "./") {
+			rootdir = path
+		} else {
+			rootdir, err = GoSrcDir(path)
+		}
 		if err != nil {
 			return err
 		}

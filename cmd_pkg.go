@@ -111,7 +111,13 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 	}
 
 	for _, path := range args {
-		rootdir, err := GoSrcDir(path)
+		var rootdir string
+		var err error
+		if strings.HasPrefix(path, "./") {
+			rootdir = path
+		} else {
+			rootdir, err = GoSrcDir(path)
+		}
 		if err != nil {
 			return err
 		}
@@ -125,7 +131,7 @@ func buildPkgRecurse(odir, path, rootdir, pathdir string, exmap map[string]struc
 	gofiles := GoFiles(pathdir)
 	// fmt.Printf("go files: %s\n", gofiles)
 	if len(gofiles) == 0 || (len(gofiles) == 1 && gofiles[0] == "doc.go") {
-		fmt.Printf("\tskipping dir with no go files or only doc.go file: %s\n", pathdir)
+		fmt.Printf("\tskipping dir with no go files or only doc.go file: %s -- %s\n", pathdir, gofiles)
 	} else {
 		if reldir == "" {
 			newPackage(path)

@@ -207,8 +207,8 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	}
 	if isMethod {
 		g.gofile.Printf(
-			`vifc, err := gopyh.VarFromHandleTry((gopyh.CGoHandle)(_handle), "%s")
-if err != nil {
+			`vifc, __err := gopyh.VarFromHandleTry((gopyh.CGoHandle)(_handle), "%s")
+if __err != nil {
 `, symNm)
 		g.gofile.Indent()
 		if nres > 0 {
@@ -227,7 +227,7 @@ if err != nil {
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n")
 	} else if rvIsErr {
-		g.gofile.Printf("var err error\n")
+		g.gofile.Printf("var __err error\n")
 	}
 
 	// pywrap output
@@ -288,9 +288,9 @@ if err != nil {
 		ret := res[0]
 		switch {
 		case rvIsErr:
-			g.gofile.Printf("err = ")
+			g.gofile.Printf("__err = ")
 		case nres == 2:
-			g.gofile.Printf("cret, err := ")
+			g.gofile.Printf("cret, __err := ")
 		case ret.sym.hasHandle() && !ret.sym.isPtrOrIface():
 			hasAddrOfTmp = true
 			g.gofile.Printf("cret := ")
@@ -340,9 +340,9 @@ if err != nil {
 
 	if rvIsErr || nres == 2 {
 		g.gofile.Printf("\n")
-		g.gofile.Printf("if err != nil {\n")
+		g.gofile.Printf("if __err != nil {\n")
 		g.gofile.Indent()
-		g.gofile.Printf("estr := C.CString(err.Error())\n")
+		g.gofile.Printf("estr := C.CString(__err.Error())\n")
 		g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, estr)\n")
 		if rvIsErr {
 			g.gofile.Printf("return estr\n") // NOTE: leaked string
