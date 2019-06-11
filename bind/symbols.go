@@ -658,7 +658,7 @@ func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string, methvar string) 
 	return bstr, nil
 }
 
-// pyObjectToGo returns code that will decodes a PyObject variable of name objnm into a basic go type
+// pyObjectToGo returns code that decodes a PyObject variable of name objnm into a basic go type
 func (sym *symtab) pyObjectToGo(typ types.Type, sy *symbol, objnm string) (string, error) {
 	bstr := ""
 	bt, isb := typ.Underlying().(*types.Basic)
@@ -683,6 +683,31 @@ func (sym *symtab) pyObjectToGo(typ types.Type, sy *symbol, objnm string) (strin
 		}
 	default:
 		return "", fmt.Errorf("pyObjectToGo: type not handled: %s", typ.String())
+	}
+	return bstr, nil
+}
+
+// ZeroToGo returns code for a zero of the given type, e.g., to synthesize a zero return value
+func (sym *symtab) ZeroToGo(typ types.Type, sy *symbol) (string, error) {
+	bstr := ""
+	bt, isb := typ.Underlying().(*types.Basic)
+	switch {
+	// case vsym.goname == "interface{}":
+	// 	bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_string(%s(%s)%s))\n", varnm, i, vsym.go2py, anm, vsym.go2pyParenEx)
+	// case vsym.hasHandle(): // note: assuming int64 handles
+	// 	bstr += fmt.Sprintf("C.PyTuple_SetItem(%s, %d, C.gopy_build_int64(C.int64_t(%s(%s)%s)))\n", varnm, i, vsym.go2py, anm, vsym.go2pyParenEx)
+	case isb:
+		bk := bt.Kind()
+		switch {
+		case types.Int <= bk && bk <= types.Float64:
+			bstr += fmt.Sprintf("%s(0)%s", sy.py2go, sy.py2goParenEx)
+		case bk == types.String:
+			bstr += `C.GoString(nil)`
+		case bk == types.Bool:
+			bstr += fmt.Sprintf("false")
+		}
+	default:
+		return "", fmt.Errorf("ZeroToGo: type not handled: %s", typ.String())
 	}
 	return bstr, nil
 }
@@ -990,18 +1015,19 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 	fn := sym.fullTypeString(t)
 	kind |= skSignature
 
-	nsig := typeGoName(t.Underlying())
-	py2g := fmt.Sprintf("%s { ", nsig)
-
 	sig := t.Underlying().(*types.Signature)
 	args := sig.Params()
+	nargs := args.Len()
 	rets := sig.Results()
+	nsig := typeGoName(t.Underlying())
+
 	if rets.Len() > 1 {
 		return fmt.Errorf("multiple return values not supported")
 	}
 	retstr := ""
 	var ret *types.Var
 	var rsym *symbol
+
 	if rets.Len() == 1 {
 		retstr = "_fcret := "
 		ret = rets.At(0)
@@ -1011,14 +1037,36 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 		}
 	}
 
+	if nargs > 0 { // need to deal with unnamed args
+		nsig = "func ("
+		for i := 0; i < nargs; i++ {
+			v := args.At(i)
+			typ := v.Type()
+			anm := pySafeArg(v.Name(), i)
+			if i > 0 {
+				nsig += ", "
+			}
+			nsig += anm + " " + typeGoName(typ)
+		}
+		nsig += ")"
+		if rets.Len() == 1 {
+			nsig += " " + typeGoName(ret.Type())
+		}
+	}
+
+	py2g := fmt.Sprintf("%s { ", nsig)
+
 	// TODO: use strings.Builder
 	if rets.Len() == 0 {
 		py2g += "if C.PyCallable_Check(_fun_arg) == 0 { return }\n"
 	} else {
-		py2g += fmt.Sprintf("if C.PyCallable_Check(_fun_arg) == 0 { return %s(0)%s }\n", rsym.py2go, rsym.py2goParenEx)
+		zstr, err := sym.ZeroToGo(ret.Type(), rsym)
+		if err != nil {
+			return err
+		}
+		py2g += fmt.Sprintf("if C.PyCallable_Check(_fun_arg) == 0 { return %s }\n", zstr)
 	}
 	py2g += "_gstate := C.PyGILState_Ensure()\n"
-	nargs := args.Len()
 	if nargs > 0 {
 		bstr, err := sym.buildTuple(args, "_fcargs", "_fun_arg")
 		if err != nil {

@@ -23,7 +23,7 @@ func GoSrcDir(dir string) (absDir string, err error) {
 			return absDir, nil
 		}
 	}
-	return "", fmt.Errorf("kit.GoSrcDir: unable to locate directory (%q) in GOPATH/src/ (%q) or GOROOT/src/pkg/ (%q)", dir, os.Getenv("GOPATH"), os.Getenv("GOROOT"))
+	return "", fmt.Errorf("GoSrcDir: unable to locate directory (%q) in GOPATH/src/ (%q) or GOROOT/src/pkg/ (%q)", dir, os.Getenv("GOPATH"), os.Getenv("GOROOT"))
 }
 
 // Dirs returns a slice of all the directories within a given directory

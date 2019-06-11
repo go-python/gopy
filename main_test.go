@@ -35,7 +35,7 @@ var (
 		"_examples/seqs":      []string{"py2", "py3"},
 		"_examples/cgo":       []string{"py2", "py3"},
 		"_examples/pyerrors":  []string{"py2", "py3"},
-		"_examples/iface":     []string{"py2", "py3"}, // output order diff for 2, fails but actually works
+		"_examples/iface":     []string{"py3"}, // output order diff for 2, fails but actually works
 		"_examples/pointers":  []string{"py2", "py3"},
 		"_examples/arrays":    []string{"py2", "py3"},
 		"_examples/slices":    []string{"py2", "py3"},
@@ -44,6 +44,7 @@ var (
 		"_examples/rename":    []string{"py2", "py3"},
 		"_examples/lot":       []string{"py2", "py3"},
 		"_examples/unicode":   []string{"py3"}, // doesn't work for 2
+		"_examples/osfile":    []string{"py2", "py3"},
 	}
 )
 
@@ -92,8 +93,10 @@ func TestHi(t *testing.T) {
 	path := "_examples/hi"
 	// NOTE: output differs for python2 -- only valid checking for 3
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`hi from go
 hello you from go
 working...
@@ -231,8 +234,10 @@ func TestBindFuncs(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/funcs"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`got return value: true
 got nil
 ofs FieldI: 42 FieldS: str field
@@ -257,8 +262,10 @@ func TestBindSimple(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/simple"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`doc(pkg):
 '\nsimple is a simple package.\n\n'
 pkg.Func()...
@@ -278,8 +285,10 @@ func TestBindEmpty(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/empty"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`doc(pkg):
 '\nPackage empty does not expose anything.\nWe may want to wrap and import it just for its side-effects.\n\n'
 OK
@@ -291,8 +300,10 @@ func TestBindPointers(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/pointers"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`s = pointers.S(2)
 s = pointers.S{Value=2, handle=1}
 s.Value = 2
@@ -305,8 +316,10 @@ func TestBindNamed(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/named"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`doc(named): '\npackage named tests various aspects of named types.\n\n'
 s = named.Slice()
 s = named.named_Slice len: 0 handle: 1 []
@@ -325,8 +338,10 @@ func TestBindStructs(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/structs"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`s = structs.S()
 s = structs.S{handle=1}
 s.Init()
@@ -353,8 +368,10 @@ func TestBindConsts(t *testing.T) {
 	path := "_examples/consts"
 	// NOTE: python2 does not properly output .666 decimals for unknown reasons.
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`c1 = c1
 c2 = 42
 c3 = 666.666
@@ -373,8 +390,10 @@ func TestBindVars(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/vars"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`doc(vars):
 None
 doc(vars.V1()):
@@ -413,8 +432,10 @@ func TestBindSeqs(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/seqs"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`doc(seqs): '\npackage seqs tests various aspects of sequence types.\n\n'
 s = seqs.Slice()
 s = seqs.seqs_Slice len: 0 handle: 1 []
@@ -440,8 +461,10 @@ func TestBindInterfaces(t *testing.T) {
 	path := "_examples/iface"
 	// NOTE: python2 outputs this in a different order, so test fails, but results are the same
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`t.F [CALLED]
 iface.CallIface...
 t.F [CALLED]
@@ -467,8 +490,10 @@ func TestBindCgoPackage(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/cgo"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`cgo.doc: '\nPackage cgo tests bindings of CGo-based packages.\n\n'
 cgo.Hi()= 'hi from go\n'
 cgo.Hello(you)= 'hello you from go\n'
@@ -481,8 +506,10 @@ func TestPyErrors(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/pyerrors"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path], // TODO: should print out the error message!
+		path:   path,
+		lang:   features[path], // TODO: should print out the error message!
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`<built-in function pyerrors_Div> returned a result with an error set
 pyerrors.Div(5, 2) = 2
 OK
@@ -494,8 +521,10 @@ func TestBuiltinArrays(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/arrays"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`Python list: [1, 2, 3, 4]
 Go array:  arrays.Array_4_int len: 4 handle: 1 [1, 2, 3, 4]
 arrays.IntSum from Go array: 10
@@ -508,8 +537,10 @@ func TestBuiltinSlices(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/slices"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`Python list: [1, 2, 3, 4]
 Go slice:  go.Slice_int len: 4 handle: 1 [1, 2, 3, 4]
 slices.IntSum from Python list: 10
@@ -525,8 +556,10 @@ func TestBuiltinMaps(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/maps"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`map a[1]: 3.0
 map a[2]: 5.0
 2 in map: True
@@ -548,8 +581,10 @@ func TestBindStrings(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/gostrings"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`S1 = S1
 GetString() = MyString
 OK
@@ -561,8 +596,10 @@ func TestBindRename(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/rename"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`hi
 something
 OK
@@ -574,8 +611,10 @@ func TestLot(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/lot"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`l.SomeString : some string
 l.SomeInt : 1337
 l.SomeFloat : 1337.1337
@@ -593,8 +632,10 @@ func TestSlicePtr(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/sliceptr"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`sliceptr.sliceptr_IntVector len: 3 handle: 1 [1, 2, 3]
 sliceptr.sliceptr_IntVector len: 4 handle: 1 [1, 2, 3, 4]
 sliceptr.sliceptr_StrVector len: 4 handle: 2 [1, 2, 3, 4]
@@ -607,14 +648,33 @@ func TestUnicode(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/unicode"
 	testPkg(t, pkg{
-		path: path,
-		lang: features[path],
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
 		want: []byte(`encoding.HandleString(unicodestr) -> Python Unicode string 🐱
 encoding.GetString() -> Go Unicode string 🐱
 OK
 `),
 	})
 }
+
+// see notes in _examples/osfile/test.py for why this doesn't work..
+// leaving here for now in case someone wants to follow-up and make it work..
+//
+// func TestOsFile(t *testing.T) {
+// 	// t.Parallel()
+// 	path := "_examples/osfile"
+// 	testPkg(t, pkg{
+// 		path:   path,
+// 		lang:   features[path],
+// 		cmd:    "pkg",
+// 		extras: []string{"os"},
+// 		want: []byte(`yeah..
+// OK
+// `),
+// 	})
+// }
 
 // Generate / verify SUPPORT_MATRIX.md from features map.
 func TestCheckSupportMatrix(t *testing.T) {
@@ -698,12 +758,46 @@ SUPPORT_MATRIX.md and commit the changes to SUPPORT_MATRIX.md onto git.
 }
 
 type pkg struct {
-	path string
-	lang []string
-	want []byte
+	path   string
+	lang   []string
+	cmd    string
+	extras []string
+	want   []byte
+}
+
+func testPkg(t *testing.T, table pkg) {
+	// backends := []string{"py2", "py3"}
+	// backends := []string{"py3"}
+	backends := table.lang
+	for _, be := range backends {
+		fmt.Printf("looping over backends: %s in %s\n", be, backends)
+		vm, ok := testBackends[be]
+		if !ok || vm == "" {
+			// backend not available.
+			t.Logf("Skipped testing backend %s for %s\n", be, table.path)
+			continue
+		}
+		switch be {
+		case "py2":
+			t.Run(be, func(t *testing.T) {
+				// t.Parallel()
+				testPkgBackend(t, vm, table)
+			})
+		case "py3":
+			t.Run(be, func(t *testing.T) {
+				// t.Parallel()
+				testPkgBackend(t, vm, table)
+			})
+		default:
+			t.Errorf("invalid backend name %q", be)
+		}
+	}
 }
 
 func testPkgBackend(t *testing.T, pyvm string, table pkg) {
+	curPkgPath := reflect.TypeOf(table).PkgPath()
+	_, pkgNm := filepath.Split(table.path)
+	cwd, _ := os.Getwd()
 	workdir, err := ioutil.TempDir("", "gopy-")
 	if err != nil {
 		t.Fatalf("[%s:%s]: could not create workdir: %v\n", pyvm, table.path, err)
@@ -717,22 +811,35 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	defer bind.ResetPackages()
 
 	// fmt.Printf("building in work dir: %s\n", workdir)
-	err = run([]string{"build", "-vm=" + pyvm, "-output=" + workdir, "./" + table.path})
+	fpath := "./" + table.path
+	if table.cmd != "build" { // non-build cases end up inside the working dir -- need a global import path
+		fpath = filepath.Join(curPkgPath, table.path)
+	}
+	args := []string{table.cmd, "-vm=" + pyvm, "-output=" + workdir, fpath}
+	if table.extras != nil {
+		args = append(args, table.extras...)
+	}
+	fmt.Printf("run cmd: %s\n", args)
+	err = run(args)
 	if err != nil {
 		t.Fatalf("[%s:%s]: error running gopy-build: %v\n", pyvm, table.path, err)
 	}
 
 	// fmt.Printf("copying test.py\n")
-	err = copyCmd("./"+table.path+"/test.py",
-		filepath.Join(workdir, "test.py"),
-	)
+	tstDir := workdir
+	if table.cmd != "build" {
+		tstDir = filepath.Join(workdir, pkgNm)
+	}
+	tstSrc := filepath.Join(filepath.Join(cwd, table.path), "test.py")
+	tstDst := filepath.Join(tstDir, "test.py")
+	err = copyCmd(tstSrc, tstDst)
 	if err != nil {
-		t.Fatalf("[%s:%s]: error copying 'test.py': %v\n", pyvm, table.path, err)
+		t.Fatalf("[%s:%s]: error copying 'test.py' from: %s to: %s: %v\n", pyvm, table.path, tstSrc, tstDst, err)
 	}
 
 	fmt.Printf("running %s test.py\n", pyvm)
 	cmd := exec.Command(pyvm, "./test.py")
-	cmd.Dir = workdir
+	cmd.Dir = tstDir
 	cmd.Stdin = os.Stdin
 	buf, err := cmd.CombinedOutput()
 	if err != nil {
