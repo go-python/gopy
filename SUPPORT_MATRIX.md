@@ -11,11 +11,12 @@ _examples/consts | yes | yes
 _examples/empty | yes | yes
 _examples/funcs | yes | yes
 _examples/gostrings | yes | yes
-_examples/hi | yes | yes
-_examples/iface | yes | yes
+_examples/hi | no | yes
+_examples/iface | no | yes
 _examples/lot | yes | yes
 _examples/maps | yes | yes
 _examples/named | yes | yes
+_examples/osfile | yes | yes
 _examples/pointers | yes | yes
 _examples/pyerrors | yes | yes
 _examples/rename | yes | yes
