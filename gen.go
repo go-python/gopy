@@ -18,7 +18,7 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/goki/gopy/bind"
+	"github.com/go-python/gopy/bind"
 	"github.com/pkg/errors"
 )
 
