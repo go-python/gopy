@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/goki/gopy/bind"
+	"github.com/go-python/gopy/bind"
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
 )
