@@ -33,14 +33,14 @@ before_install:
    - sudo ln -s $TEMPDIR/pypy3-$PYPYVERSION-linux64/bin/pypy3 /usr/local/bin/pypy3
    # install pip (for pypy)
    - wget https://bootstrap.pypa.io/get-pip.py
-   - sudo pypy ./get-pip.py
-   - sudo pypy3 ./get-pip.py
+   - pypy ./get-pip.py
+   - pypy3 ./get-pip.py
    - /bin/rm ./get-pip.py
    # install pybindgen
-   - sudo python2 -m pip install pybindgen
-   - sudo python3 -m pip install pybindgen
-   - sudo pypy  -m pip install pybindgen
-   - sudo pypy3 -m pip install pybindgen
+   - python2 -m pip install pybindgen
+   - python3 -m pip install pybindgen
+   - pypy  -m pip install pybindgen
+   - pypy3 -m pip install pybindgen
    # install goimports
    - go get golang.org/x/tools/cmd/goimports
 
