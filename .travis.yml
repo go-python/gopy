@@ -14,7 +14,7 @@ matrix:
 sudo: required
 
 before_install:
-   - sudo apt-get install libffi-dev python-cffi python-pip python3-cffi python3-pip wget
+   - sudo apt-get install libffi-dev python-cffi python-pip python3-cffi python3-pip
    - export PATH=$HOME/gopath/bin:/usr/local/bin:$PATH
    # Init() in main_test will make sure all backends are available if
    # GOPY_TRAVIS_CI is set
@@ -32,10 +32,9 @@ before_install:
    - sudo ln -s $TEMPDIR/pypy2-$PYPYVERSION-linux64/bin/pypy  /usr/local/bin/pypy
    - sudo ln -s $TEMPDIR/pypy3-$PYPYVERSION-linux64/bin/pypy3 /usr/local/bin/pypy3
    # install pip (for pypy)
-   - wget https://bootstrap.pypa.io/get-pip.py
-   - pypy ./get-pip.py
-   - pypy3 ./get-pip.py
-   - /bin/rm ./get-pip.py
+   - curl -L https://bootstrap.pypa.io/get-pip.py --output ${TEMPDIR}/get-pip.py
+   - pypy ${TEMPDIR}/get-pip.py
+   - pypy3 ${TEMPDIR}/get-pip.py
    # install pybindgen
    - python2 -m pip install pybindgen
    - python3 -m pip install pybindgen
