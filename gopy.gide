@@ -28,8 +28,8 @@
     "Run Proj"
   ],
   "Find": {
-    "Find": "Chdir",
-    "Replace": "VarFromHandle",
+    "Find": "goki",
+    "Replace": "go-python",
     "IgnoreCase": false,
     "Langs": [
       "Go",
@@ -37,6 +37,7 @@
     ],
     "Loc": "FindLocAll",
     "FindHist": [
+      "goki",
       "Chdir",
       "buildTuple",
       "GoSrcDir",
@@ -75,7 +76,6 @@
       "universe",
       "isPyCompatFunc",
       "isPyCompatField",
-      "goki",
       "isStringer",
       "genMap",
       "genMapInit",
@@ -89,6 +89,7 @@
       "with go"
     ],
     "ReplHist": [
+      "go-python",
       "VarFromHandle",
       "modeExe",
       "modeGen",
