@@ -36,10 +36,10 @@ before_install:
    #- pypy ${TEMPDIR}/get-pip.py
    - pypy3 ${TEMPDIR}/get-pip.py
    # install pybindgen
-   - python2 -m pip install pybindgen
-   - python3 -m pip install pybindgen
-   #- pypy  -m pip install pybindgen
-   - pypy3 -m pip install pybindgen
+   - python2 -m pip install --user -U pybindgen
+   - python3 -m pip install --user -U pybindgen
+   #- pypy  -m pip install --user -U pybindgen
+   - pypy3 -m pip install --user -U pybindgen
    # install goimports
    - go get golang.org/x/tools/cmd/goimports
 
