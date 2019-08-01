@@ -191,6 +191,18 @@ func runBuild(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string, sy
 		gccargs := []string{outname + ".c", extraGccArgs, outname + "_go" + libExt, "-o", modlib}
 		gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(cflags)), " ")...)
 		gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(ldflags)), " ")...)
+		gccargs = append(gccargs, "-fPIC", "--shared")
+
+		gccargs = func(vs []string) []string {
+			o := make([]string, 0, len(gccargs))
+			for _, v := range vs {
+				if v == "" {
+					continue
+				}
+				o = append(o, v)
+			}
+			return o
+		}(gccargs)
 
 		fmt.Printf("%s %v\n", cccmd, strings.Join(gccargs, " "))
 		cmd = exec.Command(cccmd, gccargs...)
