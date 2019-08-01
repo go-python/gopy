@@ -29,8 +29,8 @@ before_install:
    - curl -L https://bitbucket.org/pypy/pypy/downloads/pypy3.6-${PYPYVERSION}-linux64.tar.bz2 --output $TEMPDIR/pypy3.tar.bz2
    - tar xf $TEMPDIR/pypy2.tar.bz2 -C $TEMPDIR
    - tar xf $TEMPDIR/pypy3.tar.bz2 -C $TEMPDIR
-   - sudo ln -s $TEMPDIR/pypy2-$PYPYVERSION-linux64/bin/pypy  /usr/local/bin/pypy
-   - sudo ln -s $TEMPDIR/pypy3-$PYPYVERSION-linux64/bin/pypy3 /usr/local/bin/pypy3
+   - sudo ln -s $TEMPDIR/pypy2.7-$PYPYVERSION-linux64/bin/pypy  /usr/local/bin/pypy
+   - sudo ln -s $TEMPDIR/pypy3.6-$PYPYVERSION-linux64/bin/pypy3 /usr/local/bin/pypy3
    # install pip (for pypy)
    - curl -L https://bootstrap.pypa.io/get-pip.py --output ${TEMPDIR}/get-pip.py
    - pypy ${TEMPDIR}/get-pip.py
