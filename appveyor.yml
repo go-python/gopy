@@ -30,6 +30,8 @@ build_script:
   - "%CPYTHON3DIR%\\python -m pip install --upgrade pip"
   - "%CPYTHON2DIR%\\python -m pip install cffi"
   - "%CPYTHON3DIR%\\python -m pip install cffi"
+  - "%CPYTHON2DIR%\\python -m pip install pybindgen"
+  - "%CPYTHON3DIR%\\python -m pip install pybindgen"
   - go get -v -t ./...
 
 test_script:
