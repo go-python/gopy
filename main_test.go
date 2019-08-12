@@ -767,8 +767,8 @@ type pkg struct {
 
 func testPkg(t *testing.T, table pkg) {
 	// backends := []string{"py2", "py3"}
-	// backends := []string{"py3"}
-	backends := table.lang
+	backends := []string{"py3"}
+	// backends := table.lang // todo: enabling py2 testing requires separate "want" output
 	for _, be := range backends {
 		fmt.Printf("looping over backends: %s in %s\n", be, backends)
 		vm, ok := testBackends[be]
