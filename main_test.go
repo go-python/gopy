@@ -46,6 +46,8 @@ var (
 		"_examples/unicode":   []string{"py3"}, // doesn't work for 2
 		"_examples/osfile":    []string{"py2", "py3"},
 	}
+
+	testEnvironment = os.Environ()
 )
 
 func TestGovet(t *testing.T) {
@@ -839,6 +841,7 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 
 	fmt.Printf("running %s test.py\n", pyvm)
 	cmd := exec.Command(pyvm, "./test.py")
+	cmd.Env = testEnvironment
 	cmd.Dir = tstDir
 	cmd.Stdin = os.Stdin
 	buf, err := cmd.CombinedOutput()
