@@ -6,6 +6,14 @@ go:
   - 1.10.x
   - master
 
+cache:
+ directories:
+   - $HOME/.cache/go-build
+   - $HOME/gopath/pkg/mod
+
+git:
+ depth: 10
+
 matrix:
  fast_finish: true
  allow_failures:
