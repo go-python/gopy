@@ -28,10 +28,6 @@ before_install:
    # GOPY_TRAVIS_CI is set
    - export GOPY_TRAVIS_CI=1
    - export GOTRACEBACK=crash
-   # make python output (sys.stdout, sys.stderr) unbuffered
-   - export PYTHONUNBUFFERED=1
-   # ls needs to look into the current directory to load the _go.so library
-   - export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:.
    # pypy3 isn't packaged in ubuntu yet.
    - TEMPDIR=$(mktemp -d)
    - export PYPYVERSION=v7.1.1
