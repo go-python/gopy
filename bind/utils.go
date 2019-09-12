@@ -11,6 +11,7 @@ import (
 	"go/types"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -136,6 +137,7 @@ print(json.dumps({
 		return cfg, errors.Wrapf(err, "could not decode JSON script output")
 	}
 
+	raw.IncDir = filepath.ToSlash(raw.IncDir)
 	if strings.HasSuffix(raw.LibPy, ".a") {
 		raw.LibPy = raw.LibPy[:len(raw.LibPy)-len(".a")]
 	}
