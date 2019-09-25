@@ -24,16 +24,18 @@ import (
 func gopyMakeCmdExe() *commander.Command {
 	cmd := &commander.Command{
 		Run:       gopyRunCmdExe,
-		UsageLine: "exe <go-package-name> [other-go-package...]",
+		UsageLine: "exe <pkg-name> <go-package-name> [other-go-package...]",
 		Short:     "generate and compile (C)Python language bindings for Go, and make a standalone python executable with all the code -- must provide suitable main function code",
 		Long: `
 exe generates and compiles (C)Python language bindings for a Go package, including subdirectories, and generates a standalone python executable and associated module packaging suitable for distribution.  if setup.py file does not yet exist in the target directory, then it along with other default packaging files are created, using arguments.  Typically you create initial default versions of these files and then edit them, and after that, only regenerate the go binding files.
 
 The primary need for an exe instead of a pkg dynamic library is when the main thread must be used for something other than running the python interpreter, such as for a GUI library where the main thread must be used for running the GUI event loop (e.g., GoGi).
 
+When including multiple packages, list in order of increasing dependency, and use -name arg to give appropriate name.
+
 ex:
- $ gopy exe [options] <go-package-name> [other-go-package...]
- $ gopy exe github.com/go-python/gopy/_examples/hi
+ $ gopy exe [options] <pkg-name> <go-package-name> [other-go-package...]
+ $ gopy exe hi github.com/go-python/gopy/_examples/hi
 `,
 		Flag: *flag.NewFlagSet("gopy-exe", flag.ExitOnError),
 	}

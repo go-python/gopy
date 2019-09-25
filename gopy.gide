@@ -111,7 +111,6 @@
     "Scope": "SymScopePackage"
   },
   "OpenDirs": {
-    "_examples": true,
     "_examples/cgo": true,
     "_examples/consts": true,
     "_examples/funcs": true,
@@ -124,6 +123,7 @@
     "_examples/osfile": true,
     "_examples/pointers": true,
     "_examples/rename": true,
+    "_examples/slices": true,
     "_examples/structs": true,
     "_examples/unicode": true,
     "bind": true,

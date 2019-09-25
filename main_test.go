@@ -543,12 +543,21 @@ func TestBuiltinSlices(t *testing.T) {
 		lang:   features[path],
 		cmd:    "build",
 		extras: nil,
-		want: []byte(`Python list: [1, 2, 3, 4]
+		want: []byte(`0: S0
+1: S1
+2: S2
+S0
+S1
+Python list: [1, 2, 3, 4]
 Go slice:  go.Slice_int len: 4 handle: 1 [1, 2, 3, 4]
 slices.IntSum from Python list: 10
 slices.IntSum from Go slice: 10
 unsigned slice elements: 1 2 3 4
 signed slice elements: -1 -2 -3 -4
+struct slice:  slices.Slice_Ptr_slices_S len: 3 handle: 11 [12, 13, 14]
+struct slice[0]:  slices.S{Name=S0, handle=15}
+struct slice[1]:  slices.S{Name=S1, handle=16}
+struct slice[2].Name:  S2
 OK
 `),
 	})
