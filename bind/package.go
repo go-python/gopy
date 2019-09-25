@@ -98,9 +98,9 @@ func (p *Package) AddPyImport(ipath string, extra bool) {
 	}
 	nm := filepath.Base(ipath)
 	p.pyimports[ipath] = nm
-	if extra {
-		fmt.Printf("%v added py import: %v = %v\n", mypath, ipath, nm)
-	}
+	// if extra {
+	// 	fmt.Printf("%v added py import: %v = %v\n", mypath, ipath, nm)
+	// }
 }
 
 // getDoc returns the doc string associated with types.Object
