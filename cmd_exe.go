@@ -34,8 +34,8 @@ The primary need for an exe instead of a pkg dynamic library is when the main th
 When including multiple packages, list in order of increasing dependency, and use -name arg to give appropriate name.
 
 ex:
- $ gopy exe [options] <pkg-name> <go-package-name> [other-go-package...]
- $ gopy exe hi github.com/go-python/gopy/_examples/hi
+ $ gopy exe [options] <go-package-name> [other-go-package...]
+ $ gopy exe github.com/go-python/gopy/_examples/hi
 `,
 		Flag: *flag.NewFlagSet("gopy-exe", flag.ExitOnError),
 	}
