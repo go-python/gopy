@@ -29,6 +29,8 @@ func gopyMakeCmdPkg() *commander.Command {
 		Long: `
 pkg generates and compiles (C)Python language bindings for a Go package, including subdirectories, and generates python module packaging suitable for distribution.  if setup.py file does not yet exist in the target directory, then it along with other default packaging files are created, using arguments.  Typically you create initial default versions of these files and then edit them, and after that, only regenerate the go binding files.
 
+When including multiple packages, list in order of increasing dependency, and use -name arg to give appropriate name.
+
 ex:
  $ gopy pkg [options] <go-package-name> [other-go-package...]
  $ gopy pkg github.com/go-python/gopy/_examples/hi

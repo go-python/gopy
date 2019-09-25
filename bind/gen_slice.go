@@ -158,7 +158,11 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Indent()
 		g.pywrap.Printf("raise IndexError('slice index out of range')\n")
 		g.pywrap.Outdent()
-		g.pywrap.Printf("return _%s_elem(self.handle, key)\n", qNm)
+		if esym.hasHandle() {
+			g.pywrap.Printf("return %s(handle=_%s_elem(self.handle, key))\n", esym.pyPkgId(slc.gopkg), qNm)
+		} else {
+			g.pywrap.Printf("return _%s_elem(self.handle, key)\n", qNm)
+		}
 		g.pywrap.Outdent()
 		g.pywrap.Printf("else:\n")
 		g.pywrap.Indent()

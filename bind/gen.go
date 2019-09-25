@@ -192,6 +192,9 @@ mod.add_include('"%[1]s_go.h"')
 mod.add_function('GoPyInit', None, [])
 `
 
+	// appended to imports in py wrap preamble as key for adding at end
+	importHereKeyString = "%%%%%%<<<<<<ADDIMPORTSHERE>>>>>>>%%%%%%%"
+
 	// 3 = specific package name, 4 = spec pkg path, 5 = doc, 6 = imports
 	PyWrapPreamble = `%[5]s
 # python wrapper for package %[4]s within overall package %[1]s
@@ -451,6 +454,18 @@ func (g *pyGen) genOut() {
 
 func (g *pyGen) genPkgWrapOut() {
 	g.pywrap.Printf("\n\n")
+	// note: must generate import string at end as imports can be added during processing
+	impstr := ""
+	for _, im := range g.pkg.pyimports {
+		if g.mode == ModeGen || g.mode == ModeBuild {
+			impstr += fmt.Sprintf("import %s\n", im)
+		} else {
+			impstr += fmt.Sprintf("from %s import %s\n", g.outname, im)
+		}
+	}
+	b := g.pywrap.buf.Bytes()
+	nb := bytes.Replace(b, []byte(importHereKeyString), []byte(impstr), 1)
+	g.pywrap.buf = bytes.NewBuffer(nb)
 	g.genPrintOut(g.pkg.pkg.Name()+".py", g.pywrap)
 }
 
@@ -529,13 +544,10 @@ func (g *pyGen) genPyWrapPreamble() {
 	for _, im := range imps {
 		ipath := im.Path()
 		if _, has := g.pkgmap[ipath]; has {
-			if g.mode == ModeGen || g.mode == ModeBuild {
-				impstr += fmt.Sprintf("import %s\n", im.Name())
-			} else {
-				impstr += fmt.Sprintf("from %s import %s\n", g.outname, im.Name())
-			}
+			g.pkg.AddPyImport(ipath, false)
 		}
 	}
+	impstr += importHereKeyString
 
 	if g.mode == ModeExe {
 		g.pywrap.Printf(PyWrapExePreamble, g.outname, g.cmdstr, n, pkgimport, pkgDoc, impstr)
