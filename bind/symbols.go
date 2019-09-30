@@ -298,6 +298,9 @@ func (s *symbol) isPtrOrIface() bool {
 }
 
 func (s *symbol) hasHandle() bool {
+	if s.goname == "interface{}" {
+		return false
+	}
 	return !s.isBasic() && !s.isSignature()
 }
 
@@ -356,7 +359,8 @@ func (s *symbol) idname() string {
 // pyPkgId returns the python package-qualified version of Id
 func (s *symbol) pyPkgId(curPkg *types.Package) string {
 	pnm := s.gopkg.Name()
-	if _, has := thePyGen.pkgmap[s.gopkg.Path()]; !has { // external symbols are all in go package
+	ppath := s.gopkg.Path()
+	if _, has := thePyGen.pkgmap[ppath]; !has { // external symbols are all in go package
 		if pnm == "go" {
 			return s.id
 		} else {
@@ -368,7 +372,8 @@ func (s *symbol) pyPkgId(curPkg *types.Package) string {
 	}
 	if !s.isNamed() && (s.isMap() || s.isSlice() || s.isArray()) {
 		//		idnm := strings.TrimPrefix(s.id[uidx+1:], pnm+"_") // in case it has that redundantly
-		if s.gopkg.Path() != curPkg.Path() {
+		if ppath != curPkg.Path() {
+			thePyGen.pkg.AddPyImport(ppath, true) // ensure that this is included in current package
 			return pnm + "." + s.id
 		} else {
 			return s.id
@@ -379,7 +384,8 @@ func (s *symbol) pyPkgId(curPkg *types.Package) string {
 		return s.id // shouldn't happen
 	}
 	idnm := strings.TrimPrefix(s.id[uidx+1:], pnm+"_") // in case it has that redundantly
-	if s.gopkg.Path() != curPkg.Path() {
+	if ppath != curPkg.Path() {
+		thePyGen.pkg.AddPyImport(ppath, true) // ensure that this is included in current package
 		return pnm + "." + idnm
 	} else {
 		return idnm

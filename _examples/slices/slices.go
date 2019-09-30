@@ -4,6 +4,8 @@
 
 package slices
 
+import "fmt"
+
 func IntSum(s []int) int {
 	sum := 0
 	for _, value := range s {
@@ -25,3 +27,23 @@ type SliceInt8 []int8
 type SliceInt16 []int16
 type SliceInt32 []int32
 type SliceInt64 []int64
+
+type SliceIface []interface{}
+
+type S struct {
+	Name string
+}
+
+func CreateSSlice() []*S {
+	return []*S{&S{"S0"}, &S{"S1"}, &S{"S2"}}
+}
+
+func PrintSSlice(ss []*S) {
+	for i, s := range ss {
+		fmt.Printf("%d: %v\n", i, s.Name)
+	}
+}
+
+func PrintS(s *S) {
+	fmt.Printf("%v\n", s.Name)
+}

@@ -31,6 +31,8 @@ exe generates and compiles (C)Python language bindings for a Go package, includi
 
 The primary need for an exe instead of a pkg dynamic library is when the main thread must be used for something other than running the python interpreter, such as for a GUI library where the main thread must be used for running the GUI event loop (e.g., GoGi).
 
+When including multiple packages, list in order of increasing dependency, and use -name arg to give appropriate name.
+
 ex:
  $ gopy exe [options] <go-package-name> [other-go-package...]
  $ gopy exe github.com/go-python/gopy/_examples/hi

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"go/doc"
 	"go/types"
+	"path/filepath"
 	"reflect"
 	"strings"
 )
@@ -20,15 +21,16 @@ type Package struct {
 	sz  types.Sizes
 	doc *doc.Package
 
-	syms    *symtab // note: this is now *always* = symbols.current
-	objs    map[string]Object
-	consts  []*Const
-	vars    []*Var
-	structs []*Struct
-	ifaces  []*Interface
-	slices  []*Slice
-	maps    []*Map
-	funcs   []*Func
+	syms      *symtab // note: this is now *always* = symbols.current
+	objs      map[string]Object
+	consts    []*Const
+	vars      []*Var
+	structs   []*Struct
+	ifaces    []*Interface
+	slices    []*Slice
+	maps      []*Map
+	funcs     []*Func
+	pyimports map[string]string // extra python imports from incidental python wrapper includes
 	// calls   []*Signature // TODO: could optimize calls back into python to gen once
 }
 
@@ -52,17 +54,19 @@ func NewPackage(pkg *types.Package, doc *doc.Package) (*Package, error) {
 	fmt.Printf("\n--- Processing package: %v ---\n", pkg.Path())
 	sz := int64(reflect.TypeOf(int(0)).Size())
 	p := &Package{
-		pkg:  pkg,
-		n:    0,
-		sz:   &types.StdSizes{WordSize: sz, MaxAlign: sz},
-		doc:  doc,
-		syms: current,
-		objs: map[string]Object{},
+		pkg:       pkg,
+		n:         0,
+		sz:        &types.StdSizes{WordSize: sz, MaxAlign: sz},
+		doc:       doc,
+		syms:      current,
+		objs:      map[string]Object{},
+		pyimports: map[string]string{},
 	}
 	err := p.process()
 	if err != nil {
 		return nil, err
 	}
+
 	Packages = append(Packages, p)
 	return p, err
 }
@@ -75,6 +79,28 @@ func (p *Package) Name() string {
 // ImportPath returns the package import path.
 func (p *Package) ImportPath() string {
 	return p.doc.ImportPath
+}
+
+// add given path to python imports -- these packages were referenced
+func (p *Package) AddPyImport(ipath string, extra bool) {
+	mypath := p.pkg.Path()
+	if mypath == "go" {
+		return
+	}
+	if ipath == mypath {
+		return
+	}
+	if p.pyimports == nil {
+		p.pyimports = make(map[string]string)
+	}
+	if _, has := p.pyimports[ipath]; has {
+		return
+	}
+	nm := filepath.Base(ipath)
+	p.pyimports[ipath] = nm
+	// if extra {
+	// 	fmt.Printf("%v added py import: %v = %v\n", mypath, ipath, nm)
+	// }
 }
 
 // getDoc returns the doc string associated with types.Object
