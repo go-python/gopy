@@ -176,11 +176,12 @@ package hi exposes a few Go functions to be wrapped and used from Python.
 
 ### From the command line
 ```sh
-$ gopy build -output=out github.com/go-python/gopy/_examples/hi
+$ gopy build -output=out -vm=`which python3` github.com/go-python/gopy/_examples/hi
 $ ls out
-hi.so
+build.py  go.py  hi.c  hi.go  hi_go.h  hi_go.so  hi.py  _hi.so*  __init__.py  Makefile
 
 $ cd out
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./
 $ python3
 >>> import hi
 >>> dir(hi)
