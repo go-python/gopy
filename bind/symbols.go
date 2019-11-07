@@ -1115,6 +1115,9 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 func (sym *symtab) addMethod(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
 	sig := t.Underlying().(*types.Signature)
 	_, _, _, err := isPyCompatFunc(sig)
+	if err != nil {
+		fmt.Printf("ignoring python incompatible method: %v.%v: %v: %v\n", pkg.Name(), obj.Name(), t.String(), err)
+	}
 	if err == nil {
 		fn := types.ObjectString(obj, nil)
 		kind |= skFunc
