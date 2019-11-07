@@ -473,7 +473,6 @@ func (g *pyGen) genPkg(p *Package) {
 	g.pkg = p
 	g.pywrap = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
 	g.genPyWrapPreamble()
-	fmt.Printf("genPkg: %v\n", p.Name())
 	if p == goPackage {
 		g.genGoPkg()
 		g.genExtTypesPyWrap()
