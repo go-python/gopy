@@ -200,15 +200,15 @@ func runBuild(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string, sy
 		gccargs = append(gccargs, "-fPIC", "--shared", "-Ofast")
 		if !symbols { gccargs=append(gccargs, "-s") }
 		include, exists:=os.LookupEnv("GOPY_INCLUDE")
-		if exists==true {
+		if exists {
 			gccargs=append(gccargs, "-I"+filepath.ToSlash(include))
 		}
 		lib, exists:=os.LookupEnv("GOPY_LIBDIR")
-		if exists==true {
+		if exists {
 			gccargs=append(gccargs, "-L"+filepath.ToSlash(lib))
 		}
 		libname, exists:=os.LookupEnv("GOPY_PYLIB")
-		if exists==true {
+		if exists {
 			gccargs=append(gccargs, "-l"+filepath.ToSlash(libname))
 		}
 
