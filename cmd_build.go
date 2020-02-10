@@ -6,15 +6,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-python/gopy/bind"
-	"github.com/gonuts/commander"
-	"github.com/gonuts/flag"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/go-python/gopy/bind"
+	"github.com/gonuts/commander"
+	"github.com/gonuts/flag"
 )
 
 func gopyMakeCmdBuild() *commander.Command {
