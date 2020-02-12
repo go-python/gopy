@@ -805,6 +805,38 @@ func testPkg(t *testing.T, table pkg) {
 	}
 }
 
+func copyPackage() (string, error) {
+	var err error
+	pkgCopyDir, err := ioutil.TempDir("", "gopy-")
+	if err != nil {
+		return "", err
+	}
+	target := filepath.Join(pkgCopyDir, "src", "github.com", "go-python", "gopy")
+	if err = os.MkdirAll(target, 0744); err != nil {
+		os.RemoveAll(pkgCopyDir)
+		return "", err
+	}
+	cmd := exec.Command("cp", "-r", ".", target)
+	if err := cmd.Run(); err != nil {
+		os.RemoveAll(pkgCopyDir)
+		return "", err
+	}
+	return pkgCopyDir, nil
+}
+
+func TestMain(m *testing.M) {
+	pkgCopyDir, err := copyPackage()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to install copy of gopy in a temp dir: %v", err)
+		os.Exit(1)
+	}
+	testEnvironment = append(testEnvironment, "GOPATH="+pkgCopyDir)
+	fmt.Printf("gopy installed: %v\n", pkgCopyDir)
+	code := m.Run()
+	os.RemoveAll(pkgCopyDir)
+	os.Exit(code)
+}
+
 func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	curPkgPath := reflect.TypeOf(table).PkgPath()
 	_, pkgNm := filepath.Split(table.path)
