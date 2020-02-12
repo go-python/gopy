@@ -18,6 +18,7 @@ package gopyh
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"sync"
@@ -93,6 +94,16 @@ func Embed(stru interface{}, embed reflect.Type) interface{} {
 	return nil
 }
 
+var (
+	trace = false
+)
+
+func init() {
+	if len(os.Getenv("GOPY_HANDLE_TRACE")) > 0 {
+		trace = true
+	}
+}
+
 // Register registers a new variable instance
 func Register(typnm string, ifc interface{}) CGoHandle {
 	if IfaceIsNil(ifc) {
@@ -106,8 +117,26 @@ func Register(typnm string, ifc interface{}) CGoHandle {
 	ctr++
 	hc := ctr
 	handles[GoHandle(hc)] = ifc
-	// fmt.Printf("gopy Registered: %s %d\n", typnm, hc)
+	if trace {
+		fmt.Printf("gopy Registered: %s %d\n", typnm, hc)
+	}
 	return CGoHandle(hc)
+}
+
+//  DeRegister removes an existing variable instance
+func DeRegister(handle CGoHandle) {
+	if handle < 1 {
+		return
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if handles == nil {
+		return
+	}
+	delete(handles, GoHandle(handle))
+	if trace {
+		fmt.Printf("gopy DeRegistered: %d\n", handle)
+	}
 }
 
 // VarFromHandle gets variable from handle string.
@@ -134,4 +163,11 @@ func VarFromHandleTry(h CGoHandle, typnm string) (interface{}, error) {
 		return nil, err
 	}
 	return v, nil
+}
+
+// NumHandles returns the number of handles in use.
+func NumHandles() int {
+	mu.RLock()
+	defer mu.RUnlock()
+	return len(handles)
 }

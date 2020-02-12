@@ -111,6 +111,11 @@ otherwise parameter is a python list that we copy from
 		}
 		g.pywrap.Outdent()
 
+		g.pywrap.Printf("def __del__(self):\n")
+		g.pywrap.Indent()
+		g.pywrap.Printf("_%s.DeregisterHandle(self.handle)\n", g.outname)
+		g.pywrap.Outdent()
+
 		if slob != nil && slob.prots&ProtoStringer != 0 {
 			for _, m := range slob.meths {
 				if isStringer(m.obj) {

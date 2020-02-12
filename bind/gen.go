@@ -108,6 +108,18 @@ func GoPyInit() {
 type GoHandle %[4]s
 type CGoHandle %[5]s
 
+// DeregisterHandle removes the specified handle from the handle table.
+//export DeregisterHandle
+func DeregisterHandle(handle CGoHandle) {
+	gopyh.DeRegister(gopyh.CGoHandle(handle))
+}
+
+// NumHandles returns the number of handles currently in use.
+//export NumHandles
+func NumHandles() int {
+	return gopyh.NumHandles()
+}
+
 // boolGoToPy converts a Go bool to python-compatible C.char
 func boolGoToPy(b bool) C.char {
 	if b {
@@ -190,6 +202,8 @@ import sys
 mod = Module('_%[1]s')
 mod.add_include('"%[1]s_go.h"')
 mod.add_function('GoPyInit', None, [])
+mod.add_function('DeregisterHandle', None, [param('int64_t', 'handle')])
+mod.add_function('NumHandles', retval('int'), [])
 `
 
 	// appended to imports in py wrap preamble as key for adding at end
