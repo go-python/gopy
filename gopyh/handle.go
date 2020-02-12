@@ -118,7 +118,7 @@ func Register(typnm string, ifc interface{}) CGoHandle {
 	hc := ctr
 	handles[GoHandle(hc)] = ifc
 	if trace {
-		fmt.Printf("gopy Registered: %s %d\n", typnm, hc)
+		fmt.Printf("gopy Registered: %s %v %d\n", typnm, ifc, hc)
 	}
 	return CGoHandle(hc)
 }
