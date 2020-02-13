@@ -46,6 +46,7 @@ var (
 		"_examples/unicode":   []string{"py3"}, // doesn't work for 2
 		"_examples/osfile":    []string{"py2", "py3"},
 		"_examples/gopygc":    []string{"py2", "py3"},
+		"_examples/cstrings":    []string{"py2", "py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -694,6 +695,21 @@ OK
 `),
 	})
 }
+
+func TestCStrings(t *testing.T) {
+        // t.Parallel()
+        path := "_examples/cstrings"
+        testPkg(t, pkg{
+                path:   path,
+                lang:   features[path],
+                cmd:    "build",
+                extras: nil,
+                want: []byte(`0
+OK
+`),
+        })
+}
+
 
 // see notes in _examples/osfile/test.py for why this doesn't work..
 // leaving here for now in case someone wants to follow-up and make it work..
