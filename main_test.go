@@ -843,7 +843,7 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	if err != nil {
 		t.Fatalf("[%s:%s]: could not create workdir: %v\n", pyvm, table.path, err)
 	}
-	//	defer os.RemoveAll(workdir)
+	defer os.RemoveAll(workdir)
 	defer bind.ResetPackages()
 
 	// fmt.Printf("building in work dir: %s\n", workdir)
