@@ -805,6 +805,19 @@ func testPkg(t *testing.T, table pkg) {
 	}
 }
 
+func writeGoMod(t *testing.T, pkgDir, tstDir string) {
+	template := `
+module dummy
+
+require github.com/go-python/gopy v0.0.0
+replace github.com/go-python/gopy => %s
+`
+	contents := fmt.Sprintf(template, pkgDir)
+	if err := ioutil.WriteFile(filepath.Join(tstDir, "go.mod"), []byte(contents), 0666); err != nil {
+		t.Fatalf("failed to write go.mod file: %v", err)
+	}
+}
+
 func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	curPkgPath := reflect.TypeOf(table).PkgPath()
 	_, pkgNm := filepath.Split(table.path)
@@ -820,6 +833,8 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	}
 	defer os.RemoveAll(workdir)
 	defer bind.ResetPackages()
+
+	writeGoMod(t, cwd, workdir)
 
 	// fmt.Printf("building in work dir: %s\n", workdir)
 	fpath := "./" + table.path
