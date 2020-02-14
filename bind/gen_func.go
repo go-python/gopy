@@ -35,6 +35,9 @@ import (
 // NOTE that it's ok to output the same function name multiple times (eg.
 // for a shared structs).
 func (g *pyGen) genPatchLeakFuncName(ret *Var, fsym *Func) {
+	if ret == nil || fsym == nil || ret.GoType() == nil {
+		return
+	}
 	g.recurse(ret.GoType(), "_wrap__"+fsym.pkg.Name()+"_", fsym.ID())
 }
 
@@ -48,6 +51,9 @@ func (g *pyGen) recurse(gotype types.Type, prefix, name string) {
 		g.recurse(t.Elem(), prefix, "Map_"+t.Key().String()+"_string_elem")
 	case *types.Named:
 		o := t.Obj()
+		if o == nil || o.Pkg() == nil {
+			return
+		}
 		g.recurse(t.Underlying(), prefix, o.Pkg().Name()+"_"+o.Name())
 	case *types.Struct:
 		for i := 0; i < t.NumFields(); i++ {
