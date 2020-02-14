@@ -6,8 +6,58 @@ package bind
 
 import (
 	"fmt"
+	"go/types"
 	"strings"
 )
+
+// genPatchLeakFuncName outputs the name of this function or
+// a getter that needs to have a pybindgen memory leak fixed.
+// These leaks occur because the cgo bindings use C.CString
+// to allocate a string on the C heap, as in:
+//
+//	return C.CString(cstrings.StringValue(C.GoString(s), int(n)))
+//
+// but the calling pybindgen code then takes a copy of this
+// newly allocated string indirectly by calling Py_BuildValue (see below).
+// The patch-leaks.go (see gen.go) file patches these code fragments
+// to insert free(retval) immediately after the call to PyBuildValue.
+// The patch-leaks.go generated file will perform this patch for
+// functions whose names are embedded in it by genPatchLeakFuncName.
+//
+//  .....
+//  retval = cstrings_StringValue(s, n);
+//  py_retval = Py_BuildValue((char *) "s", retval);
+//  .....
+//
+// This patching is required for top level functions that return
+// strings directly and also for getters that return strings that
+// are embedded in maps, structs etc.
+// NOTE that it's ok to output the same function name multiple times (eg.
+// for a shared structs).
+func (g *pyGen) genPatchLeakFuncName(ret *Var, fsym *Func) {
+	g.recurse(ret.GoType(), "_wrap__"+fsym.pkg.Name()+"_", fsym.ID())
+}
+
+func (g *pyGen) recurse(gotype types.Type, prefix, name string) {
+	switch t := gotype.(type) {
+	case *types.Basic:
+		if t.Kind() == types.String {
+			g.leakfile.Printf("    %q,\n", prefix+name)
+		}
+	case *types.Map:
+		g.recurse(t.Elem(), prefix, "Map_"+t.Key().String()+"_string_elem")
+	case *types.Named:
+		o := t.Obj()
+		g.recurse(t.Underlying(), prefix, o.Pkg().Name()+"_"+o.Name())
+	case *types.Struct:
+		for i := 0; i < t.NumFields(); i++ {
+			f := t.Field(i)
+			g.recurse(f.Type(), prefix, name+"_"+f.Name()+"_Get")
+		}
+	case *types.Slice:
+		g.recurse(t.Elem(), prefix, "Slice_string_elem")
+	}
+}
 
 // genFuncSig generates just the signature for binding
 // returns false if function is not suitable for python
@@ -110,6 +160,9 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 				ret.Name(),
 			))
 		}
+
+		g.genPatchLeakFuncName(ret, fsym)
+
 		if sret.cpyname == "PyObject*" {
 			g.pybuild.Printf("retval('%s', caller_owns_return=True)", sret.cpyname)
 		} else {

@@ -46,7 +46,7 @@ var (
 		"_examples/unicode":   []string{"py3"}, // doesn't work for 2
 		"_examples/osfile":    []string{"py2", "py3"},
 		"_examples/gopygc":    []string{"py2", "py3"},
-		"_examples/cstrings":    []string{"py2", "py3"},
+		"_examples/cstrings":  []string{"py2", "py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -697,19 +697,22 @@ OK
 }
 
 func TestCStrings(t *testing.T) {
-        // t.Parallel()
-        path := "_examples/cstrings"
-        testPkg(t, pkg{
-                path:   path,
-                lang:   features[path],
-                cmd:    "build",
-                extras: nil,
-                want: []byte(`0
+	// t.Parallel()
+	path := "_examples/cstrings"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`gofnString leaked:  False
+gofnStruct leaked:  False
+gofnNestedStruct leaked:  False
+gofnSlice leaked:  False
+gofnMap leaked:  False
 OK
 `),
-        })
+	})
 }
-
 
 // see notes in _examples/osfile/test.py for why this doesn't work..
 // leaving here for now in case someone wants to follow-up and make it work..
@@ -859,7 +862,7 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	if err != nil {
 		t.Fatalf("[%s:%s]: could not create workdir: %v\n", pyvm, table.path, err)
 	}
-	//	defer os.RemoveAll(workdir)
+	defer os.RemoveAll(workdir)
 	defer bind.ResetPackages()
 
 	// fmt.Printf("building in work dir: %s\n", workdir)

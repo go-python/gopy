@@ -4,6 +4,45 @@
 
 package cstrings
 
-func StringValue() string {
-	return "value"
+import "strings"
+
+func StringValue(s string, n int) string {
+	return strings.Repeat(s, n)
+}
+
+type StructWithString struct {
+	V string
+	T int
+}
+
+type NestedStructWithString struct {
+	A int
+	S StructWithString
+}
+
+func StringInStruct(s string, n int) StructWithString {
+	return StructWithString{
+		V: strings.Repeat(s, n),
+	}
+}
+
+func StringInNestedStruct(s string, n int) NestedStructWithString {
+	return NestedStructWithString{
+		A: 2,
+		S: StructWithString{
+			V: strings.Repeat(s, n),
+		},
+	}
+}
+
+func StringSlice(s string, n int) []string {
+	return []string{
+		strings.Repeat(s, n),
+	}
+}
+
+func StringMap(s string, n int) map[string]string {
+	return map[string]string{
+		"a": strings.Repeat(s, n),
+	}
 }
