@@ -105,7 +105,7 @@ func init() {
 	}
 }
 
-// Register registers a new variable instance
+// Register registers a new variable instance.
 func Register(typnm string, ifc interface{}) CGoHandle {
 	if IfaceIsNil(ifc) {
 		return -1
@@ -120,15 +120,16 @@ func Register(typnm string, ifc interface{}) CGoHandle {
 	hc := ctr
 	ghc := GoHandle(hc)
 	handles[ghc] = ifc
-	handles[ghc] = 1
+	counts[ghc] = 1
 	if trace {
 		fmt.Printf("gopy Registered: %s %v %d\n", typnm, ifc, hc)
 	}
 	return CGoHandle(hc)
 }
 
-//  DeRegister removes an existing variable instance
-func DeRegister(handle CGoHandle) {
+// DecRef decrements the reference count for the specified handle
+// and removes it if the reference count goes to zero.
+func DecRef(handle CGoHandle) {
 	if handle < 1 {
 		return
 	}
@@ -138,18 +139,41 @@ func DeRegister(handle CGoHandle) {
 		return
 	}
 	ghc := GoHandle(handle)
+	if _, exists := handles[ghc]; !exists {
+		return
+	}
 	counts[ghc]--
-	if handles[ghc] == 0 {
+	if cnt := counts[ghc]; cnt == 0 {
 		delete(counts, ghc)
 		delete(handles, ghc)
 		if trace {
-			fmt.Printf("gopy DeRegistered: %d\n", handle)
+			fmt.Printf("gopy DecRef: %d\n", handle)
 		}
 	} else {
+		if cnt < 0 {
+			panic(fmt.Sprintf("gopy DecRef ref count %v for handle: %v, ifc %v", cnt, ghc, handles[ghc]))
+		}
 		if trace {
-			fmt.Printf("gopy DeReferenced: %d: %d\n", handle, counts[ghc])
+			fmt.Printf("gopy DecRef: %d: %d\n", handle, cnt)
 		}
 	}
+}
+
+//  IncRef increments the referene count for the specified handle.
+func IncRef(handle CGoHandle) {
+	if handle < 1 {
+		return
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	ghc := GoHandle(handle)
+	if _, exists := counts[ghc]; exists {
+		counts[ghc]++
+		if trace {
+			fmt.Printf("gopy DecRef: %d: %d\n", handle, counts[ghc])
+		}
+	}
+
 }
 
 // VarFromHandle gets variable from handle string.

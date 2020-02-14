@@ -84,7 +84,7 @@ in which case a new Go object is constructed first
 
 	g.pywrap.Printf("def __del__(self):\n")
 	g.pywrap.Indent()
-	g.pywrap.Printf("_%s.DeregisterHandle(self.handle)\n", s.Package().Name())
+	g.pywrap.Printf("_%s.DecRef(self.handle)\n", s.Package().Name())
 	g.pywrap.Outdent()
 
 	if s.prots&ProtoStringer != 0 {
