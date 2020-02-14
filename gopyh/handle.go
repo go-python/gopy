@@ -34,6 +34,7 @@ var (
 	mu      sync.RWMutex
 	ctr     int64
 	handles map[GoHandle]interface{}
+	counts  map[GoHandle]int64
 )
 
 // IfaceIsNil returns true if interface or value represented by interface is nil
@@ -113,10 +114,13 @@ func Register(typnm string, ifc interface{}) CGoHandle {
 	defer mu.Unlock()
 	if handles == nil {
 		handles = make(map[GoHandle]interface{})
+		counts = make(map[GoHandle]int64)
 	}
 	ctr++
 	hc := ctr
-	handles[GoHandle(hc)] = ifc
+	ghc := GoHandle(hc)
+	handles[ghc] = ifc
+	handles[ghc] = 1
 	if trace {
 		fmt.Printf("gopy Registered: %s %v %d\n", typnm, ifc, hc)
 	}
@@ -133,9 +137,18 @@ func DeRegister(handle CGoHandle) {
 	if handles == nil {
 		return
 	}
-	delete(handles, GoHandle(handle))
-	if trace {
-		fmt.Printf("gopy DeRegistered: %d\n", handle)
+	ghc := GoHandle(handle)
+	counts[ghc]--
+	if handles[ghc] == 0 {
+		delete(counts, ghc)
+		delete(handles, ghc)
+		if trace {
+			fmt.Printf("gopy DeRegistered: %d\n", handle)
+		}
+	} else {
+		if trace {
+			fmt.Printf("gopy DeReferenced: %d: %d\n", handle, counts[ghc])
+		}
 	}
 }
 
