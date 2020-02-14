@@ -810,7 +810,7 @@ func writeGoMod(t *testing.T, pkgDir, tstDir string) {
 module dummy
 
 require github.com/go-python/gopy v0.0.0
-replace github.com/go-python/gopy => %s
+replace github.com/go-python/gopy => "%s"
 `
 	contents := fmt.Sprintf(template, pkgDir)
 	if err := ioutil.WriteFile(filepath.Join(tstDir, "go.mod"), []byte(contents), 0666); err != nil {
