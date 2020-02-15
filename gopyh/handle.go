@@ -120,7 +120,7 @@ func Register(typnm string, ifc interface{}) CGoHandle {
 	hc := ctr
 	ghc := GoHandle(hc)
 	handles[ghc] = ifc
-	counts[ghc] = 1
+	counts[ghc] = 0
 	if trace {
 		fmt.Printf("gopy Registered: %s %v %d\n", typnm, ifc, hc)
 	}
@@ -170,7 +170,7 @@ func IncRef(handle CGoHandle) {
 	if _, exists := counts[ghc]; exists {
 		counts[ghc]++
 		if trace {
-			fmt.Printf("gopy DecRef: %d: %d\n", handle, counts[ghc])
+			fmt.Printf("gopy IncRef: %d: %d\n", handle, counts[ghc])
 		}
 	}
 

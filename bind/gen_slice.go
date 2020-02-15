@@ -87,10 +87,12 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Printf("if len(kwargs) == 1 and 'handle' in kwargs:\n")
 		g.pywrap.Indent()
 		g.pywrap.Printf("self.handle = kwargs['handle']\n")
+		g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.outname)
 		g.pywrap.Outdent()
 		g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], %sGoClass):\n", gocl)
 		g.pywrap.Indent()
 		g.pywrap.Printf("self.handle = args[0].handle\n")
+		g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.outname)
 		g.pywrap.Outdent()
 		if slc.isSlice() {
 			g.pywrap.Printf("else:\n")
