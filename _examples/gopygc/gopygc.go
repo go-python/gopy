@@ -5,6 +5,8 @@
 // package gopygc tests the interaction between the python gc system and gopy
 package gopygc
 
+import "bytes"
+
 type StructA struct {
 	A int
 }
@@ -29,4 +31,8 @@ func MapValue() map[int]int {
 
 func MapValueStruct() map[int]StructA {
 	return map[int]StructA{1: StructA{3}}
+}
+
+func ExternalType() *bytes.Buffer {
+	return &bytes.Buffer{}
 }

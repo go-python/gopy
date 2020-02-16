@@ -691,6 +691,12 @@ func TestPYGC(t *testing.T) {
 2
 1
 0
+1
+0
+1
+1
+1
+0
 OK
 `),
 	})
@@ -854,7 +860,7 @@ func writeGoMod(t *testing.T, pkgDir, tstDir string) {
 module dummy
 
 require github.com/go-python/gopy v0.0.0
-replace github.com/go-python/gopy => %s
+replace github.com/go-python/gopy => "%s"
 `
 	contents := fmt.Sprintf(template, pkgDir)
 	if err := ioutil.WriteFile(filepath.Join(tstDir, "go.mod"), []byte(contents), 0666); err != nil {
@@ -875,7 +881,7 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	if err != nil {
 		t.Fatalf("[%s:%s]: could not create workdir: %v\n", pyvm, table.path, err)
 	}
-	defer os.RemoveAll(workdir)
+	//defer os.RemoveAll(workdir)
 	defer bind.ResetPackages()
 
 	writeGoMod(t, cwd, workdir)
