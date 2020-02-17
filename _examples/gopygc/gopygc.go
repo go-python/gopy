@@ -11,6 +11,10 @@ type StructA struct {
 	A int
 }
 
+type MapA map[string]string
+
+type SliceA []string
+
 func StructValue() StructA {
 	return StructA{
 		A: 42,

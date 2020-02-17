@@ -202,29 +202,29 @@ hi.Couple{P1=hi.Person{Name="mom", Age=50}, P2=hi.Person{Name="bob", Age=51}}
 hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="p2", Age=52}}
 hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="p2", Age=52}}
 hi.Couple{P1=hi.Person{Name="p2", Age=52}, P2=hi.Person{Name="p1", Age=42}}
-*ERROR* no exception raised!
-*ERROR* no exception raised!
-*ERROR* no exception raised!
+caught: supplied argument type <class 'int'> is not a go.GoClass | err-type: <class 'TypeError'>
+caught: supplied argument type <class 'int'> is not a go.GoClass | err-type: <class 'TypeError'>
+caught: supplied argument type <class 'int'> is not a go.GoClass | err-type: <class 'TypeError'>
 --- testing GC...
 --- len(objs): 100000
 --- len(vs): 100000
 --- testing GC... [ok]
 --- testing array...
-arr: hi.Array_2_int len: 2 handle: 300037 [1, 2]
+arr: hi.Array_2_int len: 2 handle: 300036 [1, 2]
 len(arr): 2
 arr[0]: 1
 arr[1]: 2
 arr[2]: caught: slice index out of range
-arr: hi.Array_2_int len: 2 handle: 300037 [1, 2]
+arr: hi.Array_2_int len: 2 handle: 300036 [1, 2]
 len(arr): 2
 mem(arr): caught: memoryview: a bytes-like object is required, not 'Array_2_int'
 --- testing slice...
-slice: go.Slice_int len: 2 handle: 300038 [1, 2]
+slice: go.Slice_int len: 2 handle: 300037 [1, 2]
 len(slice): 2
 slice[0]: 1
 slice[1]: 2
 slice[2]: caught: slice index out of range
-slice: go.Slice_int len: 2 handle: 300038 [1, 42]
+slice: go.Slice_int len: 2 handle: 300037 [1, 42]
 slice repr: go.Slice_int([1, 42])
 len(slice): 2
 mem(slice): caught: memoryview: a bytes-like object is required, not 'Slice_int'
@@ -681,6 +681,8 @@ func TestPYGC(t *testing.T) {
 		cmd:    "build",
 		extras: nil,
 		want: []byte(`0
+3
+0
 3
 5
 6
