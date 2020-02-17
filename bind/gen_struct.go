@@ -63,15 +63,20 @@ in which case a new Go object is constructed first
 	g.pywrap.Printf("else:\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf("self.handle = _%s.%s_CTor()\n", pkgname, s.ID())
+	g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.outname)
 
 	for i := 0; i < numFields; i++ {
 		f := s.Struct().Field(i)
 		if _, err := isPyCompatField(f); err != nil {
 			continue
 		}
-		// TODO: this will accept int args for any handles / object fields
-		// need some kind of additional type-checking logic to prevent that in way
-		// that also allows valid handles to be used..
+		// NOTE: this will accept int args for any handles / object fields so
+		// some kind of additional type-checking logic to prevent that in way
+		// that also allows valid handles to be used is required. This is
+		// achieved in the per-field setters (see below) which check to ensure
+		// that a struct field that is an gopy managed object is only
+		// assigned gopy managed objects. Fields of basic types (e.g int, srring)
+		// etc can be assigned to directly.
 		g.pywrap.Printf("if  %[1]d < len(args):\n", i)
 		g.pywrap.Indent()
 		g.pywrap.Printf("self.%s = args[%d]\n", f.Name(), i)
@@ -230,7 +235,14 @@ func (g *pyGen) genStructMemberSetter(s *Struct, i int, f types.Object) {
 	g.pywrap.Outdent()
 	g.pywrap.Printf("else:\n")
 	g.pywrap.Indent()
-	g.pywrap.Printf("_%s.%s(self.handle, value)\n", pkgname, cgoFn)
+	// See comment in genStructInit about ensuring that gopy managed
+	// objects are only assigned to from gopy managed objects.
+	switch f.Type().(type) {
+	case *types.Basic:
+		g.pywrap.Printf("_%s.%s(self.handle, value)\n", pkgname, cgoFn)
+	default:
+		g.pywrap.Printf("raise TypeError(\"supplied argument type {t} is not a go.GoClass\".format(t=type(value)))\n")
+	}
 	g.pywrap.Outdent()
 	g.pywrap.Outdent()
 

@@ -109,6 +109,7 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Printf("else:\n")
 		g.pywrap.Indent()
 		g.pywrap.Printf("self.handle = _%s_CTor()\n", qNm)
+		g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.outname)
 		g.pywrap.Printf("if len(args) > 0:\n")
 		g.pywrap.Indent()
 		g.pywrap.Printf("if not isinstance(args[0], collections.Mapping):\n")

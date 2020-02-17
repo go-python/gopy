@@ -9,6 +9,18 @@ import gopygc
 import _gopygc
 
 print(_gopygc.NumHandles())
+
+
+# test literals
+a = gopygc.StructA()
+b = gopygc.SliceA()
+c = gopygc.MapA()
+print(_gopygc.NumHandles())
+del a
+del b
+del c
+
+print(_gopygc.NumHandles())
 a = [gopygc.StructValue(), gopygc.StructValue(), gopygc.StructValue()]
 print(_gopygc.NumHandles())  # 3
 b = [gopygc.SliceScalarValue(), gopygc.SliceScalarValue()]

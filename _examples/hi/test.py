@@ -181,28 +181,22 @@ print(c)
 c = hi.Couple(P2=hi.Person("p1", 42), P1=hi.Person("p2", 52))
 print(c)
 
-# It's dangerous to refer to go handles as constants now that they
-# are gc'ed.
-anon1 = hi.Anon()
-h1 = anon1.handle
-h2 = anon.handle
-
 try:
-    hi.Couple(h1)
+    hi.Couple(1)
     print("*ERROR* no exception raised!")
 except Exception as err:
     print("caught:", err, "| err-type:",type(err))
     pass
 
 try:
-    hi.Couple(h1, h2)
+    hi.Couple(1, 2)
     print("*ERROR* no exception raised!")
 except Exception as err:
     print("caught:", err, "| err-type:",type(err))
     pass
 
 try:
-    hi.Couple(P2=h1)
+    hi.Couple(P2=1)
     print("*ERROR* no exception raised!")
 except Exception as err:
     print("caught:", err, "| err-type:",type(err))
