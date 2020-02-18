@@ -96,19 +96,16 @@ func TestGoPyErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not create workdir: %v\n", err)
 	}
-	fmt.Printf("pyvm: %s making work dir: %s\n", pyvm, workdir)
-	//defer os.RemoveAll(workdir)
+	t.Logf("pyvm: %s making work dir: %s\n", pyvm, workdir)
+	defer os.RemoveAll(workdir)
 
 	curPkgPath := reflect.TypeOf(pkg{}).PkgPath()
-
-	// fmt.Printf("building in work dir: %s\n", workdir)
 	fpath := filepath.Join(curPkgPath, "_examples/gopyerrors")
-	args := []string{"run", ".", "gen", "-vm=" + pyvm, "-output=" + workdir, fpath}
-	cmd := exec.Command("go", args...)
-	fmt.Printf("running: %v\n", args)
+	cmd := exec.Command("go", "run", ".", "gen", "-vm="+pyvm, "-output="+workdir, fpath)
+	t.Logf("running: %v\n", cmd.Args)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("cmd: go %v %v\n", strings.Join(args, " "), err)
+		t.Fatalf("could not run %v %v\n", strings.Join(cmd.Args, " "), err)
 	}
 	contains := `--- Processing package: github.com/go-python/gopy/_examples/gopyerrors ---
 ignoring python incompatible function: gopyerrors.func github.com/go-python/gopy/_examples/gopyerrors.NotErrorMany() (int, int): func() (int, int): gopy: second result value must be of type error: func() (int, int)
@@ -117,7 +114,7 @@ ignoring python incompatible method: gopyerrors.func (*github.com/go-python/gopy
 ignoring python incompatible function: gopyerrors.func github.com/go-python/gopy/_examples/gopyerrors.TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
 `
 	if got, want := string(out), contains; !strings.Contains(got, want) {
-		t.Errorf("%v does not contain %v\n", got, want)
+		t.Fatalf("%v does not contain %v\n", got, want)
 	}
 }
 
