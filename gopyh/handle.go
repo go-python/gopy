@@ -143,23 +143,23 @@ func DecRef(handle CGoHandle) {
 		return
 	}
 	counts[ghc]--
-	if cnt := counts[ghc]; cnt == 0 {
+	switch cnt := counts[ghc]; {
+	case cnt == 0:
 		delete(counts, ghc)
 		delete(handles, ghc)
 		if trace {
 			fmt.Printf("gopy DecRef: %d\n", handle)
 		}
-	} else {
-		if cnt < 0 {
-			panic(fmt.Sprintf("gopy DecRef ref count %v for handle: %v, ifc %v", cnt, ghc, handles[ghc]))
-		}
+	case cnt < 0:
+		panic(fmt.Sprintf("gopy DecRef ref count %v for handle: %v, ifc %v", cnt, ghc, handles[ghc]))
+	default:
 		if trace {
 			fmt.Printf("gopy DecRef: %d: %d\n", handle, cnt)
 		}
 	}
 }
 
-//  IncRef increments the referene count for the specified handle.
+//  IncRef increments the reference count for the specified handle.
 func IncRef(handle CGoHandle) {
 	if handle < 1 {
 		return
