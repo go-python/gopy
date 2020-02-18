@@ -45,6 +45,7 @@ var (
 		"_examples/lot":       []string{"py2", "py3"},
 		"_examples/unicode":   []string{"py3"}, // doesn't work for 2
 		"_examples/osfile":    []string{"py2", "py3"},
+		"_examples/gopygc":    []string{"py2", "py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -200,9 +201,9 @@ hi.Couple{P1=hi.Person{Name="mom", Age=50}, P2=hi.Person{Name="bob", Age=51}}
 hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="p2", Age=52}}
 hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="p2", Age=52}}
 hi.Couple{P1=hi.Person{Name="p2", Age=52}, P2=hi.Person{Name="p1", Age=42}}
-*ERROR* no exception raised!
-*ERROR* no exception raised!
-*ERROR* no exception raised!
+caught: supplied argument type <class 'int'> is not a go.GoClass | err-type: <class 'TypeError'>
+caught: supplied argument type <class 'int'> is not a go.GoClass | err-type: <class 'TypeError'>
+caught: supplied argument type <class 'int'> is not a go.GoClass | err-type: <class 'TypeError'>
 --- testing GC...
 --- len(objs): 100000
 --- len(vs): 100000
@@ -665,6 +666,38 @@ func TestUnicode(t *testing.T) {
 		extras: nil,
 		want: []byte(`encoding.HandleString(unicodestr) -> Python Unicode string 🐱
 encoding.GetString() -> Go Unicode string 🐱
+OK
+`),
+	})
+}
+
+func TestPYGC(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/gopygc"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`0
+3
+0
+3
+5
+6
+7
+8
+5
+3
+2
+1
+0
+1
+0
+1
+1
+1
+0
 OK
 `),
 	})

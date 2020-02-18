@@ -189,7 +189,7 @@ except Exception as err:
     pass
 
 try:
-    hi.Couple(1,2)
+    hi.Couple(1, 2)
     print("*ERROR* no exception raised!")
 except Exception as err:
     print("caught:", err, "| err-type:",type(err))
