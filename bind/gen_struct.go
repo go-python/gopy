@@ -71,11 +71,11 @@ in which case a new Go object is constructed first
 			continue
 		}
 		// NOTE: this will accept int args for any handles / object fields so
-		// some kind of additional type-checking logic to prevent that in way
-		// that also allows valid handles to be used is required. This is
-		// achieved in the per-field setters (see below) which check to ensure
-		// that a struct field that is an gopy managed object is only
-		// assigned gopy managed objects. Fields of basic types (e.g int, srring)
+		// some kind of additional type-checking logic to prevent that in a way
+		// that also allows valid handles to be used as required. This is
+		// achieved in the per-field setters (see below) with checks to ensure
+		// that a struct field that is a gopy managed object is only
+		// assigned gopy managed objects. Fields of basic types (e.g int, string)
 		// etc can be assigned to directly.
 		g.pywrap.Printf("if  %[1]d < len(args):\n", i)
 		g.pywrap.Indent()
