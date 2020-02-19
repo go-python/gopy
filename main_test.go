@@ -105,7 +105,7 @@ func TestGoPyErrors(t *testing.T) {
 	t.Logf("running: %v\n", cmd.Args)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("could not run %v %v\n", strings.Join(cmd.Args, " "), err)
+		t.Fatalf("could not run %v %+v\n", strings.Join(cmd.Args, " "), err)
 	}
 	contains := `--- Processing package: github.com/go-python/gopy/_examples/gopyerrors ---
 ignoring python incompatible function: gopyerrors.func github.com/go-python/gopy/_examples/gopyerrors.NotErrorMany() (int, int): func() (int, int): gopy: second result value must be of type error: func() (int, int)
