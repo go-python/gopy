@@ -108,6 +108,25 @@ func GoPyInit() {
 type GoHandle %[4]s
 type CGoHandle %[5]s
 
+// DecRef decrements the reference count for the specified handle
+// and deletes it it goes to zero.
+//export DecRef
+func DecRef(handle CGoHandle) {
+	gopyh.DecRef(gopyh.CGoHandle(handle))
+}
+
+// IncRef increments the reference count for the specified handle.
+//export IncRef
+func IncRef(handle CGoHandle) {
+	gopyh.IncRef(gopyh.CGoHandle(handle))
+}
+
+// NumHandles returns the number of handles currently in use.
+//export NumHandles
+func NumHandles() int {
+	return gopyh.NumHandles()
+}
+
 // boolGoToPy converts a Go bool to python-compatible C.char
 func boolGoToPy(b bool) C.char {
 	if b {
@@ -190,6 +209,9 @@ import sys
 mod = Module('_%[1]s')
 mod.add_include('"%[1]s_go.h"')
 mod.add_function('GoPyInit', None, [])
+mod.add_function('DecRef', None, [param('int64_t', 'handle')])
+mod.add_function('IncRef', None, [param('int64_t', 'handle')])
+mod.add_function('NumHandles', retval('int'), [])
 `
 
 	// appended to imports in py wrap preamble as key for adding at end
