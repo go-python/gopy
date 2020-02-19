@@ -46,6 +46,7 @@ var (
 		"_examples/unicode":   []string{"py3"}, // doesn't work for 2
 		"_examples/osfile":    []string{"py2", "py3"},
 		"_examples/gopygc":    []string{"py2", "py3"},
+		"_examples/cstrings":  []string{"py2", "py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -726,6 +727,24 @@ func TestPYGC(t *testing.T) {
 1
 1
 0
+OK
+`),
+	})
+}
+
+func TestCStrings(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/cstrings"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`gofnString leaked:  False
+gofnStruct leaked:  False
+gofnNestedStruct leaked:  False
+gofnSlice leaked:  False
+gofnMap leaked:  False
 OK
 `),
 	})
