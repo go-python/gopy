@@ -386,7 +386,6 @@ import (
 const (
 	cStringLine = "    py_retval = Py_BuildValue((char *) \"s\", retval);"
 )
-
 var cstringFunctions = []string{
 `
 
@@ -401,7 +400,7 @@ func isCString(line string, names []string) bool {
 	}
 	return false
 }
-	
+
 func patchCString(line string, out *bytes.Buffer) bool {
 	out.WriteString(line)
 	out.Write([]byte{'\n'})
@@ -414,7 +413,7 @@ func patchCString(line string, out *bytes.Buffer) bool {
 	}
 	return true
 }
-	
+
 func main() {
 	file := os.Args[1]
 	buf, err := ioutil.ReadFile(file)
@@ -434,11 +433,11 @@ func main() {
 		obuf.WriteString(line)
 		obuf.Write([]byte{'\n'})
 	}
-	
+
 	if err := sc.Err(); err != nil {
 		log.Fatal(err)
 	}
-	
+
 	err = ioutil.WriteFile(file, obuf.Bytes(), 0644)
 	if err != nil {
 		log.Fatal(err)

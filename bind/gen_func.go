@@ -10,15 +10,23 @@ import (
 	"strings"
 )
 
-// genPatchLeakFuncName outputs the name of this function or
-// a getter that needs to have a pybindgen memory leak fixed.
+// genPatchLeakFuncName outputs the name of either the function or the class
+// 'getter' represented by its arguments that need to have a memory
+// leak induced by the interaction of pybindgen and gopy.
 // These leaks occur because the cgo bindings use C.CString
 // to allocate a string on the C heap, as in:
 //
 //	return C.CString(cstrings.StringValue(C.GoString(s), int(n)))
 //
 // but the calling pybindgen code then takes a copy of this
-// newly allocated string indirectly by calling Py_BuildValue (see below).
+// newly allocated string indirectly by calling Py_BuildValue (see below)
+// without freeing the copy returned by the function or getter method.
+// Arguably pybindgen should provide a means of directly requesting
+// this behaviour (simularly to the transfer_ownership options it provides),
+// but as of now there is no means of doing so. As a work around the
+// output of pybindgen is modified to insert the free in the appropriate
+// functions identified by genPatchLeakFuncName.
+//
 // The patch-leaks.go (see gen.go) file patches these code fragments
 // to insert free(retval) immediately after the call to PyBuildValue.
 // The patch-leaks.go generated file will perform this patch for
