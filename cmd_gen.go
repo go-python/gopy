@@ -32,6 +32,7 @@ ex:
 	cmd.Flag.String("output", "", "output directory for bindings")
 	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
 	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library")
+	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
 	return cmd
 }
 
@@ -51,11 +52,14 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 		vm      = cmdr.Flag.Lookup("vm").Value.Get().(string)
 		name    = cmdr.Flag.Lookup("name").Value.Get().(string)
 		mainstr = cmdr.Flag.Lookup("main").Value.Get().(string)
+		nowarn  = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
 	)
 
 	if vm == "" {
 		vm = "python"
 	}
+
+	bind.NoWarn = nowarn
 
 	for _, path := range args {
 		pkg, err := newPackage(path)

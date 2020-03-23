@@ -87,18 +87,18 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Printf("if len(kwargs) == 1 and 'handle' in kwargs:\n")
 		g.pywrap.Indent()
 		g.pywrap.Printf("self.handle = kwargs['handle']\n")
-		g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.outname)
+		g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.pypkgname)
 		g.pywrap.Outdent()
 		g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], %sGoClass):\n", gocl)
 		g.pywrap.Indent()
 		g.pywrap.Printf("self.handle = args[0].handle\n")
-		g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.outname)
+		g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.pypkgname)
 		g.pywrap.Outdent()
 		if slc.isSlice() {
 			g.pywrap.Printf("else:\n")
 			g.pywrap.Indent()
 			g.pywrap.Printf("self.handle = _%s_CTor()\n", qNm)
-			g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.outname)
+			g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.pypkgname)
 			g.pywrap.Printf("if len(args) > 0:\n")
 			g.pywrap.Indent()
 			g.pywrap.Printf("if not isinstance(args[0], collections.Iterable):\n")
@@ -116,7 +116,7 @@ otherwise parameter is a python list that we copy from
 
 		g.pywrap.Printf("def __del__(self):\n")
 		g.pywrap.Indent()
-		g.pywrap.Printf("_%s.DecRef(self.handle)\n", g.outname)
+		g.pywrap.Printf("_%s.DecRef(self.handle)\n", g.pypkgname)
 		g.pywrap.Outdent()
 
 		if slob != nil && slob.prots&ProtoStringer != 0 {

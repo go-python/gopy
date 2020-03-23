@@ -53,17 +53,17 @@ in which case a new Go object is constructed first
 	g.pywrap.Printf("if len(kwargs) == 1 and 'handle' in kwargs:\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf("self.handle = kwargs['handle']\n")
-	g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.outname)
+	g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.pypkgname)
 	g.pywrap.Outdent()
 	g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], go.GoClass):\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf("self.handle = args[0].handle\n")
-	g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.outname)
+	g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.pypkgname)
 	g.pywrap.Outdent()
 	g.pywrap.Printf("else:\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf("self.handle = _%s.%s_CTor()\n", pkgname, s.ID())
-	g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.outname)
+	g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.pypkgname)
 
 	for i := 0; i < numFields; i++ {
 		f := s.Struct().Field(i)
@@ -91,7 +91,7 @@ in which case a new Go object is constructed first
 
 	g.pywrap.Printf("def __del__(self):\n")
 	g.pywrap.Indent()
-	g.pywrap.Printf("_%s.DecRef(self.handle)\n", s.Package().Name())
+	g.pywrap.Printf("_%s.DecRef(self.handle)\n", g.pypkgname)
 	g.pywrap.Outdent()
 
 	if s.prots&ProtoStringer != 0 {
@@ -237,7 +237,11 @@ func (g *pyGen) genStructMemberSetter(s *Struct, i int, f types.Object) {
 	g.pywrap.Indent()
 	// See comment in genStructInit about ensuring that gopy managed
 	// objects are only assigned to from gopy managed objects.
-	switch f.Type().(type) {
+	utyp := f.Type()
+	if _, isNamed := utyp.(*types.Named); isNamed {
+		utyp = utyp.Underlying()
+	}
+	switch utyp.(type) {
 	case *types.Basic:
 		g.pywrap.Printf("_%s.%s(self.handle, value)\n", pkgname, cgoFn)
 	default:
@@ -298,12 +302,12 @@ handle=A Go-side object is always initialized with an explicit handle=arg
 	g.pywrap.Printf("if len(kwargs) == 1 and 'handle' in kwargs:\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf("self.handle = kwargs['handle']\n")
-	g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.outname)
+	g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.pypkgname)
 	g.pywrap.Outdent()
 	g.pywrap.Printf("elif len(args) == 1 and isinstance(args[0], go.GoClass):\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf("self.handle = args[0].handle\n")
-	g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.outname)
+	g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.pypkgname)
 	g.pywrap.Outdent()
 	g.pywrap.Printf("else:\n")
 	g.pywrap.Indent()

@@ -452,6 +452,10 @@ func main() {
 // for some reason, it could be done.
 var thePyGen *pyGen
 
+// NoWarn turns off warnings -- this must be a global as it is relevant during initial package parsing
+// before e.g., thePyGen is present.
+var NoWarn = false
+
 // GenPyBind generates a .go file, build.py file to enable pybindgen to create python bindings,
 // and wrapper .py file(s) that are loaded as the interface to the package with shadow
 // python-side classes
@@ -460,6 +464,7 @@ func GenPyBind(mode BuildMode, odir, outname, cmdstr, vm, mainstr, libext, extra
 	gen := &pyGen{
 		mode:         mode,
 		odir:         odir,
+		pypkgname:    outname,
 		outname:      outname,
 		cmdstr:       cmdstr,
 		vm:           vm,
@@ -489,12 +494,14 @@ type pyGen struct {
 	err    ErrorList
 	pkgmap map[string]struct{} // map of package paths
 
-	mode         BuildMode // mode: gen, build, pkg, exe
-	odir         string    // output directory
-	outname      string    // overall output (package) name
-	cmdstr       string    // overall command (embedded in generated files)
-	vm           string    // python interpreter
-	mainstr      string    // main function code string
+	mode      BuildMode // mode: gen, build, pkg, exe
+	odir      string    // output directory
+	pypkgname string    // python package name, for pkg and exe build modes (--name arg there), else = outname
+	// all global functions in goPreamble are accessed by: pypkgname.FuncName, e.g., IncRef, DecRef
+	outname      string // output (package) name -- for specific current go package
+	cmdstr       string // overall command (embedded in generated files)
+	vm           string // python interpreter
+	mainstr      string // main function code string
 	libext       string
 	extraGccArgs string
 	lang         int // c-python api version (2,3)
