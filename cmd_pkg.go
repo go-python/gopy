@@ -50,6 +50,7 @@ ex:
 	cmd.Flag.String("email", "gopy@example.com", "author email")
 	cmd.Flag.String("desc", "", "short description of project (long comes from README.md)")
 	cmd.Flag.String("url", "https://github.com/go-python/gopy", "home page for project")
+	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
 
 	return cmd
 }
@@ -74,9 +75,12 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 		email   = cmdr.Flag.Lookup("email").Value.Get().(string)
 		desc    = cmdr.Flag.Lookup("desc").Value.Get().(string)
 		url     = cmdr.Flag.Lookup("url").Value.Get().(string)
+		nowarn  = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
 	)
 
 	cmdstr := argStr()
+
+	bind.NoWarn = nowarn
 
 	if name == "" {
 		path := args[0]
