@@ -45,6 +45,8 @@ var (
 		"_examples/lot":       []string{"py2", "py3"},
 		"_examples/unicode":   []string{"py3"}, // doesn't work for 2
 		"_examples/osfile":    []string{"py2", "py3"},
+		"_examples/gopygc":    []string{"py2", "py3"},
+		"_examples/cstrings":  []string{"py2", "py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -87,6 +89,34 @@ func TestGofmt(t *testing.T) {
 
 	if len(buf.Bytes()) != 0 {
 		t.Errorf("some files were not gofmt'ed:\n%s\n", string(buf.Bytes()))
+	}
+}
+
+func TestGoPyErrors(t *testing.T) {
+	pyvm := testBackends["py3"]
+	workdir, err := ioutil.TempDir("", "gopy-")
+	if err != nil {
+		t.Fatalf("could not create workdir: %v\n", err)
+	}
+	t.Logf("pyvm: %s making work dir: %s\n", pyvm, workdir)
+	defer os.RemoveAll(workdir)
+
+	curPkgPath := reflect.TypeOf(pkg{}).PkgPath()
+	fpath := filepath.Join(curPkgPath, "_examples/gopyerrors")
+	cmd := exec.Command("go", "run", ".", "gen", "-vm="+pyvm, "-output="+workdir, fpath)
+	t.Logf("running: %v\n", cmd.Args)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("could not run %v: %+v\n", strings.Join(cmd.Args, " "), err)
+	}
+	contains := `--- Processing package: github.com/go-python/gopy/_examples/gopyerrors ---
+ignoring python incompatible function: gopyerrors.func github.com/go-python/gopy/_examples/gopyerrors.NotErrorMany() (int, int): func() (int, int): gopy: second result value must be of type error: func() (int, int)
+ignoring python incompatible method: gopyerrors.func (*github.com/go-python/gopy/_examples/gopyerrors.Struct).NotErrorMany() (int, string): func() (int, string): gopy: second result value must be of type error: func() (int, string)
+ignoring python incompatible method: gopyerrors.func (*github.com/go-python/gopy/_examples/gopyerrors.Struct).TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
+ignoring python incompatible function: gopyerrors.func github.com/go-python/gopy/_examples/gopyerrors.TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
+`
+	if got, want := string(out), contains; !strings.Contains(got, want) {
+		t.Fatalf("%v does not contain %v\n", got, want)
 	}
 }
 
@@ -200,9 +230,9 @@ hi.Couple{P1=hi.Person{Name="mom", Age=50}, P2=hi.Person{Name="bob", Age=51}}
 hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="p2", Age=52}}
 hi.Couple{P1=hi.Person{Name="p1", Age=42}, P2=hi.Person{Name="p2", Age=52}}
 hi.Couple{P1=hi.Person{Name="p2", Age=52}, P2=hi.Person{Name="p1", Age=42}}
-*ERROR* no exception raised!
-*ERROR* no exception raised!
-*ERROR* no exception raised!
+caught: supplied argument type <class 'int'> is not a go.GoClass | err-type: <class 'TypeError'>
+caught: supplied argument type <class 'int'> is not a go.GoClass | err-type: <class 'TypeError'>
+caught: supplied argument type <class 'int'> is not a go.GoClass | err-type: <class 'TypeError'>
 --- testing GC...
 --- len(objs): 100000
 --- len(vs): 100000
@@ -670,6 +700,56 @@ OK
 	})
 }
 
+func TestPYGC(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/gopygc"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`0
+3
+0
+3
+5
+6
+7
+8
+5
+3
+2
+1
+0
+1
+0
+1
+1
+1
+0
+OK
+`),
+	})
+}
+
+func TestCStrings(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/cstrings"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`gofnString leaked:  False
+gofnStruct leaked:  False
+gofnNestedStruct leaked:  False
+gofnSlice leaked:  False
+gofnMap leaked:  False
+OK
+`),
+	})
+}
+
 // see notes in _examples/osfile/test.py for why this doesn't work..
 // leaving here for now in case someone wants to follow-up and make it work..
 //
@@ -805,6 +885,19 @@ func testPkg(t *testing.T, table pkg) {
 	}
 }
 
+func writeGoMod(t *testing.T, pkgDir, tstDir string) {
+	template := `
+module dummy
+
+require github.com/go-python/gopy v0.0.0
+replace github.com/go-python/gopy => "%s"
+`
+	contents := fmt.Sprintf(template, pkgDir)
+	if err := ioutil.WriteFile(filepath.Join(tstDir, "go.mod"), []byte(contents), 0666); err != nil {
+		t.Fatalf("failed to write go.mod file: %v", err)
+	}
+}
+
 func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	curPkgPath := reflect.TypeOf(table).PkgPath()
 	_, pkgNm := filepath.Split(table.path)
@@ -820,6 +913,8 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	}
 	defer os.RemoveAll(workdir)
 	defer bind.ResetPackages()
+
+	writeGoMod(t, cwd, workdir)
 
 	// fmt.Printf("building in work dir: %s\n", workdir)
 	fpath := "./" + table.path

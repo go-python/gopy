@@ -97,14 +97,28 @@ func getPythonConfig(vm string) (pyconfig, error) {
 	code := `import sys
 import distutils.sysconfig as ds
 import json
-print(json.dumps({
-	"version": sys.version_info.major,
-	"incdir":  ds.get_python_inc(),
-	"libdir":  ds.get_config_var("LIBDIR"),
-	"libpy":   ds.get_config_var("LIBRARY"),
-	"shlibs":  ds.get_config_var("SHLIBS"),
-	"syslibs": ds.get_config_var("SYSLIBS"),
-	"shlinks": ds.get_config_var("LINKFORSHARED"),
+import os
+version=sys.version_info.major
+
+if "GOPY_INCLUDE" in os.environ and "GOPY_LIBDIR" in os.environ and "GOPY_PYLIB" in os.environ:
+	print(json.dumps({
+		"version": version,
+		"incdir": os.environ["GOPY_INCLUDE"],
+		"libdir": os.environ["GOPY_LIBDIR"],
+		"libpy": os.environ["GOPY_PYLIB"],
+		"shlibs":  ds.get_config_var("SHLIBS"),
+		"syslibs": ds.get_config_var("SYSLIBS"),
+		"shlinks": ds.get_config_var("LINKFORSHARED"),
+}))
+else:
+	print(json.dumps({
+		"version": sys.version_info.major,
+		"incdir":  ds.get_python_inc(),
+		"libdir":  ds.get_config_var("LIBDIR"),
+		"libpy":   ds.get_config_var("LIBRARY"),
+		"shlibs":  ds.get_config_var("SHLIBS"),
+		"syslibs": ds.get_config_var("SYSLIBS"),
+		"shlinks": ds.get_config_var("LINKFORSHARED"),
 }))
 `
 
@@ -138,6 +152,8 @@ print(json.dumps({
 	}
 
 	raw.IncDir = filepath.ToSlash(raw.IncDir)
+	raw.LibDir = filepath.ToSlash(raw.LibDir)
+
 	if strings.HasSuffix(raw.LibPy, ".a") {
 		raw.LibPy = raw.LibPy[:len(raw.LibPy)-len(".a")]
 	}

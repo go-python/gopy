@@ -18,6 +18,7 @@ package gopyh
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"sync"
@@ -33,6 +34,7 @@ var (
 	mu      sync.RWMutex
 	ctr     int64
 	handles map[GoHandle]interface{}
+	counts  map[GoHandle]int64
 )
 
 // IfaceIsNil returns true if interface or value represented by interface is nil
@@ -93,7 +95,17 @@ func Embed(stru interface{}, embed reflect.Type) interface{} {
 	return nil
 }
 
-// Register registers a new variable instance
+var (
+	trace = false
+)
+
+func init() {
+	if len(os.Getenv("GOPY_HANDLE_TRACE")) > 0 {
+		trace = true
+	}
+}
+
+// Register registers a new variable instance.
 func Register(typnm string, ifc interface{}) CGoHandle {
 	if IfaceIsNil(ifc) {
 		return -1
@@ -102,12 +114,66 @@ func Register(typnm string, ifc interface{}) CGoHandle {
 	defer mu.Unlock()
 	if handles == nil {
 		handles = make(map[GoHandle]interface{})
+		counts = make(map[GoHandle]int64)
 	}
 	ctr++
 	hc := ctr
-	handles[GoHandle(hc)] = ifc
-	// fmt.Printf("gopy Registered: %s %d\n", typnm, hc)
+	ghc := GoHandle(hc)
+	handles[ghc] = ifc
+	counts[ghc] = 0
+	if trace {
+		fmt.Printf("gopy Registered: %s %v %d\n", typnm, ifc, hc)
+	}
 	return CGoHandle(hc)
+}
+
+// DecRef decrements the reference count for the specified handle
+// and removes it if the reference count goes to zero.
+func DecRef(handle CGoHandle) {
+	if handle < 1 {
+		return
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if handles == nil {
+		return
+	}
+	ghc := GoHandle(handle)
+	if _, exists := handles[ghc]; !exists {
+		return
+	}
+	counts[ghc]--
+	switch cnt := counts[ghc]; {
+	case cnt == 0:
+		delete(counts, ghc)
+		delete(handles, ghc)
+		if trace {
+			fmt.Printf("gopy DecRef: %d\n", handle)
+		}
+	case cnt < 0:
+		panic(fmt.Sprintf("gopy DecRef ref count %v for handle: %v, ifc %v", cnt, ghc, handles[ghc]))
+	default:
+		if trace {
+			fmt.Printf("gopy DecRef: %d: %d\n", handle, cnt)
+		}
+	}
+}
+
+//  IncRef increments the reference count for the specified handle.
+func IncRef(handle CGoHandle) {
+	if handle < 1 {
+		return
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	ghc := GoHandle(handle)
+	if _, exists := counts[ghc]; exists {
+		counts[ghc]++
+		if trace {
+			fmt.Printf("gopy IncRef: %d: %d\n", handle, counts[ghc])
+		}
+	}
+
 }
 
 // VarFromHandle gets variable from handle string.
@@ -134,4 +200,11 @@ func VarFromHandleTry(h CGoHandle, typnm string) (interface{}, error) {
 		return nil, err
 	}
 	return v, nil
+}
+
+// NumHandles returns the number of handles in use.
+func NumHandles() int {
+	mu.RLock()
+	defer mu.RUnlock()
+	return len(handles)
 }

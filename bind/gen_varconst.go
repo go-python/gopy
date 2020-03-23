@@ -110,5 +110,12 @@ func (g *pyGen) genVarSetter(v *Var) {
 
 func (g *pyGen) genConstValue(c *Const) {
 	// constants go directly into wrapper as-is
-	g.pywrap.Printf("%s = %s\n", c.GoName(), c.obj.Val().ExactString())
+	val := c.obj.Val().ExactString()
+	switch val {
+	case "true":
+		val = "True"
+	case "false":
+		val = "False"
+	}
+	g.pywrap.Printf("%s = %s\n", c.GoName(), val)
 }

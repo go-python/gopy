@@ -8,8 +8,10 @@ Feature |py2 | py3
 _examples/arrays | yes | yes
 _examples/cgo | yes | yes
 _examples/consts | yes | yes
+_examples/cstrings | yes | yes
 _examples/empty | yes | yes
 _examples/funcs | yes | yes
+_examples/gopygc | yes | yes
 _examples/gostrings | yes | yes
 _examples/hi | no | yes
 _examples/iface | no | yes
