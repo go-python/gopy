@@ -299,6 +299,7 @@ func (g *pyGen) genIfaceInit(ifc *Interface) {
 handle=A Go-side object is always initialized with an explicit handle=arg
 """
 `)
+
 	g.pywrap.Printf("if len(kwargs) == 1 and 'handle' in kwargs:\n")
 	g.pywrap.Indent()
 	g.pywrap.Printf("self.handle = kwargs['handle']\n")
