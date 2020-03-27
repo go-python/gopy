@@ -27,3 +27,10 @@ type S2 struct {
 	Public  int
 	private int
 }
+
+type Dim int
+
+type S3 struct {
+	X Dim
+	Y Dim
+}

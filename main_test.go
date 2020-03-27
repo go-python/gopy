@@ -390,6 +390,7 @@ s2child = S2Child{S2: structs.S2{Public=42, handle=8, local=123}, local: 123}
 s2child.Public = 42
 s2child.local = 123
 caught error: 'S2Child' object has no attribute 'private'
+s3.X,Y = 3,4
 OK
 `),
 	})
