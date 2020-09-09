@@ -281,7 +281,11 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Indent()
 		g.gofile.Printf("s := *ptrFromHandle_%s(handle)\n", slNm)
 		if esym.go2py != "" {
-			g.gofile.Printf("return %s(s[_idx])%s\n", esym.go2py, esym.go2pyParenEx)
+			if !esym.isPointer() && esym.isStruct() {
+				g.gofile.Printf("return %s(&(s[_idx]))%s\n", esym.go2py, esym.go2pyParenEx)
+			} else {
+				g.gofile.Printf("return %s(s[_idx])%s\n", esym.go2py, esym.go2pyParenEx)
+			}
 		} else {
 			g.gofile.Printf("return s[_idx]\n")
 		}
