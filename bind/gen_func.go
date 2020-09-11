@@ -221,7 +221,7 @@ func (g *pyGen) genMethod(s *symbol, o *Func) {
 
 func isIfaceHandle(gdoc string) (bool, string) {
 	const PythonIface = "\ngopy:interface=handle"
-	if idx := strings.Index(gdoc, PythonIface); idx > 0 {
+	if idx := strings.Index(gdoc, PythonIface); idx >= 0 {
 		gdoc = gdoc[:idx] + gdoc[idx+len(PythonIface)+1:]
 		return true, gdoc
 	}

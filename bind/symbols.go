@@ -907,7 +907,7 @@ func (sym *symtab) addArrayType(pkg *types.Package, obj types.Object, t types.Ty
 		cpyname: PyHandle,
 		pysig:   "[]" + elsym.pysig,
 		go2py:   "handleFromPtr_" + id,
-		py2go:   "*ptrFromHandle_" + id,
+		py2go:   "deptrFromHandle_" + id,
 		zval:    "nil",
 	}
 	return nil
@@ -943,7 +943,7 @@ func (sym *symtab) addMapType(pkg *types.Package, obj types.Object, t types.Type
 		cpyname: PyHandle,
 		pysig:   "object",
 		go2py:   "handleFromPtr_" + id,
-		py2go:   "*ptrFromHandle_" + id,
+		py2go:   "deptrFromHandle_" + id,
 		zval:    "nil",
 	}
 	return nil
@@ -972,7 +972,7 @@ func (sym *symtab) addSliceType(pkg *types.Package, obj types.Object, t types.Ty
 		cpyname: PyHandle,
 		pysig:   "[]" + elsym.pysig,
 		go2py:   "handleFromPtr_" + id,
-		py2go:   "*ptrFromHandle_" + id,
+		py2go:   "deptrFromHandle_" + id,
 		zval:    "nil",
 	}
 	return nil

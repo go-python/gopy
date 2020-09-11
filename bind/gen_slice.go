@@ -270,7 +270,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_len\n", slNm)
 		g.gofile.Printf("func %s_len(handle CGoHandle) int {\n", slNm)
 		g.gofile.Indent()
-		g.gofile.Printf("return len(*ptrFromHandle_%s(handle))\n", slNm)
+		g.gofile.Printf("return len(deptrFromHandle_%s(handle))\n", slNm)
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
 
@@ -279,7 +279,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_elem\n", slNm)
 		g.gofile.Printf("func %s_elem(handle CGoHandle, _idx int) %s {\n", slNm, esym.cgoname)
 		g.gofile.Indent()
-		g.gofile.Printf("s := *ptrFromHandle_%s(handle)\n", slNm)
+		g.gofile.Printf("s := deptrFromHandle_%s(handle)\n", slNm)
 		if esym.go2py != "" {
 			if !esym.isPointer() && esym.isStruct() {
 				g.gofile.Printf("return %s(&(s[_idx]))%s\n", esym.go2py, esym.go2pyParenEx)
@@ -297,7 +297,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_set\n", slNm)
 		g.gofile.Printf("func %s_set(handle CGoHandle, _idx int, _vl %s) {\n", slNm, esym.cgoname)
 		g.gofile.Indent()
-		g.gofile.Printf("s := *ptrFromHandle_%s(handle)\n", slNm)
+		g.gofile.Printf("s := deptrFromHandle_%s(handle)\n", slNm)
 		if esym.py2go != "" {
 			g.gofile.Printf("s[_idx] = %s(_vl)%s\n", esym.py2go, esym.py2goParenEx)
 		} else {

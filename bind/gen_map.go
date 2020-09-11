@@ -281,7 +281,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_len\n", slNm)
 		g.gofile.Printf("func %s_len(handle CGoHandle) int {\n", slNm)
 		g.gofile.Indent()
-		g.gofile.Printf("return len(*ptrFromHandle_%s(handle))\n", slNm)
+		g.gofile.Printf("return len(deptrFromHandle_%s(handle))\n", slNm)
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
 
@@ -291,7 +291,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_elem\n", slNm)
 		g.gofile.Printf("func %s_elem(handle CGoHandle, _ky %s) %s {\n", slNm, ksym.cgoname, esym.cgoname)
 		g.gofile.Indent()
-		g.gofile.Printf("s := *ptrFromHandle_%s(handle)\n", slNm)
+		g.gofile.Printf("s := deptrFromHandle_%s(handle)\n", slNm)
 		if ksym.py2go != "" {
 			g.gofile.Printf("v, ok := s[%s(_ky)%s]\n", ksym.py2go, ksym.py2goParenEx)
 		} else {
@@ -316,7 +316,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_contains\n", slNm)
 		g.gofile.Printf("func %s_contains(handle CGoHandle, _ky %s) C.char {\n", slNm, ksym.cgoname)
 		g.gofile.Indent()
-		g.gofile.Printf("s := *ptrFromHandle_%s(handle)\n", slNm)
+		g.gofile.Printf("s := deptrFromHandle_%s(handle)\n", slNm)
 		if ksym.py2go != "" {
 			g.gofile.Printf("_, ok := s[%s(_ky)%s]\n", ksym.py2go, ksym.py2goParenEx)
 		} else {
@@ -332,7 +332,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_set\n", slNm)
 		g.gofile.Printf("func %s_set(handle CGoHandle, _ky %s, _vl %s) {\n", slNm, ksym.cgoname, esym.cgoname)
 		g.gofile.Indent()
-		g.gofile.Printf("s := *ptrFromHandle_%s(handle)\n", slNm)
+		g.gofile.Printf("s := deptrFromHandle_%s(handle)\n", slNm)
 		if ksym.py2go != "" {
 			g.gofile.Printf("s[%s(_ky)%s] = ", ksym.py2go, ksym.py2goParenEx)
 		} else {
@@ -352,7 +352,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_delete\n", slNm)
 		g.gofile.Printf("func %s_delete(handle CGoHandle, _ky %s) {\n", slNm, ksym.cgoname)
 		g.gofile.Indent()
-		g.gofile.Printf("s := *ptrFromHandle_%s(handle)\n", slNm)
+		g.gofile.Printf("s := deptrFromHandle_%s(handle)\n", slNm)
 		if ksym.py2go != "" {
 			g.gofile.Printf("delete(s, %s(_ky)%s)\n", ksym.py2go, ksym.py2goParenEx)
 		} else {
@@ -367,7 +367,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_keys\n", slNm)
 		g.gofile.Printf("func %s_keys(handle CGoHandle) CGoHandle {\n", slNm)
 		g.gofile.Indent()
-		g.gofile.Printf("s := *ptrFromHandle_%s(handle)\n", slNm)
+		g.gofile.Printf("s := deptrFromHandle_%s(handle)\n", slNm)
 		g.gofile.Printf("kys := make(%s, 0, len(s))\n", keyslsym.goname)
 		g.gofile.Printf("for k := range(s) {\n")
 		g.gofile.Indent()
