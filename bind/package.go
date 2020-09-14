@@ -132,6 +132,7 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 		if err != nil {
 			return ""
 		}
+
 		doc := func() string {
 			if o.Parent() == nil || (o.Parent() != nil && parent != "") {
 				for _, typ := range p.doc.Types {
@@ -161,6 +162,28 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 			}
 			return ""
 		}()
+
+		// if a function returns a type defined in the package,
+		// it is organized under that type
+		if doc == "" && sig.Results().Len() == 1 {
+			ret := sig.Results().At(0).Type()
+			if ntyp, ok := ret.(*types.Named); ok {
+				tn := ntyp.Obj().Name()
+				doc = func() string {
+					for _, typ := range p.doc.Types {
+						if typ.Name != tn {
+							continue
+						}
+						for _, m := range typ.Funcs {
+							if m.Name == n {
+								return m.Doc
+							}
+						}
+					}
+					return ""
+				}()
+			}
+		}
 
 		parseFn := func(tup *types.Tuple) []string {
 			params := []string{}
