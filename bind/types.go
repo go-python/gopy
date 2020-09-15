@@ -7,6 +7,8 @@ package bind
 import (
 	"fmt"
 	"go/types"
+	"sort"
+	"strconv"
 )
 
 type Object interface {
@@ -461,6 +463,7 @@ type Const struct {
 	obj *types.Const
 	id  string
 	doc string
+	val string
 }
 
 func newConst(p *Package, o *types.Const) (*Const, error) {
@@ -468,6 +471,7 @@ func newConst(p *Package, o *types.Const) (*Const, error) {
 	sym := p.syms.symtype(o.Type())
 	id := pkg.Name() + "_" + o.Name()
 	doc := p.getDoc("", o)
+	val := o.Val().String()
 
 	return &Const{
 		pkg: p,
@@ -475,6 +479,7 @@ func newConst(p *Package, o *types.Const) (*Const, error) {
 		obj: o,
 		id:  id,
 		doc: doc,
+		val: val,
 	}, nil
 }
 
@@ -482,6 +487,59 @@ func (c *Const) ID() string         { return c.id }
 func (c *Const) Doc() string        { return c.doc }
 func (c *Const) GoName() string     { return c.obj.Name() }
 func (c *Const) GoType() types.Type { return c.obj.Type() }
+
+///////////////////////////////////////////////////////////////////////////////////
+//  Enum
+
+type Enum struct {
+	pkg   *Package
+	sym   *symbol
+	obj   *types.Const // first one -- random..
+	typ   *types.Named
+	id    string
+	doc   string
+	items []*Const
+}
+
+func newEnum(p *Package, o *types.Const) (*Enum, error) {
+	pkg := o.Pkg()
+	sym := p.syms.symtype(o.Type())
+	id := pkg.Name() + "_" + o.Name()
+	typ := o.Type().(*types.Named)
+	doc := p.getDoc("", typ.Obj())
+
+	e := &Enum{
+		pkg: p,
+		sym: sym,
+		obj: o,
+		typ: typ,
+		id:  id,
+		doc: doc,
+	}
+	e.AddConst(p, o)
+	return e, nil
+}
+
+func (e *Enum) ID() string         { return e.id }
+func (e *Enum) Doc() string        { return e.doc }
+func (e *Enum) GoName() string     { return e.obj.Name() }
+func (e *Enum) GoType() types.Type { return e.obj.Type() }
+
+func (e *Enum) AddConst(p *Package, o *types.Const) (*Const, error) {
+	c, err := newConst(p, o)
+	if err == nil {
+		e.items = append(e.items, c)
+	}
+	return c, err
+}
+
+func (e *Enum) SortConsts() {
+	sort.Slice(e.items, func(i, j int) bool {
+		iv, _ := strconv.Atoi(e.items[i].val)
+		jv, _ := strconv.Atoi(e.items[j].val)
+		return iv < jv
+	})
+}
 
 ///////////////////////////////////////////////////////////////////////////////////
 //  Var

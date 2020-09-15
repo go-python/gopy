@@ -10,6 +10,7 @@ import (
 	"go/types"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -24,6 +25,7 @@ type Package struct {
 	syms      *symtab // note: this is now *always* = symbols.current
 	objs      map[string]Object
 	consts    []*Const
+	enums     []*Enum
 	vars      []*Var
 	structs   []*Struct
 	ifaces    []*Interface
@@ -484,7 +486,34 @@ func (p *Package) process() error {
 	return err
 }
 
+func (p *Package) findEnum(ntyp *types.Named) *Enum {
+	for _, enm := range p.enums {
+		if enm.typ == ntyp {
+			return enm
+		}
+	}
+	return nil
+}
+
 func (p *Package) addConst(obj *types.Const) {
+	if ntyp, ok := obj.Type().(*types.Named); ok {
+		enm := p.findEnum(ntyp)
+		if enm != nil {
+			enm.AddConst(p, obj)
+			return
+		} else {
+			val := obj.Val().String()
+			_, err := strconv.Atoi(val)
+			if err == nil {
+				enm, err := newEnum(p, obj)
+				if err == nil {
+					p.enums = append(p.enums, enm)
+					return
+				}
+			}
+		}
+	}
+
 	nc, err := newConst(p, obj)
 	if err == nil {
 		p.consts = append(p.consts, nc)
