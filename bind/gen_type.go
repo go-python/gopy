@@ -25,9 +25,12 @@ func (g *pyGen) genType(sym *symbol, extTypes, pyWrapOnly bool) {
 	}
 
 	if !pyWrapOnly {
-		if sym.isPointer() || sym.isInterface() {
+		switch {
+		case sym.isPointer() || sym.isInterface():
 			g.genTypeHandlePtr(sym)
-		} else {
+		case sym.isSlice() || sym.isMap() || sym.isArray():
+			g.genTypeHandleImplPtr(sym)
+		default:
 			g.genTypeHandle(sym)
 		}
 	}
@@ -75,6 +78,48 @@ func (g *pyGen) genTypeHandlePtr(sym *symbol) {
 	} else {
 		g.gofile.Printf("return p.(%s)\n", gonm)
 	}
+	g.gofile.Outdent()
+	g.gofile.Printf("}\n")
+	g.gofile.Printf("func %s(p interface{})%s CGoHandle {\n", sym.go2py, sym.go2pyParenEx)
+	g.gofile.Indent()
+	g.gofile.Printf("return CGoHandle(gopyh.Register(\"%s\", p))\n", gonm)
+	g.gofile.Outdent()
+	g.gofile.Printf("}\n")
+}
+
+// implicit pointer types: slice, map, array
+func (g *pyGen) genTypeHandleImplPtr(sym *symbol) {
+	gonm := sym.gofmt()
+	ptrnm := gonm
+	nptrnm := gonm
+	if ptrnm[0] != '*' {
+		ptrnm = "*" + ptrnm
+	} else {
+		nptrnm = gonm[1:]
+	}
+	g.gofile.Printf("\n// Converters for implicit pointer handles for type: %s\n", gonm)
+	g.gofile.Printf("func ptrFromHandle_%s(h CGoHandle) %s {\n", sym.id, ptrnm)
+	g.gofile.Indent()
+	g.gofile.Printf("p := gopyh.VarFromHandle((gopyh.CGoHandle)(h), %[1]q)\n", gonm)
+	g.gofile.Printf("if p == nil {\n")
+	g.gofile.Indent()
+	g.gofile.Printf("return nil\n")
+	g.gofile.Outdent()
+	g.gofile.Printf("}\n")
+	g.gofile.Printf("return p.(%s)\n", ptrnm)
+	g.gofile.Outdent()
+	g.gofile.Printf("}\n")
+	g.gofile.Printf("func deptrFromHandle_%s(h CGoHandle) %s {\n", sym.id, nptrnm)
+	g.gofile.Indent()
+	g.gofile.Printf("p := ptrFromHandle_%s(h)\n", sym.id)
+	if !sym.isArray() {
+		g.gofile.Printf("if p == nil {\n")
+		g.gofile.Indent()
+		g.gofile.Printf("return nil\n")
+		g.gofile.Outdent()
+		g.gofile.Printf("}\n")
+	}
+	g.gofile.Printf("return *p\n")
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n")
 	g.gofile.Printf("func %s(p interface{})%s CGoHandle {\n", sym.go2py, sym.go2pyParenEx)

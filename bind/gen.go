@@ -250,6 +250,7 @@ os.chdir(cwd)
 # %[2]s
 
 import _%[1]s, collections
+from enum import Enum
 
 # to use this code in your end-user python file, import it as follows:
 # from %[1]s import %[3]s
@@ -755,6 +756,11 @@ func (g *pyGen) genAll() {
 			continue
 		}
 		g.genType(sym, false, false) // not exttypes
+	}
+
+	g.pywrap.Printf("\n\n#---- Enums from Go (collections of consts with same type) ---\n")
+	for _, e := range g.pkg.enums {
+		g.genEnum(e)
 	}
 
 	g.pywrap.Printf("\n\n#---- Constants from Go: Python can only ask that you please don't change these! ---\n")

@@ -6,6 +6,7 @@ package bind
 
 import (
 	"fmt"
+	"strings"
 )
 
 func (g *pyGen) genConst(c *Const) {
@@ -110,7 +111,7 @@ func (g *pyGen) genVarSetter(v *Var) {
 
 func (g *pyGen) genConstValue(c *Const) {
 	// constants go directly into wrapper as-is
-	val := c.obj.Val().ExactString()
+	val := c.val
 	switch val {
 	case "true":
 		val = "True"
@@ -118,4 +119,35 @@ func (g *pyGen) genConstValue(c *Const) {
 		val = "False"
 	}
 	g.pywrap.Printf("%s = %s\n", c.GoName(), val)
+}
+
+func (g *pyGen) genEnum(e *Enum) {
+	g.pywrap.Printf("class %s(Enum):\n", e.typ.Obj().Name())
+	g.pywrap.Indent()
+	doc := e.Doc()
+	if doc != "" {
+		lns := strings.Split(doc, "\n")
+		g.pywrap.Printf(`"""`)
+		g.pywrap.Printf("\n")
+		for _, l := range lns {
+			g.pywrap.Printf("%s\n", l)
+		}
+		g.pywrap.Printf(`"""`)
+		g.pywrap.Printf("\n")
+	}
+	e.SortConsts()
+	for _, c := range e.items {
+		g.genConstValue(c)
+	}
+	g.pywrap.Outdent()
+
+	// Go has each const value globally available within a given package
+	// so to keep the code consistent, we redundantly generate the consts
+	// again here.  The Enum organization however is critical for organizing
+	// the values under the type (making them accessible programmatically)
+	g.pywrap.Printf("\n")
+	for _, c := range e.items {
+		g.genConstValue(c)
+	}
+	g.pywrap.Printf("\n")
 }

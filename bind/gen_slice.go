@@ -75,6 +75,11 @@ func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool, slob *Slice
 		gocl = ""
 	}
 
+	pysnm := slc.id
+	if !strings.Contains(pysnm, "Slice_") {
+		pysnm = strings.TrimPrefix(pysnm, pkgname+"_")
+	}
+
 	if !extTypes || pyWrapOnly {
 		g.pywrap.Printf("def __init__(self, *args, **kwargs):\n")
 		g.pywrap.Indent()
@@ -154,6 +159,22 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Indent()
 		g.pywrap.Printf("if isinstance(key, slice):\n")
 		g.pywrap.Indent()
+		if slc.isSlice() {
+			g.pywrap.Printf("if key.step == None or key.step == 1:\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("st = key.start\n")
+			g.pywrap.Printf("ed = key.stop\n")
+			g.pywrap.Printf("if st == None:\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("st = 0\n")
+			g.pywrap.Outdent()
+			g.pywrap.Printf("if ed == None:\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf("ed = _%s_len(self.handle)\n", qNm)
+			g.pywrap.Outdent()
+			g.pywrap.Printf("return %s(handle=_%s_subslice(self.handle, st, ed))\n", pysnm, qNm)
+			g.pywrap.Outdent()
+		}
 		g.pywrap.Printf("return [self[ii] for ii in range(*key.indices(len(self)))]\n")
 		g.pywrap.Outdent()
 		g.pywrap.Printf("elif isinstance(key, int):\n")
@@ -270,7 +291,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_len\n", slNm)
 		g.gofile.Printf("func %s_len(handle CGoHandle) int {\n", slNm)
 		g.gofile.Indent()
-		g.gofile.Printf("return len(*ptrFromHandle_%s(handle))\n", slNm)
+		g.gofile.Printf("return len(deptrFromHandle_%s(handle))\n", slNm)
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
 
@@ -279,9 +300,13 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s_elem\n", slNm)
 		g.gofile.Printf("func %s_elem(handle CGoHandle, _idx int) %s {\n", slNm, esym.cgoname)
 		g.gofile.Indent()
-		g.gofile.Printf("s := *ptrFromHandle_%s(handle)\n", slNm)
+		g.gofile.Printf("s := deptrFromHandle_%s(handle)\n", slNm)
 		if esym.go2py != "" {
-			g.gofile.Printf("return %s(s[_idx])%s\n", esym.go2py, esym.go2pyParenEx)
+			if !esym.isPointer() && esym.isStruct() {
+				g.gofile.Printf("return %s(&(s[_idx]))%s\n", esym.go2py, esym.go2pyParenEx)
+			} else {
+				g.gofile.Printf("return %s(s[_idx])%s\n", esym.go2py, esym.go2pyParenEx)
+			}
 		} else {
 			g.gofile.Printf("return s[_idx]\n")
 		}
@@ -290,10 +315,23 @@ otherwise parameter is a python list that we copy from
 
 		g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'), [param('%s', 'handle'), param('int', 'idx')])\n", slNm, esym.cpyname, PyHandle)
 
+		if slc.isSlice() {
+			g.gofile.Printf("//export %s_subslice\n", slNm)
+			g.gofile.Printf("func %s_subslice(handle CGoHandle, _st, _ed int) CGoHandle {\n", slNm)
+			g.gofile.Indent()
+			g.gofile.Printf("s := deptrFromHandle_%s(handle)\n", slNm)
+			g.gofile.Printf("ss := s[_st:_ed]\n")
+			g.gofile.Printf("return CGoHandle(handleFromPtr_%s(&ss))\n", slNm)
+			g.gofile.Outdent()
+			g.gofile.Printf("}\n\n")
+
+			g.pybuild.Printf("mod.add_function('%s_subslice', retval('%s'), [param('%s', 'handle'), param('int', 'st'), param('int', 'ed')])\n", slNm, PyHandle, PyHandle)
+		}
+
 		g.gofile.Printf("//export %s_set\n", slNm)
 		g.gofile.Printf("func %s_set(handle CGoHandle, _idx int, _vl %s) {\n", slNm, esym.cgoname)
 		g.gofile.Indent()
-		g.gofile.Printf("s := *ptrFromHandle_%s(handle)\n", slNm)
+		g.gofile.Printf("s := deptrFromHandle_%s(handle)\n", slNm)
 		if esym.py2go != "" {
 			g.gofile.Printf("s[_idx] = %s(_vl)%s\n", esym.py2go, esym.py2goParenEx)
 		} else {
