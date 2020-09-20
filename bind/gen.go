@@ -356,7 +356,7 @@ build:
 	# this will fail but is needed to generate the .c file that then allows go build to work
 	- $(PYTHON) build.py >/dev/null 2>&1
 	# generate %[1]s_go.h from %[1]s.go -- unfortunately no way to build .h only
-	$(GOBUILD) -buildmode=c-shared -o %[1]s_go$(LIBEXT) >/dev/null 2>&1
+	$(GOBUILD) -buildmode=c-shared -o %[1]s_go$(LIBEXT)
 	# use pybindgen to build the %[1]s.c file which are the CPython wrappers to cgo wrappers..
 	# note: pip install pybindgen to get pybindgen if this fails
 	$(PYTHON) build.py
@@ -457,6 +457,9 @@ var thePyGen *pyGen
 // before e.g., thePyGen is present.
 var NoWarn = false
 
+// NoMake turns off generation of Makefiles
+var NoMake = false
+
 // GenPyBind generates a .go file, build.py file to enable pybindgen to create python bindings,
 // and wrapper .py file(s) that are loaded as the interface to the package with shadow
 // python-side classes
@@ -538,11 +541,15 @@ func (g *pyGen) genPre() {
 	g.gofile = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
 	g.leakfile = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
 	g.pybuild = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
-	g.makefile = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
+	if !NoMake {
+		g.makefile = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
+	}
 	g.genGoPreamble()
 	g.genLeaksPreamble()
 	g.genPyBuildPreamble()
-	g.genMakefile()
+	if !NoMake {
+		g.genMakefile()
+	}
 	oinit, err := os.Create(filepath.Join(g.odir, "__init__.py"))
 	g.err.Add(err)
 	err = oinit.Close()
@@ -562,11 +569,13 @@ func (g *pyGen) genOut() {
 	g.pybuild.Printf("\nmod.generate(open('%v.c', 'w'))\n\n", g.outname)
 	g.gofile.Printf("\n\n")
 	g.genLeaksPostamble()
-	g.makefile.Printf("\n\n")
 	g.genPrintOut(g.outname+".go", g.gofile)
 	g.genPrintOut("patch-leaks.go", g.leakfile)
 	g.genPrintOut("build.py", g.pybuild)
-	g.genPrintOut("Makefile", g.makefile)
+	if !NoMake {
+		g.makefile.Printf("\n\n")
+		g.genPrintOut("Makefile", g.makefile)
+	}
 }
 
 func (g *pyGen) genPkgWrapOut() {
@@ -611,10 +620,12 @@ func (g *pyGen) genGoPreamble() {
 		if err != nil {
 			panic(err)
 		}
+		// this is critical to avoid pybindgen errors:
+		exflags := " -Wno-error -Wno-implicit-function-declaration -Wno-int-conversion"
 		pkgcfg := fmt.Sprintf(`
 #cgo CFLAGS: %s
 #cgo LDFLAGS: %s
-`, pycfg.cflags, pycfg.ldflags)
+`, pycfg.cflags+exflags, pycfg.ldflags)
 
 		return pkgcfg
 	}()
@@ -688,7 +699,13 @@ func CmdStrToMakefile(cmdstr string) string {
 		spidx := strings.Index(cmdstr[oidx:], " ")
 		cmdstr = cmdstr[:oidx] + cmdstr[oidx+spidx+1:]
 	}
-	return cmdstr
+	cmds := strings.Fields(cmdstr)
+	ncmds := make([]string, 0, len(cmds)+1)
+	ncmds = append(ncmds, cmds[:2]...)
+	ncmds = append(ncmds, "-no-make")
+	ncmds = append(ncmds, cmds[2:]...)
+
+	return strings.Join(ncmds, " ")
 }
 
 func (g *pyGen) genMakefile() {

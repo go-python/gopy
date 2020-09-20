@@ -39,6 +39,7 @@ ex:
 	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
+	cmd.Flag.Bool("no-make", false, "do not generate a Makefile, e.g., when called from Makefile")
 	return cmd
 }
 
@@ -56,9 +57,11 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 		vm      = cmdr.Flag.Lookup("vm").Value.Get().(string)
 		symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 		nowarn  = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
+		nomake  = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
 	)
 
 	bind.NoWarn = nowarn
+	bind.NoMake = nomake
 
 	cmdstr := argStr()
 

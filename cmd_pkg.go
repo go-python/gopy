@@ -51,6 +51,7 @@ ex:
 	cmd.Flag.String("desc", "", "short description of project (long comes from README.md)")
 	cmd.Flag.String("url", "https://github.com/go-python/gopy", "home page for project")
 	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
+	cmd.Flag.Bool("no-make", false, "do not generate a Makefile, e.g., when called from Makefile")
 
 	return cmd
 }
@@ -76,11 +77,13 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 		desc    = cmdr.Flag.Lookup("desc").Value.Get().(string)
 		url     = cmdr.Flag.Lookup("url").Value.Get().(string)
 		nowarn  = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
+		nomake  = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
 	)
 
 	cmdstr := argStr()
 
 	bind.NoWarn = nowarn
+	bind.NoMake = nomake
 
 	if name == "" {
 		path := args[0]

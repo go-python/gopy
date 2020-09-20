@@ -33,6 +33,7 @@ ex:
 	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
 	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library")
 	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
+	cmd.Flag.Bool("no-make", false, "do not generate a Makefile, e.g., when called from Makefile")
 	return cmd
 }
 
@@ -53,6 +54,7 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 		name    = cmdr.Flag.Lookup("name").Value.Get().(string)
 		mainstr = cmdr.Flag.Lookup("main").Value.Get().(string)
 		nowarn  = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
+		nomake  = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
 	)
 
 	if vm == "" {
@@ -60,6 +62,7 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 	}
 
 	bind.NoWarn = nowarn
+	bind.NoMake = nomake
 
 	for _, path := range args {
 		pkg, err := newPackage(path)
