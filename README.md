@@ -183,14 +183,6 @@ $ ls out
 Makefile  __init__.py  __pycache__/  _hi.so*  build.py  go.py  hi.c  hi.go  hi.py  hi_go.h  hi_go.so  patch-leaks.go
 ```
 
-Note: the above may fail with link errors!  If so, go into the directory and use the auto-generated makefile:
-
-```sh
-$ cd out
-$ make
-```
-
-Once you get a clean build with no link errors, you can run it like this:
 
 ```sh
 $ cd out
