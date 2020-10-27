@@ -85,15 +85,20 @@ func isConstructor(sig *types.Signature) bool {
 	return false
 }
 
-type pyconfig struct {
-	version int
-	cflags  string
-	ldflags string
+type PyConfig struct {
+	Version int
+	CFlags  string
+	LdFlags string
 }
 
-// getPythonConfig returns the needed python configuration for the given
+// AllFlags returns CFlags + " " + LdFlags
+func (pc *PyConfig) AllFlags() string {
+	return strings.TrimSpace(pc.CFlags) + " " + strings.TrimSpace(pc.LdFlags)
+}
+
+// GetPythonConfig returns the needed python configuration for the given
 // python VM (python, python2, python3, pypy, etc...)
-func getPythonConfig(vm string) (pyconfig, error) {
+func GetPythonConfig(vm string) (PyConfig, error) {
 	code := `import sys
 import distutils.sysconfig as ds
 import json
@@ -122,7 +127,7 @@ else:
 }))
 `
 
-	var cfg pyconfig
+	var cfg PyConfig
 	bin, err := exec.LookPath(vm)
 	if err != nil {
 		return cfg, errors.Wrapf(err, "could not locate python vm %q", vm)
@@ -161,11 +166,11 @@ else:
 		raw.LibPy = raw.LibPy[len("lib"):]
 	}
 
-	cfg.version = raw.Version
-	cfg.cflags = strings.Join([]string{
+	cfg.Version = raw.Version
+	cfg.CFlags = strings.Join([]string{
 		"-I" + raw.IncDir,
 	}, " ")
-	cfg.ldflags = strings.Join([]string{
+	cfg.LdFlags = strings.Join([]string{
 		"-L" + raw.LibDir,
 		"-l" + raw.LibPy,
 		raw.ShLibs,

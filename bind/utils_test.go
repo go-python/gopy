@@ -85,7 +85,7 @@ func TestPythonConfig(t *testing.T) {
 		},
 	} {
 		t.Run(tc.vm, func(t *testing.T) {
-			cfg, err := getPythonConfig(tc.vm)
+			cfg, err := GetPythonConfig(tc.vm)
 			if err != nil {
 				t.Fatal(err)
 			}

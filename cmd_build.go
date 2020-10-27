@@ -120,6 +120,8 @@ func runBuild(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string, sy
 		return err
 	}
 
+	pycfg, err := bind.GetPythonConfig(vm)
+
 	if mode == bind.ModeExe {
 		of, err := os.Create(buildname + ".h") // overwrite existing
 		fmt.Fprintf(of, "typedef uint8_t bool;\n")
@@ -198,32 +200,32 @@ func runBuild(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string, sy
 			return err
 		}
 		cccmd := strings.TrimSpace(string(cccmdb))
-		var cflags, ldflags []byte
-		if runtime.GOOS != "windows" {
-			fmt.Printf("%v-config --cflags\n", vm)
-			cmd = exec.Command(vm+"-config", "--cflags") // TODO: need minor version!
-			cflags, err = cmd.CombinedOutput()
-			if err != nil {
-				fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cflags))
-				return err
-			}
-
-			fmt.Printf("%v-config --ldflags\n", vm)
-			cmd = exec.Command(vm+"-config", "--ldflags")
-			ldflags, err = cmd.CombinedOutput()
-			if err != nil {
-				fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(ldflags))
-				return err
-			}
-		}
+		// var cflags, ldflags []byte
+		// if runtime.GOOS != "windows" {
+		// 	fmt.Printf("%v-config --cflags\n", vm)
+		// 	cmd = exec.Command(vm+"-config", "--cflags") // TODO: need minor version!
+		// 	cflags, err = cmd.CombinedOutput()
+		// 	if err != nil {
+		// 		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cflags))
+		// 		return err
+		// 	}
+		//
+		// 	fmt.Printf("%v-config --ldflags\n", vm)
+		// 	cmd = exec.Command(vm+"-config", "--ldflags")
+		// 	ldflags, err = cmd.CombinedOutput()
+		// 	if err != nil {
+		// 		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(ldflags))
+		// 		return err
+		// 	}
+		// 	fmt.Printf("build cmd: %s\nldflags: %s\n", cmd, ldflags)
+		// }
 		extext := libExt
 		if runtime.GOOS == "windows" {
 			extext = ".pyd"
 		}
 		modlib := "_" + outname + extext
 		gccargs := []string{outname + ".c", extraGccArgs, outname + "_go" + libExt, "-o", modlib}
-		gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(cflags)), " ")...)
-		gccargs = append(gccargs, strings.Split(strings.TrimSpace(string(ldflags)), " ")...)
+		gccargs = append(gccargs, strings.Fields(pycfg.AllFlags())...)
 		gccargs = append(gccargs, "-fPIC", "--shared", "-Ofast")
 		if !symbols {
 			gccargs = append(gccargs, "-s")

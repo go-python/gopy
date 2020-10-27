@@ -175,13 +175,25 @@ package hi exposes a few Go functions to be wrapped and used from Python.
 ```
 
 ### From the command line
+
 ```sh
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./
 $ gopy build -output=out -vm=`which python3` github.com/go-python/gopy/_examples/hi
 $ ls out
-build.py  go.py  hi.c  hi.go  hi_go.h  hi_go.so  hi.py  _hi.so*  __init__.py  Makefile
+Makefile  __init__.py  __pycache__/  _hi.so*  build.py  go.py  hi.c  hi.go  hi.py  hi_go.h  hi_go.so  patch-leaks.go
+```
 
+Note: the above may fail with link errors!  If so, go into the directory and use the auto-generated makefile:
+
+```sh
 $ cd out
-$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./
+$ make
+```
+
+Once you get a clean build with no link errors, you can run it like this:
+
+```sh
+$ cd out
 $ python3
 >>> import hi
 >>> dir(hi)
