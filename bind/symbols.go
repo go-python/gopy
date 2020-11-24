@@ -564,6 +564,10 @@ func (sym *symtab) addSymbol(obj types.Object) error {
 		}
 
 	case *types.TypeName:
+		// tn := obj.(*types.TypeName)
+		// if tn.IsAlias() {
+		// 	fmt.Printf("type is an alias: %v\n", tn)
+		// }
 		return sym.addType(obj, obj.Type())
 
 	default:

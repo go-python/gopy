@@ -120,44 +120,44 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 	}
 
 	for _, path := range args {
-		var rootdir string
-		var err error
-		if strings.HasPrefix(path, "./") {
-			rootdir = path
-		} else {
-			rootdir, err = GoSrcDir(path)
-		}
-		if err != nil {
-			return err
-		}
-		buildPkgRecurse(odir, path, rootdir, rootdir, exmap)
+		buildPkgRecurse(odir, path, path, exmap)
 	}
 	return runBuild(bind.ModePkg, odir, name, cmdstr, vm, mainstr, symbols)
 }
 
-func buildPkgRecurse(odir, path, rootdir, pathdir string, exmap map[string]struct{}) {
-	reldir, _ := filepath.Rel(rootdir, pathdir)
-	gofiles := GoFiles(pathdir)
-	// fmt.Printf("go files: %s\n", gofiles)
+func buildPkgRecurse(odir, path, rootpath string, exmap map[string]struct{}) error {
+	buildFirst := path == rootpath
+	bpkg, err := loadPackage(path, buildFirst)
+	if err != nil {
+		return fmt.Errorf("gopy-gen: go build / load of package failed with path=%q: %v", path, err)
+	}
+	gofiles := bpkg.GoFiles
 	if len(gofiles) == 0 || (len(gofiles) == 1 && gofiles[0] == "doc.go") {
-		fmt.Printf("\tskipping dir with no go files or only doc.go file: %s -- %s\n", pathdir, gofiles)
-	} else {
-		if reldir == "" {
-			newPackage(path)
-		} else {
-			pkgpath := path + "/" + reldir
-			newPackage(pkgpath)
+		fmt.Printf("\tskipping dir with no go files or only doc.go file: %s -- %s\n", path, gofiles)
+		if len(gofiles) == 0 {
+			// fmt.Printf("otherfiles: %v\nignorefiles: %v\n", bpkg.OtherFiles, bpkg.IgnoredFiles)
+			if len(bpkg.OtherFiles) > 0 {
+				gofiles = bpkg.OtherFiles
+			} else if len(bpkg.IgnoredFiles) > 0 {
+				gofiles = bpkg.IgnoredFiles
+			} else {
+				return nil // done
+			}
 		}
+	} else {
+		parsePackage(bpkg)
 	}
 
 	//	now try all subdirs
-	drs := Dirs(pathdir)
+	dir, _ := filepath.Split(gofiles[0])
+	drs := Dirs(dir)
 	for _, dr := range drs {
 		_, ex := exmap[dr]
 		if ex || dr[0] == '.' || dr[0] == '_' {
 			continue
 		}
-		sp := filepath.Join(pathdir, dr)
-		buildPkgRecurse(odir, path, rootdir, sp, exmap)
+		sp := filepath.Join(path, dr)
+		buildPkgRecurse(odir, sp, rootpath, exmap)
 	}
+	return nil
 }

@@ -66,12 +66,16 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 	cmdstr := argStr()
 
 	for _, path := range args {
-		pkg, err := newPackage(path)
+		bpkg, err := loadPackage(path, true) // build first
 		if err != nil {
-			return fmt.Errorf("gopy-build: go/build.Import failed with path=%q: %v", path, err)
+			return fmt.Errorf("gopy-gen: go build / load of package failed with path=%q: %v", path, err)
 		}
+		pkg, err := parsePackage(bpkg)
 		if name == "" {
 			name = pkg.Name()
+		}
+		if err != nil {
+			return err
 		}
 	}
 	return runBuild("build", odir, name, cmdstr, vm, mainstr, symbols)

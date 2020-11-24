@@ -122,17 +122,7 @@ func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 	}
 
 	for _, path := range args {
-		var rootdir string
-		var err error
-		if strings.HasPrefix(path, "./") {
-			rootdir = path
-		} else {
-			rootdir, err = GoSrcDir(path)
-		}
-		if err != nil {
-			return err
-		}
-		buildPkgRecurse(odir, path, rootdir, rootdir, exmap)
+		buildPkgRecurse(odir, path, path, exmap)
 	}
 	return runBuild(bind.ModeExe, odir, name, cmdstr, vm, mainstr, symbols)
 }

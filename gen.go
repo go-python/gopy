@@ -85,28 +85,30 @@ func genPkg(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string) erro
 	return err
 }
 
-func newPackage(path string) (*bind.Package, error) {
+func loadPackage(path string, buildFirst bool) (*packages.Package, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
 
-	cmd := exec.Command("go", "install", path)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Dir = cwd
+	if buildFirst {
+		cmd := exec.Command("go", "build", "-v", path)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Dir = cwd
 
-	err = cmd.Run()
-	if err != nil {
-		log.Printf("error installing [%s]: %v\n",
-			path,
-			err,
-		)
-		return nil, err
+		err = cmd.Run()
+		if err != nil {
+			log.Printf("error building [%s]: %v\n",
+				path,
+				err,
+			)
+			return nil, err
+		}
 	}
 
-	// golang.org/x/tools/go/packages supports loading of std library packages too
+	// golang.org/x/tools/go/packages supports modules or GOPATH etc
 	bpkgs, err := packages.Load(&packages.Config{Mode: packages.LoadTypes}, path)
 	if err != nil {
 		log.Printf("error resolving import path [%s]: %v\n",
@@ -117,11 +119,15 @@ func newPackage(path string) (*bind.Package, error) {
 	}
 
 	bpkg := bpkgs[0] // only ever have one at a time
+	return bpkg, nil
+}
+
+func parsePackage(bpkg *packages.Package) (*bind.Package, error) {
 	dir, _ := filepath.Split(bpkg.GoFiles[0])
 	p := bpkg.Types
 
 	if bpkg.Name == "main" {
-		err = fmt.Errorf("gopy: skipping 'main' package %q", bpkg.PkgPath)
+		err := fmt.Errorf("gopy: skipping 'main' package %q", bpkg.PkgPath)
 		fmt.Println(err)
 		return nil, err
 	}
