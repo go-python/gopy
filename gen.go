@@ -100,11 +100,10 @@ func loadPackage(path string, buildFirst bool) (*packages.Package, error) {
 
 		err = cmd.Run()
 		if err != nil {
-			log.Printf("error building [%s]: %v\n",
+			log.Printf("Note: there was an error building [%s] -- will continue but it may fail later: %v\n",
 				path,
 				err,
 			)
-			return nil, err
 		}
 	}
 
