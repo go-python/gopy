@@ -132,8 +132,12 @@ func buildPkgRecurse(odir, path, rootpath string, exmap map[string]struct{}) err
 		return fmt.Errorf("gopy-gen: go build / load of package failed with path=%q: %v", path, err)
 	}
 	gofiles := bpkg.GoFiles
-	if len(gofiles) == 0 || (len(gofiles) == 1 && gofiles[0] == "doc.go") {
-		fmt.Printf("\tskipping dir with no go files or only doc.go file: %s -- %s\n", path, gofiles)
+	onego := ""
+	if len(gofiles) == 1 {
+		_, onego = filepath.Split(gofiles[0])
+	}
+	if len(gofiles) == 0 || (len(gofiles) == 1 && onego == "doc.go") {
+		fmt.Printf("\n--- skipping dir with no go files or only doc.go: %s -- %s\n", path, gofiles)
 		if len(gofiles) == 0 {
 			// fmt.Printf("otherfiles: %v\nignorefiles: %v\n", bpkg.OtherFiles, bpkg.IgnoredFiles)
 			if len(bpkg.OtherFiles) > 0 {
@@ -145,6 +149,7 @@ func buildPkgRecurse(odir, path, rootpath string, exmap map[string]struct{}) err
 			}
 		}
 	} else {
+		// fmt.Printf("gofiles: %s\n", gofiles)
 		parsePackage(bpkg)
 	}
 
