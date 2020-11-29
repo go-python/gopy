@@ -7,7 +7,7 @@ gopy
 
 `gopy` generates (and compiles) a `CPython` extension module from a `go` package.
 
-This is a newly-improved version that works with current (e.g., 1.12) versions of Go, and uses unique int64 handles to interface with python, so that no pointers are interchanged, making everything safe for the more recent moving garbage collector.
+This is an improved version that works with current versions of Go (e.g., 1.15 -- should work with any future version going forward), and uses unique int64 handles to interface with python, so that no pointers are interchanged, making everything safe for the more recent moving garbage collector.
 
 It also supports python modules having any number of Go packages, and generates a separate .py module file for each package, which link into a single common binding library.  It has been tested extensively on reproducing complex Go code in large libraries -- most stuff "just works".  For example, the [GoGi](https://github.com/goki/gi) GUI library is fully usable from python now (do `make; make install` in the python directory there, and try the `examples/widgets/widgets.py` demo).
 
@@ -224,10 +224,6 @@ $ docker run -it --rm go-python/gopy
 
 To know what features are supported on what backends, please refer to the
 [Support matrix ](https://github.com/go-python/gopy/blob/master/SUPPORT_MATRIX.md).
-
-## Limitations
-
-- Windows completely untested, likely needs something special.
 
 ## Contribute
 
