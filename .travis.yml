@@ -30,8 +30,8 @@ before_install:
    # pypy3 isn't packaged in ubuntu yet.
    - TEMPDIR=$(mktemp -d)
    - export PYPYVERSION=v7.1.1
-   - curl -L https://downloads.python.org/pypy/pypy2.7-${PYPYVERSION-linux64.tar.bz2 --output $TEMPDIR/pypy2.tar.bz2
-   - curl -L https://downloads.python.org/pypy/pypy3.6-${PYPYVERSION-linux64.tar.bz2 --output $TEMPDIR/pypy3.tar.bz2
+   - curl -L https://downloads.python.org/pypy/pypy2.7-${PYPYVERSION}-linux64.tar.bz2 --output $TEMPDIR/pypy2.tar.bz2
+   - curl -L https://downloads.python.org/pypy/pypy3.6-${PYPYVERSION}-linux64.tar.bz2 --output $TEMPDIR/pypy3.tar.bz2
    - tar xf $TEMPDIR/pypy2.tar.bz2 -C $TEMPDIR
    - tar xf $TEMPDIR/pypy3.tar.bz2 -C $TEMPDIR
    - sudo ln -s $TEMPDIR/pypy2.7-$PYPYVERSION-linux64/bin/pypy  /usr/local/bin/pypy

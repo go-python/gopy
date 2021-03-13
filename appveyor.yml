@@ -19,7 +19,7 @@ environment:
   #PATH: '%GOPATH%\bin;%CPYTHON2DIR%;%CPYTHON2DIR%\\Scripts;%CPYTHON3DIR%;%CPYTHON3DIR%\\Scripts;C:\msys64\mingw64\bin;C:\msys64\usr\bin\;%PATH%'
   PATH: '%GOPATH%\bin;%CPYTHON3DIR%;%CPYTHON3DIR%\\Scripts;C:\msys64\mingw64\bin;C:\msys64\usr\bin\;%PATH%'
 
-stack: go 1.16
+stack: go 1.15
 
 build_script:
   - python --version
@@ -31,6 +31,7 @@ build_script:
   - "%CPYTHON3DIR%\\python -m pip install cffi"
     #- "%CPYTHON2DIR%\\python -m pip install pybindgen"
   - "%CPYTHON3DIR%\\python -m pip install pybindgen"
+  - go version
   - go get -v -t ./...
 
 test_script:
