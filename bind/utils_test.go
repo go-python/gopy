@@ -75,7 +75,7 @@ func TestPythonConfig(t *testing.T) {
 
 	for _, tc := range []struct {
 		vm   string
-		want pyconfig
+		want PyConfig
 	}{
 		{
 			vm: "python2",

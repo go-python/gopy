@@ -5,7 +5,7 @@
 // package rename tests changing the names of methods and functions
 package rename
 
-//gopy:name say_hi
+// gopy:name say_hi
 func SayHi() string {
 	return "hi"
 }
@@ -13,7 +13,7 @@ func SayHi() string {
 type MyStruct struct {
 }
 
-//gopy:name say_something
+// gopy:name say_something
 func (s *MyStruct) SaySomething() (something string) {
 	return "something"
 }
