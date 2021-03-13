@@ -250,7 +250,6 @@ os.chdir(cwd)
 # %[2]s
 
 import _%[1]s, collections
-from enum import Enum
 
 # to use this code in your end-user python file, import it as follows:
 # from %[1]s import %[3]s
@@ -776,6 +775,10 @@ func (g *pyGen) genAll() {
 	}
 
 	g.pywrap.Printf("\n\n#---- Enums from Go (collections of consts with same type) ---\n")
+	// conditionally add Enum support because it is an external dependency in py2
+	if len(g.pkg.enums) > 0 {
+		g.pywrap.Printf("from enum import Enum\n\n")
+	}
 	for _, e := range g.pkg.enums {
 		g.genEnum(e)
 	}
