@@ -1,3 +1,5 @@
+image: Previous Visual Studio 2019
+
 build: off
 
 clone_folder: c:\gopath\src\github.com\go-python\gopy
@@ -23,7 +25,6 @@ environment:
 stack: go 1.15
 
 build_script:
-  - echo %PATH%
   - python --version
     #- "%CPYTHON2DIR%\\python --version"
   - "%CPYTHON3DIR%\\python --version"
