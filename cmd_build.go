@@ -230,7 +230,7 @@ func runBuild(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string, sy
 		modlib := "_" + outname + extext
 		gccargs := []string{outname + ".c", extraGccArgs, outname + "_go" + libExt, "-o", modlib}
 		gccargs = append(gccargs, strings.Fields(pycfg.AllFlags())...)
-		gccargs = append(gccargs, "-fPIC", "--shared", "-Ofast")
+		gccargs = append(gccargs, "-Wl,-rpath=.", "-fPIC", "--shared", "-Ofast")
 		if !symbols {
 			gccargs = append(gccargs, "-s")
 		}
