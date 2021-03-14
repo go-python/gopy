@@ -34,7 +34,7 @@ func (g *pyGen) genVar(v *Var) {
 
 func (g *pyGen) genVarGetter(v *Var) {
 	gopkg := g.pkg.Name()
-	pkgname := g.outname
+	pkgname := g.cfg.Name
 	cgoFn := v.Name() // plain name is the getter
 	qCgoFn := gopkg + "_" + cgoFn
 	qFn := "_" + pkgname + "." + qCgoFn
@@ -74,7 +74,7 @@ func (g *pyGen) genVarGetter(v *Var) {
 
 func (g *pyGen) genVarSetter(v *Var) {
 	gopkg := g.pkg.Name()
-	pkgname := g.outname
+	pkgname := g.cfg.Name
 	cgoFn := fmt.Sprintf("Set_%s", v.Name())
 	qCgoFn := gopkg + "_" + cgoFn
 	qFn := "_" + pkgname + "." + qCgoFn

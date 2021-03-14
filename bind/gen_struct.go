@@ -36,7 +36,7 @@ class %[1]s(%[4]s):
 }
 
 func (g *pyGen) genStructInit(s *Struct) {
-	pkgname := g.outname
+	pkgname := g.cfg.Name
 	qNm := s.GoName()
 	// strNm := s.obj.Name()
 
@@ -176,7 +176,7 @@ func (g *pyGen) genStructMembers(s *Struct) {
 }
 
 func (g *pyGen) genStructMemberGetter(s *Struct, i int, f types.Object) {
-	pkgname := g.outname
+	pkgname := g.cfg.Name
 	ft := f.Type()
 	ret := current.symtype(ft)
 	if ret == nil {
@@ -217,7 +217,7 @@ func (g *pyGen) genStructMemberGetter(s *Struct, i int, f types.Object) {
 }
 
 func (g *pyGen) genStructMemberSetter(s *Struct, i int, f types.Object) {
-	pkgname := g.outname
+	pkgname := g.cfg.Name
 	ft := f.Type()
 	ret := current.symtype(ft)
 	if ret == nil {
