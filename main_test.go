@@ -52,6 +52,11 @@ var (
 	testEnvironment = os.Environ()
 )
 
+func init() {
+	os.Setenv("GOFLAGS", "-mod=mod")
+	testEnvironment = append(testEnvironment, "GOFLAGS=-mod=mod")
+}
+
 func TestGovet(t *testing.T) {
 	cmd := exec.Command("go", "vet", "./...")
 	buf := new(bytes.Buffer)

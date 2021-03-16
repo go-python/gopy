@@ -1,3 +1,5 @@
+image: Previous Visual Studio 2019
+
 build: off
 
 clone_folder: c:\gopath\src\github.com\go-python\gopy
@@ -11,15 +13,16 @@ branches:
     - master
 
 environment:
-  GOPATH: c:\gopath
+  GOPATH: C:\gopath
+  GOROOT: C:\go115
   GOPY_APPVEYOR_CI: '1'
   GOTRACEBACK: 'crash'
   #CPYTHON2DIR: "C:\\Python27-x64"
   CPYTHON3DIR: "C:\\Python37-x64"
   #PATH: '%GOPATH%\bin;%CPYTHON2DIR%;%CPYTHON2DIR%\\Scripts;%CPYTHON3DIR%;%CPYTHON3DIR%\\Scripts;C:\msys64\mingw64\bin;C:\msys64\usr\bin\;%PATH%'
-  PATH: '%GOPATH%\bin;%CPYTHON3DIR%;%CPYTHON3DIR%\\Scripts;C:\msys64\mingw64\bin;C:\msys64\usr\bin\;%PATH%'
+  PATH: '%GOPATH%\bin;%GOROOT%\bin;%CPYTHON3DIR%;%CPYTHON3DIR%\\Scripts;C:\msys64\mingw64\bin;C:\msys64\usr\bin\;%PATH%'
 
-stack: go 1.13
+stack: go 1.15
 
 build_script:
   - python --version
@@ -31,6 +34,8 @@ build_script:
   - "%CPYTHON3DIR%\\python -m pip install cffi"
     #- "%CPYTHON2DIR%\\python -m pip install pybindgen"
   - "%CPYTHON3DIR%\\python -m pip install pybindgen"
+  - go version
+  - go env
   - go get -v -t ./...
 
 test_script:

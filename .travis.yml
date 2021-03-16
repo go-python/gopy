@@ -1,9 +1,8 @@
 language: go
 
 go:
-  - 1.13.x
-  - 1.12.x
-  - 1.11.x
+  - 1.16.x
+  - 1.15.x
   - master
 
 cache:
@@ -31,8 +30,8 @@ before_install:
    # pypy3 isn't packaged in ubuntu yet.
    - TEMPDIR=$(mktemp -d)
    - export PYPYVERSION=v7.1.1
-   - curl -L https://bitbucket.org/pypy/pypy/downloads/pypy2.7-${PYPYVERSION}-linux64.tar.bz2 --output $TEMPDIR/pypy2.tar.bz2
-   - curl -L https://bitbucket.org/pypy/pypy/downloads/pypy3.6-${PYPYVERSION}-linux64.tar.bz2 --output $TEMPDIR/pypy3.tar.bz2
+   - curl -L https://downloads.python.org/pypy/pypy2.7-${PYPYVERSION}-linux64.tar.bz2 --output $TEMPDIR/pypy2.tar.bz2
+   - curl -L https://downloads.python.org/pypy/pypy3.6-${PYPYVERSION}-linux64.tar.bz2 --output $TEMPDIR/pypy3.tar.bz2
    - tar xf $TEMPDIR/pypy2.tar.bz2 -C $TEMPDIR
    - tar xf $TEMPDIR/pypy3.tar.bz2 -C $TEMPDIR
    - sudo ln -s $TEMPDIR/pypy2.7-$PYPYVERSION-linux64/bin/pypy  /usr/local/bin/pypy
