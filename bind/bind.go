@@ -16,7 +16,7 @@ import (
 type BindCfg struct {
 	// output directory for bindings
 	OutputDir string
-	// "name of output package (otherwise name of first package is used)
+	// name of output package (otherwise name of first package is used)
 	Name string
 	// code string to run in the go main() function in the cgo library
 	Main string
