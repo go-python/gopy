@@ -7,7 +7,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -16,8 +15,6 @@ import (
 
 func init() {
 
-	// ld needs to look into the current directory to load the _go.so library
-	os.Setenv("LD_LIBRARY_PATH", fmt.Sprintf("%s:.", os.Getenv("LD_LIBRARY_PATH")))
 	testEnvironment = os.Environ()
 
 	var (

@@ -232,6 +232,9 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		gccargs := []string{cfg.Name + ".c", extraGccArgs, cfg.Name + "_go" + libExt, "-o", modlib}
 		gccargs = append(gccargs, strings.Fields(pycfg.AllFlags())...)
 		gccargs = append(gccargs, "-fPIC", "--shared", "-Ofast")
+		if runtime.GOOS != "windows" {
+			gccargs = append(gccargs, "-Wl,-rpath=$ORIGIN")
+		}
 		if !cfg.Symbols {
 			gccargs = append(gccargs, "-s")
 		}
