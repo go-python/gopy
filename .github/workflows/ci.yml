@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  TAGS: "-tags=ci"
+  COVERAGE: "-coverpkg=github.com/go-python/gopy/..."
+  # Init() in main_test will make sure all backends are available if
+  # GOPY_TRAVIS_CI is set
+  GOPY_TRAVIS_CI: 1
+  GOTRACEBACK: crash
+  PYPYVERSION: "v7.1.1"
+  GO111MODULE: auto
+
+jobs:
+
+  build:
+    name: Build
+    strategy:
+      matrix:
+        go-version: [1.16.x, 1.15.x]
+        platform: [ubuntu-latest]
+        #platform: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go-version }}
+ 
+    - name: Cache-Go
+      uses: actions/cache@v1
+      with:
+        path: |
+            ~/go/pkg/mod              # Module download cache
+            ~/.cache/go-build         # Build cache (Linux)
+            ~/Library/Caches/go-build # Build cache (Mac)
+            '%LocalAppData%\go-build' # Build cache (Windows)
+
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+ 
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Install Linux packages
+      if: matrix.platform == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install curl libffi-dev python-cffi python3-cffi python3-pip
+        # pypy3 isn't packaged in ubuntu yet.
+        TEMPDIR=$(mktemp -d)
+        curl -L https://downloads.python.org/pypy/pypy2.7-${PYPYVERSION}-linux64.tar.bz2 --output $TEMPDIR/pypy2.tar.bz2
+        curl -L https://downloads.python.org/pypy/pypy3.6-${PYPYVERSION}-linux64.tar.bz2 --output $TEMPDIR/pypy3.tar.bz2
+        tar xf $TEMPDIR/pypy2.tar.bz2 -C $TEMPDIR
+        tar xf $TEMPDIR/pypy3.tar.bz2 -C $TEMPDIR
+        sudo ln -s $TEMPDIR/pypy2.7-$PYPYVERSION-linux64/bin/pypy  /usr/local/bin/pypy
+        sudo ln -s $TEMPDIR/pypy3.6-$PYPYVERSION-linux64/bin/pypy3 /usr/local/bin/pypy3
+        # install pip (for pypy, python2)
+        curl -L https://bootstrap.pypa.io/pip/2.7/get-pip.py --output ${TEMPDIR}/get-pip2.py
+        python2 ${TEMPDIR}/get-pip2.py
+        # curl -L https://bootstrap.pypa.io/get-pip.py --output ${TEMPDIR}/get-pip.py
+        # pypy ${TEMPDIR}/get-pip.py
+        # pypy3 ${TEMPDIR}/get-pip.py
+
+        # install pybindgen
+        python2 -m pip install --user -U pybindgen
+        python3 -m pip install --user -U pybindgen
+        # pypy  -m pip install --user -U pybindgen
+        # pypy3 -m pip install --user -U pybindgen
+
+        # install goimports
+        go get golang.org/x/tools/cmd/goimports
+
+ 
+    - name: Build-Linux
+      if: matrix.platform == 'ubuntu-latest'
+      run: |
+        make
+    - name: Test Linux
+      if: matrix.platform == 'ubuntu-latest'
+      run: |
+        make test
+    - name: Upload-Coverage
+      if: matrix.platform == 'ubuntu-latest'
+      uses: codecov/codecov-action@v1
