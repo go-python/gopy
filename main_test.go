@@ -972,7 +972,7 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 		tstDir = filepath.Join(workdir, pkgNm)
 	}
 	if table.testdir != "" {
-		tstDir = table.testdir
+		tstDir = filepath.Join(workdir, table.testdir)
 	}
 	tstSrc := filepath.Join(filepath.Join(cwd, table.path), "test.py")
 	tstDst := filepath.Join(tstDir, "test.py")
