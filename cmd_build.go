@@ -13,9 +13,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/go-python/gopy/bind"
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
+
+	"github.com/go-python/gopy/bind"
 )
 
 func gopyMakeCmdBuild() *commander.Command {
@@ -37,6 +38,8 @@ ex:
 	cmd.Flag.String("output", "", "output directory for bindings")
 	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
 	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library")
+	cmd.Flag.String("package-prefix", ".", "custom package prefix used when generating import "+
+		"statements for generated package")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
 	cmd.Flag.Bool("no-make", false, "do not generate a Makefile, e.g., when called from Makefile")
@@ -50,20 +53,18 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 		return err
 	}
 
-	var (
-		odir    = cmdr.Flag.Lookup("output").Value.Get().(string)
-		name    = cmdr.Flag.Lookup("name").Value.Get().(string)
-		mainstr = cmdr.Flag.Lookup("main").Value.Get().(string)
-		vm      = cmdr.Flag.Lookup("vm").Value.Get().(string)
-		symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
-		nowarn  = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
-		nomake  = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
-	)
+	cfg := NewBuildCfg()
+	cfg.OutputDir = cmdr.Flag.Lookup("output").Value.Get().(string)
+	cfg.Name = cmdr.Flag.Lookup("name").Value.Get().(string)
+	cfg.Main = cmdr.Flag.Lookup("main").Value.Get().(string)
+	cfg.VM = cmdr.Flag.Lookup("vm").Value.Get().(string)
+	cfg.PkgPrefix = cmdr.Flag.Lookup("package-prefix").Value.Get().(string)
+	cfg.Symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
+	cfg.NoWarn = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
+	cfg.NoMake = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
 
-	bind.NoWarn = nowarn
-	bind.NoMake = nomake
-
-	cmdstr := argStr()
+	bind.NoWarn = cfg.NoWarn
+	bind.NoMake = cfg.NoMake
 
 	for _, path := range args {
 		bpkg, err := loadPackage(path, true) // build first
@@ -71,14 +72,14 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 			return fmt.Errorf("gopy-gen: go build / load of package failed with path=%q: %v", path, err)
 		}
 		pkg, err := parsePackage(bpkg)
-		if name == "" {
-			name = pkg.Name()
+		if cfg.Name == "" {
+			cfg.Name = pkg.Name()
 		}
 		if err != nil {
 			return err
 		}
 	}
-	return runBuild("build", odir, name, cmdstr, vm, mainstr, symbols)
+	return runBuild("build", cfg)
 }
 
 func patchLeaks(cfile string) error {
@@ -95,44 +96,44 @@ func patchLeaks(cfile string) error {
 // runBuild calls genPkg and then executes commands to build the resulting files
 // exe = executable mode to build an executable instead of a library
 // mode = gen, build, pkg, exe
-func runBuild(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string, symbols bool) error {
+func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 	var err error
-	odir, err = genOutDir(odir)
+	cfg.OutputDir, err = genOutDir(cfg.OutputDir)
 	if err != nil {
 		return err
 	}
-	err = genPkg(mode, odir, outname, cmdstr, vm, mainstr)
+	err = genPkg(mode, cfg)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("\n--- building package ---\n%s\n", cmdstr)
+	fmt.Printf("\n--- building package ---\n%s\n", cfg.Cmd)
 
-	buildname := outname + "_go"
+	buildname := cfg.Name + "_go"
 	var cmdout []byte
 	cwd, err := os.Getwd()
-	os.Chdir(odir)
+	os.Chdir(cfg.OutputDir)
 	defer os.Chdir(cwd)
 
-	os.Remove(outname + ".c") // may fail, we don't care
+	os.Remove(cfg.Name + ".c") // may fail, we don't care
 
-	fmt.Printf("goimports -w %v\n", outname+".go")
-	cmd := exec.Command("goimports", "-w", outname+".go")
+	fmt.Printf("goimports -w %v\n", cfg.Name+".go")
+	cmd := exec.Command("goimports", "-w", cfg.Name+".go")
 	cmdout, err = cmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
 		return err
 	}
 
-	pycfg, err := bind.GetPythonConfig(vm)
+	pycfg, err := bind.GetPythonConfig(cfg.VM)
 
 	if mode == bind.ModeExe {
 		of, err := os.Create(buildname + ".h") // overwrite existing
 		fmt.Fprintf(of, "typedef uint8_t bool;\n")
 		of.Close()
 
-		fmt.Printf("%v build.py   # will fail, but needed to generate .c file\n", vm)
-		cmd = exec.Command(vm, "build.py")
+		fmt.Printf("%v build.py   # will fail, but needed to generate .c file\n", cfg.VM)
+		cmd = exec.Command(cfg.VM, "build.py")
 		cmd.Run() // will fail, we don't care about errors
 
 		args := []string{"build", "-buildmode=c-shared", "-o", buildname + libExt, "."}
@@ -144,22 +145,22 @@ func runBuild(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string, sy
 			return err
 		}
 
-		fmt.Printf("%v build.py   # should work this time\n", vm)
-		cmd = exec.Command(vm, "build.py")
+		fmt.Printf("%v build.py   # should work this time\n", cfg.VM)
+		cmd = exec.Command(cfg.VM, "build.py")
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
 			return err
 		}
 
-		if err := patchLeaks(outname + ".c"); err != nil {
+		if err := patchLeaks(cfg.Name + ".c"); err != nil {
 			return err
 		}
 
-		err = os.Remove(outname + "_go" + libExt)
+		err = os.Remove(cfg.Name + "_go" + libExt)
 
-		fmt.Printf("go build -o py%s\n", outname)
-		cmd = exec.Command("go", "build", "-o", "py"+outname)
+		fmt.Printf("go build -o py%s\n", cfg.Name)
+		cmd = exec.Command("go", "build", "-o", "py"+cfg.Name)
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
@@ -168,7 +169,7 @@ func runBuild(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string, sy
 
 	} else {
 		args := []string{"build", "-buildmode=c-shared"}
-		if !symbols {
+		if !cfg.Symbols {
 			// These flags will omit the various symbol tables, thereby
 			// reducing the final size of the binary. From https://golang.org/cmd/link/
 			// -s Omit the symbol table and debug information
@@ -184,15 +185,15 @@ func runBuild(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string, sy
 			return err
 		}
 
-		fmt.Printf("%v build.py\n", vm)
-		cmd = exec.Command(vm, "build.py")
+		fmt.Printf("%v build.py\n", cfg.VM)
+		cmd = exec.Command(cfg.VM, "build.py")
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
 			return err
 		}
 
-		if err := patchLeaks(outname + ".c"); err != nil {
+		if err := patchLeaks(cfg.Name + ".c"); err != nil {
 			return err
 		}
 
@@ -227,11 +228,11 @@ func runBuild(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string, sy
 		if runtime.GOOS == "windows" {
 			extext = ".pyd"
 		}
-		modlib := "_" + outname + extext
-		gccargs := []string{outname + ".c", extraGccArgs, outname + "_go" + libExt, "-o", modlib}
+		modlib := "_" + cfg.Name + extext
+		gccargs := []string{cfg.Name + ".c", extraGccArgs, cfg.Name + "_go" + libExt, "-o", modlib}
 		gccargs = append(gccargs, strings.Fields(pycfg.AllFlags())...)
 		gccargs = append(gccargs, "-fPIC", "--shared", "-Ofast")
-		if !symbols {
+		if !cfg.Symbols {
 			gccargs = append(gccargs, "-s")
 		}
 		include, exists := os.LookupEnv("GOPY_INCLUDE")

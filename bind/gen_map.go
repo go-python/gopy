@@ -61,7 +61,7 @@ class %[2]s(%[5]sGoClass):
 }
 
 func (g *pyGen) genMapInit(slc *symbol, extTypes, pyWrapOnly bool, mpob *Map) {
-	pkgname := g.outname
+	pkgname := g.cfg.Name
 	slNm := slc.id
 	qNm := pkgname + "." + slNm
 	typ := slc.GoType().Underlying().(*types.Map)

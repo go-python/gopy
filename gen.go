@@ -16,10 +16,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/pkg/errors"
 	"golang.org/x/tools/go/packages"
 
 	"github.com/go-python/gopy/bind"
-	"github.com/pkg/errors"
 )
 
 // argStr returns the full command args as a string, without path to exe
@@ -61,24 +61,24 @@ func genOutDir(odir string) (string, error) {
 // genPkg generates output for all the current packages that have been parsed,
 // in the given output directory
 // mode = gen, build, pkg, exe
-func genPkg(mode bind.BuildMode, odir, outname, cmdstr, vm, mainstr string) error {
+func genPkg(mode bind.BuildMode, cfg *BuildCfg) error {
 	var err error
-	odir, err = genOutDir(odir)
+	cfg.OutputDir, err = genOutDir(cfg.OutputDir)
 	if err != nil {
 		return err
 	}
-	if !filepath.IsAbs(vm) {
-		vm, err = exec.LookPath(vm)
+	if !filepath.IsAbs(cfg.VM) {
+		cfg.VM, err = exec.LookPath(cfg.VM)
 		if err != nil {
 			return errors.Wrapf(err, "could not locate absolute path to python VM")
 		}
 	}
 
-	pyvers, err := getPythonVersion(vm)
+	pyvers, err := getPythonVersion(cfg.VM)
 	if err != nil {
 		return err
 	}
-	err = bind.GenPyBind(mode, odir, outname, cmdstr, vm, mainstr, libExt, extraGccArgs, pyvers)
+	err = bind.GenPyBind(mode, libExt, extraGccArgs, pyvers, &cfg.BindCfg)
 	if err != nil {
 		log.Println(err)
 	}

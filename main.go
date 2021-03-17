@@ -14,7 +14,28 @@ import (
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
 	"github.com/pkg/errors"
+
+	"github.com/go-python/gopy/bind"
 )
+
+// BuildCfg contains command options and binding generation options
+type BuildCfg struct {
+	bind.BindCfg
+
+	// include symbols in output
+	Symbols bool
+	// suppress warning messages, which may be expected
+	NoWarn bool
+	// do not generate a Makefile, e.g., when called from Makefile
+	NoMake bool
+}
+
+// NewBuildCfg returns a newly constructed build config
+func NewBuildCfg() *BuildCfg {
+	var cfg BuildCfg
+	cfg.Cmd = argStr()
+	return &cfg
+}
 
 func run(args []string) error {
 	app := &commander.Command{

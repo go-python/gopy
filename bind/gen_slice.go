@@ -62,7 +62,7 @@ class %[2]s(%[5]sGoClass):
 func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool, slob *Slice) {
 	pkgname := slc.gopkg.Name()
 	slNm := slc.id
-	qNm := g.outname + "." + slNm // this is only for referring to the _ .go package!
+	qNm := g.cfg.Name + "." + slNm // this is only for referring to the _ .go package!
 	var esym *symbol
 	if typ, ok := slc.GoType().Underlying().(*types.Slice); ok {
 		esym = current.symtype(typ.Elem())

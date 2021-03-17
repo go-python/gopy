@@ -43,7 +43,10 @@ ex:
 	cmd.Flag.String("vm", "python", "path to python interpreter")
 	cmd.Flag.String("output", "", "output directory for root of package")
 	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
-	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library -- defaults to GoPyMainRun() but typically should be overriden")
+	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library "+
+		"-- defaults to GoPyMainRun() but typically should be overriden")
+	cmd.Flag.String("package-prefix", ".", "custom package prefix used when generating import "+
+		"statements for generated package")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	cmd.Flag.String("exclude", "", "comma-separated list of package names to exclude")
 	cmd.Flag.String("user", "", "username on https://www.pypa.io/en/latest/ for package name suffix")
@@ -65,12 +68,17 @@ func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 		return err
 	}
 
+	cfg := NewBuildCfg()
+	cfg.OutputDir = cmdr.Flag.Lookup("output").Value.Get().(string)
+	cfg.Name = cmdr.Flag.Lookup("name").Value.Get().(string)
+	cfg.Main = cmdr.Flag.Lookup("main").Value.Get().(string)
+	cfg.VM = cmdr.Flag.Lookup("vm").Value.Get().(string)
+	cfg.PkgPrefix = cmdr.Flag.Lookup("package-prefix").Value.Get().(string)
+	cfg.Symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
+	cfg.NoWarn = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
+	cfg.NoMake = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
+
 	var (
-		odir    = cmdr.Flag.Lookup("output").Value.Get().(string)
-		name    = cmdr.Flag.Lookup("name").Value.Get().(string)
-		mainstr = cmdr.Flag.Lookup("main").Value.Get().(string)
-		vm      = cmdr.Flag.Lookup("vm").Value.Get().(string)
-		symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 		exclude = cmdr.Flag.Lookup("exclude").Value.Get().(string)
 		user    = cmdr.Flag.Lookup("user").Value.Get().(string)
 		version = cmdr.Flag.Lookup("version").Value.Get().(string)
@@ -78,30 +86,26 @@ func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 		email   = cmdr.Flag.Lookup("email").Value.Get().(string)
 		desc    = cmdr.Flag.Lookup("desc").Value.Get().(string)
 		url     = cmdr.Flag.Lookup("url").Value.Get().(string)
-		nowarn  = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
-		nomake  = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
 	)
 
-	cmdstr := argStr()
+	bind.NoWarn = cfg.NoWarn
+	bind.NoMake = cfg.NoMake
 
-	bind.NoWarn = nowarn
-	bind.NoMake = nomake
-
-	if name == "" {
+	if cfg.Name == "" {
 		path := args[0]
-		_, name = filepath.Split(path)
+		_, cfg.Name = filepath.Split(path)
 	}
 
 	var err error
-	odir, err = genOutDir(odir)
+	cfg.OutputDir, err = genOutDir(cfg.OutputDir)
 	if err != nil {
 		return err
 	}
 
-	setupfn := filepath.Join(odir, "setup.py")
+	setupfn := filepath.Join(cfg.OutputDir, "setup.py")
 
 	if _, err = os.Stat(setupfn); os.IsNotExist(err) {
-		err = GenPyPkgSetup(odir, name, cmdstr, user, version, author, email, desc, url, vm)
+		err = GenPyPkgSetup(cfg, user, version, author, email, desc, url)
 		if err != nil {
 			return err
 		}
@@ -115,14 +119,14 @@ func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 		exmap[ex] = struct{}{}
 	}
 
-	odir = filepath.Join(odir, name) // package must be in subdir
-	odir, err = genOutDir(odir)
+	cfg.OutputDir = filepath.Join(cfg.OutputDir, cfg.Name) // package must be in subdir
+	cfg.OutputDir, err = genOutDir(cfg.OutputDir)
 	if err != nil {
 		return err
 	}
 
 	for _, path := range args {
-		buildPkgRecurse(odir, path, path, exmap)
+		buildPkgRecurse(cfg.OutputDir, path, path, exmap)
 	}
-	return runBuild(bind.ModeExe, odir, name, cmdstr, vm, mainstr, symbols)
+	return runBuild(bind.ModeExe, cfg)
 }

@@ -12,6 +12,22 @@ import (
 	"os"
 )
 
+// BindCfg is a configuration used during binding generation
+type BindCfg struct {
+	// output directory for bindings
+	OutputDir string
+	// name of output package (otherwise name of first package is used)
+	Name string
+	// code string to run in the go main() function in the cgo library
+	Main string
+	// the full command args as a string, without path to exe
+	Cmd string
+	// path to python interpreter
+	VM string
+	// package prefix used when generating python import statements
+	PkgPrefix string
+}
+
 // ErrorList is a list of errors
 type ErrorList []error
 

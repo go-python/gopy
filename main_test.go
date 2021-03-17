@@ -756,6 +756,23 @@ OK
 	})
 }
 
+func TestPackagePrefix(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/package/mypkg"
+	testPkg(t, pkg{
+		path:      path,
+		lang:      features[path],
+		cmd:       "build",
+		outputdir: "mypkg",
+		pkgprefix: ".",
+		testdir:   ".",
+		want: []byte(`mypkg.mypkg.SayHello()...
+Hello
+OK
+`),
+	})
+}
+
 // see notes in _examples/osfile/test.py for why this doesn't work..
 // leaving here for now in case someone wants to follow-up and make it work..
 //
@@ -855,11 +872,14 @@ SUPPORT_MATRIX.md and commit the changes to SUPPORT_MATRIX.md onto git.
 }
 
 type pkg struct {
-	path   string
-	lang   []string
-	cmd    string
-	extras []string
-	want   []byte
+	path      string
+	lang      []string
+	cmd       string
+	outputdir string
+	pkgprefix string
+	testdir   string
+	extras    []string
+	want      []byte
 }
 
 func testPkg(t *testing.T, table pkg) {
@@ -912,25 +932,34 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	if err != nil {
 		t.Fatalf("[%s:%s]: could not create workdir: %v\n", pyvm, table.path, err)
 	}
-	fmt.Printf("pyvm: %s making work dir: %s\n", pyvm, workdir)
-	err = os.MkdirAll(workdir, 0644)
-	if err != nil {
-		t.Fatalf("[%s:%s]: could not create workdir: %v\n", pyvm, table.path, err)
+	genPkgDir := workdir
+	if table.outputdir != "" {
+		genPkgDir = filepath.Join(workdir, table.outputdir)
+		fmt.Printf("pyvm: %s making temp output dir: %s\n", pyvm, genPkgDir)
+		err = os.MkdirAll(genPkgDir, 0700)
+		if err != nil {
+			t.Fatalf("[%s:%s]: could not create temp output dir: %v\n", pyvm, table.path, err)
+		}
 	}
 	defer os.RemoveAll(workdir)
 	defer bind.ResetPackages()
 
-	writeGoMod(t, cwd, workdir)
+	env := make([]string, len(testEnvironment))
+	copy(env, testEnvironment)
+	env = append(env, fmt.Sprintf("PYTHONPATH=%s", workdir))
+
+	writeGoMod(t, cwd, genPkgDir)
 
 	// fmt.Printf("building in work dir: %s\n", workdir)
 	fpath := "./" + table.path
 	if table.cmd != "build" { // non-build cases end up inside the working dir -- need a global import path
 		fpath = filepath.Join(curPkgPath, table.path)
 	}
-	args := []string{table.cmd, "-vm=" + pyvm, "-output=" + workdir, fpath}
+	args := []string{table.cmd, "-vm=" + pyvm, "-output=" + genPkgDir, "-package-prefix", table.pkgprefix}
 	if table.extras != nil {
 		args = append(args, table.extras...)
 	}
+	args = append(args, fpath)
 	fmt.Printf("run cmd: %s\n", args)
 	err = run(args)
 	if err != nil {
@@ -938,9 +967,12 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	}
 
 	// fmt.Printf("copying test.py\n")
-	tstDir := workdir
+	tstDir := genPkgDir
 	if table.cmd != "build" {
 		tstDir = filepath.Join(workdir, pkgNm)
+	}
+	if table.testdir != "" {
+		tstDir = table.testdir
 	}
 	tstSrc := filepath.Join(filepath.Join(cwd, table.path), "test.py")
 	tstDst := filepath.Join(tstDir, "test.py")
@@ -951,7 +983,7 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 
 	fmt.Printf("running %s test.py\n", pyvm)
 	cmd := exec.Command(pyvm, "./test.py")
-	cmd.Env = testEnvironment
+	cmd.Env = env
 	cmd.Dir = tstDir
 	cmd.Stdin = os.Stdin
 	buf, err := cmd.CombinedOutput()

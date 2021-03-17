@@ -32,6 +32,8 @@ ex:
 	cmd.Flag.String("output", "", "output directory for bindings")
 	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
 	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library")
+	cmd.Flag.String("package-prefix", ".", "custom package prefix used when generating import "+
+		"statements for generated package")
 	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
 	cmd.Flag.Bool("no-make", false, "do not generate a Makefile, e.g., when called from Makefile")
 	return cmd
@@ -46,23 +48,21 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 		return err
 	}
 
-	cmdstr := argStr()
+	cfg := NewBuildCfg()
+	cfg.OutputDir = cmdr.Flag.Lookup("output").Value.Get().(string)
+	cfg.VM = cmdr.Flag.Lookup("vm").Value.Get().(string)
+	cfg.Name = cmdr.Flag.Lookup("name").Value.Get().(string)
+	cfg.Main = cmdr.Flag.Lookup("main").Value.Get().(string)
+	cfg.PkgPrefix = cmdr.Flag.Lookup("package-prefix").Value.Get().(string)
+	cfg.NoWarn = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
+	cfg.NoMake = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
 
-	var (
-		odir    = cmdr.Flag.Lookup("output").Value.Get().(string)
-		vm      = cmdr.Flag.Lookup("vm").Value.Get().(string)
-		name    = cmdr.Flag.Lookup("name").Value.Get().(string)
-		mainstr = cmdr.Flag.Lookup("main").Value.Get().(string)
-		nowarn  = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
-		nomake  = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
-	)
-
-	if vm == "" {
-		vm = "python"
+	if cfg.VM == "" {
+		cfg.VM = "python"
 	}
 
-	bind.NoWarn = nowarn
-	bind.NoMake = nomake
+	bind.NoWarn = cfg.NoWarn
+	bind.NoMake = cfg.NoMake
 
 	for _, path := range args {
 		bpkg, err := loadPackage(path, true) // build first
@@ -70,15 +70,15 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 			return fmt.Errorf("gopy-gen: go build / load of package failed with path=%q: %v", path, err)
 		}
 		pkg, err := parsePackage(bpkg)
-		if name == "" {
-			name = pkg.Name()
+		if cfg.Name == "" {
+			cfg.Name = pkg.Name()
 		}
 		if err != nil {
 			return err
 		}
 	}
 
-	err = genPkg(bind.ModeGen, odir, name, cmdstr, vm, mainstr)
+	err = genPkg(bind.ModeGen, cfg)
 	if err != nil {
 		return err
 	}

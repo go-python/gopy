@@ -240,7 +240,7 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 		}
 	}
 
-	pkgname := g.outname
+	pkgname := g.cfg.Name
 
 	_, gdoc, _ := extractPythonName(fsym.GoName(), fsym.Doc())
 	ifchandle, gdoc := isIfaceHandle(gdoc)

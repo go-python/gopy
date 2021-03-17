@@ -113,50 +113,50 @@ install-exe:
 )
 
 // GenPyPkgSetup generates python package setup files
-func GenPyPkgSetup(odir, pkgname, cmdstr, user, version, author, email, desc, url, vm string) error {
-	os.Chdir(odir)
+func GenPyPkgSetup(cfg *BuildCfg, user, version, author, email, desc, url string) error {
+	os.Chdir(cfg.OutputDir)
 
 	dashUser := user
 	if user != "" {
 		dashUser = "-" + user
 	}
 
-	sf, err := os.Create(filepath.Join(odir, "setup.py"))
+	sf, err := os.Create(filepath.Join(cfg.OutputDir, "setup.py"))
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(sf, setupTempl, pkgname, dashUser, version, author, email, desc, url)
+	fmt.Fprintf(sf, setupTempl, cfg.Name, dashUser, version, author, email, desc, url)
 	sf.Close()
 
-	mi, err := os.Create(filepath.Join(odir, "MANIFEST.in"))
+	mi, err := os.Create(filepath.Join(cfg.OutputDir, "MANIFEST.in"))
 	if err != nil {
 		return err
 	}
 	fmt.Fprintf(mi, manifestTempl)
 	mi.Close()
 
-	lf, err := os.Create(filepath.Join(odir, "LICENSE"))
+	lf, err := os.Create(filepath.Join(cfg.OutputDir, "LICENSE"))
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(lf, bsdLicense, pkgname)
+	fmt.Fprintf(lf, bsdLicense, cfg.Name)
 	lf.Close()
 
-	rf, err := os.Create(filepath.Join(odir, "README.md"))
+	rf, err := os.Create(filepath.Join(cfg.OutputDir, "README.md"))
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(rf, readmeTempl, pkgname, desc)
+	fmt.Fprintf(rf, readmeTempl, cfg.Name, desc)
 	rf.Close()
 
-	_, pyonly := filepath.Split(vm)
-	gencmd := bind.CmdStrToMakefile(cmdstr)
+	_, pyonly := filepath.Split(cfg.VM)
+	gencmd := bind.CmdStrToMakefile(cfg.Cmd)
 
-	mf, err := os.Create(filepath.Join(odir, "Makefile"))
+	mf, err := os.Create(filepath.Join(cfg.OutputDir, "Makefile"))
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(mf, makefileTempl, pkgname, cmdstr, gencmd, pyonly)
+	fmt.Fprintf(mf, makefileTempl, cfg.Name, cfg.Cmd, gencmd, pyonly)
 	mf.Close()
 
 	return err
