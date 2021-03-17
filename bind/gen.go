@@ -607,7 +607,7 @@ func (g *pyGen) genGoPreamble() {
 		pkgimport += fmt.Sprintf("\n\t%q", pi)
 	}
 	libcfg := func() string {
-		pycfg, err := GetPythonConfig(g.cfg.Vm)
+		pycfg, err := GetPythonConfig(g.cfg.VM)
 		if err != nil {
 			panic(err)
 		}
@@ -724,15 +724,15 @@ func (g *pyGen) genMakefile() {
 	gencmd := strings.Replace(g.cfg.Cmd, "gopy build", "gopy gen", 1)
 	gencmd = CmdStrToMakefile(gencmd)
 
-	pycfg, err := GetPythonConfig(g.cfg.Vm)
+	pycfg, err := GetPythonConfig(g.cfg.VM)
 	if err != nil {
 		panic(err)
 	}
 
 	if g.mode == ModeExe {
-		g.makefile.Printf(MakefileExeTemplate, g.cfg.Name, g.cfg.Cmd, gencmd, g.cfg.Vm, g.libext, pycfg.CFlags, pycfg.LdFlags)
+		g.makefile.Printf(MakefileExeTemplate, g.cfg.Name, g.cfg.Cmd, gencmd, g.cfg.VM, g.libext, pycfg.CFlags, pycfg.LdFlags)
 	} else {
-		g.makefile.Printf(MakefileTemplate, g.cfg.Name, g.cfg.Cmd, gencmd, g.cfg.Vm, g.libext, g.extraGccArgs, pycfg.CFlags, pycfg.LdFlags)
+		g.makefile.Printf(MakefileTemplate, g.cfg.Name, g.cfg.Cmd, gencmd, g.cfg.VM, g.libext, g.extraGccArgs, pycfg.CFlags, pycfg.LdFlags)
 	}
 }
 

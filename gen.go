@@ -67,14 +67,14 @@ func genPkg(mode bind.BuildMode, cfg *BuildCfg) error {
 	if err != nil {
 		return err
 	}
-	if !filepath.IsAbs(cfg.Vm) {
-		cfg.Vm, err = exec.LookPath(cfg.Vm)
+	if !filepath.IsAbs(cfg.VM) {
+		cfg.VM, err = exec.LookPath(cfg.VM)
 		if err != nil {
 			return errors.Wrapf(err, "could not locate absolute path to python VM")
 		}
 	}
 
-	pyvers, err := getPythonVersion(cfg.Vm)
+	pyvers, err := getPythonVersion(cfg.VM)
 	if err != nil {
 		return err
 	}

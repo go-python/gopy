@@ -57,7 +57,7 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 	cfg.OutputDir = cmdr.Flag.Lookup("output").Value.Get().(string)
 	cfg.Name = cmdr.Flag.Lookup("name").Value.Get().(string)
 	cfg.Main = cmdr.Flag.Lookup("main").Value.Get().(string)
-	cfg.Vm = cmdr.Flag.Lookup("vm").Value.Get().(string)
+	cfg.VM = cmdr.Flag.Lookup("vm").Value.Get().(string)
 	cfg.PkgPrefix = cmdr.Flag.Lookup("package-prefix").Value.Get().(string)
 	cfg.Symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 	cfg.NoWarn = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
@@ -125,15 +125,15 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		return err
 	}
 
-	pycfg, err := bind.GetPythonConfig(cfg.Vm)
+	pycfg, err := bind.GetPythonConfig(cfg.VM)
 
 	if mode == bind.ModeExe {
 		of, err := os.Create(buildname + ".h") // overwrite existing
 		fmt.Fprintf(of, "typedef uint8_t bool;\n")
 		of.Close()
 
-		fmt.Printf("%v build.py   # will fail, but needed to generate .c file\n", cfg.Vm)
-		cmd = exec.Command(cfg.Vm, "build.py")
+		fmt.Printf("%v build.py   # will fail, but needed to generate .c file\n", cfg.VM)
+		cmd = exec.Command(cfg.VM, "build.py")
 		cmd.Run() // will fail, we don't care about errors
 
 		args := []string{"build", "-buildmode=c-shared", "-o", buildname + libExt, "."}
@@ -145,8 +145,8 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 			return err
 		}
 
-		fmt.Printf("%v build.py   # should work this time\n", cfg.Vm)
-		cmd = exec.Command(cfg.Vm, "build.py")
+		fmt.Printf("%v build.py   # should work this time\n", cfg.VM)
+		cmd = exec.Command(cfg.VM, "build.py")
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
@@ -185,8 +185,8 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 			return err
 		}
 
-		fmt.Printf("%v build.py\n", cfg.Vm)
-		cmd = exec.Command(cfg.Vm, "build.py")
+		fmt.Printf("%v build.py\n", cfg.VM)
+		cmd = exec.Command(cfg.VM, "build.py")
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))

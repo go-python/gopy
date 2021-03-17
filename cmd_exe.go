@@ -72,7 +72,7 @@ func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 	cfg.OutputDir = cmdr.Flag.Lookup("output").Value.Get().(string)
 	cfg.Name = cmdr.Flag.Lookup("name").Value.Get().(string)
 	cfg.Main = cmdr.Flag.Lookup("main").Value.Get().(string)
-	cfg.Vm = cmdr.Flag.Lookup("vm").Value.Get().(string)
+	cfg.VM = cmdr.Flag.Lookup("vm").Value.Get().(string)
 	cfg.PkgPrefix = cmdr.Flag.Lookup("package-prefix").Value.Get().(string)
 	cfg.Symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 	cfg.NoWarn = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)

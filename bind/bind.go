@@ -23,7 +23,7 @@ type BindCfg struct {
 	// the full command args as a string, without path to exe
 	Cmd string
 	// path to python interpreter
-	Vm string
+	VM string
 	// package prefix used when generating python import statements
 	PkgPrefix string
 }

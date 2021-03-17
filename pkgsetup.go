@@ -149,7 +149,7 @@ func GenPyPkgSetup(cfg *BuildCfg, user, version, author, email, desc, url string
 	fmt.Fprintf(rf, readmeTempl, cfg.Name, desc)
 	rf.Close()
 
-	_, pyonly := filepath.Split(cfg.Vm)
+	_, pyonly := filepath.Split(cfg.VM)
 	gencmd := bind.CmdStrToMakefile(cfg.Cmd)
 
 	mf, err := os.Create(filepath.Join(cfg.OutputDir, "Makefile"))
