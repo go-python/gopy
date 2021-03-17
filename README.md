@@ -2,7 +2,7 @@ gopy
 ====
 
 [![GoDoc](https://godoc.org/github.com/go-python/gopy?status.svg)](https://godoc.org/github.com/go-python/gopy)
-[![Build Status](https://travis-ci.org/go-python/gopy.svg?branch=master)](https://travis-ci.org/go-python/gopy)
+[![CI](https://github.com/go-python/gopy/workflows/CI/badge.svg)](https://github.com/go-python/gopy/actions)
 [![Build status](https://ci.appveyor.com/api/projects/status/229rc10wcvsd5t8f?svg=true)](https://ci.appveyor.com/project/sbinet/gopy)
 
 `gopy` generates (and compiles) a `CPython` extension module from a `go` package.
