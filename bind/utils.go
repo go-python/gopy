@@ -86,9 +86,10 @@ func isConstructor(sig *types.Signature) bool {
 }
 
 type PyConfig struct {
-	Version int
-	CFlags  string
-	LdFlags string
+	Version   int
+	CFlags    string
+	LdFlags   string
+	ExtSuffix string
 }
 
 // AllFlags returns CFlags + " " + LdFlags
@@ -114,6 +115,7 @@ if "GOPY_INCLUDE" in os.environ and "GOPY_LIBDIR" in os.environ and "GOPY_PYLIB"
 		"shlibs":  ds.get_config_var("SHLIBS"),
 		"syslibs": ds.get_config_var("SYSLIBS"),
 		"shlinks": ds.get_config_var("LINKFORSHARED"),
+		"extsuffix": ds.get_config_var("EXT_SUFFIX"),
 }))
 else:
 	print(json.dumps({
@@ -124,6 +126,7 @@ else:
 		"shlibs":  ds.get_config_var("SHLIBS"),
 		"syslibs": ds.get_config_var("SYSLIBS"),
 		"shlinks": ds.get_config_var("LINKFORSHARED"),
+		"extsuffix": ds.get_config_var("EXT_SUFFIX"),
 }))
 `
 
@@ -144,12 +147,13 @@ else:
 	}
 
 	var raw struct {
-		Version int    `json:"version"`
-		IncDir  string `json:"incdir"`
-		LibDir  string `json:"libdir"`
-		LibPy   string `json:"libpy"`
-		ShLibs  string `json:"shlibs"`
-		SysLibs string `json:"syslibs"`
+		Version   int    `json:"version"`
+		IncDir    string `json:"incdir"`
+		LibDir    string `json:"libdir"`
+		LibPy     string `json:"libpy"`
+		ShLibs    string `json:"shlibs"`
+		SysLibs   string `json:"syslibs"`
+		ExtSuffix string `json:"extsuffix"`
 	}
 	err = json.NewDecoder(buf).Decode(&raw)
 	if err != nil {
@@ -167,6 +171,7 @@ else:
 	}
 
 	cfg.Version = raw.Version
+	cfg.ExtSuffix = raw.ExtSuffix
 	cfg.CFlags = strings.Join([]string{
 		"-I" + raw.IncDir,
 	}, " ")

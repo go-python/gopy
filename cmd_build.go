@@ -168,6 +168,18 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		}
 
 	} else {
+		buildLib := buildname + libExt
+		extext := libExt
+		if runtime.GOOS == "windows" {
+			extext = ".pyd"
+		}
+		if pycfg.ExtSuffix != "" {
+			extext = pycfg.ExtSuffix
+		}
+		modlib := "_" + cfg.Name + extext
+
+		// build the go shared library upfront to generate the header
+		// needed by our generated cpython code
 		args := []string{"build", "-buildmode=c-shared"}
 		if !cfg.Symbols {
 			// These flags will omit the various symbol tables, thereby
@@ -176,7 +188,7 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 			// -w Omit the DWARF symbol table
 			args = append(args, "-ldflags=-s -w")
 		}
-		args = append(args, "-o", buildname+libExt, ".")
+		args = append(args, "-o", buildLib, ".")
 		fmt.Printf("go %v\n", strings.Join(args, " "))
 		cmd = exec.Command("go", args...)
 		cmdout, err = cmd.CombinedOutput()
@@ -184,7 +196,12 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
 			return err
 		}
+		// update the output name to the one with the ABI extension
+		args[len(args)-2] = modlib
+		// we don't need this initial lib because we are going to relink
+		os.Remove(buildLib)
 
+		// generate c code
 		fmt.Printf("%v build.py\n", cfg.VM)
 		cmd = exec.Command(cfg.VM, "build.py")
 		cmdout, err = cmd.CombinedOutput()
@@ -193,77 +210,59 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 			return err
 		}
 
+		// patch c code
 		if err := patchLeaks(cfg.Name + ".c"); err != nil {
 			return err
 		}
 
-		fmt.Printf("go env CC\n")
-		cmd = exec.Command("go", "env", "CC")
-		cccmdb, err := cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cccmdb))
-			return err
-		}
-		cccmd := strings.TrimSpace(string(cccmdb))
-		// var cflags, ldflags []byte
-		// if runtime.GOOS != "windows" {
-		// 	fmt.Printf("%v-config --cflags\n", vm)
-		// 	cmd = exec.Command(vm+"-config", "--cflags") // TODO: need minor version!
-		// 	cflags, err = cmd.CombinedOutput()
-		// 	if err != nil {
-		// 		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cflags))
-		// 		return err
-		// 	}
-		//
-		// 	fmt.Printf("%v-config --ldflags\n", vm)
-		// 	cmd = exec.Command(vm+"-config", "--ldflags")
-		// 	ldflags, err = cmd.CombinedOutput()
-		// 	if err != nil {
-		// 		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(ldflags))
-		// 		return err
-		// 	}
-		// 	fmt.Printf("build cmd: %s\nldflags: %s\n", cmd, ldflags)
-		// }
-		extext := libExt
-		if runtime.GOOS == "windows" {
-			extext = ".pyd"
-		}
-		modlib := "_" + cfg.Name + extext
-		gccargs := []string{cfg.Name + ".c", extraGccArgs, cfg.Name + "_go" + libExt, "-o", modlib}
-		gccargs = append(gccargs, strings.Fields(pycfg.AllFlags())...)
-		gccargs = append(gccargs, "-fPIC", "--shared", "-Ofast")
-		if !cfg.Symbols {
-			gccargs = append(gccargs, "-s")
-		}
-		include, exists := os.LookupEnv("GOPY_INCLUDE")
-		if exists {
-			gccargs = append(gccargs, "-I"+filepath.ToSlash(include))
-		}
-		lib, exists := os.LookupEnv("GOPY_LIBDIR")
-		if exists {
-			gccargs = append(gccargs, "-L"+filepath.ToSlash(lib))
-		}
-		libname, exists := os.LookupEnv("GOPY_PYLIB")
-		if exists {
-			gccargs = append(gccargs, "-l"+filepath.ToSlash(libname))
+		cflags := strings.Fields(strings.TrimSpace(pycfg.CFlags))
+		cflags = append(cflags, "-fPIC", "-Ofast")
+		if include, exists := os.LookupEnv("GOPY_INCLUDE"); exists {
+			cflags = append(cflags, "-I"+filepath.ToSlash(include))
 		}
 
-		gccargs = func(vs []string) []string {
-			o := make([]string, 0, len(gccargs))
-			for _, v := range vs {
+		ldflags := strings.Fields(strings.TrimSpace(pycfg.LdFlags))
+		if !cfg.Symbols {
+			ldflags = append(ldflags, "-s")
+		}
+		if lib, exists := os.LookupEnv("GOPY_LIBDIR"); exists {
+			ldflags = append(ldflags, "-L"+filepath.ToSlash(lib))
+		}
+		if libname, exists := os.LookupEnv("GOPY_PYLIB"); exists {
+			ldflags = append(ldflags, "-l"+filepath.ToSlash(libname))
+		}
+
+		removeEmpty := func(src []string) []string {
+			o := make([]string, 0, len(src))
+			for _, v := range src {
 				if v == "" {
 					continue
 				}
 				o = append(o, v)
 			}
 			return o
-		}(gccargs)
+		}
 
-		fmt.Printf("%s %v\n", cccmd, strings.Join(gccargs, " "))
-		cmd = exec.Command(cccmd, gccargs...)
+		cflags = removeEmpty(cflags)
+		ldflags = removeEmpty(ldflags)
+
+		cflagsEnv := fmt.Sprintf("CGO_CFLAGS=%s", strings.Join(cflags, " "))
+		ldflagsEnv := fmt.Sprintf("CGO_LDFLAGS=%s", strings.Join(ldflags, " "))
+
+		env := os.Environ()
+		env = append(env, cflagsEnv)
+		env = append(env, ldflagsEnv)
+
+		fmt.Println(cflagsEnv)
+		fmt.Println(ldflagsEnv)
+
+		// build extension with go + c
+		fmt.Printf("go %v\n", strings.Join(args, " "))
+		cmd = exec.Command("go", args...)
+		cmd.Env = env
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
-			fmt.Printf("cmd had error: %v\noutput: %v\n", err, string(cmdout))
+			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
 			return err
 		}
 	}
