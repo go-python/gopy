@@ -193,12 +193,25 @@ func getGoVersion(version string) (int64, int64, error) {
 }
 
 func extractPythonName(gname, gdoc string) (string, string, error) {
-	const PythonName = "\ngopy:name "
-	i := strings.Index(gdoc, PythonName)
+	const (
+		PythonName   = "gopy:name "
+		NLPythonName = "\n" + PythonName
+	)
+	i := -1
+	var tag string
+	// Check for either a doc string that starts with our tag,
+	// or as the first token of a newline
+	if strings.HasPrefix(gdoc, PythonName) {
+		i = 0
+		tag = PythonName
+	} else {
+		i = strings.Index(gdoc, NLPythonName)
+		tag = NLPythonName
+	}
 	if i < 0 {
 		return gname, gdoc, nil
 	}
-	s := gdoc[i+len(PythonName):]
+	s := gdoc[i+len(tag):]
 	if end := strings.Index(s, "\n"); end > 0 {
 		validIdPattern := regexp.MustCompile(`^[\pL_][\pL_\pN]+$`)
 		if !validIdPattern.MatchString(s[:end]) {
