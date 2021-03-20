@@ -646,9 +646,12 @@ func TestBindRename(t *testing.T) {
 		path:   path,
 		lang:   features[path],
 		cmd:    "build",
-		extras: nil,
-		want: []byte(`hi
-something
+		extras: []string{"-rename"},
+		want: []byte(`say_hi_fn(): hi
+MyStruct().say_something(): something
+MyStruct.auto_renamed_property.__doc__: I should be renamed to auto_renamed_property
+		when generated with -rename flag
+MyStruct.custom_name.__doc__: I should be renamed to custom_name with the custom option
 OK
 `),
 	})

@@ -184,6 +184,9 @@ func (g *pyGen) genStructMemberGetter(s *Struct, _ int, f types.Object) {
 	}
 
 	gname := f.Name()
+	if g.cfg.RenameCase {
+		gname = toSnakeCase(gname)
+	}
 
 	gdoc := g.pkg.getDoc(s.Obj().Name(), f)
 	if newName, newDoc, err := extractPythonName(gname, gdoc); err == nil {
@@ -237,6 +240,9 @@ func (g *pyGen) genStructMemberSetter(s *Struct, _ int, f types.Object) {
 	}
 
 	gname := f.Name()
+	if g.cfg.RenameCase {
+		gname = toSnakeCase(gname)
+	}
 
 	gdoc := g.pkg.getDoc(s.Obj().Name(), f)
 	if newName, newDoc, err := extractPythonName(gname, gdoc); err == nil {

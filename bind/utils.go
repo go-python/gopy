@@ -221,3 +221,17 @@ func extractPythonName(gname, gdoc string) (string, string, error) {
 	}
 	return gname, gdoc, nil
 }
+
+var (
+	rxMatchFirstCap = regexp.MustCompile("([A-Z])([A-Z][a-z])")
+	rxMatchAllCap   = regexp.MustCompile("([a-z0-9])([A-Z])")
+)
+
+// toSnakeCase converts the provided string to snake_case.
+// Based on https://gist.github.com/stoewer/fbe273b711e6a06315d19552dd4d33e6
+func toSnakeCase(input string) string {
+	output := rxMatchFirstCap.ReplaceAllString(input, "${1}_${2}")
+	output = rxMatchAllCap.ReplaceAllString(output, "${1}_${2}")
+	output = strings.ReplaceAll(output, "-", "_")
+	return strings.ToLower(output)
+}

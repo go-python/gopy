@@ -26,6 +26,8 @@ type BindCfg struct {
 	VM string
 	// package prefix used when generating python import statements
 	PkgPrefix string
+	// rename Go exported symbols to python PEP snake_case
+	RenameCase bool
 }
 
 // ErrorList is a list of errors
