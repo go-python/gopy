@@ -175,7 +175,7 @@ func (g *pyGen) genStructMembers(s *Struct) {
 	}
 }
 
-func (g *pyGen) genStructMemberGetter(s *Struct, i int, f types.Object) {
+func (g *pyGen) genStructMemberGetter(s *Struct, _ int, f types.Object) {
 	pkgname := g.cfg.Name
 	ft := f.Type()
 	ret := current.symtype(ft)
@@ -183,11 +183,23 @@ func (g *pyGen) genStructMemberGetter(s *Struct, i int, f types.Object) {
 		return
 	}
 
+	gname := f.Name()
+
+	gdoc := g.pkg.getDoc(s.Obj().Name(), f)
+	if newName, newDoc, err := extractPythonName(gname, gdoc); err == nil {
+		gname, gdoc = newName, newDoc
+	}
+
 	cgoFn := fmt.Sprintf("%s_%s_Get", s.ID(), f.Name())
 
 	g.pywrap.Printf("@property\n")
-	g.pywrap.Printf("def %[1]s(self):\n", f.Name())
+	g.pywrap.Printf("def %[1]s(self):\n", gname)
 	g.pywrap.Indent()
+	if gdoc != "" {
+		g.pywrap.Printf(`"""`)
+		g.pywrap.Printf(gdoc)
+		g.pywrap.Println(`"""`)
+	}
 	if ret.hasHandle() {
 		cvnm := ret.pyPkgId(g.pkg.pkg)
 		g.pywrap.Printf("return %s(handle=_%s.%s(self.handle))\n", cvnm, pkgname, cgoFn)
@@ -216,7 +228,7 @@ func (g *pyGen) genStructMemberGetter(s *Struct, i int, f types.Object) {
 	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [param('%s', 'handle')])\n", cgoFn, ret.cpyname, PyHandle)
 }
 
-func (g *pyGen) genStructMemberSetter(s *Struct, i int, f types.Object) {
+func (g *pyGen) genStructMemberSetter(s *Struct, _ int, f types.Object) {
 	pkgname := g.cfg.Name
 	ft := f.Type()
 	ret := current.symtype(ft)
@@ -224,10 +236,17 @@ func (g *pyGen) genStructMemberSetter(s *Struct, i int, f types.Object) {
 		return
 	}
 
+	gname := f.Name()
+
+	gdoc := g.pkg.getDoc(s.Obj().Name(), f)
+	if newName, newDoc, err := extractPythonName(gname, gdoc); err == nil {
+		gname, gdoc = newName, newDoc
+	}
+
 	cgoFn := fmt.Sprintf("%s_%s_Set", s.ID(), f.Name())
 
-	g.pywrap.Printf("@%s.setter\n", f.Name())
-	g.pywrap.Printf("def %[1]s(self, value):\n", f.Name())
+	g.pywrap.Printf("@%s.setter\n", gname)
+	g.pywrap.Printf("def %[1]s(self, value):\n", gname)
 	g.pywrap.Indent()
 	g.pywrap.Printf("if isinstance(value, go.GoClass):\n")
 	g.pywrap.Indent()
