@@ -6,13 +6,13 @@
 package rename
 
 // gopy:name say_hi_fn
-// Comment follows the tag and function shoudl be renamed
+// Comment follows the tag and function should be renamed
 // to say_hi_fn
 func SayHi() string {
 	return "hi"
 }
 
-// I should be renamed tp auto_renamed_func, when generated
+// I should be renamed to auto_renamed_func, when generated
 // with -rename flag
 func AutoRenamedFunc() {
 
