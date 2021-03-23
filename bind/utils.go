@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/fatih/structtag"
 	"github.com/pkg/errors"
 )
 
@@ -192,6 +193,10 @@ func getGoVersion(version string) (int64, int64, error) {
 	return major, minor, nil
 }
 
+var (
+	rxValidPythonName = regexp.MustCompile(`^[\pL_][\pL_\pN]+$`)
+)
+
 func extractPythonName(gname, gdoc string) (string, string, error) {
 	const (
 		PythonName   = "gopy:name "
@@ -213,13 +218,45 @@ func extractPythonName(gname, gdoc string) (string, string, error) {
 	}
 	s := gdoc[i+len(tag):]
 	if end := strings.Index(s, "\n"); end > 0 {
-		validIdPattern := regexp.MustCompile(`^[\pL_][\pL_\pN]+$`)
-		if !validIdPattern.MatchString(s[:end]) {
+		if !isValidPythonName(s[:end]) {
 			return "", "", fmt.Errorf("gopy: invalid identifier: %s", s[:end])
 		}
 		return s[:end], gdoc[:i] + s[end:], nil
 	}
 	return gname, gdoc, nil
+}
+
+// extractPythonNameFieldTag parses a struct field tag and returns
+// a new python name. If the tag is not defined then the original
+// name is returned.
+// If the tag name is specified but is an invalid python identifier,
+// then an error is returned.
+func extractPythonNameFieldTag(gname, tag string) (string, error) {
+	const tagKey = "gopy"
+	if tag == "" {
+		return gname, nil
+	}
+	tags, err := structtag.Parse(tag)
+	if err != nil {
+		return gname, nil
+	}
+	tagVal, err := tags.Get(tagKey)
+	if err != nil {
+		return gname, nil
+	}
+	if !isValidPythonName(tagVal.Name) {
+		return "", fmt.Errorf("gopy: invalid identifier for struct field tag: %s", tagVal.Name)
+	}
+	return tagVal.Name, nil
+}
+
+// isValidPythonName returns true if the string is a valid
+// python identifier name
+func isValidPythonName(name string) bool {
+	if name == "" {
+		return false
+	}
+	return rxValidPythonName.MatchString(name)
 }
 
 var (

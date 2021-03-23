@@ -25,8 +25,7 @@ type MyStruct struct {
 	AutoRenamedProperty string
 
 	// I should be renamed to custom_name with the custom option
-	// gopy:name custom_name
-	AutoRenamedProperty2 string // tag
+	AutoRenamedProperty2 string `gopy:"custom_name"`
 }
 
 // A method that says something

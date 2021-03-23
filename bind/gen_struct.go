@@ -175,7 +175,7 @@ func (g *pyGen) genStructMembers(s *Struct) {
 	}
 }
 
-func (g *pyGen) genStructMemberGetter(s *Struct, _ int, f types.Object) {
+func (g *pyGen) genStructMemberGetter(s *Struct, i int, f types.Object) {
 	pkgname := g.cfg.Name
 	ft := f.Type()
 	ret := current.symtype(ft)
@@ -191,6 +191,10 @@ func (g *pyGen) genStructMemberGetter(s *Struct, _ int, f types.Object) {
 	gdoc := g.pkg.getDoc(s.Obj().Name(), f)
 	if newName, newDoc, err := extractPythonName(gname, gdoc); err == nil {
 		gname, gdoc = newName, newDoc
+	}
+
+	if newName, err := extractPythonNameFieldTag(gname, s.Struct().Tag(i)); err == nil {
+		gname = newName
 	}
 
 	cgoFn := fmt.Sprintf("%s_%s_Get", s.ID(), f.Name())
@@ -231,7 +235,7 @@ func (g *pyGen) genStructMemberGetter(s *Struct, _ int, f types.Object) {
 	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [param('%s', 'handle')])\n", cgoFn, ret.cpyname, PyHandle)
 }
 
-func (g *pyGen) genStructMemberSetter(s *Struct, _ int, f types.Object) {
+func (g *pyGen) genStructMemberSetter(s *Struct, i int, f types.Object) {
 	pkgname := g.cfg.Name
 	ft := f.Type()
 	ret := current.symtype(ft)
@@ -247,6 +251,10 @@ func (g *pyGen) genStructMemberSetter(s *Struct, _ int, f types.Object) {
 	gdoc := g.pkg.getDoc(s.Obj().Name(), f)
 	if newName, newDoc, err := extractPythonName(gname, gdoc); err == nil {
 		gname, gdoc = newName, newDoc
+	}
+
+	if newName, err := extractPythonNameFieldTag(gname, s.Struct().Tag(i)); err == nil {
+		gname = newName
 	}
 
 	cgoFn := fmt.Sprintf("%s_%s_Set", s.ID(), f.Name())
