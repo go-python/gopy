@@ -188,11 +188,6 @@ func (g *pyGen) genStructMemberGetter(s *Struct, i int, f types.Object) {
 		gname = toSnakeCase(gname)
 	}
 
-	gdoc := g.pkg.getDoc(s.Obj().Name(), f)
-	if newName, newDoc, err := extractPythonName(gname, gdoc); err == nil {
-		gname, gdoc = newName, newDoc
-	}
-
 	if newName, err := extractPythonNameFieldTag(gname, s.Struct().Tag(i)); err == nil {
 		gname = newName
 	}
@@ -202,7 +197,7 @@ func (g *pyGen) genStructMemberGetter(s *Struct, i int, f types.Object) {
 	g.pywrap.Printf("@property\n")
 	g.pywrap.Printf("def %[1]s(self):\n", gname)
 	g.pywrap.Indent()
-	if gdoc != "" {
+	if gdoc := g.pkg.getDoc(s.Obj().Name(), f); gdoc != "" {
 		g.pywrap.Printf(`"""`)
 		g.pywrap.Printf(gdoc)
 		g.pywrap.Println(`"""`)
@@ -246,11 +241,6 @@ func (g *pyGen) genStructMemberSetter(s *Struct, i int, f types.Object) {
 	gname := f.Name()
 	if g.cfg.RenameCase {
 		gname = toSnakeCase(gname)
-	}
-
-	gdoc := g.pkg.getDoc(s.Obj().Name(), f)
-	if newName, newDoc, err := extractPythonName(gname, gdoc); err == nil {
-		gname, gdoc = newName, newDoc
 	}
 
 	if newName, err := extractPythonNameFieldTag(gname, s.Struct().Tag(i)); err == nil {
