@@ -12,11 +12,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/fatih/structtag"
 	"github.com/pkg/errors"
 )
 
@@ -236,18 +236,14 @@ func extractPythonNameFieldTag(gname, tag string) (string, error) {
 	if tag == "" {
 		return gname, nil
 	}
-	tags, err := structtag.Parse(tag)
-	if err != nil {
+	tagVal := reflect.StructTag(tag).Get(tagKey)
+	if tagVal == "" {
 		return gname, nil
 	}
-	tagVal, err := tags.Get(tagKey)
-	if err != nil {
-		return gname, nil
+	if !isValidPythonName(tagVal) {
+		return "", fmt.Errorf("gopy: invalid identifier for struct field tag: %s", tagVal)
 	}
-	if !isValidPythonName(tagVal.Name) {
-		return "", fmt.Errorf("gopy: invalid identifier for struct field tag: %s", tagVal.Name)
-	}
-	return tagVal.Name, nil
+	return tagVal, nil
 }
 
 // isValidPythonName returns true if the string is a valid
