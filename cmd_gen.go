@@ -34,6 +34,7 @@ ex:
 	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library")
 	cmd.Flag.String("package-prefix", ".", "custom package prefix used when generating import "+
 		"statements for generated package")
+	cmd.Flag.Bool("rename", false, "rename Go symbols to python PEP snake_case")
 	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
 	cmd.Flag.Bool("no-make", false, "do not generate a Makefile, e.g., when called from Makefile")
 	return cmd
@@ -54,6 +55,7 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 	cfg.Name = cmdr.Flag.Lookup("name").Value.Get().(string)
 	cfg.Main = cmdr.Flag.Lookup("main").Value.Get().(string)
 	cfg.PkgPrefix = cmdr.Flag.Lookup("package-prefix").Value.Get().(string)
+	cfg.RenameCase = cmdr.Flag.Lookup("rename").Value.Get().(bool)
 	cfg.NoWarn = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
 	cfg.NoMake = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
 

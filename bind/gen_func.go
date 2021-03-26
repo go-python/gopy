@@ -83,7 +83,12 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		return false
 	}
 
-	gname, gdoc, err := extractPythonName(fsym.GoName(), fsym.Doc())
+	gname := fsym.GoName()
+	if g.cfg.RenameCase {
+		gname = toSnakeCase(gname)
+	}
+
+	gname, gdoc, err := extractPythonName(gname, fsym.Doc())
 	if err != nil {
 		return false
 	}

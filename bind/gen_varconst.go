@@ -36,6 +36,9 @@ func (g *pyGen) genVarGetter(v *Var) {
 	gopkg := g.pkg.Name()
 	pkgname := g.cfg.Name
 	cgoFn := v.Name() // plain name is the getter
+	if g.cfg.RenameCase {
+		cgoFn = toSnakeCase(cgoFn)
+	}
 	qCgoFn := gopkg + "_" + cgoFn
 	qFn := "_" + pkgname + "." + qCgoFn
 	qVn := gopkg + "." + v.Name()
@@ -76,6 +79,9 @@ func (g *pyGen) genVarSetter(v *Var) {
 	gopkg := g.pkg.Name()
 	pkgname := g.cfg.Name
 	cgoFn := fmt.Sprintf("Set_%s", v.Name())
+	if g.cfg.RenameCase {
+		cgoFn = toSnakeCase(cgoFn)
+	}
 	qCgoFn := gopkg + "_" + cgoFn
 	qFn := "_" + pkgname + "." + qCgoFn
 	qVn := gopkg + "." + v.Name()

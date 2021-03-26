@@ -6,6 +6,7 @@ package bind
 
 import (
 	"fmt"
+	"go/ast"
 	"go/doc"
 	"go/types"
 	"path/filepath"
@@ -109,7 +110,7 @@ func (p *Package) AddPyImport(ipath string, extra bool) {
 // parent is the name of the containing scope ("" for global scope)
 func (p *Package) getDoc(parent string, o types.Object) string {
 	n := o.Name()
-	switch o.(type) {
+	switch tp := o.(type) {
 	case *types.Const:
 		for _, c := range p.doc.Consts {
 			for _, cn := range c.Names {
@@ -120,6 +121,38 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 		}
 
 	case *types.Var:
+		if tp.IsField() && parent != "" {
+			// Find the package-scoped struct
+			for _, typ := range p.doc.Types {
+				_ = typ
+				if typ.Name != parent {
+					continue
+				}
+				// Name matches package-scoped struct.
+				// Make sure it is a struct type.
+				for _, spec := range typ.Decl.Specs {
+					typSpec, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					structSpec, ok := typSpec.Type.(*ast.StructType)
+					if !ok {
+						continue
+					}
+					// We have the package-scoped struct matching the parent name.
+					// Find the matching field.
+					for _, field := range structSpec.Fields.List {
+						for _, fieldName := range field.Names {
+							if fieldName.Name == tp.Name() {
+								return field.Doc.Text()
+							}
+						}
+					}
+				}
+
+			}
+		}
+		// Otherwise just check the captured vars
 		for _, v := range p.doc.Vars {
 			for _, vn := range v.Names {
 				if n == vn {

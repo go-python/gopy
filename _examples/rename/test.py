@@ -7,7 +7,19 @@ from __future__ import print_function
 
 import rename
 
-print(rename.say_hi())
-print(rename.MyStruct().say_something())
+print("say_hi_fn():", rename.say_hi_fn())
+print("MyStruct().say_something():", rename.MyStruct().say_something())
+
+# Just make sure the symbols exist
+rename.auto_renamed_func()
+struct = rename.MyStruct()
+struct.auto_renamed_meth()
+_ = struct.auto_renamed_property
+struct.auto_renamed_property = "foo"
+_ = struct.custom_name
+struct.custom_name = "foo"
+
+print("MyStruct.auto_renamed_property.__doc__:", rename.MyStruct.auto_renamed_property.__doc__.strip())
+print("MyStruct.custom_name.__doc__:", rename.MyStruct.custom_name.__doc__.strip())
 
 print("OK")

@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -197,19 +198,78 @@ func getGoVersion(version string) (int64, int64, error) {
 	return major, minor, nil
 }
 
+var (
+	rxValidPythonName = regexp.MustCompile(`^[\pL_][\pL_\pN]+$`)
+)
+
 func extractPythonName(gname, gdoc string) (string, string, error) {
-	const PythonName = "\ngopy:name "
-	i := strings.Index(gdoc, PythonName)
+	const (
+		PythonName   = "gopy:name "
+		NLPythonName = "\n" + PythonName
+	)
+	i := -1
+	var tag string
+	// Check for either a doc string that starts with our tag,
+	// or as the first token of a newline
+	if strings.HasPrefix(gdoc, PythonName) {
+		i = 0
+		tag = PythonName
+	} else {
+		i = strings.Index(gdoc, NLPythonName)
+		tag = NLPythonName
+	}
 	if i < 0 {
 		return gname, gdoc, nil
 	}
-	s := gdoc[i+len(PythonName):]
+	s := gdoc[i+len(tag):]
 	if end := strings.Index(s, "\n"); end > 0 {
-		validIdPattern := regexp.MustCompile(`^[\pL_][\pL_\pN]+$`)
-		if !validIdPattern.MatchString(s[:end]) {
+		if !isValidPythonName(s[:end]) {
 			return "", "", fmt.Errorf("gopy: invalid identifier: %s", s[:end])
 		}
 		return s[:end], gdoc[:i] + s[end:], nil
 	}
 	return gname, gdoc, nil
+}
+
+// extractPythonNameFieldTag parses a struct field tag and returns
+// a new python name. If the tag is not defined then the original
+// name is returned.
+// If the tag name is specified but is an invalid python identifier,
+// then an error is returned.
+func extractPythonNameFieldTag(gname, tag string) (string, error) {
+	const tagKey = "gopy"
+	if tag == "" {
+		return gname, nil
+	}
+	tagVal := reflect.StructTag(tag).Get(tagKey)
+	if tagVal == "" {
+		return gname, nil
+	}
+	if !isValidPythonName(tagVal) {
+		return "", fmt.Errorf("gopy: invalid identifier for struct field tag: %s", tagVal)
+	}
+	return tagVal, nil
+}
+
+// isValidPythonName returns true if the string is a valid
+// python identifier name
+func isValidPythonName(name string) bool {
+	if name == "" {
+		return false
+	}
+	return rxValidPythonName.MatchString(name)
+}
+
+var (
+	rxMatchFirstCap = regexp.MustCompile("([A-Z])([A-Z][a-z])")
+	rxMatchAllCap   = regexp.MustCompile("([a-z0-9])([A-Z])")
+)
+
+// toSnakeCase converts the provided string to snake_case.
+// Based on https://gist.github.com/stoewer/fbe273b711e6a06315d19552dd4d33e6
+func toSnakeCase(input string) string {
+	output := rxMatchFirstCap.ReplaceAllString(input, "${1}_${2}")
+	output = rxMatchAllCap.ReplaceAllString(output, "${1}_${2}")
+	output = strings.ReplaceAll(output, "-", "_")
+	return strings.ToLower(output)
 }
