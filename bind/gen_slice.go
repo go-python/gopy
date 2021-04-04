@@ -106,7 +106,7 @@ otherwise parameter is a python list that we copy from
 			g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.pypkgname)
 			g.pywrap.Printf("if len(args) > 0:\n")
 			g.pywrap.Indent()
-			g.pywrap.Printf("if not isinstance(args[0], collections.Iterable):\n")
+			g.pywrap.Printf("if not isinstance(args[0], _collections_abc.Iterable):\n")
 			g.pywrap.Indent()
 			g.pywrap.Printf("raise TypeError('%s.__init__ takes a sequence as argument')\n", slNm)
 			g.pywrap.Outdent()
@@ -220,7 +220,7 @@ otherwise parameter is a python list that we copy from
 		if slc.isSlice() {
 			g.pywrap.Printf("def __iadd__(self, value):\n")
 			g.pywrap.Indent()
-			g.pywrap.Printf("if not isinstance(value, collections.Iterable):\n")
+			g.pywrap.Printf("if not isinstance(value, _collections_abc.Iterable):\n")
 			g.pywrap.Indent()
 			g.pywrap.Printf("raise TypeError('%s.__iadd__ takes a sequence as argument')\n", slNm)
 			g.pywrap.Outdent()

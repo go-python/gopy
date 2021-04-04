@@ -226,6 +226,11 @@ mod.add_function('NumHandles', retval('int'), [])
 
 # the following is required to enable dlopen to open the _go.so file
 import os,sys,inspect,collections
+try:
+	import collections.abc as _collections_abc
+except ImportError:
+	_collections_abc = collections
+
 cwd = os.getcwd()
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 os.chdir(currentdir)
@@ -250,6 +255,10 @@ os.chdir(cwd)
 # %[2]s
 
 import collections
+try:
+	import collections.abc as _collections_abc
+except ImportError:
+	_collections_abc = collections
 %[6]s
 
 # to use this code in your end-user python file, import it as follows:
@@ -263,6 +272,10 @@ import collections
 
 	GoPkgDefs = `
 import collections
+try:
+	import collections.abc as _collections_abc
+except ImportError:
+	_collections_abc = collections
 	
 class GoClass(object):
 	"""GoClass is the base class for all GoPy wrapper classes"""
