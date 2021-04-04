@@ -181,7 +181,7 @@ Add(int i, int j) int
 --- hi.LookupQuestion(42)...
 Life, the Universe and Everything
 --- hi.LookupQuestion(12)...
-caught: <built-in function hi_LookupQuestion> returned a result with an error set
+caught: Wrong answer: 12 != 42
 --- doc(hi.Person):
 Person is a simple struct
 
@@ -209,9 +209,9 @@ hi.Person{Name="foo", Age=42}
 --- p.Name: foo
 --- p.Work(2)...
 --- p.Work(24)...
-caught: <built-in function hi_Person_Work> returned a result with an error set
+caught: can't work for 24 hours!
 --- p.Salary(2): 20
---- p.Salary(24): caught: <built-in function hi_Person_Salary> returned a result with an error set
+--- p.Salary(24): caught: can't work for 24 hours!
 --- Person.__init__
 caught: argument 2 must be str, not int | err-type: <class 'TypeError'>
 caught: an integer is required (got type str) | err-type: <class 'TypeError'>
@@ -545,11 +545,13 @@ func TestPyErrors(t *testing.T) {
 	path := "_examples/pyerrors"
 	testPkg(t, pkg{
 		path:   path,
-		lang:   features[path], // TODO: should print out the error message!
+		lang:   features[path],
 		cmd:    "build",
 		extras: nil,
-		want: []byte(`<built-in function pyerrors_Div> returned a result with an error set
+		want: []byte(`Divide by zero.
 pyerrors.Div(5, 2) = 2
+Empty string value.
+pyerrors.NewMyString("hello") = "hello"
 OK
 `),
 	})

@@ -14,7 +14,19 @@ def div(a, b):
     except Exception as e:
         print(e)
 
-div(5,0)
+
+def new_mystring(s):
+    try:
+        ms = pyerrors.NewMyString(s)
+        print('pyerrors.NewMyString("%s") = "%s"'% (s, ms.String()))
+    except Exception as e:
+        print(e)
+
+
+div(5,0)  # error
 div(5,2)
+
+new_mystring("")  # error
+new_mystring("hello")
 
 print("OK")

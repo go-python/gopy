@@ -156,14 +156,14 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		g.gofile.Printf("\n//export %s\n", mnm)
 		g.gofile.Printf("func %s(", mnm)
 
-		g.pybuild.Printf("mod.add_function('%s', ", mnm)
+		g.pybuild.Printf("add_checked_function(mod, '%s', ", mnm)
 
 		g.pywrap.Printf("def %s(", gname)
 	default:
 		g.gofile.Printf("\n//export %s\n", fsym.ID())
 		g.gofile.Printf("func %s(", fsym.ID())
 
-		g.pybuild.Printf("mod.add_function('%s', ", fsym.ID())
+		g.pybuild.Printf("add_checked_function(mod, '%s', ", fsym.ID())
 
 		g.pywrap.Printf("def %s(", gname)
 	}
