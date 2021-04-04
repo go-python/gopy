@@ -420,6 +420,15 @@ if __err != nil {
 			g.gofile.Printf("return estr\n") // NOTE: leaked string
 		} else {
 			g.gofile.Printf("C.free(unsafe.Pointer(estr))\n") // python should have converted, safe
+			ret := res[0]
+			if ret.sym.zval == "" {
+				fmt.Printf("gopy: programmer error: empty zval zero value in symbol: %v\n", ret.sym)
+			}
+			if ret.sym.go2py != "" {
+				g.gofile.Printf("return %s(%s)%s\n", ret.sym.go2py, ret.sym.zval, ret.sym.go2pyParenEx)
+			} else {
+				g.gofile.Printf("return %s\n", ret.sym.zval)
+			}
 		}
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n")
