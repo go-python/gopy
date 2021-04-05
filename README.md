@@ -179,7 +179,7 @@ package hi exposes a few Go functions to be wrapped and used from Python.
 ```sh
 $ gopy build -output=out -vm=`which python3` github.com/go-python/gopy/_examples/hi
 $ ls out
-Makefile  __init__.py  __pycache__/  _hi.so*  build.py  go.py  hi.c  hi.go  hi.py  hi_go.h  hi_go.so  patch-leaks.go
+Makefile  __init__.py  __pycache__/  _hi.so*  build.py  go.py  hi.c  hi.go  hi.py  hi_go.h  hi_go.so
 ```
 
 

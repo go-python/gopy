@@ -10,51 +10,10 @@ import (
 	"strings"
 )
 
-// genPatchLeakFuncName outputs the name of either the function or the class
-// 'getter' represented by its arguments that need to have a memory
-// leak induced by the interaction of pybindgen and gopy.
-// These leaks occur because the cgo bindings use C.CString
-// to allocate a string on the C heap, as in:
-//
-//	return C.CString(cstrings.StringValue(C.GoString(s), int(n)))
-//
-// but the calling pybindgen code then takes a copy of this
-// newly allocated string indirectly by calling Py_BuildValue (see below)
-// without freeing the copy returned by the function or getter method.
-// Arguably pybindgen should provide a means of directly requesting
-// this behaviour (simularly to the transfer_ownership options it provides),
-// but as of now there is no means of doing so. As a work around the
-// output of pybindgen is modified to insert the free in the appropriate
-// functions identified by genPatchLeakFuncName.
-//
-// The patch-leaks.go (see gen.go) file patches these code fragments
-// to insert free(retval) immediately after the call to PyBuildValue.
-// The patch-leaks.go generated file will perform this patch for
-// functions whose names are embedded in it by genPatchLeakFuncName.
-//
-//  .....
-//  retval = cstrings_StringValue(s, n);
-//  py_retval = Py_BuildValue((char *) "s", retval);
-//  .....
-//
-// This patching is required for top level functions that return
-// strings directly and also for getters that return strings that
-// are embedded in maps, structs etc.
-// NOTE that it's ok to output the same function name multiple times (eg.
-// for a shared structs).
-func (g *pyGen) genPatchLeakFuncName(ret *Var, fsym *Func) {
-	if ret == nil || fsym == nil || ret.GoType() == nil {
-		return
-	}
-	g.recurse(ret.GoType(), "_wrap__"+fsym.pkg.Name()+"_", fsym.ID())
-}
-
 func (g *pyGen) recurse(gotype types.Type, prefix, name string) {
 	switch t := gotype.(type) {
 	case *types.Basic:
-		if t.Kind() == types.String {
-			g.leakfile.Printf("    %q,\n", prefix+name)
-		}
+		// pass
 	case *types.Map:
 		g.recurse(t.Elem(), prefix, "Map_"+t.Key().String()+"_string_elem")
 	case *types.Named:
@@ -149,6 +108,23 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		wpArgs = append(wpArgs, "goRun=False")
 	}
 
+	// When building the pybindgen builder code, we start with
+	// a function that adds function calls with exception checking.
+	// But given specific return types, we may want to add more
+	// behavior to the wrapped function code gen.
+	addFuncName := "add_checked_function"
+	if len(res) > 0 {
+		ret := res[0]
+		switch t := ret.GoType().(type) {
+		case *types.Basic:
+			// string return types need special memory leak patches
+			// to free the allocated char*
+			if t.Kind() == types.String {
+				addFuncName = "add_checked_string_function"
+			}
+		}
+	}
+
 	switch {
 	case isMethod:
 		mnm := sym.id + "_" + fsym.GoName()
@@ -156,14 +132,14 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		g.gofile.Printf("\n//export %s\n", mnm)
 		g.gofile.Printf("func %s(", mnm)
 
-		g.pybuild.Printf("add_checked_function(mod, '%s', ", mnm)
+		g.pybuild.Printf("%s(mod, '%s', ", addFuncName, mnm)
 
 		g.pywrap.Printf("def %s(", gname)
 	default:
 		g.gofile.Printf("\n//export %s\n", fsym.ID())
 		g.gofile.Printf("func %s(", fsym.ID())
 
-		g.pybuild.Printf("add_checked_function(mod, '%s', ", fsym.ID())
+		g.pybuild.Printf("%s(mod, '%s', ", addFuncName, fsym.ID())
 
 		g.pywrap.Printf("def %s(", gname)
 	}
@@ -179,8 +155,6 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 				ret.Name(),
 			))
 		}
-
-		g.genPatchLeakFuncName(ret, fsym)
 
 		if sret.cpyname == "PyObject*" {
 			g.pybuild.Printf("retval('%s', caller_owns_return=True)", sret.cpyname)

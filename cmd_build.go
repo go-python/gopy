@@ -84,17 +84,6 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 	return runBuild("build", cfg)
 }
 
-func patchLeaks(cfile string) error {
-	fmt.Printf("go run patch-leaks.go %v # patch memory leaks in pybindgen output\n", cfile)
-	cmd := exec.Command("go", "run", "patch-leaks.go", cfile)
-	cmdout, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
-		return err
-	}
-	return nil
-}
-
 // runBuild calls genPkg and then executes commands to build the resulting files
 // exe = executable mode to build an executable instead of a library
 // mode = gen, build, pkg, exe
@@ -155,10 +144,6 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 			return err
 		}
 
-		if err := patchLeaks(cfg.Name + ".c"); err != nil {
-			return err
-		}
-
 		err = os.Remove(cfg.Name + "_go" + libExt)
 
 		fmt.Printf("go build -o py%s\n", cfg.Name)
@@ -209,11 +194,6 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
-			return err
-		}
-
-		// patch c code
-		if err := patchLeaks(cfg.Name + ".c"); err != nil {
 			return err
 		}
 
