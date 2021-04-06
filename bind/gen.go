@@ -234,9 +234,8 @@ def add_checked_function(mod, name, retval, params, failure_expression='', *a, *
 
 def add_checked_string_function(mod, name, retval, params, failure_expression='', *a, **kw):
     fn = CheckedFunction(name, retval, params, *a, **kw)
-    cleanup = 'free(retval);'
-    fn.set_failure_cleanup(cleanup)
-    fn.after_call.add_cleanup_code(cleanup)
+    fn.set_failure_cleanup('if (retval != NULL) free(retval);')
+    fn.after_call.add_cleanup_code('free(retval);')
     fn.set_failure_expression(failure_expression)
     mod._add_function_obj(fn)
     return fn
