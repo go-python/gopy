@@ -112,7 +112,7 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Printf("_%s.IncRef(self.handle)\n", g.pypkgname)
 		g.pywrap.Printf("if len(args) > 0:\n")
 		g.pywrap.Indent()
-		g.pywrap.Printf("if not isinstance(args[0], collections.Mapping):\n")
+		g.pywrap.Printf("if not isinstance(args[0], _collections_abc.Mapping):\n")
 		g.pywrap.Indent()
 		g.pywrap.Printf("raise TypeError('%s.__init__ takes a mapping as argument')\n", slNm)
 		g.pywrap.Outdent()
