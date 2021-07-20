@@ -164,39 +164,6 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 			extext = pycfg.ExtSuffix
 		}
 		modlib := "_" + cfg.Name + extext
-
-		// build the go shared library upfront to generate the header
-		// needed by our generated cpython code
-		args := []string{"build", "-buildmode=c-shared"}
-		if !cfg.Symbols {
-			// These flags will omit the various symbol tables, thereby
-			// reducing the final size of the binary. From https://golang.org/cmd/link/
-			// -s Omit the symbol table and debug information
-			// -w Omit the DWARF symbol table
-			args = append(args, "-ldflags=-s -w")
-		}
-		args = append(args, "-o", buildLib, ".")
-		fmt.Printf("go %v\n", strings.Join(args, " "))
-		cmd = exec.Command("go", args...)
-		cmdout, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
-			return err
-		}
-		// update the output name to the one with the ABI extension
-		args[len(args)-2] = modlib
-		// we don't need this initial lib because we are going to relink
-		os.Remove(buildLib)
-
-		// generate c code
-		fmt.Printf("%v build.py\n", cfg.VM)
-		cmd = exec.Command(cfg.VM, "build.py")
-		cmdout, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
-			return err
-		}
-
 		cflags := strings.Fields(strings.TrimSpace(pycfg.CFlags))
 		cflags = append(cflags, "-fPIC", "-Ofast")
 		if include, exists := os.LookupEnv("GOPY_INCLUDE"); exists {
@@ -238,6 +205,40 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		fmt.Println(cflagsEnv)
 		fmt.Println(ldflagsEnv)
 
+
+
+		// build the go shared library upfront to generate the header
+		// needed by our generated cpython code
+		args := []string{"build", "-buildmode=c-shared"}
+		if !cfg.Symbols {
+			// These flags will omit the various symbol tables, thereby
+			// reducing the final size of the binary. From https://golang.org/cmd/link/
+			// -s Omit the symbol table and debug information
+			// -w Omit the DWARF symbol table
+			args = append(args, "-ldflags=-s -w")
+		}
+		args = append(args, "-o", buildLib, ".")
+		fmt.Printf("go %v\n", strings.Join(args, " "))
+		cmd = exec.Command("go", args...)
+		cmd.Env = env
+		cmdout, err = cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+			return err
+		}
+		// update the output name to the one with the ABI extension
+		args[len(args)-2] = modlib
+		// we don't need this initial lib because we are going to relink
+		os.Remove(buildLib)
+
+		// generate c code
+		fmt.Printf("%v build.py\n", cfg.VM)
+		cmd = exec.Command(cfg.VM, "build.py")
+		cmdout, err = cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
+			return err
+		}
 		// build extension with go + c
 		fmt.Printf("go %v\n", strings.Join(args, " "))
 		cmd = exec.Command("go", args...)
