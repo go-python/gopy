@@ -98,7 +98,7 @@ func (pc *PyConfig) AllFlags() string {
 	return strings.TrimSpace(pc.CFlags) + " " + strings.TrimSpace(pc.LdFlags)
 }
 
-// GetPythonConfig returns the needed python configuration for the given
+// Config returns the needed python configuration for the given
 // python VM (python, python2, python3, pypy, etc...)
 func GetPythonConfig(vm string) (PyConfig, error) {
 	code := `import sys
@@ -119,11 +119,14 @@ if "GOPY_INCLUDE" in os.environ and "GOPY_LIBDIR" in os.environ and "GOPY_PYLIB"
 		"extsuffix": ds.get_config_var("EXT_SUFFIX"),
 }))
 else:
+	# on windows, there doesn't seem to be any way to get the location of the Python import libraries. However, MinGW can likk to the Python DLL by its self
+	libdir = "BINDIR" if sys.platform=="win32" else "LIBDIR"
+	libpy = f"python{ds.get_config_var('VERSION')}" if sys.platform=="win32" else ds.get_config_var("LIBRARY")
 	print(json.dumps({
 		"version": sys.version_info.major,
 		"incdir":  ds.get_python_inc(),
-		"libdir":  ds.get_config_var("LIBDIR"),
-		"libpy":   ds.get_config_var("LIBRARY"),
+		"libdir":  ds.get_config_var(libdir),
+		"libpy": libpy,
 		"shlibs":  ds.get_config_var("SHLIBS"),
 		"syslibs": ds.get_config_var("SYSLIBS"),
 		"shlinks": ds.get_config_var("LINKFORSHARED"),
