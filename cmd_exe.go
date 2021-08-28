@@ -45,8 +45,8 @@ ex:
 	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
 	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library "+
 		"-- defaults to GoPyMainRun() but typically should be overriden")
-	cmd.Flag.String("package-prefix", ".", "custom package prefix used when generating import "+
-		"statements for generated package")
+	// cmd.Flag.String("package-prefix", ".", "custom package prefix used when generating import "+
+	// 	"statements for generated package")
 	cmd.Flag.Bool("rename", false, "rename Go symbols to python PEP snake_case")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	cmd.Flag.String("exclude", "", "comma-separated list of package names to exclude")
@@ -74,7 +74,8 @@ func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 	cfg.Name = cmdr.Flag.Lookup("name").Value.Get().(string)
 	cfg.Main = cmdr.Flag.Lookup("main").Value.Get().(string)
 	cfg.VM = cmdr.Flag.Lookup("vm").Value.Get().(string)
-	cfg.PkgPrefix = cmdr.Flag.Lookup("package-prefix").Value.Get().(string)
+	// cfg.PkgPrefix = cmdr.Flag.Lookup("package-prefix").Value.Get().(string)
+	cfg.PkgPrefix = "" // doesn't make sense for exe
 	cfg.RenameCase = cmdr.Flag.Lookup("rename").Value.Get().(bool)
 	cfg.Symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 	cfg.NoWarn = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)

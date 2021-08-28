@@ -633,10 +633,14 @@ func (g *pyGen) genPyWrapPreamble() {
 				impgenstr += fmt.Sprintf("import %s\n", name)
 			}
 		}
+	case g.mode == ModeExe:
+		// exe mode ignores PkgPrefix, because it is always built in to exe
+		impgenstr += fmt.Sprintf("import _%s\n", g.cfg.Name)
+		impgenstr += fmt.Sprintf("from %s import go\n", g.cfg.Name)
 	default:
-		pkg := "." + g.cfg.Name
+		pkg := g.cfg.Name
 		if g.cfg.PkgPrefix != "" {
-			pkg = g.cfg.PkgPrefix + pkg
+			pkg = g.cfg.PkgPrefix + "." + pkg
 		}
 		for _, name := range impgenNames {
 			impgenstr += fmt.Sprintf("from %s import %s\n", pkg, name)

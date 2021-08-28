@@ -76,7 +76,7 @@ func (k symkind) String() string {
 }
 
 var pyKeywords = map[string]struct{}{
-	"False": struct{}{}, "None": struct{}{}, "True": struct{}{}, "and": struct{}{}, "as": struct{}{}, "assert": struct{}{}, "break": struct{}{}, "class": struct{}{}, "continue": struct{}{}, "def": struct{}{}, "del": struct{}{}, "elif": struct{}{}, "else": struct{}{}, "except": struct{}{}, "finally": struct{}{}, "for": struct{}{}, "from": struct{}{}, "global": struct{}{}, "if": struct{}{}, "import": struct{}{}, "in": struct{}{}, "is": struct{}{}, "lambda": struct{}{}, "nonlocal": struct{}{}, "not": struct{}{}, "or": struct{}{}, "pass": struct{}{}, "raise": struct{}{}, "return": struct{}{}, "try": struct{}{}, "while": struct{}{}, "with": struct{}{}, "yield": struct{}{},
+	"False": struct{}{}, "None": struct{}{}, "True": struct{}{}, "and": struct{}{}, "as": struct{}{}, "assert": struct{}{}, "break": struct{}{}, "class": struct{}{}, "continue": struct{}{}, "def": struct{}{}, "del": struct{}{}, "elif": struct{}{}, "else": struct{}{}, "except": struct{}{}, "finally": struct{}{}, "for": struct{}{}, "from": struct{}{}, "global": struct{}{}, "if": struct{}{}, "import": struct{}{}, "in": struct{}{}, "is": struct{}{}, "lambda": struct{}{}, "nonlocal": struct{}{}, "not": struct{}{}, "or": struct{}{}, "pass": struct{}{}, "raise": struct{}{}, "return": struct{}{}, "try": struct{}{}, "while": struct{}{}, "with": struct{}{}, "yield": struct{}{}, "self": struct{}{},
 }
 
 // pySafeName returns a name that python will not barf on
