@@ -127,7 +127,7 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		cmd = exec.Command(cfg.VM, "build.py")
 		cmd.Run() // will fail, we don't care about errors
 
-		args := []string{"build", "-buildmode=c-shared", "-o", buildname + libExt, "."}
+		args := []string{"build", "-mod=mod", "-buildmode=c-shared", "-o", buildname + libExt, "."}
 		fmt.Printf("go %v\n", strings.Join(args, " "))
 		cmd = exec.Command("go", args...)
 		cmdout, err = cmd.CombinedOutput()
@@ -147,7 +147,7 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		err = os.Remove(cfg.Name + "_go" + libExt)
 
 		fmt.Printf("go build -o py%s\n", cfg.Name)
-		cmd = exec.Command("go", "build", "-o", "py"+cfg.Name)
+		cmd = exec.Command("go", "build", "-mod=mod", "-o", "py"+cfg.Name)
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
@@ -167,7 +167,7 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 
 		// build the go shared library upfront to generate the header
 		// needed by our generated cpython code
-		args := []string{"build", "-buildmode=c-shared"}
+		args := []string{"build", "-mod=mod", "-buildmode=c-shared"}
 		if !cfg.Symbols {
 			// These flags will omit the various symbol tables, thereby
 			// reducing the final size of the binary. From https://golang.org/cmd/link/

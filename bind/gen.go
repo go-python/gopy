@@ -338,7 +338,7 @@ def Init():
 # %[2]s
 
 GOCMD=go
-GOBUILD=$(GOCMD) build
+GOBUILD=$(GOCMD) build -mod=mod
 GOIMPORTS=goimports
 PYTHON=%[4]s
 LIBEXT=%[5]s
@@ -376,7 +376,7 @@ build:
 # %[2]s
 
 GOCMD=go
-GOBUILD=$(GOCMD) build
+GOBUILD=$(GOCMD) build -mod=mod
 GOIMPORTS=goimports
 PYTHON=%[4]s
 LIBEXT=%[5]s
