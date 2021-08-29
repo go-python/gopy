@@ -829,6 +829,9 @@ func (sym *symtab) addType(obj types.Object, t types.Type) error {
 
 		case *types.Basic:
 			styp := sym.symtype(st)
+			if styp == nil {
+				return fmt.Errorf("gopy: type not found: %s\n", n)
+			}
 			py2go := sym.typeGoName(t)
 			py2goParEx := ""
 			if styp.py2go != "" {
