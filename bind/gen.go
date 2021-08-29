@@ -565,8 +565,13 @@ func (g *pyGen) genPkg(p *Package) {
 
 func (g *pyGen) genGoPreamble() {
 	pkgimport := ""
-	for pi, _ := range current.imports {
-		pkgimport += fmt.Sprintf("\n\t%q", pi)
+	for pp, pnm := range current.imports {
+		_, psfx := filepath.Split(pp)
+		if psfx != pnm {
+			pkgimport += fmt.Sprintf("\n\t%s %q", pnm, pp)
+		} else {
+			pkgimport += fmt.Sprintf("\n\t%q", pp)
+		}
 	}
 	libcfg := func() string {
 		pycfg, err := GetPythonConfig(g.cfg.VM)

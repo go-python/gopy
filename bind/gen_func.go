@@ -212,7 +212,7 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	isIface := false
 	symNm := ""
 	if isMethod {
-		symNm = sym.gofmt()
+		symNm = sym.goname
 		isIface = sym.isInterface()
 		if !isIface {
 			symNm = "*" + symNm

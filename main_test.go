@@ -23,30 +23,31 @@ import (
 var (
 	testBackends = map[string]string{}
 	features     = map[string][]string{
-		"_examples/hi":        []string{"py3"}, // output is different for 2 vs. 3 -- only checking 3 output
-		"_examples/funcs":     []string{"py2", "py3"},
-		"_examples/sliceptr":  []string{"py2", "py3"},
-		"_examples/simple":    []string{"py2", "py3"},
-		"_examples/empty":     []string{"py2", "py3"},
-		"_examples/named":     []string{"py2", "py3"},
-		"_examples/structs":   []string{"py2", "py3"},
-		"_examples/consts":    []string{"py2", "py3"}, // 2 doesn't report .666 decimals
-		"_examples/vars":      []string{"py2", "py3"},
-		"_examples/seqs":      []string{"py2", "py3"},
-		"_examples/cgo":       []string{"py2", "py3"},
-		"_examples/pyerrors":  []string{"py2", "py3"},
-		"_examples/iface":     []string{"py3"}, // output order diff for 2, fails but actually works
-		"_examples/pointers":  []string{"py2", "py3"},
-		"_examples/arrays":    []string{"py2", "py3"},
-		"_examples/slices":    []string{"py2", "py3"},
-		"_examples/maps":      []string{"py2", "py3"},
-		"_examples/gostrings": []string{"py2", "py3"},
-		"_examples/rename":    []string{"py2", "py3"},
-		"_examples/lot":       []string{"py2", "py3"},
-		"_examples/unicode":   []string{"py3"}, // doesn't work for 2
-		"_examples/osfile":    []string{"py2", "py3"},
-		"_examples/gopygc":    []string{"py2", "py3"},
-		"_examples/cstrings":  []string{"py2", "py3"},
+		"_examples/hi":          []string{"py3"}, // output is different for 2 vs. 3 -- only checking 3 output
+		"_examples/funcs":       []string{"py2", "py3"},
+		"_examples/sliceptr":    []string{"py2", "py3"},
+		"_examples/simple":      []string{"py2", "py3"},
+		"_examples/empty":       []string{"py2", "py3"},
+		"_examples/named":       []string{"py2", "py3"},
+		"_examples/structs":     []string{"py2", "py3"},
+		"_examples/consts":      []string{"py2", "py3"}, // 2 doesn't report .666 decimals
+		"_examples/vars":        []string{"py2", "py3"},
+		"_examples/seqs":        []string{"py2", "py3"},
+		"_examples/cgo":         []string{"py2", "py3"},
+		"_examples/pyerrors":    []string{"py2", "py3"},
+		"_examples/iface":       []string{"py3"}, // output order diff for 2, fails but actually works
+		"_examples/pointers":    []string{"py2", "py3"},
+		"_examples/arrays":      []string{"py2", "py3"},
+		"_examples/slices":      []string{"py2", "py3"},
+		"_examples/maps":        []string{"py2", "py3"},
+		"_examples/gostrings":   []string{"py2", "py3"},
+		"_examples/rename":      []string{"py2", "py3"},
+		"_examples/lot":         []string{"py2", "py3"},
+		"_examples/unicode":     []string{"py3"}, // doesn't work for 2
+		"_examples/osfile":      []string{"py2", "py3"},
+		"_examples/gopygc":      []string{"py2", "py3"},
+		"_examples/cstrings":    []string{"py2", "py3"},
+		"_examples/pkgconflict": []string{"py2", "py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -774,6 +775,21 @@ func TestPackagePrefix(t *testing.T) {
 		want: []byte(`mypkg.mypkg.SayHello()...
 Hello
 OK
+`),
+	})
+}
+
+func TestPkgConflict(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/pkgconflict"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`17 items are made of wool
+42 items are made of hyperlinks
+2 items are made of fuzz
 `),
 	})
 }

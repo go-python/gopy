@@ -19,6 +19,7 @@ _examples/lot | yes | yes
 _examples/maps | yes | yes
 _examples/named | yes | yes
 _examples/osfile | yes | yes
+_examples/pkgconflict | yes | yes
 _examples/pointers | yes | yes
 _examples/pyerrors | yes | yes
 _examples/rename | yes | yes

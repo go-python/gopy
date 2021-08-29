@@ -271,7 +271,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Printf("//export %s\n", ctNm)
 		g.gofile.Printf("func %s() CGoHandle {\n", ctNm)
 		g.gofile.Indent()
-		g.gofile.Printf("return CGoHandle(handleFromPtr_%[1]s(&%[2]s{}))\n", slNm, slc.gofmt())
+		g.gofile.Printf("return CGoHandle(handleFromPtr_%[1]s(&%[2]s{}))\n", slNm, slc.goname)
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
 

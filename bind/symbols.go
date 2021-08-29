@@ -345,17 +345,6 @@ func (s *symbol) cgotypename() string {
 	return s.cgoname
 }
 
-// gofmt returns the type name that is always qualified by an appropriate package name
-// this should always be used for "goname" in general.
-func (s *symbol) gofmt() string {
-	return types.TypeString(s.GoType(), func(pkg *types.Package) string { return pkg.Name() })
-}
-
-// idname returns gofmt with . -> _ -- this should always be used for id
-func (s *symbol) idname() string {
-	return strings.Replace(s.gofmt(), ".", "_", -1)
-}
-
 // pyPkgId returns the python package-qualified version of Id
 func (s *symbol) pyPkgId(curPkg *types.Package) string {
 	pnm := s.gopkg.Name()
@@ -397,10 +386,12 @@ func (s *symbol) pyPkgId(curPkg *types.Package) string {
 
 // symtab is a table of symbols in a go package
 type symtab struct {
-	pkg     *types.Package // current package only -- can change depending..
-	syms    map[string]*symbol
-	imports map[string]string // other packages to import b/c we refer to their types
-	parent  *symtab
+	pkg         *types.Package // current package only -- can change depending..
+	syms        map[string]*symbol
+	imports     map[string]string // key is full path, value is unique name
+	importNames map[string]string // package name to path map -- for detecting name conflicts
+	uniqName    byte              // char for making package name unique
+	parent      *symtab
 }
 
 func newSymtab(pkg *types.Package, parent *symtab) *symtab {
@@ -408,10 +399,11 @@ func newSymtab(pkg *types.Package, parent *symtab) *symtab {
 		parent = universe
 	}
 	s := &symtab{
-		pkg:     pkg,
-		syms:    make(map[string]*symbol),
-		imports: make(map[string]string),
-		parent:  parent,
+		pkg:         pkg,
+		syms:        make(map[string]*symbol),
+		imports:     make(map[string]string),
+		importNames: make(map[string]string),
+		parent:      parent,
 	}
 	return s
 }
@@ -436,9 +428,29 @@ func (sym *symtab) sym(n string) *symbol {
 	return nil
 }
 
-func (sym *symtab) addImport(pkg *types.Package) {
+// adds package to imports if not already on it, and returns
+// unique name used to refer to it
+func (sym *symtab) addImport(pkg *types.Package) string {
 	p := pkg.Path()
-	sym.imports[p] = p
+	nm := pkg.Name()
+	unm := nm
+	ep, exists := sym.imports[p]
+	if exists {
+		return ep
+	}
+	ep, exists = sym.importNames[nm]
+	if exists && ep != p {
+		if sym.uniqName == 0 {
+			sym.uniqName = 'a'
+		} else {
+			sym.uniqName++
+		}
+		unm = string([]byte{sym.uniqName}) + nm
+		fmt.Printf("import conflict: existing: %s  new: %s  alias: %s\n", ep, p, unm)
+	}
+	sym.importNames[unm] = p
+	sym.imports[p] = unm
+	return unm
 }
 
 func (sym *symtab) typeof(n string) *symbol {
@@ -468,26 +480,29 @@ func (sym *symtab) symtype(t types.Type) *symbol {
 }
 
 // typePkg gets the package for a given types.Type
-func typePkg(t types.Type) *types.Package {
+func (sym *symtab) typePkg(t types.Type) *types.Package {
 	if tn, ok := t.(*types.Named); ok {
 		return tn.Obj().Pkg()
 	}
 	switch tt := t.(type) {
 	case *types.Pointer:
-		return typePkg(tt.Elem())
+		return sym.typePkg(tt.Elem())
 	}
 	return nil
 }
 
 // typeGoName returns the go type name that is always qualified by an appropriate package name
 // this should always be used for "goname" in general.
-func typeGoName(t types.Type) string {
-	return types.TypeString(t, func(pkg *types.Package) string { return pkg.Name() })
+func (sym *symtab) typeGoName(t types.Type) string {
+	return types.TypeString(t, func(pkg *types.Package) string {
+		pnm := sym.addImport(pkg) // always make sure
+		return pnm
+	})
 }
 
 // typeIdName returns typeGoName with . -> _ -- this should always be used for id
-func typeIdName(t types.Type) string {
-	idn := strings.Replace(typeGoName(t), ".", "_", -1)
+func (sym *symtab) typeIdName(t types.Type) string {
+	idn := strings.Replace(sym.typeGoName(t), ".", "_", -1)
 	if _, isary := t.(*types.Array); isary {
 		idn = strings.Replace(idn, "[", "Array_", 1)
 		idn = strings.Replace(idn, "]", "_", 1)
@@ -506,8 +521,10 @@ func (sym *symtab) addSymbol(obj types.Object) error {
 	n := obj.Name()
 	pkg := obj.Pkg()
 	id := n
+	var pkgnm string
 	if pkg != nil {
-		id = pkg.Name() + "_" + n
+		pkgnm = sym.importNames[pkg.Path()]
+		id = pkgnm + "_" + n
 	}
 	switch obj.(type) {
 	case *types.Const:
@@ -560,7 +577,7 @@ func (sym *symtab) addSymbol(obj types.Object) error {
 			return sym.processTuple(sig.Results())
 		}
 		if !NoWarn {
-			fmt.Printf("ignoring python incompatible function: %v.%v: %v: %v\n", pkg.Name(), obj.String(), sig.String(), err)
+			fmt.Printf("ignoring python incompatible function: %v.%v: %v: %v\n", pkgnm, obj.String(), sig.String(), err)
 		}
 
 	case *types.TypeName:
@@ -730,14 +747,14 @@ func (sym *symtab) ZeroToGo(typ types.Type, sy *symbol) (string, error) {
 // naming for types in other packages, and adds those packages to imports paths.
 // Falls back on sym.pkg if no other package info avail.
 func (sym *symtab) typeNamePkg(t types.Type) (gonm, idnm string, pkg *types.Package) {
-	gonm = typeGoName(t)
-	idnm = typeIdName(t)
-	pkg = typePkg(t)
+	pkg = sym.typePkg(t)
 	if pkg != nil {
 		sym.addImport(pkg)
 	} else {
 		pkg = sym.pkg
 	}
+	gonm = sym.typeGoName(t)
+	idnm = sym.typeIdName(t)
 	return
 }
 
@@ -812,7 +829,7 @@ func (sym *symtab) addType(obj types.Object, t types.Type) error {
 
 		case *types.Basic:
 			styp := sym.symtype(st)
-			py2go := typeGoName(t)
+			py2go := sym.typeGoName(t)
 			py2goParEx := ""
 			if styp.py2go != "" {
 				py2go += "(" + styp.py2go
@@ -1033,7 +1050,7 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 	args := sig.Params()
 	nargs := args.Len()
 	rets := sig.Results()
-	nsig := typeGoName(t.Underlying())
+	nsig := sym.typeGoName(t.Underlying())
 
 	if rets.Len() > 1 {
 		return fmt.Errorf("multiple return values not supported")
@@ -1060,11 +1077,11 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 			if i > 0 {
 				nsig += ", "
 			}
-			nsig += anm + " " + typeGoName(typ)
+			nsig += anm + " " + sym.typeGoName(typ)
 		}
 		nsig += ")"
 		if rets.Len() == 1 {
-			nsig += " " + typeGoName(ret.Type())
+			nsig += " " + sym.typeGoName(ret.Type())
 		}
 	}
 

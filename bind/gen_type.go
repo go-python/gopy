@@ -63,7 +63,7 @@ func (g *pyGen) genTypeHandlePtr(sym *symbol) {
 	if sym.goname == "interface{}" {
 		return
 	}
-	gonm := sym.gofmt()
+	gonm := sym.goname
 	g.gofile.Printf("\n// Converters for pointer handles for type: %s\n", gonm)
 	g.gofile.Printf("func %s(h CGoHandle) %s {\n", sym.py2go, gonm)
 	g.gofile.Indent()
@@ -89,7 +89,7 @@ func (g *pyGen) genTypeHandlePtr(sym *symbol) {
 
 // implicit pointer types: slice, map, array
 func (g *pyGen) genTypeHandleImplPtr(sym *symbol) {
-	gonm := sym.gofmt()
+	gonm := sym.goname
 	ptrnm := gonm
 	nptrnm := gonm
 	if ptrnm[0] != '*' {
@@ -137,7 +137,7 @@ func nonPtrName(nm string) string {
 }
 
 func (g *pyGen) genTypeHandle(sym *symbol) {
-	gonm := sym.gofmt()
+	gonm := sym.goname
 	ptrnm := gonm
 	if ptrnm[0] != '*' {
 		ptrnm = "*" + ptrnm
