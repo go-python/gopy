@@ -116,13 +116,13 @@ func TestGoPyErrors(t *testing.T) {
 		t.Fatalf("could not run %v: %+v\n", strings.Join(cmd.Args, " "), err)
 	}
 	contains := `--- Processing package: github.com/go-python/gopy/_examples/gopyerrors ---
-ignoring python incompatible function: gopyerrors.func github.com/go-python/gopy/_examples/gopyerrors.NotErrorMany() (int, int): func() (int, int): gopy: second result value must be of type error: func() (int, int)
+ignoring python incompatible function: .func github.com/go-python/gopy/_examples/gopyerrors.NotErrorMany() (int, int): func() (int, int): gopy: second result value must be of type error: func() (int, int)
 ignoring python incompatible method: gopyerrors.func (*github.com/go-python/gopy/_examples/gopyerrors.Struct).NotErrorMany() (int, string): func() (int, string): gopy: second result value must be of type error: func() (int, string)
 ignoring python incompatible method: gopyerrors.func (*github.com/go-python/gopy/_examples/gopyerrors.Struct).TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
-ignoring python incompatible function: gopyerrors.func github.com/go-python/gopy/_examples/gopyerrors.TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
+ignoring python incompatible function: .func github.com/go-python/gopy/_examples/gopyerrors.TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
 `
 	if got, want := string(out), contains; !strings.Contains(got, want) {
-		t.Fatalf("%v does not contain %v\n", got, want)
+		t.Fatalf("%v does not contain\n%v\n", got, want)
 	}
 }
 
