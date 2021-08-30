@@ -33,6 +33,18 @@ To [install python modules](https://packaging.python.org/tutorials/packaging-pro
 python3 -m pip install --upgrade setuptools wheel
 ```
 
+### Windows
+
+As of version 0.4.0, windows is now better supported, and is passing tests (on at least one developers machine).  You may still need to set some environment variables depending on your python installation, but a vanilla standard install is working.
+
+Install Python from the main Python distribution: https://www.python.org/downloads/windows/ -- *do not under any circumstances install from the Microsoft Store app!* while that is very convenient, it creates symbolic links to access the python executables, which is incompatible with go exec.Command to run it, despite too many hours of trying to get around that.
+
+The standard python install does not create a `python3.exe` which gopy looks for -- follow instructions here:
+https://stackoverflow.com/questions/39910730/python3-is-not-recognized-as-an-internal-or-external-command-operable-program/41492852
+(just make a copy of python.exe to python3.exe in the relevant installed location).
+
+If you get a bunch of errors during linking in the build process, set `LIBDIR` or `GOPY_LIBDIR` to path to python libraries, and `LIBRARY` or `GOPY_PYLIB` to name of python library (e.g., python39 for 3.9).
+
 ## Community
 
 The `go-python` community can be reached out at [go-python@googlegroups.com](mailto:go-python@googlegroups.com) or via the web forum: [go-python group](https://groups.google.com/forum/#!forum/go-python).

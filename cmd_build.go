@@ -197,6 +197,16 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 			return err
 		}
 
+		if bind.WindowsOS {
+			fmt.Printf("Doing windows sed hack to fix declspec for PyInit\n")
+			cmd = exec.Command("sed", "-i", "s/ PyInit_/ __declspec(dllexport) PyInit_/g", cfg.Name+".c")
+			cmdout, err = cmd.CombinedOutput()
+			if err != nil {
+				fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
+				return err
+			}
+		}
+
 		cflags := strings.Fields(strings.TrimSpace(pycfg.CFlags))
 		cflags = append(cflags, "-fPIC", "-Ofast")
 		if include, exists := os.LookupEnv("GOPY_INCLUDE"); exists {

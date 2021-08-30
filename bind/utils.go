@@ -110,6 +110,7 @@ version=sys.version_info.major
 if "GOPY_INCLUDE" in os.environ and "GOPY_LIBDIR" in os.environ and "GOPY_PYLIB" in os.environ:
 	print(json.dumps({
 		"version": version,
+		"minor": sys.version_info.minor,
 		"incdir": os.environ["GOPY_INCLUDE"],
 		"libdir": os.environ["GOPY_LIBDIR"],
 		"libpy": os.environ["GOPY_PYLIB"],
@@ -121,6 +122,7 @@ if "GOPY_INCLUDE" in os.environ and "GOPY_LIBDIR" in os.environ and "GOPY_PYLIB"
 else:
 	print(json.dumps({
 		"version": sys.version_info.major,
+		"minor": sys.version_info.minor,
 		"incdir":  ds.get_python_inc(),
 		"libdir":  ds.get_config_var("LIBDIR"),
 		"libpy":   ds.get_config_var("LIBRARY"),
@@ -149,6 +151,7 @@ else:
 
 	var raw struct {
 		Version   int    `json:"version"`
+		Minor     int    `json:"minor"`
 		IncDir    string `json:"incdir"`
 		LibDir    string `json:"libdir"`
 		LibPy     string `json:"libpy"`
@@ -163,6 +166,20 @@ else:
 
 	raw.IncDir = filepath.ToSlash(raw.IncDir)
 	raw.LibDir = filepath.ToSlash(raw.LibDir)
+
+	// on windows these can be empty -- use include dir which is usu good
+	if raw.LibDir == "" && raw.IncDir != "" {
+		raw.LibDir = raw.IncDir
+		if strings.HasSuffix(raw.LibDir, "include") {
+			raw.LibDir = raw.LibDir[:len(raw.LibDir)-len("include")] + "libs"
+		}
+		fmt.Printf("no LibDir -- copy from IncDir: %s\n", raw.LibDir)
+	}
+
+	if raw.LibPy == "" {
+		raw.LibPy = fmt.Sprintf("python%d%d", raw.Version, raw.Minor)
+		fmt.Printf("no LibPy -- set to: %s\n", raw.LibPy)
+	}
 
 	if strings.HasSuffix(raw.LibPy, ".a") {
 		raw.LibPy = raw.LibPy[:len(raw.LibPy)-len(".a")]
