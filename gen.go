@@ -122,6 +122,11 @@ func loadPackage(path string, buildFirst bool) (*packages.Package, error) {
 }
 
 func parsePackage(bpkg *packages.Package) (*bind.Package, error) {
+	if len(bpkg.GoFiles) == 0 {
+		err := fmt.Errorf("gopy: no files in package %q", bpkg.PkgPath)
+		fmt.Println(err)
+		return nil, err
+	}
 	dir, _ := filepath.Split(bpkg.GoFiles[0])
 	p := bpkg.Types
 

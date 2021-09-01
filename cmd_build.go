@@ -74,11 +74,11 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 			return fmt.Errorf("gopy-gen: go build / load of package failed with path=%q: %v", path, err)
 		}
 		pkg, err := parsePackage(bpkg)
-		if cfg.Name == "" {
-			cfg.Name = pkg.Name()
-		}
 		if err != nil {
 			return err
+		}
+		if cfg.Name == "" {
+			cfg.Name = pkg.Name()
 		}
 	}
 	return runBuild("build", cfg)
