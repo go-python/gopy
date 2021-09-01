@@ -17,6 +17,8 @@ New features:
 
 ## Installation
 
+Gopy now assumes that you are working with modules-based builds, and requires a valid `go.mod` file, and works only with Go versions 1.15 and above.
+
 Currently using [pybindgen](https://pybindgen.readthedocs.io/en/latest/tutorial/) to generate the low-level c-to-python bindings, but support for [cffi](https://cffi.readthedocs.io/en/latest/) should be relatively straightforward for those using PyPy instead of CPython (pybindgen should be significantly faster for CPython apparently).  You also need `goimports` to ensure the correct imports are included.
 
 ```sh
@@ -37,7 +39,7 @@ python3 -m pip install --upgrade setuptools wheel
 
 As of version 0.4.0, windows is now better supported, and is passing tests (on at least one developers machine).  You may still need to set some environment variables depending on your python installation, but a vanilla standard install is working.
 
-Install Python from the main Python distribution: https://www.python.org/downloads/windows/ -- *do not under any circumstances install from the Microsoft Store app!* while that is very convenient, it creates symbolic links to access the python executables, which is incompatible with go exec.Command to run it, despite too many hours of trying to get around that.
+Install Python from the main Python distribution: https://www.python.org/downloads/windows/ -- *do not install from the Microsoft Store app!* -- while that is very convenient, it creates symbolic links to access the python executables, which is incompatible with go exec.Command to run it, despite too many hours of trying to get around that.
 
 The standard python install does not create a `python3.exe` which gopy looks for -- follow instructions here:
 https://stackoverflow.com/questions/39910730/python3-is-not-recognized-as-an-internal-or-external-command-operable-program/41492852
@@ -165,7 +167,39 @@ Options:
 
 ## Examples
 
-### From the `python` shell
+### From the command line
+
+Note: you now need to make a go.mod file if you don't already have one in your environment, and get the package before building:
+
+```sh
+$ go mod init dummy.com/dum
+$ go get github.com/go-python/gopy/_examples/hi
+$ gopy build -output=out -vm=python3 github.com/go-python/gopy/_examples/hi
+$ ls out
+Makefile  __init__.py  __pycache__/  _hi.so*  build.py  go.py  hi.c  hi.go  hi.py  hi_go.h  hi_go.so
+```
+
+
+```sh
+$ cd out
+$ python3
+>>> from out import hi
+>>> dir(hi)
+['Add', 'Concat', 'Hello', 'Hi', 'NewPerson', 'Person', '__doc__', '__file__', '__name__', '__package__']
+
+>>> hi.Hello("you")
+hello you from go
+
+```
+
+You can also run:
+
+```sh
+go test -v -run=TestHi
+...
+```
+
+### From the `python` shell (NOT YET WORKING)
 
 NOTE: following not yet working in new version:
 
@@ -184,34 +218,6 @@ gopy> importing 'github.com/go-python/gopy/_examples/hi'
 
 >>> print hi.__doc__
 package hi exposes a few Go functions to be wrapped and used from Python.
-```
-
-### From the command line
-
-```sh
-$ gopy build -output=out -vm=`which python3` github.com/go-python/gopy/_examples/hi
-$ ls out
-Makefile  __init__.py  __pycache__/  _hi.so*  build.py  go.py  hi.c  hi.go  hi.py  hi_go.h  hi_go.so
-```
-
-
-```sh
-$ cd out
-$ python3
->>> import hi
->>> dir(hi)
-['Add', 'Concat', 'Hello', 'Hi', 'NewPerson', 'Person', '__doc__', '__file__', '__name__', '__package__']
-
->>> hi.Hello("you")
-hello you from go
-
-```
-
-You can also run:
-
-```sh
-go test -v -run=TestHi
-...
 ```
 
 ## Binding generation using Docker (for cross-platform builds)
@@ -235,6 +241,14 @@ $ docker run -it --rm go-python/gopy
 
 To know what features are supported on what backends, please refer to the
 [Support matrix ](https://github.com/go-python/gopy/blob/master/SUPPORT_MATRIX.md).
+
+## Troubleshooting
+
+If you get an error like this after importing a generated module:
+```bash
+Fatal Python error: _PyInterpreterState_Get(): no current thread state
+```
+it means you are running a different version of python than the one that build the library you are importing -- make sure you've got the paths in your `-vm` arg aligned with what you are using to import.
 
 ## Contribute
 

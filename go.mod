@@ -1,6 +1,6 @@
 module github.com/go-python/gopy
 
-go 1.13
+go 1.15
 
 require (
 	github.com/gonuts/commander v0.1.0
