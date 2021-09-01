@@ -35,6 +35,16 @@ To [install python modules](https://packaging.python.org/tutorials/packaging-pro
 python3 -m pip install --upgrade setuptools wheel
 ```
 
+IMPORTANT: many errors will be avoided by specifying the `-vm` option to gopy, with a full path if needed, or typically just `-vm=python3` to use python3 instead of version 2, which is often the default for the plain `python` command.
+
+### Linux
+
+On linux, you may need to ensure that the linker `ld` will look in the current directory for library files -- add this to your `.bashrc` file (and `source` that file after editing, or enter command locally):
+
+```sh
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.
+```
+
 ### Windows
 
 As of version 0.4.0, windows is now better supported, and is passing tests (on at least one developers machine).  You may still need to set some environment variables depending on your python installation, but a vanilla standard install is working.
@@ -62,6 +72,8 @@ Documentation is available on [godoc](https://godoc.org):
  https://godoc.org/github.com/go-python/gopy
 
 The `pkg` and `exe` commands are for end-users and create a full standalone python package that can be installed locally using `make install` based on the auto-generated `Makefile`.  Theoretically these packages could be uploaded to https://pypi.org/ for wider distribution, but that would require a lot more work to handle all the different possible python versions and coordination with the Go source version, so it is much better to just do the local make install on your system.  The `gen` and `build` commands are used for testing and just generate / build the raw binding files only.
+
+IMPORTANT: many errors will be avoided by specifying the `-vm` option to gopy, with a full path if needed, or typically just `-vm=python3` to use python3 instead of version 2, which is often the default for the plain `python` command.
 
 Here are some (slightly enhanced) docs from the help command:
 
@@ -164,7 +176,6 @@ Options:
 
 ```
 
-
 ## Examples
 
 ### From the command line
@@ -178,7 +189,6 @@ $ gopy build -output=out -vm=python3 github.com/go-python/gopy/_examples/hi
 $ ls out
 Makefile  __init__.py  __pycache__/  _hi.so*  build.py  go.py  hi.c  hi.go  hi.py  hi_go.h  hi_go.so
 ```
-
 
 ```sh
 $ cd out
@@ -244,11 +254,27 @@ To know what features are supported on what backends, please refer to the
 
 ## Troubleshooting
 
+### python version mismatches
+
+Many errors will be avoided by specifying the `-vm` option to gopy, with a full path if needed, or typically just `-vm=python3` to use python3 instead of version 2, which is often the default for the plain `python` command.
+
+If you get any kind of error about the library module not being able to be imported, or apparently a large number of other random-looking errors, a mismatch between the python version used for compiling vs. what you are using to run is the most likely explanation.
+
 If you get an error like this after importing a generated module:
 ```bash
 Fatal Python error: _PyInterpreterState_Get(): no current thread state
 ```
 it means you are running a different version of python than the one that build the library you are importing -- make sure you've got the paths in your `-vm` arg aligned with what you are using to import.
+
+### linux: cannot find .so file
+
+If your `import` statement fails to find the module `.so` file, and it is in the current directory, you may need to ensure that the linker `ld` will look in the current directory for library files -- add this to your `.bashrc` file (and `source` that file after editing, or enter command locally):
+
+```sh
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.
+```
+
+you may also need to add your python path, but that is less likely to be an issue.
 
 ## Contribute
 
