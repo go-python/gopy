@@ -59,7 +59,6 @@ If you get a bunch of errors during linking in the build process, set `LIBDIR` o
 
 ## Community
 
-The `go-python` community can be reached out at [go-python@googlegroups.com](mailto:go-python@googlegroups.com) or via the web forum: [go-python group](https://groups.google.com/forum/#!forum/go-python).
 See the [CONTRIBUTING](https://github.com/go-python/gopy/blob/master/CONTRIBUTE.md) guide for pointers on how to contribute to `gopy`.
 
 ## Documentation
