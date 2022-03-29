@@ -434,7 +434,7 @@ var NoMake = false
 // and wrapper .py file(s) that are loaded as the interface to the package with shadow
 // python-side classes
 // mode = gen, build, pkg, exe
-func GenPyBind(mode BuildMode, libext, extragccargs string, lang int, cfg *BindCfg) error {
+func GenPyBind(mode BuildMode, libext, extragccargs string, lang int, dynamicLink bool, cfg *BindCfg) error {
 	gen := &pyGen{
 		mode:         mode,
 		pypkgname:    cfg.Name,
@@ -442,6 +442,7 @@ func GenPyBind(mode BuildMode, libext, extragccargs string, lang int, cfg *BindC
 		libext:       libext,
 		extraGccArgs: extragccargs,
 		lang:         lang,
+		dynamicLink:  dynamicLink,
 	}
 	gen.genPackageMap()
 	thePyGen = gen
@@ -470,6 +471,7 @@ type pyGen struct {
 	libext       string
 	extraGccArgs string
 	lang         int // c-python api version (2,3)
+	dynamicLink  bool
 }
 
 func (g *pyGen) gen() error {
@@ -583,12 +585,18 @@ func (g *pyGen) genGoPreamble() {
 		if err != nil {
 			panic(err)
 		}
+		var ldflags string
+		if g.mode == ModeExe || !g.dynamicLink {
+			ldflags = pycfg.LdFlags
+		} else {
+			ldflags = pycfg.LdDynamicFlags
+		}
 		// this is critical to avoid pybindgen errors:
 		exflags := " -Wno-error -Wno-implicit-function-declaration -Wno-int-conversion"
 		pkgcfg := fmt.Sprintf(`
 #cgo CFLAGS: %s
 #cgo LDFLAGS: %s
-`, pycfg.CFlags+exflags, pycfg.LdFlags)
+`, pycfg.CFlags+exflags, ldflags)
 
 		return pkgcfg
 	}()

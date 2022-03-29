@@ -87,10 +87,11 @@ func isConstructor(sig *types.Signature) bool {
 }
 
 type PyConfig struct {
-	Version   int
-	CFlags    string
-	LdFlags   string
-	ExtSuffix string
+	Version        int
+	CFlags         string
+	LdFlags        string
+	LdDynamicFlags string
+	ExtSuffix      string
 }
 
 // AllFlags returns CFlags + " " + LdFlags
@@ -107,6 +108,12 @@ import json
 import os
 version=sys.version_info.major
 
+def clear_ld_flags(s):
+	skip_first_word = s.split(' ', 1)[1]  # skip compiler name
+	skip_bundle = skip_first_word.replace('-bundle', '')  # cgo already passes -dynamiclib
+	return skip_bundle
+
+
 if "GOPY_INCLUDE" in os.environ and "GOPY_LIBDIR" in os.environ and "GOPY_PYLIB" in os.environ:
 	print(json.dumps({
 		"version": version,
@@ -117,6 +124,7 @@ if "GOPY_INCLUDE" in os.environ and "GOPY_LIBDIR" in os.environ and "GOPY_PYLIB"
 		"shlibs":  ds.get_config_var("SHLIBS"),
 		"syslibs": ds.get_config_var("SYSLIBS"),
 		"shlinks": ds.get_config_var("LINKFORSHARED"),
+		"shflags": clear_ld_flags(ds.get_config_var("LDSHARED")),
 		"extsuffix": ds.get_config_var("EXT_SUFFIX"),
 }))
 else:
@@ -129,6 +137,7 @@ else:
 		"shlibs":  ds.get_config_var("SHLIBS"),
 		"syslibs": ds.get_config_var("SYSLIBS"),
 		"shlinks": ds.get_config_var("LINKFORSHARED"),
+		"shflags": clear_ld_flags(ds.get_config_var("LDSHARED")),
 		"extsuffix": ds.get_config_var("EXT_SUFFIX"),
 }))
 `
@@ -158,6 +167,7 @@ else:
 		ShLibs    string `json:"shlibs"`
 		SysLibs   string `json:"syslibs"`
 		ExtSuffix string `json:"extsuffix"`
+		ShFlags   string `json:"shflags"`
 	}
 	err = json.NewDecoder(buf).Decode(&raw)
 	if err != nil {
@@ -199,6 +209,7 @@ else:
 		raw.ShLibs,
 		raw.SysLibs,
 	}, " ")
+	cfg.LdDynamicFlags = raw.ShFlags
 
 	return cfg, nil
 }

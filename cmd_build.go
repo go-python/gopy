@@ -44,6 +44,7 @@ ex:
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
 	cmd.Flag.Bool("no-make", false, "do not generate a Makefile, e.g., when called from Makefile")
+	cmd.Flag.Bool("dynamic-link", false, "whether to link output shared library dynamically to Python")
 	return cmd
 }
 
@@ -64,6 +65,7 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 	cfg.Symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 	cfg.NoWarn = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
 	cfg.NoMake = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
+	cfg.DynamicLinking = cmdr.Flag.Lookup("dynamic-link").Value.Get().(bool)
 
 	bind.NoWarn = cfg.NoWarn
 	bind.NoMake = cfg.NoMake
@@ -212,8 +214,12 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		if include, exists := os.LookupEnv("GOPY_INCLUDE"); exists {
 			cflags = append(cflags, "-I"+filepath.ToSlash(include))
 		}
-
-		ldflags := strings.Fields(strings.TrimSpace(pycfg.LdFlags))
+		var ldflags []string
+		if cfg.DynamicLinking {
+			ldflags = strings.Fields(strings.TrimSpace(pycfg.LdDynamicFlags))
+		} else {
+			ldflags = strings.Fields(strings.TrimSpace(pycfg.LdFlags))
+		}
 		if !cfg.Symbols {
 			ldflags = append(ldflags, "-s")
 		}
