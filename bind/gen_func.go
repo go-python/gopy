@@ -87,18 +87,22 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 			return false
 		}
 		anm := pySafeArg(arg.Name(), i)
+
 		if ifchandle && arg.sym.goname == "interface{}" {
 			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, CGoHandle))
 			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", PyHandle, anm))
 		} else {
 			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, sarg.cgoname))
 			if sarg.cpyname == "PyObject*" {
-				pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s', transfer_ownership=False)", sarg.cpyname, anm))
+				pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s%s', transfer_ownership=False)", sarg.cpyname, anm))
 			} else {
 				pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", sarg.cpyname, anm))
 			}
 		}
-		wpArgs = append(wpArgs, anm)
+
+		if i!=nargs-1 || !fsym.isVariadic {
+			wpArgs = append(wpArgs, anm)
+		}
 	}
 
 	// support for optional arg to run in a separate go routine -- only if no return val
@@ -106,6 +110,11 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		goArgs = append(goArgs, "goRun C.char")
 		pyArgs = append(pyArgs, "param('bool', 'goRun')")
 		wpArgs = append(wpArgs, "goRun=False")
+	}
+
+	// To support variadic args, we add *args at the end.
+	if fsym.isVariadic {
+		wpArgs = append(wpArgs, "*args")
 	}
 
 	// When building the pybindgen builder code, we start with
@@ -276,25 +285,6 @@ if __err != nil {
 		g.gofile.Printf("var __err error\n")
 	}
 
-	// pywrap output
-	mnm := fsym.ID()
-	if isMethod {
-		mnm = sym.id + "_" + fsym.GoName()
-	}
-	rvHasHandle := false
-	if nres > 0 {
-		ret := res[0]
-		if !rvIsErr && ret.sym.hasHandle() {
-			rvHasHandle = true
-			cvnm := ret.sym.pyPkgId(g.pkg.pkg)
-			g.pywrap.Printf("return %s(handle=_%s.%s(", cvnm, pkgname, mnm)
-		} else {
-			g.pywrap.Printf("return _%s.%s(", pkgname, mnm)
-		}
-	} else {
-		g.pywrap.Printf("_%s.%s(", pkgname, mnm)
-	}
-
 	callArgs := []string{}
 	wrapArgs := []string{}
 	if isMethod {
@@ -313,6 +303,9 @@ if __err != nil {
 		default:
 			na = anm
 		}
+		if i == len(args) - 1 && fsym.isVariadic {
+			na = na + "..."
+		}
 		callArgs = append(callArgs, na)
 		switch {
 		case arg.sym.goname == "interface{}":
@@ -326,6 +319,30 @@ if __err != nil {
 		default:
 			wrapArgs = append(wrapArgs, anm)
 		}
+
+		// To support variadic args, we add *args at the end.
+		if fsym.isVariadic && i == len(args)-1 {
+			g.pywrap.Printf("%s = go.Slice_int(args)\n", anm)
+		}
+	}
+
+	// pywrap output
+	mnm := fsym.ID()
+	if isMethod {
+		mnm = sym.id + "_" + fsym.GoName()
+	}
+	rvHasHandle := false
+	if nres > 0 {
+		ret := res[0]
+		if !rvIsErr && ret.sym.hasHandle() {
+			rvHasHandle = true
+			cvnm := ret.sym.pyPkgId(g.pkg.pkg)
+			g.pywrap.Printf("return %s(handle=_%s.%s(", cvnm, pkgname, mnm)
+		} else {
+			g.pywrap.Printf("return _%s.%s(", pkgname, mnm)
+		}
+	} else {
+		g.pywrap.Printf("_%s.%s(", pkgname, mnm)
 	}
 
 	hasRetCvt := false

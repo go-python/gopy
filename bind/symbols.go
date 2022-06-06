@@ -153,11 +153,6 @@ func isPyCompatField(f *types.Var) (*symbol, error) {
 func isPyCompatFunc(sig *types.Signature) (ret types.Type, haserr, hasfun bool, err error) {
 	res := sig.Results()
 
-	if sig.Variadic() {
-		err = fmt.Errorf("gopy: not yet supporting variadic functions: %s", sig.String())
-		return
-	}
-
 	switch res.Len() {
 	case 2:
 		if !isErrorType(res.At(1).Type()) {

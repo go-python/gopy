@@ -48,6 +48,7 @@ var (
 		"_examples/gopygc":      []string{"py2", "py3"},
 		"_examples/cstrings":    []string{"py2", "py3"},
 		"_examples/pkgconflict": []string{"py2", "py3"},
+		"_examples/variadic":    []string{"py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -810,6 +811,21 @@ func TestPkgConflict(t *testing.T) {
 // `),
 // 	})
 // }
+
+func TestBindVariadic(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/variadic"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`Variadic 1+2+3+4+5 = 15
+NonVariadic 1+[2+3+4]+5 = 15
+Type OK
+`),
+	})
+}
 
 // Generate / verify SUPPORT_MATRIX.md from features map.
 func TestCheckSupportMatrix(t *testing.T) {
