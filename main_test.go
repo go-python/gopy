@@ -820,8 +820,9 @@ func TestBindVariadic(t *testing.T) {
 		lang:   features[path],
 		cmd:    "build",
 		extras: nil,
-		want: []byte(`Variadic 1+2+3+4+5 = 15
-NonVariadic 1+[2+3+4]+5 = 15
+		want: []byte(`NonVariadic 1+[2+3+4]+5 = 15
+Variadic 1+2+3+4+5 = 15
+Variadic Struct s(1)+s(2)+s(3) = 6
 Type OK
 `),
 	})

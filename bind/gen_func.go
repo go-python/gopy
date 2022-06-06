@@ -322,7 +322,11 @@ if __err != nil {
 
 		// To support variadic args, we add *args at the end.
 		if fsym.isVariadic && i == len(args)-1 {
-			g.pywrap.Printf("%s = go.Slice_int(args)\n", anm)
+			packagePrefix := ""
+			if arg.sym.gopkg.Name() != fsym.pkg.Name() {
+				packagePrefix = arg.sym.gopkg.Name() + "."
+			}
+			g.pywrap.Printf("%s = %s%s(args)\n", anm, packagePrefix, arg.sym.id)
 		}
 	}
 
