@@ -823,6 +823,7 @@ func TestBindVariadic(t *testing.T) {
 		want: []byte(`NonVariadic 1+[2+3+4]+5 = 15
 Variadic 1+2+3+4+5 = 15
 Variadic Struct s(1)+s(2)+s(3) = 6
+Variadic InterFace i(1)+i(2)+i(3) = 6
 Type OK
 `),
 	})

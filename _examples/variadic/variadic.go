@@ -40,3 +40,18 @@ func VariStructFunc(vargs ...IntStrUct) int{
 }
 
 /////////////// Variadic Over Interface //////////////
+type IntInterFace interface {
+	Number() int
+}
+
+func (is *IntStrUct) Number() int {
+	return is.p
+}
+
+func VariInterFaceFunc(vargs ...IntInterFace) int{
+	total := 0
+	for _, inst := range vargs {
+		total += inst.Number()
+	}
+	return total
+}

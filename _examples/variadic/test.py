@@ -15,6 +15,11 @@ print("Variadic 1+2+3+4+5 = %d" % varResult)
 varStructResult = variadic.VariStructFunc(variadic.NewIntStrUct(1), variadic.NewIntStrUct(2), variadic.NewIntStrUct(3))
 print("Variadic Struct s(1)+s(2)+s(3) = %d" % varStructResult)
 
+############### Variadic Over InterFace ##############
+varInterFaceResult = variadic.VariInterFaceFunc(variadic.NewIntStrUct(1), variadic.NewIntStrUct(2), variadic.NewIntStrUct(3))
+print("Variadic InterFace i(1)+i(2)+i(3) = %d" % varInterFaceResult)
+
+############### Final ##############
 if isinstance(varResult, int):
 	print("Type OK")
 else:
