@@ -94,7 +94,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		} else {
 			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, sarg.cgoname))
 			if sarg.cpyname == "PyObject*" {
-				pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s%s', transfer_ownership=False)", sarg.cpyname, anm))
+				pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s', transfer_ownership=False)", sarg.cpyname, anm))
 			} else {
 				pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", sarg.cpyname, anm))
 			}
