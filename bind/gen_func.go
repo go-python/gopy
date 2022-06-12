@@ -381,13 +381,13 @@ if __err != nil {
 		}
 
 		// Call upstream method and collect returns.
-		g.pywrap.Printf(fmt.Sprintf("%s := %s", strings.Join(retvars, ", "), pyFuncCall))
+		g.pywrap.Printf(fmt.Sprintf("%s := %s\n", strings.Join(retvars, ", "), pyFuncCall))
 
 		// ReMap handle returns from pyFuncCall.
 		for i := 0; i < npyres; i++ {
 			if res[i].sym.hasHandle() {
 				cvnm := res[i].sym.pyPkgId(g.pkg.pkg)
-				g.pywrap.Printf("ret%d = %s(handle=_ret%d)", cvnm, i, i)
+				g.pywrap.Printf("ret%d = %s(handle=_ret%d)\n", i, cvnm, i)
 				retvars[i] = "ret" + strconv.Itoa(i)
 			}
 		}
@@ -397,7 +397,7 @@ if __err != nil {
 		g.pywrap.Printf(pyFuncCall)
 	}
 
-	g.pywrap.Printf("\n")
+	g.pywrap.Printf("\n\n")
 	g.pywrap.Outdent()
 
 	goFuncCall := ""
@@ -460,7 +460,7 @@ if __err != nil {
 			} else {
 				g.gofile.Printf("if __err != nil {\n")
 				g.gofile.Indent()
-				g.gofile.Printf("estr := C.CString(__err.Error())// NOTE: leaked string\n") // NOTE: leaked string
+				g.gofile.Printf("estr := C.CString(__err.Error())\n") // NOTE: freed string
 				g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, estr)\n")
 				g.gofile.Printf("C.free(unsafe.Pointer(estr))\n") // python should have converted, safe
 				g.gofile.Outdent()
