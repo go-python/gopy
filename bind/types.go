@@ -369,17 +369,22 @@ type Func struct {
 
 	id         string
 	doc        string
-	ret        types.Type // return type, if any
-	err        bool       // true if original go func has comma-error
-	ctor       bool       // true if this is a newXXX function
-	hasfun     bool       // true if this function has a function argument
-	isVariadic bool       // True, if this is a variadic function.
+	ret        []types.Type // return type, if any
+	haserr     bool         // true if original go func has comma-error
+	ctor       bool         // true if this is a newXXX function
+	hasfun     bool         // true if this function has a function argument
+	isVariadic bool         // True, if this is a variadic function.
 }
 
 func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signature) (*Func, error) {
-	ret, haserr, hasfun, err := isPyCompatFunc(sig)
+	haserr, hasfun, err := isPyCompatFunc(sig)
 	if err != nil {
 		return nil, err
+	}
+
+	ret, err2 := getPyReturnType(sig)
+	if err2 != nil {
+		return nil, err2
 	}
 
 	id := obj.Pkg().Name() + "_" + obj.Name()
@@ -401,7 +406,7 @@ func newFuncFrom(p *Package, parent string, obj types.Object, sig *types.Signatu
 		id:         id,
 		doc:        p.getDoc(parent, obj),
 		ret:        ret,
-		err:        haserr,
+		haserr:     haserr,
 		hasfun:     hasfun,
 		isVariadic: sig.Variadic(),
 	}, nil
@@ -452,7 +457,7 @@ func (f *Func) Signature() *Signature {
 	return f.sig
 }
 
-func (f *Func) Return() types.Type {
+func (f *Func) Return() []types.Type {
 	return f.ret
 }
 

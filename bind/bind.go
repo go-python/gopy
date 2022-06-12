@@ -16,18 +16,34 @@ import (
 type BindCfg struct {
 	// output directory for bindings
 	OutputDir string
+
 	// name of output package (otherwise name of first package is used)
 	Name string
+
 	// code string to run in the go main() function in the cgo library
 	Main string
+
 	// the full command args as a string, without path to exe
 	Cmd string
+
 	// path to python interpreter
 	VM string
+
 	// package prefix used when generating python import statements
 	PkgPrefix string
+
 	// rename Go exported symbols to python PEP snake_case
 	RenameCase bool
+
+	// If set, python exceptions are not thrown.
+	NoPyExceptions bool
+
+	// Path to Go module, which is to be used to translate Go errors to Python exceptions. 
+	ModPathGoErr2PyEx string
+
+	// If set, when a Go function returns a (value, err), python returns (value, ) tuple.
+	// By default, we return just value.
+	UsePyTuple4VE bool
 }
 
 // ErrorList is a list of errors

@@ -38,7 +38,8 @@ var WindowsOS = false
 
 // for all preambles: 1 = name of package (outname), 2 = cmdstr
 
-// 3 = libcfg, 4 = GoHandle, 5 = CGoHandle, 6 = all imports, 7 = mainstr, 8 = exe pre C, 9 = exe pre go
+// 3 = libcfg, 4 = GoHandle, 5 = CGoHandle, 6 = all imports, 7 = goerr2pyex Package path, 8 = mainstr,
+// 9 = exe pre C, 10 = exe pre go
 const (
 	goPreamble = `/*
 cgo stubs for package %[1]s.
@@ -85,17 +86,19 @@ static inline void gopy_err_handle() {
 		PyErr_Print();
 	}
 }
-%[8]s
+%[9]s
 */
 import "C"
 import (
 	"github.com/go-python/gopy/gopyh" // handler
+	"%[7]s" // Error Translator
+
 	%[6]s
 )
 
 // main doesn't do anything in lib / pkg mode, but is essential for exe mode
 func main() {
-	%[7]s
+	%[8]s
 }
 
 // initialization functions -- can be called from python after library is loaded
@@ -104,7 +107,7 @@ func main() {
 
 //export GoPyInit
 func GoPyInit() {
-	%[7]s
+	%[8]s
 }
 
 // type for the handle -- int64 for speed (can switch to string)
@@ -164,7 +167,7 @@ func complex128PyToGo(o *C.PyObject) complex128 {
 	return complex(float64(v.real), float64(v.imag))
 }
 
-%[9]s
+%[10]s
 `
 
 	goExePreambleC = `
@@ -430,6 +433,9 @@ var NoWarn = false
 // NoMake turns off generation of Makefiles
 var NoMake = false
 
+// NoPyExceptions turns off generation of Python Exceptions 
+var NoPyExceptions = false
+
 // GenPyBind generates a .go file, build.py file to enable pybindgen to create python bindings,
 // and wrapper .py file(s) that are loaded as the interface to the package with shadow
 // python-side classes
@@ -603,7 +609,7 @@ func (g *pyGen) genGoPreamble() {
 		exeprego = goExePreambleGo
 	}
 	g.gofile.Printf(goPreamble, g.cfg.Name, g.cfg.Cmd, libcfg, GoHandle, CGoHandle,
-		pkgimport, g.cfg.Main, exeprec, exeprego)
+		pkgimport, g.cfg.ModPathGoErr2PyEx, g.cfg.Main, exeprec, exeprego)
 	g.gofile.Printf("\n// --- generated code for package: %[1]s below: ---\n\n", g.cfg.Name)
 }
 

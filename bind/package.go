@@ -163,7 +163,7 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 
 	case *types.Func:
 		sig := o.Type().(*types.Signature)
-		_, _, _, err := isPyCompatFunc(sig)
+		_, _, err := isPyCompatFunc(sig)
 		if err != nil {
 			return ""
 		}
@@ -407,12 +407,12 @@ func (p *Package) process() error {
 				continue
 			}
 			ret := fct.Return()
-			if ret == nil {
+			if len(ret) == 0 || len(ret) > 1 {
 				continue
 			}
-			retptr, retIsPtr := ret.(*types.Pointer)
+			retptr, retIsPtr := ret[0].(*types.Pointer)
 
-			if ret == styp || (retIsPtr && retptr.Elem() == styp) {
+			if ret[0] == styp || (retIsPtr && retptr.Elem() == styp) {
 				delete(funcs, name)
 				fct.doc = p.getDoc(sname, scope.Lookup(name))
 				fct.ctor = true
