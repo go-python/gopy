@@ -246,6 +246,10 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 		paramString := strings.Join(params, ", ")
 		resultString := strings.Join(results, ", ")
 
+		if len(results) > 1 {
+			resultString = "(" + resultString + ")"
+		}
+
 		//FIXME(sbinet): add receiver for methods?
 		docSig := fmt.Sprintf("%s(%s) %s", o.Name(), paramString, resultString)
 
