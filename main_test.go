@@ -49,6 +49,7 @@ var (
 		"_examples/cstrings":    []string{"py2", "py3"},
 		"_examples/pkgconflict": []string{"py2", "py3"},
 		"_examples/variadic":    []string{"py3"},
+		"_examples/multireturn": []string{"py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -825,6 +826,31 @@ Variadic 1+2+3+4+5 = 15
 Variadic Struct s(1)+s(2)+s(3) = 6
 Variadic InterFace i(1)+i(2)+i(3) = 6
 Type OK
+`),
+	})
+}
+
+func TestBindMultiReturn(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/multireturn"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`No Return None
+Single WithoutError Return 100
+Single WithError(False) Return nil
+Single WithError(True) Return 'Error'
+Double WithoutError Return (200,300)
+Double WithError(True) Return (400, Error)
+Double WithError(False) Return (500, nil)
+Triple WithoutError Return (600, 700, 800)
+Triple WithError(True) Return (900, 1000, Error)
+Triple WithError(False) Return (1100, 1200, nil)
+Triple WithError(True) Return (1300, 1400, Error)
+Triple WithError(False) Return (1500, 1600, nil)
+Triple WithError(True) Return (1700, 1800, 1900)
 `),
 	})
 }
