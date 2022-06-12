@@ -6,6 +6,8 @@ package bind
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"go/types"
 	"strings"
 )
@@ -58,13 +60,9 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 	res := sig.Results()
 	nargs := 0
 	nres := len(res)
-
-	// note: this is enforced in creation of Func, in newFuncFrom
-	if nres > 2 {
-		return false
-	}
-	if nres == 2 && !fsym.err {
-		return false
+	npyres := nres
+	if fsym.haserr {
+		npyres -= 1
 	}
 
 	var (
@@ -122,14 +120,15 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 	// But given specific return types, we may want to add more
 	// behavior to the wrapped function code gen.
 	addFuncName := "add_checked_function"
-	if len(res) > 0 {
-		ret := res[0]
-		switch t := ret.GoType().(type) {
-		case *types.Basic:
-			// string return types need special memory leak patches
-			// to free the allocated char*
-			if t.Kind() == types.String {
-				addFuncName = "add_checked_string_function"
+	if npyres > 0 {
+		for i := 0; i < npyres; i++ {
+			switch t := res[i].GoType().(type) {
+			case *types.Basic:
+				// string return types need special memory leak patches
+				// to free the allocated char*
+				if t.Kind() == types.String {
+					addFuncName = "add_checked_string_function"
+				}
 			}
 		}
 	}
@@ -154,8 +153,9 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 	}
 
 	goRet := ""
-	nres = len(res)
-	if nres > 0 {
+	if npyres == 0 {
+		g.pybuild.Printf("None")
+	} else if npyres == 1 {
 		ret := res[0]
 		sret := current.symtype(ret.GoType())
 		if sret == nil {
@@ -172,7 +172,26 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		}
 		goRet = fmt.Sprintf("%s", sret.cgoname)
 	} else {
-		g.pybuild.Printf("None")
+		// On Python side, we are returning PyTuple.
+		g.pybuild.Printf("retval('PyObject*', caller_owns_return=True)")
+
+		// On Go side, we are returning multiple values.
+		for i := 0; i < npyres; i++ {
+			sret := current.symtype(res[i].GoType())
+			if sret == nil {
+				panic(fmt.Errorf(
+					"gopy: could not find symbol for %q",
+					res[i].Name(),
+				))
+			}
+			goRet += sret.cgoname
+			if i != npyres-1 {
+				goRet += ", "
+			}
+		}
+		if npyres > 1 {
+			goRet = "(" + goRet + ")"
+		}
 	}
 
 	if len(goArgs) > 0 {
@@ -237,12 +256,13 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	res := sig.Results()
 	args := sig.Params()
 	nres := len(res)
-
-	rvIsErr := false // set to true if the main return is an error
-	if nres == 1 {
-		ret := res[0]
-		if isErrorType(ret.GoType()) {
-			rvIsErr = true
+	npyres := nres
+	rvHasErr := false // set to true if the main return is an error
+	if fsym.haserr {
+		if NoPyExceptions {
+			rvHasErr = true
+		} else {
+			npyres -= 1
 		}
 	}
 
@@ -260,28 +280,33 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 			}
 		}
 	}
+
 	if isMethod {
 		g.gofile.Printf(
 			`vifc, __err := gopyh.VarFromHandleTry((gopyh.CGoHandle)(_handle), "%s")
 if __err != nil {
 `, symNm)
 		g.gofile.Indent()
-		if nres > 0 {
-			ret := res[0]
-			if ret.sym.zval == "" {
-				fmt.Printf("gopy: programmer error: empty zval zero value in symbol: %v\n", ret.sym)
+		if npyres > 0 {
+			retvals := make([]string, npyres, npyres)
+			for i := 0; i < npyres; i++ {
+				ret := res[i]
+				if ret.sym.zval == "" {
+					fmt.Printf("gopy: programmer error: empty zval zero value in symbol: %v\n", ret.sym)
+				}
+				if ret.sym.go2py != "" {
+					retvals[i] = ret.sym.go2py + "(" + ret.sym.zval + ")" +  ret.sym.go2pyParenEx
+				} else {
+					retvals[i] = ret.sym.zval
+				}
 			}
-			if ret.sym.go2py != "" {
-				g.gofile.Printf("return %s(%s)%s\n", ret.sym.go2py, ret.sym.zval, ret.sym.go2pyParenEx)
-			} else {
-				g.gofile.Printf("return %s\n", ret.sym.zval)
-			}
+			g.gofile.Printf("return %s\n", strings.Join(retvals, ", "))
 		} else {
 			g.gofile.Printf("return\n")
 		}
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n")
-	} else if rvIsErr {
+	} else if rvHasErr {
 		g.gofile.Printf("var __err error\n")
 	}
 
@@ -335,120 +360,128 @@ if __err != nil {
 	if isMethod {
 		mnm = sym.id + "_" + fsym.GoName()
 	}
-	rvHasHandle := false
-	if nres > 0 {
-		ret := res[0]
-		if !rvIsErr && ret.sym.hasHandle() {
-			rvHasHandle = true
-			cvnm := ret.sym.pyPkgId(g.pkg.pkg)
-			g.pywrap.Printf("return %s(handle=_%s.%s(", cvnm, pkgname, mnm)
-		} else {
-			g.pywrap.Printf("return _%s.%s(", pkgname, mnm)
-		}
-	} else {
-		g.pywrap.Printf("_%s.%s(", pkgname, mnm)
-	}
 
-	hasRetCvt := false
-	hasAddrOfTmp := false
-	if nres > 0 {
-		ret := res[0]
-		switch {
-		case rvIsErr:
-			g.gofile.Printf("__err = ")
-		case nres == 2:
-			g.gofile.Printf("cret, __err := ")
-		case ret.sym.hasHandle() && !ret.sym.isPtrOrIface():
-			hasAddrOfTmp = true
-			g.gofile.Printf("cret := ")
-		case ret.sym.go2py != "":
-			hasRetCvt = true
-			g.gofile.Printf("return %s(", ret.sym.go2py)
-		default:
-			g.gofile.Printf("return ")
-		}
-	}
+	log.Println(mnm)
+
 	if nres == 0 {
 		wrapArgs = append(wrapArgs, "goRun")
 	}
-	g.pywrap.Printf("%s)", strings.Join(wrapArgs, ", "))
-	if rvHasHandle {
-		g.pywrap.Printf(")")
-	}
 
-	funCall := ""
-	if isMethod {
-		if sym.isStruct() {
-			funCall = fmt.Sprintf("gopyh.Embed(vifc, reflect.TypeOf(%s{})).(%s).%s(%s)", nonPtrName(symNm), symNm, fsym.GoName(), strings.Join(callArgs, ", "))
-		} else {
-			funCall = fmt.Sprintf("vifc.(%s).%s(%s)", symNm, fsym.GoName(), strings.Join(callArgs, ", "))
+	pyFuncCall := fmt.Sprintf("_%s.%s(%s)", pkgname, mnm, strings.Join(wrapArgs, ", "))
+	if nres > 0 {
+		retvars := make([]string, nres, nres)
+		for i := 0; i < npyres; i++ {
+			retvars[i] = "ret" + strconv.Itoa(i)
+			if res[i].sym.hasHandle() {
+				retvars[i] = "_" + retvars[i]
+			}
 		}
+		if fsym.haserr {
+			retvars[nres-1] = "__err"
+		}
+
+		// Call upstream method and collect returns.
+		g.pywrap.Printf(fmt.Sprintf("%s := %s", strings.Join(retvars, ", "), pyFuncCall))
+
+		// ReMap handle returns from pyFuncCall.
+		for i := 0; i < npyres; i++ {
+			if res[i].sym.hasHandle() {
+				cvnm := res[i].sym.pyPkgId(g.pkg.pkg)
+				g.pywrap.Printf("ret%d = %s(handle=_ret%d)", cvnm, i, i)
+				retvars[i] = "ret" + strconv.Itoa(i)
+			}
+		}
+
+		g.pywrap.Printf("return %s", strings.Join(retvars, ", "))
 	} else {
-		funCall = fmt.Sprintf("%s(%s)", fsym.GoFmt(), strings.Join(callArgs, ", "))
+		g.pywrap.Printf(pyFuncCall)
 	}
-	if hasRetCvt {
-		ret := res[0]
-		funCall += fmt.Sprintf(")%s", ret.sym.go2pyParenEx)
-	}
-
-	if nres == 0 {
-		g.gofile.Printf("if boolPyToGo(goRun) {\n")
-		g.gofile.Indent()
-		g.gofile.Printf("go %s\n", funCall)
-		g.gofile.Outdent()
-		g.gofile.Printf("} else {\n")
-		g.gofile.Indent()
-		g.gofile.Printf("%s\n", funCall)
-		g.gofile.Outdent()
-		g.gofile.Printf("}")
-	} else {
-		g.gofile.Printf("%s\n", funCall)
-	}
-
-	if rvIsErr || nres == 2 {
-		g.gofile.Printf("\n")
-		g.gofile.Printf("if __err != nil {\n")
-		g.gofile.Indent()
-		g.gofile.Printf("estr := C.CString(__err.Error())\n")
-		g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, estr)\n")
-		if rvIsErr {
-			g.gofile.Printf("return estr\n") // NOTE: leaked string
-		} else {
-			g.gofile.Printf("C.free(unsafe.Pointer(estr))\n") // python should have converted, safe
-			ret := res[0]
-			if ret.sym.zval == "" {
-				fmt.Printf("gopy: programmer error: empty zval zero value in symbol: %v\n", ret.sym)
-			}
-			if ret.sym.go2py != "" {
-				g.gofile.Printf("return %s(%s)%s\n", ret.sym.go2py, ret.sym.zval, ret.sym.go2pyParenEx)
-			} else {
-				g.gofile.Printf("return %s\n", ret.sym.zval)
-			}
-		}
-		g.gofile.Outdent()
-		g.gofile.Printf("}\n")
-		if rvIsErr {
-			g.gofile.Printf("return C.CString(\"\")") // NOTE: leaked string
-		} else {
-			ret := res[0]
-			if ret.sym.go2py != "" {
-				if ret.sym.hasHandle() && !ret.sym.isPtrOrIface() {
-					g.gofile.Printf("return %s(&cret)%s", ret.sym.go2py, ret.sym.go2pyParenEx)
-				} else {
-					g.gofile.Printf("return %s(cret)%s", ret.sym.go2py, ret.sym.go2pyParenEx)
-				}
-			} else {
-				g.gofile.Printf("return cret")
-			}
-		}
-	} else if hasAddrOfTmp {
-		ret := res[0]
-		g.gofile.Printf("\nreturn %s(&cret)%s", ret.sym.go2py, ret.sym.go2pyParenEx)
-	}
-	g.gofile.Printf("\n")
-	g.gofile.Outdent()
-	g.gofile.Printf("}\n")
 
 	g.pywrap.Printf("\n")
 	g.pywrap.Outdent()
+
+	goFuncCall := ""
+	if isMethod {
+		if sym.isStruct() {
+			goFuncCall = fmt.Sprintf("gopyh.Embed(vifc, reflect.TypeOf(%s{})).(%s).%s(%s)",
+					nonPtrName(symNm),
+					symNm,
+					fsym.GoName(),
+					strings.Join(callArgs, ", "))
+		} else {
+			goFuncCall = fmt.Sprintf("vifc.(%s).%s(%s)",
+					symNm,
+					fsym.GoName(),
+					strings.Join(callArgs, ", "))
+		}
+	} else {
+		goFuncCall = fmt.Sprintf("%s(%s)",
+					fsym.GoFmt(),
+					strings.Join(callArgs, ", "))
+	}
+
+	if nres > 0 {
+		retvals := make([]string, nres, nres)
+		for i := 0; i < npyres; i++ {
+			retvals[i] = "cret" + strconv.Itoa(i)
+		}
+		if fsym.haserr {
+			retvals[nres-1] = "__err"
+		}
+
+		// Call upstream method and collect returns.
+		g.gofile.Printf(fmt.Sprintf("%s := %s\n", strings.Join(retvals, ", "), goFuncCall))
+
+		// ReMap handle returns from pyFuncCall.
+		for i := 0; i < npyres; i++ {
+			if res[i].sym.hasHandle() && !res[i].sym.isPtrOrIface(){
+				retvals[i] = "&" + retvals[i]
+			}
+			if res[i].sym.go2py != "" {
+				retvals[i] = fmt.Sprintf("%s(%s)%s", res[i].sym.go2py, retvals[i], res[i].sym.go2pyParenEx)
+			}
+		}
+
+		if fsym.haserr {
+			g.gofile.Printf("\n")
+
+			if rvHasErr {
+				retvals[npyres-1] = "estr" // NOTE: leaked string
+				g.gofile.Printf("var estr C.CString\n")
+				g.gofile.Printf("if __err != nil {\n")
+				g.gofile.Indent()
+				g.gofile.Printf("estr = C.CString(__err.Error())// NOTE: leaked string\n") // NOTE: leaked string
+				g.gofile.Outdent()
+				g.gofile.Printf("} else {\n")
+				g.gofile.Indent()
+				g.gofile.Printf("estr = C.CString(\"\")// NOTE: leaked string\n") // NOTE: leaked string
+				g.gofile.Outdent()
+				g.gofile.Printf("}\n")
+			} else {
+				g.gofile.Printf("if __err != nil {\n")
+				g.gofile.Indent()
+				g.gofile.Printf("estr := C.CString(__err.Error())// NOTE: leaked string\n") // NOTE: leaked string
+				g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, estr)\n")
+				g.gofile.Printf("C.free(unsafe.Pointer(estr))\n") // python should have converted, safe
+				g.gofile.Outdent()
+				g.gofile.Printf("}\n")
+			}
+		}
+
+		g.gofile.Printf("return %s", strings.Join(retvals[0:npyres], ", "))
+	} else {
+		g.gofile.Printf("if boolPyToGo(goRun) {\n")
+		g.gofile.Indent()
+		g.gofile.Printf("go %s\n", goFuncCall)
+		g.gofile.Outdent()
+		g.gofile.Printf("} else {\n")
+		g.gofile.Indent()
+		g.gofile.Printf("%s\n", goFuncCall)
+		g.gofile.Outdent()
+		g.gofile.Printf("}")
+	}
+
+	g.gofile.Printf("\n")
+	g.gofile.Outdent()
+	g.gofile.Printf("}\n")
 }

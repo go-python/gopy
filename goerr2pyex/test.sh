@@ -1,0 +1,9 @@
+# The script to test build.
+#env CGO_ENABLED=1 CGO_CFLAGS="-I/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/include/python3.9 -Wno-error -Wno-implicit-function-declaration -Wno-int-conversion" CGO_LDFLAGS="-L/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/lib -lpython3.9 -ldl -framework CoreFoundation" go build -mod=mod -buildmode=c-shared -o ./error_translator.so error_translator.go
+#env CGO_ENABLED=1 CGO_CFLAGS="-I/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/include/python3.9 -Wno-error -Wno-implicit-function-declaration -Wno-int-conversion" CGO_LDFLAGS="-L/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/lib -lpython3.9 -ldl -framework CoreFoundation" go build -mod=mod -o ./error_translator.so error_translator.go
+#env CGO_ENABLED=1 CGO_CFLAGS="-I/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/include/python3.9 -Wno-error -Wno-implicit-function-declaration -Wno-int-conversion" CGO_LDFLAGS="-L/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/lib -lpython3.9 -ldl -framework CoreFoundation" go build -o ./error_translator.so error_translator.go
+#env CGO_ENABLED=1 CGO_CFLAGS="-I/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/include/python3.9 -Wno-error -Wno-implicit-function-declaration -Wno-int-conversion" CGO_LDFLAGS="-L/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/lib -lpython3.9 -ldl -framework CoreFoundation" go build error_translator.go
+
+
+env CGO_ENABLED=1 CGO_CFLAGS="-I/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/include/python3.9 -Wno-error -Wno-implicit-function-declaration -Wno-int-conversion" CGO_LDFLAGS="-L/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/lib -lpython3.9 -ldl -framework CoreFoundation" go build
+

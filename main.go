@@ -24,17 +24,57 @@ type BuildCfg struct {
 
 	// include symbols in output
 	Symbols bool
+
 	// suppress warning messages, which may be expected
 	NoWarn bool
+
 	// do not generate a Makefile, e.g., when called from Makefile
 	NoMake bool
 }
 
 // NewBuildCfg returns a newly constructed build config
-func NewBuildCfg() *BuildCfg {
+func NewBuildCfg(flagSet *flag.FlagSet) *BuildCfg {
 	var cfg BuildCfg
 	cfg.Cmd = argStr()
+
+	cfg.OutputDir = flagSet.Lookup("output").Value.Get().(string)
+	cfg.Name = flagSet.Lookup("name").Value.Get().(string)
+	cfg.Main = flagSet.Lookup("main").Value.Get().(string)
+	cfg.VM = flagSet.Lookup("vm").Value.Get().(string)
+	cfg.RenameCase = flagSet.Lookup("rename").Value.Get().(bool)
+	cfg.NoWarn = flagSet.Lookup("no-warn").Value.Get().(bool)
+	cfg.NoMake = flagSet.Lookup("no-make").Value.Get().(bool)
+	cfg.PkgPrefix = flagSet.Lookup("package-prefix").Value.Get().(string)
+	cfg.Symbols = flagSet.Lookup("symbols").Value.Get().(bool)
+	cfg.NoPyExceptions = flagSet.Lookup("no-exceptions").Value.Get().(bool)
+	cfg.ModPathGoErr2PyEx = flagSet.Lookup("gomod-2pyex").Value.Get().(string)
+	cfg.UsePyTuple4VE = flagSet.Lookup("use-pytuple-4ve").Value.Get().(bool)
+
+	if cfg.ModPathGoErr2PyEx == "" {
+		cfg.ModPathGoErr2PyEx = "github.com/rudderlabs/gopy/goerr2pyex/"
+	}
+
+	if cfg.VM == "" {
+		cfg.VM = "python"
+	}
+
 	return &cfg
+}
+
+func AddCommonCmdFlags(flagSet *flag.FlagSet) {
+	flagSet.String("vm", "python", "path to python interpreter")
+	flagSet.String("output", "", "output directory for root of package")
+	flagSet.String("name", "", "name of output package (otherwise name of first package is used)")
+	flagSet.String("main", "", "code string to run in the go main()/GoPyInit() function(s) in the cgo library "+
+		"-- defaults to GoPyMainRun() but typically should be overriden")
+
+	flagSet.Bool("rename", false, "rename Go symbols to python PEP snake_case")
+	flagSet.Bool("no-warn", false, "suppress warning messages, which may be expected")
+	flagSet.Bool("no-make", false, "do not generate a Makefile, e.g., when called from Makefile")
+
+	flagSet.Bool("no-exceptions", false, "Don't throw python exceptions when the last return is in error.")
+	flagSet.Bool("use-pytuple-4ve", false, "When Go returns (value, err) with err=nil, return (value, ) tuple to python.")
+	flagSet.String("gomod-2pyex", "", "Go module to use to translate Go errors to Python exceptions.")
 }
 
 func run(args []string) error {

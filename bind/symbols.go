@@ -144,48 +144,46 @@ func isPyCompatField(f *types.Var) (*symbol, error) {
 	return ftyp, isPyCompatVar(ftyp)
 }
 
+func getPyReturnType(sig *types.Signature) (ret []types.Type, err error) {
+	results := sig.Results()
+
+	if (results.Len() == 0) {
+		return make([]types.Type, 0, 0), nil
+	} else {
+		outCount := results.Len()
+		if !NoPyExceptions && isErrorType(results.At(outCount-1).Type()) {
+			outCount -= 1
+		}
+
+		retval := make([]types.Type, outCount, outCount)
+		for i := 0; i < outCount; i++ {
+			retval[i] = results.At(i).Type()
+		}
+
+		return retval, nil
+	}
+}
+
 // isPyCompatFunc checks if function signature is a python-compatible function.
 // Returns nil if function is compatible, err message if not.
 // Also returns the return type of the function
 // haserr is true if 2nd arg is an error type, which is only
 // supported form of multi-return-value functions
 // hasfun is true if one of the args is a function signature
-func isPyCompatFunc(sig *types.Signature) (ret types.Type, haserr, hasfun bool, err error) {
-	res := sig.Results()
+func isPyCompatFunc(sig *types.Signature) (haserr, hasfun bool, err error) {
+	results := sig.Results()
 
-	switch res.Len() {
-	case 2:
-		if !isErrorType(res.At(1).Type()) {
-			err = fmt.Errorf("gopy: second result value must be of type error: %s", sig.String())
-			return
-		}
-		haserr = true
-		ret = res.At(0).Type()
-	case 1:
-		if isErrorType(res.At(0).Type()) {
-			haserr = true
-			ret = nil
+	for i := 0; i < results.Len(); i++ {
+		result := results.At(i)
+		if i < results.Len()-1 {
+			if isErrorType(result.Type()) {
+				err = fmt.Errorf("gopy: Only last result value can be of type error: %s", sig.String())
+				return
+			}
 		} else {
-			ret = res.At(0).Type()
-		}
-	case 0:
-		ret = nil
-	default:
-		err = fmt.Errorf("gopy: too many results to return: %s", sig.String())
-		return
-	}
-
-	if ret != nil {
-		if err = isPyCompatType(ret); err != nil {
-			return
-		}
-		if _, isSig := ret.Underlying().(*types.Signature); isSig {
-			err = fmt.Errorf("gopy: return type is signature")
-			return
-		}
-		if ret.Underlying().String() == "interface{}" {
-			err = fmt.Errorf("gopy: return type is interface{}")
-			return
+			if isErrorType(result.Type()) {
+				haserr = true
+			}
 		}
 	}
 
@@ -554,7 +552,7 @@ func (sym *symtab) addSymbol(obj types.Object) error {
 
 	case *types.Func:
 		sig := obj.Type().Underlying().(*types.Signature)
-		_, _, _, err := isPyCompatFunc(sig)
+		_, _, err := isPyCompatFunc(sig)
 		if err == nil {
 			sym.syms[fn] = &symbol{
 				gopkg:   pkg,
@@ -1137,7 +1135,7 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 
 func (sym *symtab) addMethod(pkg *types.Package, obj types.Object, t types.Type, kind symkind, id, n string) error {
 	sig := t.Underlying().(*types.Signature)
-	_, _, _, err := isPyCompatFunc(sig)
+	_, _, err := isPyCompatFunc(sig)
 	if err != nil {
 		if !NoWarn {
 			fmt.Printf("ignoring python incompatible method: %v.%v: %v: %v\n", pkg.Name(), obj.String(), t.String(), err)
