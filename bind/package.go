@@ -241,7 +241,18 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 		}
 
 		params := parseFn(sig.Params())
-		results := parseFn(sig.Results())
+
+		res := sig.Results()
+		results := parseFn(res)
+
+		if (len(results) > 0) {
+			lastResult := res.At(len(results)-1)
+			if isErrorType(lastResult.Type()) {
+				if !NoPyExceptions {
+				        results = results[0:len(results)-1]
+				}
+			}
+		}
 
 		paramString := strings.Join(params, ", ")
 		resultString := strings.Join(results, ", ")
