@@ -200,14 +200,11 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 	}
 
 	if len(goArgs) > 0 {
-		gstr := strings.Join(goArgs, ", ")
-		g.gofile.Printf("%v) %v", gstr, goRet)
+		g.gofile.Printf("%v) %v", strings.Join(goArgs, ", "), goRet)
 
-		pstr := strings.Join(pyArgs, ", ")
-		g.pybuild.Printf(", [%v])\n", pstr)
+		g.pybuild.Printf(", [%v])\n", strings.Join(pyArgs, ", "))
 
-		wstr := strings.Join(wpArgs, ", ")
-		g.pywrap.Printf("%v)", wstr)
+		g.pywrap.Printf("%v)", strings.Join(wpArgs, ", "))
 
 	} else {
 		g.gofile.Printf(") %v", goRet)
@@ -254,9 +251,6 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 
 	pkgname := g.cfg.Name
 
-	_, gdoc, _ := extractPythonName(fsym.GoName(), fsym.Doc())
-	ifchandle, gdoc := isIfaceHandle(gdoc)
-
 	sig := fsym.Signature()
 	res := sig.Results()
 	args := sig.Params()
@@ -270,6 +264,9 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 			npyres -= 1
 		}
 	}
+
+	_, gdoc, _ := extractPythonName(fsym.GoName(), fsym.Doc())
+	ifchandle, gdoc := isIfaceHandle(gdoc)
 
 	g.pywrap.Printf(":\n")
 	g.pywrap.Indent()
@@ -402,8 +399,9 @@ if __err != nil {
 		g.pywrap.Printf(pyFuncCall)
 	}
 
-	g.pywrap.Printf("\n\n")
+	g.pywrap.Printf("\n")
 	g.pywrap.Outdent()
+	g.pywrap.Printf("\n")
 
 	goFuncCall := ""
 	if isMethod {
