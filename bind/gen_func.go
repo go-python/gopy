@@ -61,8 +61,13 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 	nargs := 0
 	nres := len(res)
 	npyres := nres
+	rvHasErr := false // set to true if the main return is an error
 	if fsym.haserr {
-		npyres -= 1
+		if NoPyExceptions {
+			rvHasErr = true
+		} else {
+			npyres -= 1
+		}
 	}
 
 	var (
