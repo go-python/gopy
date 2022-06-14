@@ -86,6 +86,28 @@ static inline void gopy_err_handle() {
 		PyErr_Print();
 	}
 }
+
+static PyObject* Py_BuildValue1(const char *format, void* arg0)
+{
+	return Py_BuildValue(format, arg0);
+}
+static PyObject* Py_BuildValue2(const char *format, void* arg0, void* arg1)
+{
+	return Py_BuildValue(format, arg0, arg1);
+}
+static PyObject * Py_BuildValue3(const char *format, void* arg0, void* arg1, void* arg2)
+{
+	return Py_BuildValue(format, arg0, arg1, arg2);
+}
+static PyObject * Py_BuildValue4(const char *format, void* arg0, void* arg1, void* arg2, void* arg3)
+{
+	return Py_BuildValue(format, arg0, arg1, arg2, arg3);
+}
+static PyObject * Py_BuildValue5(const char *format, void* arg0, void* arg1, void* arg2, void* arg3, void* arg4)
+{
+	return Py_BuildValue(format, arg0, arg1, arg2, arg3, arg4);
+}
+
 %[9]s
 */
 import "C"
