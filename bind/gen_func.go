@@ -239,6 +239,13 @@ func isIfaceHandle(gdoc string) (bool, string) {
 	return false, gdoc
 }
 
+func isPointer(pyfmt string) bool {
+	if (pyfmt == "s") {
+		return true
+	}
+	return false
+}
+
 func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	isMethod := (sym != nil)
 	isIface := false
@@ -385,7 +392,7 @@ if __err != nil {
 		}
 
 		// Call upstream method and collect returns.
-		g.pywrap.Printf(fmt.Sprintf("%s := %s\n", strings.Join(retvars, ", "), pyFuncCall))
+		g.pywrap.Printf(fmt.Sprintf("%s = %s\n", strings.Join(retvars, ", "), pyFuncCall))
 
 		// ReMap handle returns from pyFuncCall.
 		for i := 0; i < npyres; i++ {
@@ -475,7 +482,7 @@ if __err != nil {
 
 		if buildPyTuple(fsym) {
 			g.gofile.Printf("\n")
-			formatStr := ""
+			g.gofile.Printf("retTuple := C.PyTuple_New(%d);\n", npyres)
 			for i := 0; i < npyres; i++ {
 				sret := current.symtype(res[i].GoType())
 				if sret == nil {
@@ -484,16 +491,25 @@ if __err != nil {
 						res[i].Name(),
 					))
 				}
+				formatStr := sret.pyfmt 
 				if sret.pyfmt == "" {
-					formatStr += "?"
-				} else {
-					formatStr += sret.pyfmt
+					formatStr = "?"
 				}
+
+				buildValueFunc := "C.Py_BuildValue1"
+				typeCast := "unsafe.Pointer"
+				if !isPointer(formatStr) {
+					buildValueFunc = "C.Py_BuildValue2"
+					typeCast = "C.longlong"
+				}
+				valueCall := fmt.Sprintf("%s(C.CString(\"%s\"), %s(%s))",
+					buildValueFunc,
+					formatStr,
+					typeCast,
+					retvals[i])
+				g.gofile.Printf("C.PyTuple_SetItem(retTuple, %d, %s);\n", i, valueCall)
 			}
-			g.gofile.Printf("return unsafe.Pointer(C.Py_BuildValue%d(\"%s\", %s))\n",
-				npyres,
-				formatStr,
-				strings.Join(retvals[0:npyres], ", "))
+			g.gofile.Printf("return unsafe.Pointer(retTuple);")
 		} else {
 			g.gofile.Printf("return %s\n", strings.Join(retvals[0:npyres], ", "))
 		}
