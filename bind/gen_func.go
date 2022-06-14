@@ -12,6 +12,17 @@ import (
 	"strings"
 )
 
+func buildPyTuple(fsym *Func) bool {
+	npyres := len(fsym.sig.Results())
+	if fsym.haserr {
+		if !NoPyExceptions {
+			npyres -= 1
+		}
+	}
+
+	return (npyres > 1)
+}
+
 func (g *pyGen) recurse(gotype types.Type, prefix, name string) {
 	switch t := gotype.(type) {
 	case *types.Basic:
@@ -61,11 +72,8 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 	nargs := 0
 	nres := len(res)
 	npyres := nres
-	rvHasErr := false // set to true if the main return is an error
 	if fsym.haserr {
-		if NoPyExceptions {
-			rvHasErr = true
-		} else {
+		if !NoPyExceptions {
 			npyres -= 1
 		}
 	}
@@ -160,27 +168,16 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 	goRet := ""
 	if npyres == 0 {
 		g.pybuild.Printf("None")
-	} else if npyres == 1 {
-		ret := res[0]
-		sret := current.symtype(ret.GoType())
-		if sret == nil {
-			panic(fmt.Errorf(
-				"gopy: could not find symbol for %q",
-				ret.Name(),
-			))
-		}
-
-		if sret.cpyname == "PyObject*" {
-			g.pybuild.Printf("retval('%s', caller_owns_return=True)", sret.cpyname)
-		} else {
-			g.pybuild.Printf("retval('%s')", sret.cpyname)
-		}
-		goRet = fmt.Sprintf("%s", sret.cgoname)
-	} else {
-		// On Python side, we are returning PyTuple.
+	} else if buildPyTuple(fsym) {
+		// We are returning PyTuple*. Setup pybindgen accordingly.
 		g.pybuild.Printf("retval('PyObject*', caller_owns_return=True)")
 
-		// On Go side, we are returning multiple values.
+		// On Go side, return *C.PyObject.
+		goRet = "unsafe.Pointer"
+	} else {
+		ownership := ""
+		pyrets := make([]string, npyres, npyres)
+		gorets := make([]string, npyres, npyres)
 		for i := 0; i < npyres; i++ {
 			sret := current.symtype(res[i].GoType())
 			if sret == nil {
@@ -189,11 +186,16 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 					res[i].Name(),
 				))
 			}
-			goRet += sret.cgoname
-			if i != npyres-1 {
-				goRet += ", "
+			gorets[i] = sret.cgoname
+			pyrets[i] = "'" + sret.cpyname + "'"
+			if sret.cpyname == "PyObject*" {
+				ownership = "caller_owns_return=True"
 			}
 		}
+
+		g.pybuild.Printf("retval(%s%s)", strings.Join(pyrets, ", "), ownership)
+
+		goRet = strings.Join(gorets, ", ")
 		if npyres > 1 {
 			goRet = "(" + goRet + ")"
 		}
@@ -471,7 +473,30 @@ if __err != nil {
 			}
 		}
 
-		g.gofile.Printf("return %s", strings.Join(retvals[0:npyres], ", "))
+		if buildPyTuple(fsym) {
+			g.gofile.Printf("\n")
+			formatStr := ""
+			for i := 0; i < npyres; i++ {
+				sret := current.symtype(res[i].GoType())
+				if sret == nil {
+					panic(fmt.Errorf(
+						"gopy: could not find symbol for %q",
+						res[i].Name(),
+					))
+				}
+				if sret.pyfmt == "" {
+					formatStr += "?"
+				} else {
+					formatStr += sret.pyfmt
+				}
+			}
+			g.gofile.Printf("return unsafe.Pointer(C.Py_BuildValue%d(\"%s\", %s))\n",
+				npyres,
+				formatStr,
+				strings.Join(retvals[0:npyres], ", "))
+		} else {
+			g.gofile.Printf("return %s\n", strings.Join(retvals[0:npyres], ", "))
+		}
 	} else {
 		g.gofile.Printf("if boolPyToGo(goRun) {\n")
 		g.gofile.Indent()
