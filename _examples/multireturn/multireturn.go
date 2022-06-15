@@ -13,6 +13,11 @@ func SingleWithoutErrorFunc() int {
 	return 100
 }
 
+/////////////// Single Str WithoutError Return //////////////
+func SingleStrWithoutErrorFunc(vargs ...int) string {
+	return "150"
+}
+
 /////////////// Single WithError Return //////////////
 func SingleWithErrorFunc(throwError bool) error {
 	if throwError {
@@ -37,7 +42,10 @@ func DoubleWithErrorFunc(throwError bool) (string, error) {
 }
 
 /////////////// Triple Returns Without Error //////////////
-func TripleWithoutErrorFunc(vargs ...int) (int, string, int) {
+func TripleWithoutErrorFunc1(vargs ...int) (int, int, int) {
+	return 600, 700, 800
+}
+func TripleWithoutErrorFunc2(vargs ...int) (int, string, int) {
 	return 600, "700", 800
 }
 

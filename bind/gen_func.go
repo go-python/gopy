@@ -379,7 +379,7 @@ if __err != nil {
 	}
 
 	pyFuncCall := fmt.Sprintf("_%s.%s(%s)", pkgname, mnm, strings.Join(wrapArgs, ", "))
-	if nres > 0 {
+	if npyres > 0 {
 		retvars := make([]string, nres, nres)
 		for i := 0; i < npyres; i++ {
 			retvars[i] = "ret" + strconv.Itoa(i)
@@ -387,9 +387,14 @@ if __err != nil {
 				retvars[i] = "_" + retvars[i]
 			}
 		}
+
 		if fsym.haserr {
+			// Only used if npyres == nres.
 			retvars[nres-1] = "__err"
 		}
+
+		// May drop the error var, if it is not supposed to be returned.
+		retvars = retvars[0:npyres]
 
 		// Call upstream method and collect returns.
 		g.pywrap.Printf(fmt.Sprintf("%s = %s\n", strings.Join(retvars, ", "), pyFuncCall))
