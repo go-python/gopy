@@ -840,12 +840,14 @@ func TestBindMultiReturn(t *testing.T) {
 		extras: nil,
 		want: []byte(`No Return None
 Single WithoutError Return 100
+Single Str WithoutError Return 150
 Single WithError(False) Return nil
-Single WithError(True) Return 'Error'
+Single WithError(True). Exception: 'Error'
 Double WithoutError Return (200,300)
-Double WithError(True) Return (400, Error)
+Double WithError(True). Return (400, Error)
 Double WithError(False) Return (500, nil)
-Triple WithoutError Return (600, 700, 800)
+Triple WithoutError(Without String) Return (600, 700, 800)
+Triple WithoutError(With String) Return (600, 700, 800)
 Triple WithError(True) Return (900, 1000, Error)
 Triple WithError(False) Return (1100, 1200, nil)
 Triple WithError(True) Return (1300, 1400, Error)
