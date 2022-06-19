@@ -132,7 +132,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 	// a function that adds function calls with exception checking.
 	// But given specific return types, we may want to add more
 	// behavior to the wrapped function code gen.
-	addFuncName := "add_checked_function"
+	retvalsToFree := make([]string, 0, npyres)
 	if npyres > 0 {
 		for i := 0; i < npyres; i++ {
 			switch t := res[i].GoType().(type) {
@@ -140,11 +140,16 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 				// string return types need special memory leak patches
 				// to free the allocated char*
 				if t.Kind() == types.String {
-					addFuncName = "add_checked_string_function"
+					retvalsToFree = append(retvalsToFree, strconv.Itoa(i))
 				}
 			}
 		}
 	}
+	pyTupleBuilt := "True"
+	if !buildPyTuple(fsym) {
+		pyTupleBuilt = "False"
+	}
+	addFuncName := "add_checked_function_generator(" + pyTupleBuilt + ", [" + strings.Join(retvalsToFree, ", ") + "])"
 
 	switch {
 	case isMethod:
@@ -506,6 +511,7 @@ if __err != nil {
 				if !isPointer(formatStr) {
 					buildValueFunc = "C.Py_BuildValue2"
 					typeCast = "C.longlong"
+					formatStr = "L"
 				}
 				valueCall := fmt.Sprintf("%s(C.CString(\"%s\"), %s(%s))",
 					buildValueFunc,

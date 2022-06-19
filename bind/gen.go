@@ -86,13 +86,17 @@ static inline void gopy_err_handle() {
 		PyErr_Print();
 	}
 }
-static PyObject* Py_BuildValue1(const char *format, void* arg0)
+static PyObject* Py_BuildValue1(char *format, void* arg0)
 {
-	return Py_BuildValue(format, arg0);
+	PyObject *retval = Py_BuildValue(format, arg0);
+	free(format);
+	return retval;
 }
-static PyObject* Py_BuildValue2(const char *format, long long arg0)
+static PyObject* Py_BuildValue2(char *format, long long arg0)
 {
-	return Py_BuildValue(format, arg0);
+	PyObject *retval = Py_BuildValue(format, arg0);
+	free(format);
+	return retval;
 }
 
 %[9]s
@@ -241,19 +245,22 @@ class CheckedFunction(Function):
         failure_cleanup = self._failure_cleanup or None
         self.before_call.write_error_check(check, failure_cleanup)
 
-def add_checked_function(mod, name, retval, params, failure_expression='', *a, **kw):
-    fn = CheckedFunction(name, retval, params, *a, **kw)
-    fn.set_failure_expression(failure_expression)
-    mod._add_function_obj(fn)
-    return fn
-
-def add_checked_string_function(mod, name, retval, params, failure_expression='', *a, **kw):
-    fn = CheckedFunction(name, retval, params, *a, **kw)
-    fn.set_failure_cleanup('if (retval != NULL) free(retval);')
-    fn.after_call.add_cleanup_code('free(retval);')
-    fn.set_failure_expression(failure_expression)
-    mod._add_function_obj(fn)
-    return fn
+def add_checked_function_generator(pyTupleBuilt, retvals_to_free):
+    if not pyTupleBuilt:
+        if retvals_to_free:
+            assert(len(retvals_to_free) == 1)
+            assert(retvals_to_free[0] == 0)
+    def rv_format(format_str, rv):
+        return format_str.format("PyTuple_GetItem(retval, {0})".format(rv))
+    def add_checked_function(mod, name, retval, params, failure_expression='', *a, **kw):
+        fn = CheckedFunction(name, retval, params, *a, **kw)
+        #TODO: Figure out how to free allocated variables. Stop leaking memory.
+        #fn.set_failure_cleanup('\n'.join([rv_format('if ({0} != NULL) free({0});', rv) for rv in retvals_to_free]))
+        #fn.after_call.add_cleanup_code('\n'.join([rv_format('free({0});', rv) for rv in retvals_to_free]))
+        fn.set_failure_expression(failure_expression)
+        mod._add_function_obj(fn)
+        return fn
+    return add_checked_function
 
 mod = Module('_%[1]s')
 mod.add_include('"%[1]s_go.h"')
@@ -383,6 +390,10 @@ build:
 	# build the _%[1]s$(LIBEXT) library that contains the cgo and CPython wrappers
 	# generated %[1]s.py python wrapper imports this c-code package
 	%[9]s
+	$(GCC) %[1]s.c %[6]s %[1]s_go$(LIBEXT) -o _%[1]s$(LIBEXT) $(CFLAGS) $(LDFLAGS) -fPIC --shared -w
+
+halfbuild:
+	$(GOBUILD) -buildmode=c-shared -o %[1]s_go$(LIBEXT) %[1]s.go
 	$(GCC) %[1]s.c %[6]s %[1]s_go$(LIBEXT) -o _%[1]s$(LIBEXT) $(CFLAGS) $(LDFLAGS) -fPIC --shared -w
 	
 `

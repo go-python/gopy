@@ -16,25 +16,28 @@ oneStrResult = multireturn.SingleStrWithoutErrorFunc()
 print("Single Str WithoutError Return %r" % oneStrResult)
 
 ############### Single WithError Return ##############
-errorFalseResult = multireturn.SingleWithErrorFunc(False)
-print("Single WithError(False) Return %r" % errorFalseResult)
+errorFalseResult1 = multireturn.SingleWithErrorFunc(False)
+print("Single WithError(False) Return %r" % errorFalseResult1)
 
 try:
-	errorTrueResult = multireturn.SingleWithErrorFunc(True)
+	errorTrueResult1 = multireturn.SingleWithErrorFunc(True)
 	print("Failed to throw an exception")
 except RuntimeError as ex:
-	print("Single WithError(True). Exception:%r" % ex)
+	print("Single WithError(True). Exception: %r" % ex)
 
 ############### Double WithoutError Return ##############
-twoResults = multireturn.DoubleWithoutErrorFunc()
-print("Double WithoutError Return (%r, %r)" % twoResults)
+twoResults = multireturn.DoubleWithoutErrorFunc1()
+print("Double WithoutError(Without String) Return (%r, %r)" % twoResults)
+
+twoResults = multireturn.DoubleWithoutErrorFunc2()
+print("Double WithoutError(With String) Return (%r, %r)" % twoResults)
 
 ############### Double WithError Return ##############
 try:
 	value400 = multireturn.DoubleWithErrorFunc(True)
 	print("Failed to throw an exception. Return (%r, %r)." % value400)
 except RuntimeError as ex:
-	print("Double WithError(True). exception Return %r" % ex)
+	print("Double WithError(True). Exception: %r" % ex)
 
 value500 = multireturn.DoubleWithErrorFunc(False)
 print("Double WithError(False) Return %r" % value500)
@@ -48,20 +51,24 @@ print("Triple WithoutError(With String) Return (%r, %r, %r)" % threeResults)
 
 ############### Triple With Error Return ##############
 try:
-	(value900, value1000, errorTrueResult) = multireturn.TripleWithErrorFunc(True)
+	(value900, value1000) = multireturn.TripleWithErrorFunc(True)
+	print("Triple WithError(True) Return (%r, %r, %r)" % (value900, value1000))
 except RuntimeError as ex:
-	print("Triple WithError(True). exception Return %r" % ex)
+	print("Triple WithError(True) Exception: %r" % ex)
 
 (value1100, value1200) = multireturn.TripleWithErrorFunc(False)
 print("Triple WithError(False) Return (%r, %r)" % (value1100, value1200))
 
 ############### Triple Struct Return With Error ##############
-(ptr1300, struct1400, errorTrueResult) = multireturn.TripleWithStructWithErrorFunc(True)
-print("Triple WithError(True) Return (%r, %r, %r)" % (ptr1300.P, struct1400.P, errorFalseResult))
+try:
+	(ptr1300, struct1400) = multireturn.TripleWithStructWithErrorFunc(True)
+	print("Triple WithError(True) Return (%r, %r)" % (ptr1300.P, struct1400.P))
+except RuntimeError as ex:
+	print("Triple WithError(True) Exception: %r" % ex)
 
-(value1500, value1600, errorFalseResult) = multireturn.TripleWithStructWithErrorFunc(False)
-print("Triple WithError(False) Return (%r, %r, %r)" % (value1500.P, value1600.P, errorFalseResult))
+(value1500, value1600) = multireturn.TripleWithStructWithErrorFunc(False)
+print("Triple WithError(False) Return (%r, %r)" % (value1500.P, value1600.P))
 
 ############### Triple Interface Return Without Error ##############
 (interface1700, struct1800, ptr1900) = multireturn.TripleWithInterfaceWithoutErrorFunc()
-print("Triple WithError(True) Return (%r, %r, %r)" % (interface1700.P, struct1800.P, ptr1900))
+print("Triple WithoutError() Return (%r, %r, %r)" % (interface1700.Number(), struct1800.P, ptr1900.P))
