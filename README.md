@@ -251,6 +251,14 @@ $ docker run -it --rm go-python/gopy
 To know what features are supported on what backends, please refer to the
 [Support matrix ](https://github.com/go-python/gopy/blob/master/SUPPORT_MATRIX.md).
 
+## setup.py
+
+Here's an example for how to use `setup.py` with gopy to make an installable package: 
+https://github.com/natun-ai/labsdk/blob/master/setup.py
+
+Also, see this for cross-platform build:
+https://github.com/natun-ai/labsdk/blob/master/.github/workflows/wheels.yaml
+
 ## Troubleshooting
 
 ### python version mismatches

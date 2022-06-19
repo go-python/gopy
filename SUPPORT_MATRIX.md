@@ -29,4 +29,5 @@ _examples/sliceptr | yes | yes
 _examples/slices | yes | yes
 _examples/structs | yes | yes
 _examples/unicode | no | yes
+_examples/variadic | no | yes
 _examples/vars | yes | yes

@@ -100,7 +100,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 			}
 		}
 
-		if i!=nargs-1 || !fsym.isVariadic {
+		if i != nargs-1 || !fsym.isVariadic {
 			wpArgs = append(wpArgs, anm)
 		}
 	}
@@ -303,7 +303,7 @@ if __err != nil {
 		default:
 			na = anm
 		}
-		if i == len(args) - 1 && fsym.isVariadic {
+		if i == len(args)-1 && fsym.isVariadic {
 			na = na + "..."
 		}
 		callArgs = append(callArgs, na)
