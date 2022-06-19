@@ -28,8 +28,11 @@ func SingleWithErrorFunc(throwError bool) error {
 }
 
 /////////////// Double WithoutError Return //////////////
-func DoubleWithoutErrorFunc() (int, int) {
+func DoubleWithoutErrorFunc1() (int, int) {
 	return 200, 300
+}
+func DoubleWithoutErrorFunc2() (string, string) {
+	return "200", "300"
 }
 
 /////////////// Double WithError Return //////////////

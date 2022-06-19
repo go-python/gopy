@@ -840,19 +840,20 @@ func TestBindMultiReturn(t *testing.T) {
 		extras: nil,
 		want: []byte(`No Return None
 Single WithoutError Return 100
-Single Str WithoutError Return 150
-Single WithError(False) Return nil
-Single WithError(True). Exception: 'Error'
-Double WithoutError Return (200,300)
-Double WithError(True). Return (400, Error)
-Double WithError(False) Return (500, nil)
+Single Str WithoutError Return '150'
+Single WithError(False) Return None
+Single WithError(True). Exception: RuntimeError('Error')
+Double WithoutError(Without String) Return (200, 300)
+Double WithoutError(With String) Return ('200', '300')
+Double WithError(True). Exception: RuntimeError('Error')
+Double WithError(False) Return '500'
 Triple WithoutError(Without String) Return (600, 700, 800)
-Triple WithoutError(With String) Return (600, 700, 800)
-Triple WithError(True) Return (900, 1000, Error)
-Triple WithError(False) Return (1100, 1200, nil)
-Triple WithError(True) Return (1300, 1400, Error)
-Triple WithError(False) Return (1500, 1600, nil)
-Triple WithError(True) Return (1700, 1800, 1900)
+Triple WithoutError(With String) Return (600, '700', 800)
+Triple WithError(True) Exception: RuntimeError('Error')
+Triple WithError(False) Return (1100, 1200)
+Triple WithError(True) Exception: RuntimeError('Error')
+Triple WithError(False) Return (1500, 1600)
+Triple WithoutError() Return (1700, 1800, 1900)
 `),
 	})
 }
