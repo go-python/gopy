@@ -38,7 +38,7 @@ setuptools.setup(
 )
 `
 
-	manifestTempl = `global-include *.so *.py
+	manifestTempl = `global-include *.so *.py *.pyd
 global-exclude build.py
 `
 
