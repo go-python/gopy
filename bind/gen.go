@@ -103,7 +103,7 @@ static PyObject* Py_BuildValue2(char *format, long long arg0)
 */
 import "C"
 import (
-	"github.com/go-python/gopy/gopyh" // handler
+	"github.com/rudderlabs/gopy/gopyh" // handler
 	"%[7]s" // Error Translator
 
 	%[6]s

@@ -9,7 +9,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/go-python/gopy/_examples/cpkg"
+	"github.com/rudderlabs/gopy/_examples/cpkg"
 )
 
 func main() {

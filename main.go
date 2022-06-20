@@ -15,7 +15,7 @@ import (
 	"github.com/gonuts/flag"
 	"github.com/pkg/errors"
 
-	"github.com/go-python/gopy/bind"
+	"github.com/rudderlabs/gopy/bind"
 )
 
 // BuildCfg contains command options and binding generation options
@@ -51,7 +51,7 @@ func NewBuildCfg(flagSet *flag.FlagSet) *BuildCfg {
 	cfg.UsePyTuple4VE = flagSet.Lookup("use-pytuple-4ve").Value.Get().(bool)
 
 	if cfg.ModPathGoErr2PyEx == "" {
-		cfg.ModPathGoErr2PyEx = "github.com/go-python/gopy/goerr2pyex/"
+		cfg.ModPathGoErr2PyEx = "github.com/rudderlabs/gopy/goerr2pyex/"
 	}
 
 	if cfg.VM == "" {

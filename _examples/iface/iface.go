@@ -6,7 +6,7 @@
 package iface
 
 import (
-	"github.com/go-python/gopy/_examples/cpkg"
+	"github.com/rudderlabs/gopy/_examples/cpkg"
 )
 
 // Iface has a single F() method

@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-python/gopy/bind"
+	"github.com/rudderlabs/gopy/bind"
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
 )
@@ -35,7 +35,7 @@ When including multiple packages, list in order of increasing dependency, and us
 
 ex:
  $ gopy exe [options] <go-package-name> [other-go-package...]
- $ gopy exe github.com/go-python/gopy/_examples/hi
+ $ gopy exe github.com/rudderlabs/gopy/_examples/hi
 `,
 		Flag: *flag.NewFlagSet("gopy-exe", flag.ExitOnError),
 	}
@@ -52,7 +52,7 @@ ex:
 	cmd.Flag.String("author", "gopy", "author name")
 	cmd.Flag.String("email", "gopy@example.com", "author email")
 	cmd.Flag.String("desc", "", "short description of project (long comes from README.md)")
-	cmd.Flag.String("url", "https://github.com/go-python/gopy", "home page for project")
+	cmd.Flag.String("url", "https://github.com/rudderlabs/gopy", "home page for project")
 
 	return cmd
 }
