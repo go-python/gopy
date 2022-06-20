@@ -16,7 +16,7 @@ import (
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
 
-	"github.com/go-python/gopy/bind"
+	"github.com/rudderlabs/gopy/bind"
 )
 
 func gopyMakeCmdBuild() *commander.Command {
@@ -29,7 +29,7 @@ build generates and compiles (C)Python language bindings for Go package(s).
 
 ex:
  $ gopy build [options] <go-package-name> [other-go-package...]
- $ gopy build github.com/go-python/gopy/_examples/hi
+ $ gopy build github.com/rudderlabs/gopy/_examples/hi
 `,
 		Flag: *flag.NewFlagSet("gopy-build", flag.ExitOnError),
 	}

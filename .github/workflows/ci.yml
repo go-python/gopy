@@ -8,7 +8,7 @@ on:
 
 env:
   TAGS: "-tags=ci"
-  COVERAGE: "-coverpkg=github.com/go-python/gopy/..."
+  COVERAGE: "-coverpkg=github.com/rudderlabs/gopy/..."
   # Init() in main_test will make sure all backends are available if
   # GOPY_TRAVIS_CI is set
   GOPY_TRAVIS_CI: 1

@@ -17,7 +17,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-python/gopy/bind"
+	"github.com/rudderlabs/gopy/bind"
 )
 
 var (
@@ -116,11 +116,11 @@ func TestGoPyErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not run %v: %+v\n", strings.Join(cmd.Args, " "), err)
 	}
-	contains := `--- Processing package: github.com/go-python/gopy/_examples/gopyerrors ---
-ignoring python incompatible function: .func github.com/go-python/gopy/_examples/gopyerrors.NotErrorMany() (int, int): func() (int, int): gopy: second result value must be of type error: func() (int, int)
-ignoring python incompatible method: gopyerrors.func (*github.com/go-python/gopy/_examples/gopyerrors.Struct).NotErrorMany() (int, string): func() (int, string): gopy: second result value must be of type error: func() (int, string)
-ignoring python incompatible method: gopyerrors.func (*github.com/go-python/gopy/_examples/gopyerrors.Struct).TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
-ignoring python incompatible function: .func github.com/go-python/gopy/_examples/gopyerrors.TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
+	contains := `--- Processing package: github.com/rudderlabs/gopy/_examples/gopyerrors ---
+ignoring python incompatible function: .func github.com/rudderlabs/gopy/_examples/gopyerrors.NotErrorMany() (int, int): func() (int, int): gopy: second result value must be of type error: func() (int, int)
+ignoring python incompatible method: gopyerrors.func (*github.com/rudderlabs/gopy/_examples/gopyerrors.Struct).NotErrorMany() (int, string): func() (int, string): gopy: second result value must be of type error: func() (int, string)
+ignoring python incompatible method: gopyerrors.func (*github.com/rudderlabs/gopy/_examples/gopyerrors.Struct).TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
+ignoring python incompatible function: .func github.com/rudderlabs/gopy/_examples/gopyerrors.TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
 `
 	if got, want := string(out), contains; !strings.Contains(got, want) {
 		t.Fatalf("%v does not contain\n%v\n", got, want)
@@ -954,8 +954,8 @@ func writeGoMod(t *testing.T, pkgDir, tstDir string) {
 	template := `
 module dummy
 
-require github.com/go-python/gopy v0.0.0
-replace github.com/go-python/gopy => %s
+require github.com/rudderlabs/gopy v0.0.0
+replace github.com/rudderlabs/gopy => %s
 `
 	contents := fmt.Sprintf(template, pkgDir)
 	if err := ioutil.WriteFile(filepath.Join(tstDir, "go.mod"), []byte(contents), 0666); err != nil {
