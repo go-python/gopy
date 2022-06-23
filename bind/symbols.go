@@ -184,6 +184,10 @@ func isPyCompatFunc(sig *types.Signature) (haserr, hasfun bool, err error) {
 			if isErrorType(result.Type()) {
 				haserr = true
 			}
+			if isFuncType(result.Type()) {
+				err = fmt.Errorf("gopy: Result values of type function are not supported: %s", sig.String())
+				return
+			}
 		}
 	}
 
