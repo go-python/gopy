@@ -38,7 +38,8 @@ var WindowsOS = false
 
 // for all preambles: 1 = name of package (outname), 2 = cmdstr
 
-// 3 = libcfg, 4 = GoHandle, 5 = CGoHandle, 6 = all imports, 7 = mainstr, 8 = exe pre C, 9 = exe pre go
+// 3 = libcfg, 4 = GoHandle, 5 = CGoHandle, 6 = all imports, 7 = goerr2pyex Package path, 8 = mainstr,
+// 9 = exe pre C, 10 = exe pre go
 const (
 	goPreamble = `/*
 cgo stubs for package %[1]s.
@@ -85,17 +86,32 @@ static inline void gopy_err_handle() {
 		PyErr_Print();
 	}
 }
-%[8]s
+static PyObject* Py_BuildValue1(char *format, void* arg0)
+{
+	PyObject *retval = Py_BuildValue(format, arg0);
+	free(format);
+	return retval;
+}
+static PyObject* Py_BuildValue2(char *format, long long arg0)
+{
+	PyObject *retval = Py_BuildValue(format, arg0);
+	free(format);
+	return retval;
+}
+
+%[9]s
 */
 import "C"
 import (
-	"github.com/go-python/gopy/gopyh" // handler
+	"github.com/rudderlabs/gopy/gopyh" // handler
+	"%[7]s" // Error Translator
+
 	%[6]s
 )
 
 // main doesn't do anything in lib / pkg mode, but is essential for exe mode
 func main() {
-	%[7]s
+	%[8]s
 }
 
 // initialization functions -- can be called from python after library is loaded
@@ -104,7 +120,7 @@ func main() {
 
 //export GoPyInit
 func GoPyInit() {
-	%[7]s
+	%[8]s
 }
 
 // type for the handle -- int64 for speed (can switch to string)
@@ -164,7 +180,7 @@ func complex128PyToGo(o *C.PyObject) complex128 {
 	return complex(float64(v.real), float64(v.imag))
 }
 
-%[9]s
+%[10]s
 `
 
 	goExePreambleC = `
@@ -229,19 +245,22 @@ class CheckedFunction(Function):
         failure_cleanup = self._failure_cleanup or None
         self.before_call.write_error_check(check, failure_cleanup)
 
-def add_checked_function(mod, name, retval, params, failure_expression='', *a, **kw):
-    fn = CheckedFunction(name, retval, params, *a, **kw)
-    fn.set_failure_expression(failure_expression)
-    mod._add_function_obj(fn)
-    return fn
-
-def add_checked_string_function(mod, name, retval, params, failure_expression='', *a, **kw):
-    fn = CheckedFunction(name, retval, params, *a, **kw)
-    fn.set_failure_cleanup('if (retval != NULL) free(retval);')
-    fn.after_call.add_cleanup_code('free(retval);')
-    fn.set_failure_expression(failure_expression)
-    mod._add_function_obj(fn)
-    return fn
+def add_checked_function_generator(pyTupleBuilt, retvals_to_free):
+    if not pyTupleBuilt:
+        if retvals_to_free:
+            assert(len(retvals_to_free) == 1)
+            assert(retvals_to_free[0] == 0)
+    def rv_format(format_str, rv):
+        return format_str.format("PyTuple_GetItem(retval, {0})".format(rv))
+    def add_checked_function(mod, name, retval, params, failure_expression='', *a, **kw):
+        fn = CheckedFunction(name, retval, params, *a, **kw)
+        #TODO: Figure out how to free allocated variables. Stop leaking memory.
+        #fn.set_failure_cleanup('\n'.join([rv_format('if ({0} != NULL) free({0});', rv) for rv in retvals_to_free]))
+        #fn.after_call.add_cleanup_code('\n'.join([rv_format('free({0});', rv) for rv in retvals_to_free]))
+        fn.set_failure_expression(failure_expression)
+        mod._add_function_obj(fn)
+        return fn
+    return add_checked_function
 
 mod = Module('_%[1]s')
 mod.add_include('"%[1]s_go.h"')
@@ -372,6 +391,10 @@ build:
 	# generated %[1]s.py python wrapper imports this c-code package
 	%[9]s
 	$(GCC) %[1]s.c %[6]s %[1]s_go$(LIBEXT) -o _%[1]s$(LIBEXT) $(CFLAGS) $(LDFLAGS) -fPIC --shared -w
+
+halfbuild:
+	$(GOBUILD) -buildmode=c-shared -o %[1]s_go$(LIBEXT) %[1]s.go
+	$(GCC) %[1]s.c %[6]s %[1]s_go$(LIBEXT) -o _%[1]s$(LIBEXT) $(CFLAGS) $(LDFLAGS) -fPIC --shared -w
 	
 `
 
@@ -429,6 +452,9 @@ var NoWarn = false
 
 // NoMake turns off generation of Makefiles
 var NoMake = false
+
+// NoPyExceptions turns off generation of Python Exceptions 
+var NoPyExceptions = false
 
 // GenPyBind generates a .go file, build.py file to enable pybindgen to create python bindings,
 // and wrapper .py file(s) that are loaded as the interface to the package with shadow
@@ -603,7 +629,7 @@ func (g *pyGen) genGoPreamble() {
 		exeprego = goExePreambleGo
 	}
 	g.gofile.Printf(goPreamble, g.cfg.Name, g.cfg.Cmd, libcfg, GoHandle, CGoHandle,
-		pkgimport, g.cfg.Main, exeprec, exeprego)
+		pkgimport, g.cfg.ModPathGoErr2PyEx, g.cfg.Main, exeprec, exeprego)
 	g.gofile.Printf("\n// --- generated code for package: %[1]s below: ---\n\n", g.cfg.Name)
 }
 

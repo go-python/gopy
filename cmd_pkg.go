@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-python/gopy/bind"
+	"github.com/rudderlabs/gopy/bind"
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
 )
@@ -33,18 +33,16 @@ When including multiple packages, list in order of increasing dependency, and us
 
 ex:
  $ gopy pkg [options] <go-package-name> [other-go-package...]
- $ gopy pkg github.com/go-python/gopy/_examples/hi
+ $ gopy pkg github.com/rudderlabs/gopy/_examples/hi
 `,
 		Flag: *flag.NewFlagSet("gopy-pkg", flag.ExitOnError),
 	}
 
-	cmd.Flag.String("vm", "python", "path to python interpreter")
-	cmd.Flag.String("output", "", "output directory for root of package")
-	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
-	cmd.Flag.String("main", "", "code string to run in the go GoPyInit() function in the cgo library")
+	AddCommonCmdFlags(&cmd.Flag)
+
+	// Pkg specific flags.
 	cmd.Flag.String("package-prefix", ".", "custom package prefix used when generating import "+
 		"statements for generated package")
-	cmd.Flag.Bool("rename", false, "rename Go symbols to python PEP snake_case")
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	cmd.Flag.String("exclude", "", "comma-separated list of package names to exclude")
 	cmd.Flag.String("user", "", "username on https://www.pypa.io/en/latest/ for package name suffix")
@@ -52,9 +50,7 @@ ex:
 	cmd.Flag.String("author", "gopy", "author name")
 	cmd.Flag.String("email", "gopy@example.com", "author email")
 	cmd.Flag.String("desc", "", "short description of project (long comes from README.md)")
-	cmd.Flag.String("url", "https://github.com/go-python/gopy", "home page for project")
-	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
-	cmd.Flag.Bool("no-make", false, "do not generate a Makefile, e.g., when called from Makefile")
+	cmd.Flag.String("url", "https://github.com/rudderlabs/gopy", "home page for project")
 
 	return cmd
 }
@@ -66,16 +62,7 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 		return err
 	}
 
-	cfg := NewBuildCfg()
-	cfg.OutputDir = cmdr.Flag.Lookup("output").Value.Get().(string)
-	cfg.Name = cmdr.Flag.Lookup("name").Value.Get().(string)
-	cfg.Main = cmdr.Flag.Lookup("main").Value.Get().(string)
-	cfg.VM = cmdr.Flag.Lookup("vm").Value.Get().(string)
-	cfg.PkgPrefix = cmdr.Flag.Lookup("package-prefix").Value.Get().(string)
-	cfg.RenameCase = cmdr.Flag.Lookup("rename").Value.Get().(bool)
-	cfg.Symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
-	cfg.NoWarn = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
-	cfg.NoMake = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
+	cfg := NewBuildCfg(&cmdr.Flag)
 
 	var (
 		exclude = cmdr.Flag.Lookup("exclude").Value.Get().(string)
@@ -89,6 +76,7 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 
 	bind.NoWarn = cfg.NoWarn
 	bind.NoMake = cfg.NoMake
+	bind.NoPyExceptions = cfg.NoPyExceptions
 
 	if cfg.Name == "" {
 		path := args[0]

@@ -163,7 +163,7 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 
 	case *types.Func:
 		sig := o.Type().(*types.Signature)
-		_, _, _, err := isPyCompatFunc(sig)
+		_, _, err := isPyCompatFunc(sig)
 		if err != nil {
 			return ""
 		}
@@ -241,10 +241,25 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 		}
 
 		params := parseFn(sig.Params())
-		results := parseFn(sig.Results())
+
+		res := sig.Results()
+		results := parseFn(res)
+
+		if (len(results) > 0) {
+			lastResult := res.At(len(results)-1)
+			if isErrorType(lastResult.Type()) {
+				if !NoPyExceptions {
+				        results = results[0:len(results)-1]
+				}
+			}
+		}
 
 		paramString := strings.Join(params, ", ")
 		resultString := strings.Join(results, ", ")
+
+		if len(results) > 1 {
+			resultString = "(" + resultString + ")"
+		}
 
 		//FIXME(sbinet): add receiver for methods?
 		docSig := fmt.Sprintf("%s(%s) %s", o.Name(), paramString, resultString)
@@ -407,12 +422,12 @@ func (p *Package) process() error {
 				continue
 			}
 			ret := fct.Return()
-			if ret == nil {
+			if len(ret) == 0 || len(ret) > 1 {
 				continue
 			}
-			retptr, retIsPtr := ret.(*types.Pointer)
+			retptr, retIsPtr := ret[0].(*types.Pointer)
 
-			if ret == styp || (retIsPtr && retptr.Elem() == styp) {
+			if ret[0] == styp || (retIsPtr && retptr.Elem() == styp) {
 				delete(funcs, name)
 				fct.doc = p.getDoc(sname, scope.Lookup(name))
 				fct.ctor = true

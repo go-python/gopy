@@ -17,7 +17,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-python/gopy/bind"
+	"github.com/rudderlabs/gopy/bind"
 )
 
 var (
@@ -49,6 +49,7 @@ var (
 		"_examples/cstrings":    []string{"py2", "py3"},
 		"_examples/pkgconflict": []string{"py2", "py3"},
 		"_examples/variadic":    []string{"py3"},
+		"_examples/multireturn": []string{"py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -116,11 +117,11 @@ func TestGoPyErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not run %v: %+v\n", strings.Join(cmd.Args, " "), err)
 	}
-	contains := `--- Processing package: github.com/go-python/gopy/_examples/gopyerrors ---
-ignoring python incompatible function: .func github.com/go-python/gopy/_examples/gopyerrors.NotErrorMany() (int, int): func() (int, int): gopy: second result value must be of type error: func() (int, int)
-ignoring python incompatible method: gopyerrors.func (*github.com/go-python/gopy/_examples/gopyerrors.Struct).NotErrorMany() (int, string): func() (int, string): gopy: second result value must be of type error: func() (int, string)
-ignoring python incompatible method: gopyerrors.func (*github.com/go-python/gopy/_examples/gopyerrors.Struct).TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
-ignoring python incompatible function: .func github.com/go-python/gopy/_examples/gopyerrors.TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
+	contains := `--- Processing package: github.com/rudderlabs/gopy/_examples/gopyerrors ---
+ignoring python incompatible function: .func github.com/rudderlabs/gopy/_examples/gopyerrors.NotErrorMany() (int, int): func() (int, int): gopy: second result value must be of type error: func() (int, int)
+ignoring python incompatible method: gopyerrors.func (*github.com/rudderlabs/gopy/_examples/gopyerrors.Struct).NotErrorMany() (int, string): func() (int, string): gopy: second result value must be of type error: func() (int, string)
+ignoring python incompatible method: gopyerrors.func (*github.com/rudderlabs/gopy/_examples/gopyerrors.Struct).TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
+ignoring python incompatible function: .func github.com/rudderlabs/gopy/_examples/gopyerrors.TooMany() (int, int, string): func() (int, int, string): gopy: too many results to return: func() (int, int, string)
 `
 	if got, want := string(out), contains; !strings.Contains(got, want) {
 		t.Fatalf("%v does not contain\n%v\n", got, want)
@@ -829,6 +830,34 @@ Type OK
 	})
 }
 
+func TestBindMultiReturn(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/multireturn"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`No Return None
+Single WithoutError Return 100
+Single Str WithoutError Return '150'
+Single WithError(False) Return None
+Single WithError(True). Exception: RuntimeError('Error')
+Double WithoutError(Without String) Return (200, 300)
+Double WithoutError(With String) Return ('200', '300')
+Double WithError(True). Exception: RuntimeError('Error')
+Double WithError(False) Return '500'
+Triple WithoutError(Without String) Return (600, 700, 800)
+Triple WithoutError(With String) Return (600, '700', 800)
+Triple WithError(True) Exception: RuntimeError('Error')
+Triple WithError(False) Return (1100, 1200)
+Triple WithError(True) Exception: RuntimeError('Error')
+Triple WithError(False) Return (1500, 1600)
+Triple WithoutError() Return (1700, 1800, 1900)
+`),
+	})
+}
+
 // Generate / verify SUPPORT_MATRIX.md from features map.
 func TestCheckSupportMatrix(t *testing.T) {
 	var buf bytes.Buffer
@@ -954,8 +983,8 @@ func writeGoMod(t *testing.T, pkgDir, tstDir string) {
 	template := `
 module dummy
 
-require github.com/go-python/gopy v0.0.0
-replace github.com/go-python/gopy => %s
+require github.com/rudderlabs/gopy v0.0.0
+replace github.com/rudderlabs/gopy => %s
 `
 	contents := fmt.Sprintf(template, pkgDir)
 	if err := ioutil.WriteFile(filepath.Join(tstDir, "go.mod"), []byte(contents), 0666); err != nil {
