@@ -100,3 +100,11 @@ func TripleWithInterfaceWithoutErrorFunc() (IntInterFace, IntStrUct, *IntStrUct)
 
 	return &i1700, s1800, &s1900
 }
+
+//// Function returning function /////
+type FunctionType func(input int) int
+func FunctionReturningFunction() FunctionType {
+    return func(input int) int{
+        return input
+    }
+}

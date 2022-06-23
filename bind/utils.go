@@ -24,6 +24,11 @@ func isErrorType(typ types.Type) bool {
 	return typ == types.Universe.Lookup("error").Type()
 }
 
+func isFuncType(typ types.Type) bool {
+	_, ok := typ.Underlying().(*types.Signature)
+	return ok
+}
+
 func isStringer(obj types.Object) bool {
 	switch obj := obj.(type) {
 	case *types.Func:

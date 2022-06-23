@@ -72,3 +72,6 @@ print("Triple WithError(False) Return (%r, %r)" % (value1500.P, value1600.P))
 ############### Triple Interface Return Without Error ##############
 (interface1700, struct1800, ptr1900) = multireturn.TripleWithInterfaceWithoutErrorFunc()
 print("Triple WithoutError() Return (%r, %r, %r)" % (interface1700.Number(), struct1800.P, ptr1900.P))
+
+############## Function Returning Functions ignored ##############
+assert("FunctionReturningFunction" not in dir(multireturn))
