@@ -448,7 +448,7 @@ if __err != nil {
 			retvals[i] = "cret" + strconv.Itoa(i)
 		}
 		if fsym.haserr {
-			retvals[nres-1] = "__err"
+			retvals[nres-1] = "__err_ret"
 		}
 
 		// Call upstream method and collect returns.
@@ -470,9 +470,9 @@ if __err != nil {
 			if rvHasErr {
 				retvals[npyres-1] = "estr" // NOTE: leaked string
 				g.gofile.Printf("var estr C.CString\n")
-				g.gofile.Printf("if __err != nil {\n")
+				g.gofile.Printf("if __err_ret != nil {\n")
 				g.gofile.Indent()
-				g.gofile.Printf("estr = C.CString(__err.Error())// NOTE: leaked string\n") // NOTE: leaked string
+				g.gofile.Printf("estr = C.CString(__err_ret.Error())// NOTE: leaked string\n") // NOTE: leaked string
 				g.gofile.Outdent()
 				g.gofile.Printf("} else {\n")
 				g.gofile.Indent()
@@ -480,9 +480,9 @@ if __err != nil {
 				g.gofile.Outdent()
 				g.gofile.Printf("}\n")
 			} else {
-				g.gofile.Printf("if __err != nil {\n")
+				g.gofile.Printf("if __err_ret != nil {\n")
 				g.gofile.Indent()
-				g.gofile.Printf("estr := C.CString(__err.Error())\n") // NOTE: freed string
+				g.gofile.Printf("estr := C.CString(__err_ret.Error())\n") // NOTE: freed string
 				g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, estr)\n")
 				g.gofile.Printf("C.free(unsafe.Pointer(estr))\n") // python should have converted, safe
 				g.gofile.Outdent()
