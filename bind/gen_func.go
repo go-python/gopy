@@ -251,6 +251,67 @@ func isPointer(pyfmt string) bool {
 	return false
 }
 
+func (g *pyGen)generateReturn(buildPyTuple bool, npyres int, results []*Var, retvals *[]string) {
+	g.gofile.Printf("\n")
+	valueCalls := make([]string, npyres, npyres)
+	for i := 0; i < npyres; i++ {
+		result := results[i]
+		sret := current.symtype(result.GoType())
+		if sret == nil {
+			panic(fmt.Errorf(
+				"gopy: could not find symbol for %q",
+				result.Name(),
+			))
+		}
+		formatStr := sret.pyfmt 
+		if sret.pyfmt == "" {
+			formatStr = "?"
+		}
+
+		retval := ""
+		if retvals != nil {
+			retval = (*retvals)[i]
+		} else if result.sym.zval != "" {
+			retval = result.sym.zval
+		} else {
+			fmt.Printf("gopy: programmer error: empty zval zero value in symbol: %v\n", result.sym)
+		}
+
+		if result.sym.go2py != "" {
+			retval = result.sym.go2py + "(" + retval + ")" +  result.sym.go2pyParenEx
+		}
+
+		if (buildPyTuple) {
+			buildValueFunc := "C.Py_BuildValue1"
+			typeCast := "unsafe.Pointer"
+			if !isPointer(formatStr) {
+				buildValueFunc = "C.Py_BuildValue2"
+				typeCast = "C.longlong"
+				formatStr = "L"
+			}
+			valueCalls[i] = fmt.Sprintf("%s(C.CString(\"%s\"), %s(%s))",
+				buildValueFunc,
+				formatStr,
+				typeCast,
+				retval)
+		} else {
+			valueCalls[i] = retval
+		}
+	}
+
+	if npyres == 0 {
+		g.gofile.Printf("return\n")
+	} else if (buildPyTuple) {
+		g.gofile.Printf("retTuple := C.PyTuple_New(%d);\n", npyres)
+		for i := 0; i < npyres; i++ {
+			g.gofile.Printf("C.PyTuple_SetItem(retTuple, %d, %s);\n", i, valueCalls[i])
+		}
+		g.gofile.Printf("return unsafe.Pointer(retTuple);")
+	} else {
+		g.gofile.Printf("return %s\n", strings.Join(valueCalls, ", "))
+	}
+}
+
 func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	isMethod := (sym != nil)
 	isIface := false
@@ -303,23 +364,7 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 if __err != nil {
 `, symNm)
 		g.gofile.Indent()
-		if npyres > 0 {
-			retvals := make([]string, npyres, npyres)
-			for i := 0; i < npyres; i++ {
-				ret := res[i]
-				if ret.sym.zval == "" {
-					fmt.Printf("gopy: programmer error: empty zval zero value in symbol: %v\n", ret.sym)
-				}
-				if ret.sym.go2py != "" {
-					retvals[i] = ret.sym.go2py + "(" + ret.sym.zval + ")" +  ret.sym.go2pyParenEx
-				} else {
-					retvals[i] = ret.sym.zval
-				}
-			}
-			g.gofile.Printf("return %s\n", strings.Join(retvals, ", "))
-		} else {
-			g.gofile.Printf("return\n")
-		}
+		g.generateReturn(buildPyTuple(fsym), npyres, res, nil)
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n")
 	} else if rvHasErr {
@@ -459,9 +504,6 @@ if __err != nil {
 			if res[i].sym.hasHandle() && !res[i].sym.isPtrOrIface(){
 				retvals[i] = "&" + retvals[i]
 			}
-			if res[i].sym.go2py != "" {
-				retvals[i] = fmt.Sprintf("%s(%s)%s", res[i].sym.go2py, retvals[i], res[i].sym.go2pyParenEx)
-			}
 		}
 
 		if fsym.haserr {
@@ -490,40 +532,7 @@ if __err != nil {
 			}
 		}
 
-		if buildPyTuple(fsym) {
-			g.gofile.Printf("\n")
-			g.gofile.Printf("retTuple := C.PyTuple_New(%d);\n", npyres)
-			for i := 0; i < npyres; i++ {
-				sret := current.symtype(res[i].GoType())
-				if sret == nil {
-					panic(fmt.Errorf(
-						"gopy: could not find symbol for %q",
-						res[i].Name(),
-					))
-				}
-				formatStr := sret.pyfmt 
-				if sret.pyfmt == "" {
-					formatStr = "?"
-				}
-
-				buildValueFunc := "C.Py_BuildValue1"
-				typeCast := "unsafe.Pointer"
-				if !isPointer(formatStr) {
-					buildValueFunc = "C.Py_BuildValue2"
-					typeCast = "C.longlong"
-					formatStr = "L"
-				}
-				valueCall := fmt.Sprintf("%s(C.CString(\"%s\"), %s(%s))",
-					buildValueFunc,
-					formatStr,
-					typeCast,
-					retvals[i])
-				g.gofile.Printf("C.PyTuple_SetItem(retTuple, %d, %s);\n", i, valueCall)
-			}
-			g.gofile.Printf("return unsafe.Pointer(retTuple);")
-		} else {
-			g.gofile.Printf("return %s\n", strings.Join(retvals[0:npyres], ", "))
-		}
+		g.generateReturn(buildPyTuple(fsym), npyres, res, &retvals);
 	} else {
 		g.gofile.Printf("if boolPyToGo(goRun) {\n")
 		g.gofile.Indent()
