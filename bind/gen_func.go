@@ -396,12 +396,12 @@ if __err != nil {
 		switch {
 		case arg.sym.goname == "interface{}":
 			if ifchandle {
-				wrapArgs = append(wrapArgs, fmt.Sprintf("%s.handle", anm))
+				wrapArgs = append(wrapArgs, fmt.Sprintf("(-1 if %s == None else %s.handle)", anm, anm))
 			} else {
 				wrapArgs = append(wrapArgs, anm)
 			}
 		case arg.sym.hasHandle():
-			wrapArgs = append(wrapArgs, fmt.Sprintf("%s.handle", anm))
+			wrapArgs = append(wrapArgs, fmt.Sprintf("(-1 if %s == None else %s.handle)", anm, anm))
 		default:
 			wrapArgs = append(wrapArgs, anm)
 		}
