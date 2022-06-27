@@ -115,6 +115,7 @@ Options:
   -user="": username on https://www.pypa.io/en/latest/ for package name suffix
   -version="0.1.0": semantic version number -- can use e.g., git to get this from tag and pass as argument
   -vm="python": path to python interpreter
+  -dynamic-link=false: whether to link output shared library dynamically to Python
 
 
 $ gopy help exe
