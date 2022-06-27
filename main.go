@@ -28,6 +28,8 @@ type BuildCfg struct {
 	NoWarn bool
 	// do not generate a Makefile, e.g., when called from Makefile
 	NoMake bool
+	// link resulting library dynamically
+	DynamicLinking bool
 }
 
 // NewBuildCfg returns a newly constructed build config
