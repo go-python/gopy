@@ -30,6 +30,8 @@ type BuildCfg struct {
 	NoMake bool
 	// link resulting library dynamically
 	DynamicLinking bool
+	// BuildTags to be passed into `go build`.
+	BuildTags string
 }
 
 // NewBuildCfg returns a newly constructed build config
