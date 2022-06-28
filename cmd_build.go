@@ -52,6 +52,7 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 	}
 
 	cfg := NewBuildCfg(&cmdr.Flag)
+	cfg.Symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 
 	bind.NoWarn = cfg.NoWarn
 	bind.NoMake = cfg.NoMake

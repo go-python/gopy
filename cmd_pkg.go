@@ -63,6 +63,7 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 	}
 
 	cfg := NewBuildCfg(&cmdr.Flag)
+	cfg.Symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 
 	var (
 		exclude = cmdr.Flag.Lookup("exclude").Value.Get().(string)

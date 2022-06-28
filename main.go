@@ -45,7 +45,6 @@ func NewBuildCfg(flagSet *flag.FlagSet) *BuildCfg {
 	cfg.NoWarn = flagSet.Lookup("no-warn").Value.Get().(bool)
 	cfg.NoMake = flagSet.Lookup("no-make").Value.Get().(bool)
 	cfg.PkgPrefix = flagSet.Lookup("package-prefix").Value.Get().(string)
-	cfg.Symbols = flagSet.Lookup("symbols").Value.Get().(bool)
 	cfg.NoPyExceptions = flagSet.Lookup("no-exceptions").Value.Get().(bool)
 	cfg.ModPathGoErr2PyEx = flagSet.Lookup("gomod-2pyex").Value.Get().(string)
 	cfg.UsePyTuple4VE = flagSet.Lookup("use-pytuple-4ve").Value.Get().(bool)
