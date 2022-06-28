@@ -14,5 +14,5 @@ func DefaultGoErrorToPyException(err error) bool {
 		return true
 	} else {
 		return false
-	}   
+	}
 }

@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rudderlabs/gopy/bind"
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
+	"github.com/rudderlabs/gopy/bind"
 )
 
 // python packaging links:

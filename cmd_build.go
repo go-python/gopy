@@ -105,8 +105,6 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		return err
 	}
 
-	pycfg, err := bind.GetPythonConfig(cfg.VM)
-
 	if mode == bind.ModeExe {
 		of, err := os.Create(buildname + ".h") // overwrite existing
 		fmt.Fprintf(of, "typedef uint8_t bool;\n")
@@ -144,38 +142,13 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		}
 
 	} else {
-		buildLib := buildname + libExt
-		extext := libExt
-		if runtime.GOOS == "windows" {
-			extext = ".pyd"
-		}
-		if pycfg.ExtSuffix != "" {
-			extext = pycfg.ExtSuffix
-		}
-		modlib := "_" + cfg.Name + extext
 
-		// build the go shared library upfront to generate the header
-		// needed by our generated cpython code
-		args := []string{"build", "-mod=mod", "-buildmode=c-shared"}
-		if !cfg.Symbols {
-			// These flags will omit the various symbol tables, thereby
-			// reducing the final size of the binary. From https://golang.org/cmd/link/
-			// -s Omit the symbol table and debug information
-			// -w Omit the DWARF symbol table
-			args = append(args, "-ldflags=-s -w")
-		}
-		args = append(args, "-o", buildLib, ".")
-		fmt.Printf("go %v\n", strings.Join(args, " "))
-		cmd = exec.Command("go", args...)
-		cmdout, err = cmd.CombinedOutput()
+		// build extension with go + c
+		env, args, err := getBuildArgsAndEnv(cfg)
 		if err != nil {
-			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+			fmt.Printf("error building environment: %v\n", err)
 			return err
 		}
-		// update the output name to the one with the ABI extension
-		args[len(args)-2] = modlib
-		// we don't need this initial lib because we are going to relink
-		os.Remove(buildLib)
 
 		// generate c code
 		fmt.Printf("%v build.py\n", cfg.VM)
@@ -196,48 +169,6 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 			}
 		}
 
-		cflags := strings.Fields(strings.TrimSpace(pycfg.CFlags))
-		cflags = append(cflags, "-fPIC", "-Ofast")
-		if include, exists := os.LookupEnv("GOPY_INCLUDE"); exists {
-			cflags = append(cflags, "-I"+filepath.ToSlash(include))
-		}
-
-		ldflags := strings.Fields(strings.TrimSpace(pycfg.LdFlags))
-		if !cfg.Symbols {
-			ldflags = append(ldflags, "-s")
-		}
-		if lib, exists := os.LookupEnv("GOPY_LIBDIR"); exists {
-			ldflags = append(ldflags, "-L"+filepath.ToSlash(lib))
-		}
-		if libname, exists := os.LookupEnv("GOPY_PYLIB"); exists {
-			ldflags = append(ldflags, "-l"+filepath.ToSlash(libname))
-		}
-
-		removeEmpty := func(src []string) []string {
-			o := make([]string, 0, len(src))
-			for _, v := range src {
-				if v == "" {
-					continue
-				}
-				o = append(o, v)
-			}
-			return o
-		}
-
-		cflags = removeEmpty(cflags)
-		ldflags = removeEmpty(ldflags)
-
-		cflagsEnv := fmt.Sprintf("CGO_CFLAGS=%s", strings.Join(cflags, " "))
-		ldflagsEnv := fmt.Sprintf("CGO_LDFLAGS=%s", strings.Join(ldflags, " "))
-
-		env := os.Environ()
-		env = append(env, cflagsEnv)
-		env = append(env, ldflagsEnv)
-
-		fmt.Println(cflagsEnv)
-		fmt.Println(ldflagsEnv)
-
-		// build extension with go + c
 		fmt.Printf("go %v\n", strings.Join(args, " "))
 		cmd = exec.Command("go", args...)
 		cmd.Env = env
@@ -249,4 +180,90 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 	}
 
 	return err
+}
+
+func getBuildArgsAndEnv(cfg *BuildCfg) (args []string, env []string, err error) {
+	buildname := cfg.Name + "_go"
+	buildLib := buildname + libExt
+
+	var pycfg bind.PyConfig
+	pycfg, err = bind.GetPythonConfig(cfg.VM)
+	if err != nil {
+		fmt.Printf("error creating pycfg: %r\n", err)
+		return args, env, err
+	}
+
+	extext := libExt
+	if runtime.GOOS == "windows" {
+		extext = ".pyd"
+	}
+	if pycfg.ExtSuffix != "" {
+		extext = pycfg.ExtSuffix
+	}
+	modlib := "_" + cfg.Name + extext
+
+	// build the go shared library upfront to generate the header
+	// needed by our generated cpython code
+	args = []string{"build", "-mod=mod", "-buildmode=c-shared"}
+	if !cfg.Symbols {
+		// These flags will omit the various symbol tables, thereby
+		// reducing the final size of the binary. From https://golang.org/cmd/link/
+		// -s Omit the symbol table and debug information
+		// -w Omit the DWARF symbol table
+		args = append(args, "-ldflags=-s -w")
+	}
+	args = append(args, "-o", buildLib, ".")
+	fmt.Printf("go %v\n", strings.Join(args, " "))
+	cmd := exec.Command("go", args...)
+	cmdout, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+		return args, env, err
+	}
+	// update the output name to the one with the ABI extension
+	args[len(args)-2] = modlib
+	// we don't need this initial lib because we are going to relink
+	os.Remove(buildLib)
+
+	cflags := strings.Fields(strings.TrimSpace(pycfg.CFlags))
+	cflags = append(cflags, "-fPIC", "-Ofast")
+	if include, exists := os.LookupEnv("GOPY_INCLUDE"); exists {
+		cflags = append(cflags, "-I"+filepath.ToSlash(include))
+	}
+
+	ldflags := strings.Fields(strings.TrimSpace(pycfg.LdFlags))
+	if !cfg.Symbols {
+		ldflags = append(ldflags, "-s")
+	}
+	if lib, exists := os.LookupEnv("GOPY_LIBDIR"); exists {
+		ldflags = append(ldflags, "-L"+filepath.ToSlash(lib))
+	}
+	if libname, exists := os.LookupEnv("GOPY_PYLIB"); exists {
+		ldflags = append(ldflags, "-l"+filepath.ToSlash(libname))
+	}
+
+	removeEmpty := func(src []string) []string {
+		o := make([]string, 0, len(src))
+		for _, v := range src {
+			if v == "" {
+				continue
+			}
+			o = append(o, v)
+		}
+		return o
+	}
+
+	cflags = removeEmpty(cflags)
+	ldflags = removeEmpty(ldflags)
+
+	cflagsEnv := fmt.Sprintf("CGO_CFLAGS=%s", strings.Join(cflags, " "))
+	ldflagsEnv := fmt.Sprintf("CGO_LDFLAGS=%s", strings.Join(ldflags, " "))
+
+	env = os.Environ()
+	env = append(env, cflagsEnv)
+	env = append(env, ldflagsEnv)
+
+	fmt.Println(cflagsEnv)
+	fmt.Println(ldflagsEnv)
+	return args, env, err
 }

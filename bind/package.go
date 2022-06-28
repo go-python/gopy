@@ -245,11 +245,11 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 		res := sig.Results()
 		results := parseFn(res)
 
-		if (len(results) > 0) {
-			lastResult := res.At(len(results)-1)
+		if len(results) > 0 {
+			lastResult := res.At(len(results) - 1)
 			if isErrorType(lastResult.Type()) {
 				if !NoPyExceptions {
-				        results = results[0:len(results)-1]
+					results = results[0 : len(results)-1]
 				}
 			}
 		}

@@ -1,7 +1,7 @@
 package variadic
 
 /////////////// Non Variadic //////////////
-func NonVariFunc(arg1 int, arg2 []int, arg3 int) int{
+func NonVariFunc(arg1 int, arg2 []int, arg3 int) int {
 	total := arg1
 	for _, num := range arg2 {
 		total += num
@@ -12,7 +12,7 @@ func NonVariFunc(arg1 int, arg2 []int, arg3 int) int{
 }
 
 /////////////// Variadic Over Int //////////////
-func VariFunc(vargs ...int) int{
+func VariFunc(vargs ...int) int {
 	total := 0
 	for _, num := range vargs {
 		total += num
@@ -26,15 +26,15 @@ type IntStrUct struct {
 }
 
 func NewIntStrUct(n int) IntStrUct {
-	return IntStrUct {
-		p:n,
+	return IntStrUct{
+		p: n,
 	}
-} 
+}
 
-func VariStructFunc(vargs ...IntStrUct) int{
+func VariStructFunc(vargs ...IntStrUct) int {
 	total := 0
 	for _, inst := range vargs {
-		total += inst.p 
+		total += inst.p
 	}
 	return total
 }
@@ -48,7 +48,7 @@ func (is *IntStrUct) Number() int {
 	return is.p
 }
 
-func VariInterFaceFunc(vargs ...IntInterFace) int{
+func VariInterFaceFunc(vargs ...IntInterFace) int {
 	total := 0
 	for _, inst := range vargs {
 		total += inst.Number()

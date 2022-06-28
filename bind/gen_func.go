@@ -6,9 +6,9 @@ package bind
 
 import (
 	"fmt"
+	"go/types"
 	"log"
 	"strconv"
-	"go/types"
 	"strings"
 )
 
@@ -111,7 +111,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 			}
 		}
 
-		if i!=nargs-1 || !fsym.isVariadic {
+		if i != nargs-1 || !fsym.isVariadic {
 			wpArgs = append(wpArgs, anm)
 		}
 	}
@@ -245,13 +245,13 @@ func isIfaceHandle(gdoc string) (bool, string) {
 }
 
 func isPointer(pyfmt string) bool {
-	if (pyfmt == "s") {
+	if pyfmt == "s" {
 		return true
 	}
 	return false
 }
 
-func (g *pyGen)generateReturn(buildPyTuple bool, npyres int, results []*Var, retvals *[]string) {
+func (g *pyGen) generateReturn(buildPyTuple bool, npyres int, results []*Var, retvals *[]string) {
 	g.gofile.Printf("\n")
 	valueCalls := make([]string, npyres, npyres)
 	for i := 0; i < npyres; i++ {
@@ -263,7 +263,7 @@ func (g *pyGen)generateReturn(buildPyTuple bool, npyres int, results []*Var, ret
 				result.Name(),
 			))
 		}
-		formatStr := sret.pyfmt 
+		formatStr := sret.pyfmt
 		if sret.pyfmt == "" {
 			formatStr = "?"
 		}
@@ -278,10 +278,10 @@ func (g *pyGen)generateReturn(buildPyTuple bool, npyres int, results []*Var, ret
 		}
 
 		if result.sym.go2py != "" {
-			retval = result.sym.go2py + "(" + retval + ")" +  result.sym.go2pyParenEx
+			retval = result.sym.go2py + "(" + retval + ")" + result.sym.go2pyParenEx
 		}
 
-		if (buildPyTuple) {
+		if buildPyTuple {
 			buildValueFunc := "C.Py_BuildValue1"
 			typeCast := "unsafe.Pointer"
 			if !isPointer(formatStr) {
@@ -301,7 +301,7 @@ func (g *pyGen)generateReturn(buildPyTuple bool, npyres int, results []*Var, ret
 
 	if npyres == 0 {
 		g.gofile.Printf("return\n")
-	} else if (buildPyTuple) {
+	} else if buildPyTuple {
 		g.gofile.Printf("retTuple := C.PyTuple_New(%d);\n", npyres)
 		for i := 0; i < npyres; i++ {
 			g.gofile.Printf("C.PyTuple_SetItem(retTuple, %d, %s);\n", i, valueCalls[i])
@@ -389,7 +389,7 @@ if __err != nil {
 		default:
 			na = anm
 		}
-		if i == len(args) - 1 && fsym.isVariadic {
+		if i == len(args)-1 && fsym.isVariadic {
 			na = na + "..."
 		}
 		callArgs = append(callArgs, na)
@@ -471,20 +471,20 @@ if __err != nil {
 	if isMethod {
 		if sym.isStruct() {
 			goFuncCall = fmt.Sprintf("gopyh.Embed(vifc, reflect.TypeOf(%s{})).(%s).%s(%s)",
-					nonPtrName(symNm),
-					symNm,
-					fsym.GoName(),
-					strings.Join(callArgs, ", "))
+				nonPtrName(symNm),
+				symNm,
+				fsym.GoName(),
+				strings.Join(callArgs, ", "))
 		} else {
 			goFuncCall = fmt.Sprintf("vifc.(%s).%s(%s)",
-					symNm,
-					fsym.GoName(),
-					strings.Join(callArgs, ", "))
+				symNm,
+				fsym.GoName(),
+				strings.Join(callArgs, ", "))
 		}
 	} else {
 		goFuncCall = fmt.Sprintf("%s(%s)",
-					fsym.GoFmt(),
-					strings.Join(callArgs, ", "))
+			fsym.GoFmt(),
+			strings.Join(callArgs, ", "))
 	}
 
 	if nres > 0 {
@@ -501,7 +501,7 @@ if __err != nil {
 
 		// ReMap handle returns from pyFuncCall.
 		for i := 0; i < npyres; i++ {
-			if res[i].sym.hasHandle() && !res[i].sym.isPtrOrIface(){
+			if res[i].sym.hasHandle() && !res[i].sym.isPtrOrIface() {
 				retvals[i] = "&" + retvals[i]
 			}
 		}
@@ -532,7 +532,7 @@ if __err != nil {
 			}
 		}
 
-		g.generateReturn(buildPyTuple(fsym), npyres, res, &retvals);
+		g.generateReturn(buildPyTuple(fsym), npyres, res, &retvals)
 	} else {
 		g.gofile.Printf("if boolPyToGo(goRun) {\n")
 		g.gofile.Indent()

@@ -17,6 +17,7 @@ _examples/hi | no | yes
 _examples/iface | no | yes
 _examples/lot | yes | yes
 _examples/maps | yes | yes
+_examples/multireturn | no | yes
 _examples/named | yes | yes
 _examples/osfile | yes | yes
 _examples/pkgconflict | yes | yes
@@ -29,4 +30,5 @@ _examples/sliceptr | yes | yes
 _examples/slices | yes | yes
 _examples/structs | yes | yes
 _examples/unicode | no | yes
+_examples/variadic | no | yes
 _examples/vars | yes | yes

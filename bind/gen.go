@@ -453,7 +453,7 @@ var NoWarn = false
 // NoMake turns off generation of Makefiles
 var NoMake = false
 
-// NoPyExceptions turns off generation of Python Exceptions 
+// NoPyExceptions turns off generation of Python Exceptions
 var NoPyExceptions = false
 
 // GenPyBind generates a .go file, build.py file to enable pybindgen to create python bindings,

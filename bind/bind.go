@@ -38,7 +38,7 @@ type BindCfg struct {
 	// If set, python exceptions are not thrown.
 	NoPyExceptions bool
 
-	// Path to Go module, which is to be used to translate Go errors to Python exceptions. 
+	// Path to Go module, which is to be used to translate Go errors to Python exceptions.
 	ModPathGoErr2PyEx string
 
 	// If set, when a Go function returns a (value, err), python returns (value, ) tuple.

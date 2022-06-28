@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/rudderlabs/gopy/bind"
 	"github.com/gonuts/commander"
 	"github.com/gonuts/flag"
+	"github.com/rudderlabs/gopy/bind"
 )
 
 func gopyMakeCmdGen() *commander.Command {

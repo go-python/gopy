@@ -61,11 +61,20 @@ func init() {
 }
 
 func TestGovet(t *testing.T) {
+	buildCmd := gopyMakeCmdBuild()
+	buildCfg := NewBuildCfg(&buildCmd.Flag)
+	buildCfg.VM = testBackends["py3"]
+	buildArgs, buildEnv, err := getBuildArgsAndEnv(buildCfg)
+	if err != nil {
+		t.Fatalf("error building env:%v.\n Args:%v.\n Env:%v\n", err, buildArgs, buildEnv)
+	}
+
 	cmd := exec.Command("go", "vet", "./...")
 	buf := new(bytes.Buffer)
 	cmd.Stdout = buf
 	cmd.Stderr = buf
-	err := cmd.Run()
+	cmd.Env = buildEnv
+	err = cmd.Run()
 	if err != nil {
 		t.Fatalf("error running %s:\n%s\n%v", "go vet", string(buf.Bytes()), err)
 	}

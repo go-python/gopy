@@ -147,7 +147,7 @@ func isPyCompatField(f *types.Var) (*symbol, error) {
 func getPyReturnType(sig *types.Signature) (ret []types.Type, err error) {
 	results := sig.Results()
 
-	if (results.Len() == 0) {
+	if results.Len() == 0 {
 		return make([]types.Type, 0, 0), nil
 	} else {
 		outCount := results.Len()
