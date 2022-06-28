@@ -194,7 +194,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 			gorets[i] = sret.cgoname
 			pyrets[i] = "'" + sret.cpyname + "'"
 			if sret.cpyname == "PyObject*" {
-				ownership = "caller_owns_return=True"
+				ownership = ", caller_owns_return=True"
 			}
 		}
 

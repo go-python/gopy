@@ -145,7 +145,7 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 	} else {
 
 		// build extension with go + c
-		env, args, err := getBuildArgsAndEnv(cfg)
+		args, env, err := getBuildArgsAndEnv(cfg)
 		if err != nil {
 			fmt.Printf("error building environment: %v\n", err)
 			return err
