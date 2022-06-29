@@ -164,6 +164,14 @@ func complex128PyToGo(o *C.PyObject) complex128 {
 	return complex(float64(v.real), float64(v.imag))
 }
 
+// errorGoToPy converts a Go error to python-compatible C.CString
+func errorGoToPy(e error) *C.char {
+	if e != nil {
+		return C.CString(e.Error())
+	}
+	return C.CString("")
+}
+
 %[9]s
 `
 
