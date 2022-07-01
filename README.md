@@ -70,7 +70,7 @@ An article was also posted on the [GopherAcademy Advent-2015](https://blog.gophe
 Documentation is available on [godoc](https://godoc.org):
  https://godoc.org/github.com/go-python/gopy
 
-The `pkg` and `exe` commands are for end-users and create a full standalone python package that can be installed locally using `make install` based on the auto-generated `Makefile`.  Theoretically these packages could be uploaded to https://pypi.org/ for wider distribution, but that would require a lot more work to handle all the different possible python versions and coordination with the Go source version, so it is much better to just do the local make install on your system.  The `gen` and `build` commands are used for testing and just generate / build the raw binding files only.
+The `pkg` and `exe` commands are for end-users and create a full standalone python package that can be installed locally using `make install` based on the auto-generated `Makefile`.  Theoretically these packages could be uploaded to https://pypi.org/ for wider distribution, but that would require a lot more work to handle all the different possible python versions and coordination with the Go source version, so it is easier to just do the local make install on your system.  The `gen` and `build` commands are used for testing and just generate / build the raw binding files only.
 
 IMPORTANT: many errors will be avoided by specifying the `-vm` option to gopy, with a full path if needed, or typically just `-vm=python3` to use python3 instead of version 2, which is often the default for the plain `python` command.
 
@@ -116,6 +116,7 @@ Options:
   -version="0.1.0": semantic version number -- can use e.g., git to get this from tag and pass as argument
   -vm="python": path to python interpreter
   -dynamic-link=false: whether to link output shared library dynamically to Python
+  -build-tags="": build tags to be passed to `go build`
 
 
 $ gopy help exe
@@ -142,6 +143,8 @@ Options:
   -user="": username on https://www.pypa.io/en/latest/ for package name suffix
   -version="0.1.0": semantic version number -- can use e.g., git to get this from tag and pass as argument
   -vm="python": path to python interpreter
+  -dynamic-link=false: whether to link output shared library dynamically to Python
+  -build-tags="": build tags to be passed to `go build`
 
 $ gopy help gen
 Usage: gopy gen <go-package-name> [other-go-package...]
@@ -153,9 +156,15 @@ ex:
  $ gopy gen github.com/go-python/gopy/_examples/hi
 
 Options:
-  -main="": code string to run in the Go main() function in the cgo library
+  -build-tags="": build tags to be passed to `go build`
+  -dynamic-link=false: whether to link output shared library dynamically to Python
+  -main="": code string to run in the go main() function in the cgo library
   -name="": name of output package (otherwise name of first package is used)
+  -no-make=false: do not generate a Makefile, e.g., when called from Makefile
+  -no-warn=false: suppress warning messages, which may be expected
   -output="": output directory for bindings
+  -package-prefix=".": custom package prefix used when generating import statements for generated package
+  -rename=false: rename Go symbols to python PEP snake_case
   -vm="python": path to python interpreter
 
 $ gopy help build
@@ -168,9 +177,15 @@ ex:
  $ gopy build github.com/go-python/gopy/_examples/hi
 
 Options:
-  -main="": code string to run in the Go main() function in the cgo library
+  -build-tags="": build tags to be passed to `go build`
+  -dynamic-link=false: whether to link output shared library dynamically to Python
+  -main="": code string to run in the go main() function in the cgo library
   -name="": name of output package (otherwise name of first package is used)
+  -no-make=false: do not generate a Makefile, e.g., when called from Makefile
+  -no-warn=false: suppress warning messages, which may be expected
   -output="": output directory for bindings
+  -package-prefix=".": custom package prefix used when generating import statements for generated package
+  -rename=false: rename Go symbols to python PEP snake_case
   -symbols=true: include symbols in output
   -vm="python": path to python interpreter
 

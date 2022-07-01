@@ -58,6 +58,8 @@ ex:
 	cmd.Flag.String("url", "https://github.com/go-python/gopy", "home page for project")
 	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
 	cmd.Flag.Bool("no-make", false, "do not generate a Makefile, e.g., when called from Makefile")
+	cmd.Flag.Bool("dynamic-link", false, "whether to link output shared library dynamically to Python")
+	cmd.Flag.String("build-tags", "", "build tags to be passed to `go build`")
 
 	return cmd
 }
@@ -80,6 +82,8 @@ func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 	cfg.Symbols = cmdr.Flag.Lookup("symbols").Value.Get().(bool)
 	cfg.NoWarn = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
 	cfg.NoMake = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
+	cfg.DynamicLinking = cmdr.Flag.Lookup("dynamic-link").Value.Get().(bool)
+	cfg.BuildTags = cmdr.Flag.Lookup("build-tags").Value.Get().(string)
 
 	var (
 		exclude = cmdr.Flag.Lookup("exclude").Value.Get().(string)

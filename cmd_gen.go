@@ -37,6 +37,8 @@ ex:
 	cmd.Flag.Bool("rename", false, "rename Go symbols to python PEP snake_case")
 	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
 	cmd.Flag.Bool("no-make", false, "do not generate a Makefile, e.g., when called from Makefile")
+	cmd.Flag.Bool("dynamic-link", false, "whether to link output shared library dynamically to Python")
+	cmd.Flag.String("build-tags", "", "build tags to be passed to `go build`")
 	return cmd
 }
 
@@ -58,6 +60,8 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 	cfg.RenameCase = cmdr.Flag.Lookup("rename").Value.Get().(bool)
 	cfg.NoWarn = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
 	cfg.NoMake = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
+	cfg.DynamicLinking = cmdr.Flag.Lookup("dynamic-link").Value.Get().(bool)
+	cfg.BuildTags = cmdr.Flag.Lookup("build-tags").Value.Get().(string)
 
 	if cfg.VM == "" {
 		cfg.VM = "python"
