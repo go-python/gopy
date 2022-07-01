@@ -45,6 +45,7 @@ ex:
 	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
 	cmd.Flag.Bool("no-make", false, "do not generate a Makefile, e.g., when called from Makefile")
 	cmd.Flag.Bool("dynamic-link", false, "whether to link output shared library dynamically to Python")
+	cmd.Flag.String("build-tags", "", "build tags to be passed to `go build`")
 	return cmd
 }
 
@@ -66,6 +67,7 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 	cfg.NoWarn = cmdr.Flag.Lookup("no-warn").Value.Get().(bool)
 	cfg.NoMake = cmdr.Flag.Lookup("no-make").Value.Get().(bool)
 	cfg.DynamicLinking = cmdr.Flag.Lookup("dynamic-link").Value.Get().(bool)
+	cfg.BuildTags = cmdr.Flag.Lookup("build-tags").Value.Get().(string)
 
 	bind.NoWarn = cfg.NoWarn
 	bind.NoMake = cfg.NoMake
@@ -129,7 +131,12 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		cmd = exec.Command(cfg.VM, "build.py")
 		cmd.Run() // will fail, we don't care about errors
 
-		args := []string{"build", "-mod=mod", "-buildmode=c-shared", "-o", buildname + libExt, "."}
+		args := []string{"build", "-mod=mod", "-buildmode=c-shared"}
+		if cfg.BuildTags != "" {
+			args = append(args, "-tags", cfg.BuildTags)
+		}
+		args = append(args, "-o", buildname+libExt, ".")
+
 		fmt.Printf("go %v\n", strings.Join(args, " "))
 		cmd = exec.Command("go", args...)
 		cmdout, err = cmd.CombinedOutput()
@@ -149,7 +156,11 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		err = os.Remove(cfg.Name + "_go" + libExt)
 
 		fmt.Printf("go build -o py%s\n", cfg.Name)
-		cmd = exec.Command("go", "build", "-mod=mod", "-o", "py"+cfg.Name)
+		cmd = exec.Command("go", "build", "-mod=mod")
+		if cfg.BuildTags != "" {
+			args = append(args, "-tags", cfg.BuildTags)
+		}
+		args = append(args, "-o", "py"+cfg.Name)
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
@@ -170,6 +181,9 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		// build the go shared library upfront to generate the header
 		// needed by our generated cpython code
 		args := []string{"build", "-mod=mod", "-buildmode=c-shared"}
+		if cfg.BuildTags != "" {
+			args = append(args, "-tags", cfg.BuildTags)
+		}
 		if !cfg.Symbols {
 			// These flags will omit the various symbol tables, thereby
 			// reducing the final size of the binary. From https://golang.org/cmd/link/
