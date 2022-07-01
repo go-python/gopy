@@ -37,9 +37,11 @@ var (
 		"_examples/pyerrors":    []string{"py2", "py3"},
 		"_examples/iface":       []string{"py3"}, // output order diff for 2, fails but actually works
 		"_examples/pointers":    []string{"py2", "py3"},
+		"_examples/pointermap":  []string{"py3"},
 		"_examples/arrays":      []string{"py2", "py3"},
 		"_examples/slices":      []string{"py2", "py3"},
 		"_examples/maps":        []string{"py2", "py3"},
+		"_examples/ifxmap":      []string{"py3"},
 		"_examples/gostrings":   []string{"py2", "py3"},
 		"_examples/rename":      []string{"py2", "py3"},
 		"_examples/lot":         []string{"py2", "py3"},
@@ -351,6 +353,22 @@ OK
 	})
 }
 
+func TestBindPointerMap(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/pointermap"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`s = pointers.S(2)
+s = pointers.S{Value=2, handle=1}
+s.Value = 2
+OK
+`),
+	})
+}
+
 func TestBindNamed(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/named"
@@ -623,6 +641,22 @@ maps.Values from Go map: go.Slice_float64 len: 2 handle: 4 [3.0, 5.0]
 maps.Keys from Python dictionary: go.Slice_int len: 2 handle: 6 [1, 2]
 maps.Values from Python dictionary: go.Slice_float64 len: 2 handle: 8 [3.0, 5.0]
 deleted 1 from a: maps.Map_int_float64 len: 1 handle: 1 {2=5.0, }
+OK
+`),
+	})
+}
+
+func TestBindIfxMap(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/ifxmap"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`s = pointers.S(2)
+s = pointers.S{Value=2, handle=1}
+s.Value = 2
 OK
 `),
 	})
