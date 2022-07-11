@@ -24,7 +24,7 @@ func makeGoPackage() {
 func addStdSliceMaps() {
 	makeGoPackage()
 	gopk := goPackage.pkg
-	sltyps := []string{"int", "int64", "int32", "int16", "int8", "uint", "uint64", "uint32", "uint16", "uint8", "bool", "byte", "rune", "float64", "float32", "string"}
+	sltyps := []string{"int", "int64", "int32", "int16", "int8", "uint", "uint64", "uint32", "uint16", "uint8", "bool", "byte", "rune", "float64", "float32", "string", "error"}
 	for _, tn := range sltyps {
 		universe.addSliceType(gopk, nil, types.NewSlice(universe.sym(tn).gotyp), skType, "Slice_"+tn, "[]"+tn)
 	}
@@ -342,16 +342,16 @@ func stdBasicTypes() map[string]*symbol {
 			gopkg:        look("error").Pkg(),
 			goobj:        look("error"),
 			gotyp:        look("error").Type(),
-			kind:         skType | skInterface,
+			kind:         skType | skBasic,
 			goname:       "error",
 			id:           "error",
 			cpyname:      "char*",
 			cgoname:      "*C.char",
 			pysig:        "str",
-			go2py:        "C.CString",
+			go2py:        "errorGoToPy",
 			py2go:        "errors.New(C.GoString",
 			py2goParenEx: ")",
-			zval:         `""`,
+			zval:         `nil`,
 			pyfmt:        "O&",
 		},
 	}
