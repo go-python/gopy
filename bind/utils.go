@@ -109,6 +109,8 @@ import os
 version=sys.version_info.major
 
 def clear_ld_flags(s):
+	if s is None:
+		return ''
 	skip_first_word = s.split(' ', 1)[1]  # skip compiler name
 	skip_bundle = skip_first_word.replace('-bundle', '')  # cgo already passes -dynamiclib
 	return skip_bundle
