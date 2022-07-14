@@ -129,14 +129,14 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 	}
 
 	for _, path := range args {
-		buildPkgRecurse(cfg.OutputDir, path, path, exmap)
+		buildPkgRecurse(cfg.OutputDir, path, path, exmap, cfg.BuildTags)
 	}
 	return runBuild(bind.ModePkg, cfg)
 }
 
-func buildPkgRecurse(odir, path, rootpath string, exmap map[string]struct{}) error {
+func buildPkgRecurse(odir, path, rootpath string, exmap map[string]struct{}, buildTags string) error {
 	buildFirst := path == rootpath
-	bpkg, err := loadPackage(path, buildFirst)
+	bpkg, err := loadPackage(path, buildFirst, buildTags)
 	if err != nil {
 		return fmt.Errorf("gopy-gen: go build / load of package failed with path=%q: %v", path, err)
 	}
@@ -171,7 +171,7 @@ func buildPkgRecurse(odir, path, rootpath string, exmap map[string]struct{}) err
 			continue
 		}
 		sp := filepath.Join(path, dr)
-		buildPkgRecurse(odir, sp, rootpath, exmap)
+		buildPkgRecurse(odir, sp, rootpath, exmap, buildTags)
 	}
 	return nil
 }

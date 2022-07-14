@@ -71,7 +71,7 @@ func gopyRunCmdGen(cmdr *commander.Command, args []string) error {
 	bind.NoMake = cfg.NoMake
 
 	for _, path := range args {
-		bpkg, err := loadPackage(path, true) // build first
+		bpkg, err := loadPackage(path, true, cfg.BuildTags) // build first
 		if err != nil {
 			return fmt.Errorf("gopy-gen: go build / load of package failed with path=%q: %v", path, err)
 		}
