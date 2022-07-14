@@ -94,7 +94,7 @@ func loadPackage(path string, buildFirst bool, buildTags string) (*packages.Pack
 	if buildFirst {
 		args := []string{"build", "-v", "path"}
 		if buildTags != "" {
-			buildTagStr := fmt.Sprintf("\"%s\"", strings.Join(strings.Split(buildTags, ","), ""))
+			buildTagStr := fmt.Sprintf("\"%s\"", strings.Join(strings.Split(buildTags, ","), " "))
 			args = append(args, "-tags", buildTagStr)
 		}
 		fmt.Printf("go %v\n", strings.Join(args, " "))
