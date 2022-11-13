@@ -313,7 +313,13 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
 
-		g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'), [param('%s', 'handle'), param('int', 'idx')])\n", slNm, esym.cpyname, PyHandle)
+		var caller_owns_ret string
+		var transfer_ownership string
+		if esym.cpyname == "PyObject*" {
+			caller_owns_ret = ", caller_owns_return=True"
+			transfer_ownership = ", transfer_ownership=False"
+		}
+		g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'%s), [param('%s', 'handle'), param('int', 'idx')])\n", slNm, esym.cpyname, caller_owns_ret, PyHandle)
 
 		if slc.isSlice() {
 			g.gofile.Printf("//export %s_subslice\n", slNm)
@@ -340,7 +346,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
 
-		g.pybuild.Printf("mod.add_function('%s_set', None, [param('%s', 'handle'), param('int', 'idx'), param('%v', 'value')])\n", slNm, PyHandle, esym.cpyname)
+		g.pybuild.Printf("mod.add_function('%s_set', None, [param('%s', 'handle'), param('int', 'idx'), param('%v', 'value'%s)])\n", slNm, PyHandle, esym.cpyname, transfer_ownership)
 
 		if slc.isSlice() {
 			g.gofile.Printf("//export %s_append\n", slNm)
@@ -355,7 +361,7 @@ otherwise parameter is a python list that we copy from
 			g.gofile.Outdent()
 			g.gofile.Printf("}\n\n")
 
-			g.pybuild.Printf("mod.add_function('%s_append', None, [param('%s', 'handle'), param('%s', 'value')])\n", slNm, PyHandle, esym.cpyname)
+			g.pybuild.Printf("mod.add_function('%s_append', None, [param('%s', 'handle'), param('%s', 'value'%s)])\n", slNm, PyHandle, esym.cpyname, transfer_ownership)
 		}
 	}
 }
