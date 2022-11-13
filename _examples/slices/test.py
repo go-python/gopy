@@ -3,6 +3,8 @@
 # license that can be found in the LICENSE file.
 
 from __future__ import print_function
+import math
+import random
 import slices, go
 
 a = [1,2,3,4]
@@ -34,5 +36,12 @@ slices.PrintSSlice(ss)
 
 slices.PrintS(ss[0])
 slices.PrintS(ss[1])
+
+cmplx = slices.SliceComplex([(random.random() + random.random() * 1j) for _ in range(16)])
+sqrts = slices.CmplxSqrt(cmplx)
+for root, orig in zip(sqrts, cmplx):
+    root_squared = root * root
+    assert math.isclose(root_squared.real, orig.real)
+    assert math.isclose(root_squared.imag, orig.imag)
 
 print("OK")

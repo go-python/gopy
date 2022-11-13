@@ -4,7 +4,10 @@
 
 package slices
 
-import "fmt"
+import (
+	"fmt"
+	"math/cmplx"
+)
 
 func IntSum(s []int) int {
 	sum := 0
@@ -28,6 +31,8 @@ type SliceInt16 []int16
 type SliceInt32 []int32
 type SliceInt64 []int64
 
+type SliceComplex []complex128
+
 type SliceIface []interface{}
 
 type S struct {
@@ -46,4 +51,12 @@ func PrintSSlice(ss []*S) {
 
 func PrintS(s *S) {
 	fmt.Printf("%v\n", s.Name)
+}
+
+func CmplxSqrt(arr SliceComplex) SliceComplex {
+	res := make([]complex128, len(arr))
+	for i, el := range arr {
+		res[i] = cmplx.Sqrt(el)
+	}
+	return res
 }
