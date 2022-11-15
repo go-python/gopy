@@ -14,12 +14,12 @@ symbols. The exported symbols define the cross-language interface.
 The gopy tool generates both an API stub in Python, and binding code in
 Go. Start with a Go package:
 
-	package hi
+		package hi
 
-	import "fmt"
+		import "fmt"
 
-	func Hello(name string) {
-		fmt.Println("Hello, %s!\n", name)
- 	}
+		func Hello(name string) {
+			fmt.Println("Hello, %s!\n", name)
+	 	}
 */
 package main
