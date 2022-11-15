@@ -753,23 +753,14 @@ func TestCStrings(t *testing.T) {
 		lang:   features[path],
 		cmd:    "build",
 		extras: nil,
-		/*
-					want: []byte(`gofnString leaked:  False
-			gofnStruct leaked:  True
-			gofnNestedStruct leaked:  True
-			gofnSlice leaked:  True
-			gofnMap leaked:  True
-			OK
-			`),
-		*/
-		// todo: apparently this works on linux but not on mac?
+		// todo: this test on mac leaks everything except String
 		want: []byte(`gofnString leaked:  False
-		   gofnStruct leaked:  False
-		   gofnNestedStruct leaked:  False
-		   gofnSlice leaked:  False
-		   gofnMap leaked:  False
-		   OK
-		   `),
+gofnStruct leaked:  False
+gofnNestedStruct leaked:  False
+gofnSlice leaked:  False
+gofnMap leaked:  False
+OK
+`),
 	})
 }
 
