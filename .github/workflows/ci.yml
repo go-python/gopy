@@ -75,7 +75,7 @@ jobs:
         # pypy3 -m pip install --user -U pybindgen
 
         # install goimports
-        go get golang.org/x/tools/cmd/goimports
+        go install golang.org/x/tools/cmd/goimports@latest
 
  
     - name: Build-Linux
