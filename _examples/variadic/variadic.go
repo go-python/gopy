@@ -4,7 +4,7 @@
 
 package variadic
 
-/////////////// Non Variadic //////////////
+// ///////////// Non Variadic //////////////
 func NonVariFunc(arg1 int, arg2 []int, arg3 int) int {
 	total := arg1
 	for _, num := range arg2 {
@@ -15,7 +15,7 @@ func NonVariFunc(arg1 int, arg2 []int, arg3 int) int {
 	return total
 }
 
-/////////////// Variadic Over Int //////////////
+// ///////////// Variadic Over Int //////////////
 func VariFunc(vargs ...int) int {
 	total := 0
 	for _, num := range vargs {
@@ -24,7 +24,7 @@ func VariFunc(vargs ...int) int {
 	return total
 }
 
-/////////////// Variadic Over Struct //////////////
+// ///////////// Variadic Over Struct //////////////
 type IntStrUct struct {
 	p int
 }
@@ -43,7 +43,7 @@ func VariStructFunc(vargs ...IntStrUct) int {
 	return total
 }
 
-/////////////// Variadic Over Interface //////////////
+// ///////////// Variadic Over Interface //////////////
 type IntInterFace interface {
 	Number() int
 }
