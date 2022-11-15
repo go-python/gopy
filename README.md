@@ -273,7 +273,7 @@ Here's an example for how to use `setup.py` with gopy to make an installable pac
 https://github.com/natun-ai/labsdk/blob/master/setup.py
 
 Also, see this for cross-platform build:
-https://github.com/natun-ai/labsdk/blob/master/.github/workflows/wheels.yaml
+https://github.com/natun-ai/labsdk/blob/master/.github/workflows/release.yaml
 
 ## Troubleshooting
 
