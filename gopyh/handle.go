@@ -159,7 +159,7 @@ func DecRef(handle CGoHandle) {
 	}
 }
 
-//  IncRef increments the reference count for the specified handle.
+// IncRef increments the reference count for the specified handle.
 func IncRef(handle CGoHandle) {
 	if handle < 1 {
 		return

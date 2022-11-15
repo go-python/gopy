@@ -6,7 +6,7 @@
 gopy generates (and compiles) language bindings that make it possible to call Go code
 and pass objects from Python.
 
-Using gopy
+# Using gopy
 
 gopy takes a Go package and generates bindings for all of the exported
 symbols. The exported symbols define the cross-language interface.
@@ -20,7 +20,6 @@ Go. Start with a Go package:
 
 	func Hello(name string) {
 		fmt.Println("Hello, %s!\n", name)
-	}
-
+ 	}
 */
 package main
