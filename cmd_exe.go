@@ -133,7 +133,7 @@ func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 	}
 
 	for _, path := range args {
-		buildPkgRecurse(cfg.OutputDir, path, path, exmap)
+		buildPkgRecurse(cfg.OutputDir, path, path, exmap, cfg.BuildTags)
 	}
 	return runBuild(bind.ModeExe, cfg)
 }

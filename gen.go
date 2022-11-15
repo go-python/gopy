@@ -85,14 +85,21 @@ func genPkg(mode bind.BuildMode, cfg *BuildCfg) error {
 	return err
 }
 
-func loadPackage(path string, buildFirst bool) (*packages.Package, error) {
+func loadPackage(path string, buildFirst bool, buildTags string) (*packages.Package, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
 
 	if buildFirst {
-		cmd := exec.Command("go", "build", "-v", path)
+		args := []string{"build"}
+		if buildTags != "" {
+			buildTagStr := fmt.Sprintf("\"%s\"", strings.Join(strings.Split(buildTags, ","), " "))
+			args = append(args, "-tags", buildTagStr)
+		}
+		args = append(args, "-v", "path")
+		fmt.Printf("go %v\n", strings.Join(args, " "))
+		cmd := exec.Command("go", args...)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
