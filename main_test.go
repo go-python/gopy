@@ -216,7 +216,7 @@ caught: can't work for 24 hours!
 --- p.Salary(24): caught: can't work for 24 hours!
 --- Person.__init__
 caught: argument 2 must be str, not int | err-type: <class 'TypeError'>
-caught: an integer is required (got type str) | err-type: <class 'TypeError'>
+caught: 'str' object cannot be interpreted as an integer | err-type: <class 'TypeError'>
 *ERROR* no exception raised!
 hi.Person{Name="name", Age=0}
 hi.Person{Name="name", Age=42}
