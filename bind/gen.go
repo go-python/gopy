@@ -552,7 +552,11 @@ func (g *pyGen) genPkgWrapOut() {
 	impstr := ""
 	for _, im := range g.pkg.pyimports {
 		if g.mode == ModeGen || g.mode == ModeBuild {
-			impstr += fmt.Sprintf("import %s\n", im)
+			if g.cfg.PkgPrefix != "" {
+				impstr += fmt.Sprintf("from %s import %s\n", g.cfg.PkgPrefix, im)
+			} else {
+				impstr += fmt.Sprintf("import %s\n", im)
+			}
 		} else {
 			impstr += fmt.Sprintf("from %s import %s\n", g.cfg.Name, im)
 		}
