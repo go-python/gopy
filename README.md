@@ -23,8 +23,8 @@ Currently using [pybindgen](https://pybindgen.readthedocs.io/en/latest/tutorial/
 
 ```sh
 $ python3 -m pip install pybindgen
-$ go get golang.org/x/tools/cmd/goimports
-$ go get github.com/go-python/gopy
+$ go install golang.org/x/tools/cmd/goimports@latest
+$ go install github.com/go-python/gopy@latest
 ```
 
 (This all assumes you have already installed [Go itself](https://golang.org/doc/install), and added `~/go/bin` to your `PATH`).
