@@ -269,11 +269,11 @@ To know what features are supported on what backends, please refer to the
 
 ## setup.py
 
-Here's an example for how to use `setup.py` with gopy to make an installable package: 
-https://github.com/natun-ai/labsdk/blob/master/setup.py
+Here's an example for how to use `setup.py` with gopy to make an installable package:
+https://github.com/raptor-ml/raptor/blob/master/labsdk/setup.py
 
 Also, see this for cross-platform build:
-https://github.com/natun-ai/labsdk/blob/master/.github/workflows/release.yaml
+https://github.com/raptor-ml/raptor/blob/master/.github/workflows/labsdk-release.yaml
 
 ## Troubleshooting
 
