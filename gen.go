@@ -98,7 +98,7 @@ func loadPackage(path string, buildFirst bool, buildTags string) (*packages.Pack
 			args = append(args, "-tags", buildTagStr)
 		}
 		args = append(args, "-v", path)
-		fmt.Printf("go %v\n", strings.Join(args, " "))
+		fmt.Printf("go %s\n", strings.Join(args, " "))
 		cmd := exec.Command("go", args...)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
@@ -115,7 +115,8 @@ func loadPackage(path string, buildFirst bool, buildTags string) (*packages.Pack
 	}
 
 	// golang.org/x/tools/go/packages supports modules or GOPATH etc
-	bpkgs, err := packages.Load(&packages.Config{Mode: packages.LoadTypes}, path)
+	mode := packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedDeps | packages.NeedImports | packages.NeedTypes | packages.NeedTypesSizes
+	bpkgs, err := packages.Load(&packages.Config{Mode: mode}, path)
 	if err != nil {
 		log.Printf("error resolving import path [%s]: %v\n",
 			path,
