@@ -97,7 +97,7 @@ func loadPackage(path string, buildFirst bool, buildTags string) (*packages.Pack
 			buildTagStr := fmt.Sprintf("\"%s\"", strings.Join(strings.Split(buildTags, ","), " "))
 			args = append(args, "-tags", buildTagStr)
 		}
-		args = append(args, "-v", "path")
+		args = append(args, "-v", path)
 		fmt.Printf("go %v\n", strings.Join(args, " "))
 		cmd := exec.Command("go", args...)
 		cmd.Stdin = os.Stdin
