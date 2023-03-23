@@ -551,7 +551,7 @@ func (g *pyGen) genPkgWrapOut() {
 	// note: must generate import string at end as imports can be added during processing
 	impstr := ""
 	for _, im := range g.pkg.pyimports {
-		if g.mode == ModeGen || g.mode == ModeBuild {
+		if g.mode == ModeGen || g.mode == ModeBuild || g.mode == ModePkg {
 			if g.cfg.PkgPrefix != "" {
 				impstr += fmt.Sprintf("from %s import %s\n", g.cfg.PkgPrefix, im)
 			} else {
@@ -653,7 +653,7 @@ func (g *pyGen) genPyWrapPreamble() {
 			impgenstr += fmt.Sprintf("import %s\n", "_"+g.cfg.Name)
 		}
 		impstr += fmt.Sprintf(GoPkgDefs, g.cfg.Name)
-	case g.mode == ModeGen || g.mode == ModeBuild:
+	case g.mode == ModeGen || g.mode == ModeBuild || g.mode == ModePkg:
 		if g.cfg.PkgPrefix != "" {
 			for _, name := range impgenNames {
 				impgenstr += fmt.Sprintf("from %s import %s\n", g.cfg.PkgPrefix, name)
