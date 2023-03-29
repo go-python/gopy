@@ -14,7 +14,7 @@ branches:
 
 environment:
   GOPATH: C:\gopath
-  GOROOT: C:\go115
+  GOROOT: C:\go119
   GOPY_APPVEYOR_CI: '1'
   GOTRACEBACK: 'crash'
   #CPYTHON2DIR: "C:\\Python27-x64"
@@ -22,17 +22,13 @@ environment:
   #PATH: '%GOPATH%\bin;%CPYTHON2DIR%;%CPYTHON2DIR%\\Scripts;%CPYTHON3DIR%;%CPYTHON3DIR%\\Scripts;C:\msys64\mingw64\bin;C:\msys64\usr\bin\;%PATH%'
   PATH: '%GOPATH%\bin;%GOROOT%\bin;%CPYTHON3DIR%;%CPYTHON3DIR%\\Scripts;C:\msys64\mingw64\bin;C:\msys64\usr\bin\;%PATH%'
 
-stack: go 1.15
+stack: go 1.19
 
 build_script:
   - python --version
-    #- "%CPYTHON2DIR%\\python --version"
   - "%CPYTHON3DIR%\\python --version"
-    #- "%CPYTHON2DIR%\\python -m pip install --upgrade pip"
   - "%CPYTHON3DIR%\\python -m pip install --upgrade pip"
-    #- "%CPYTHON2DIR%\\python -m pip install cffi"
   - "%CPYTHON3DIR%\\python -m pip install cffi"
-    #- "%CPYTHON2DIR%\\python -m pip install pybindgen"
   - "%CPYTHON3DIR%\\python -m pip install pybindgen"
   - go version
   - go env

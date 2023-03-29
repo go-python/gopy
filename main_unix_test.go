@@ -19,9 +19,7 @@ func init() {
 	testEnvironment = os.Environ()
 
 	var (
-		py2 = "python2"
 		py3 = "python3"
-		// pypy2 = "pypy"
 		// pypy3 = "pypy3"
 	)
 
@@ -40,7 +38,6 @@ func init() {
 		mandatory bool
 	}{
 		{"py3", py3, "", true},
-		{"py2", py2, "", true},
 	} {
 		args := []string{"-c", ""}
 		if be.module != "" {

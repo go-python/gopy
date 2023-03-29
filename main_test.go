@@ -23,31 +23,31 @@ import (
 var (
 	testBackends = map[string]string{}
 	features     = map[string][]string{
-		"_examples/hi":          []string{"py3"}, // output is different for 2 vs. 3 -- only checking 3 output
-		"_examples/funcs":       []string{"py2", "py3"},
-		"_examples/sliceptr":    []string{"py2", "py3"},
-		"_examples/simple":      []string{"py2", "py3"},
-		"_examples/empty":       []string{"py2", "py3"},
-		"_examples/named":       []string{"py2", "py3"},
-		"_examples/structs":     []string{"py2", "py3"},
-		"_examples/consts":      []string{"py2", "py3"}, // 2 doesn't report .666 decimals
-		"_examples/vars":        []string{"py2", "py3"},
-		"_examples/seqs":        []string{"py2", "py3"},
-		"_examples/cgo":         []string{"py2", "py3"},
-		"_examples/pyerrors":    []string{"py2", "py3"},
-		"_examples/iface":       []string{"py3"}, // output order diff for 2, fails but actually works
-		"_examples/pointers":    []string{"py2", "py3"},
-		"_examples/arrays":      []string{"py2", "py3"},
-		"_examples/slices":      []string{"py2", "py3"},
-		"_examples/maps":        []string{"py2", "py3"},
-		"_examples/gostrings":   []string{"py2", "py3"},
-		"_examples/rename":      []string{"py2", "py3"},
-		"_examples/lot":         []string{"py2", "py3"},
-		"_examples/unicode":     []string{"py3"}, // doesn't work for 2
-		"_examples/osfile":      []string{"py2", "py3"},
-		"_examples/gopygc":      []string{"py2", "py3"},
-		"_examples/cstrings":    []string{"py2", "py3"},
-		"_examples/pkgconflict": []string{"py2", "py3"},
+		"_examples/hi":          []string{"py3"},
+		"_examples/funcs":       []string{"py3"},
+		"_examples/sliceptr":    []string{"py3"},
+		"_examples/simple":      []string{"py3"},
+		"_examples/empty":       []string{"py3"},
+		"_examples/named":       []string{"py3"},
+		"_examples/structs":     []string{"py3"},
+		"_examples/consts":      []string{"py3"},
+		"_examples/vars":        []string{"py3"},
+		"_examples/seqs":        []string{"py3"},
+		"_examples/cgo":         []string{"py3"},
+		"_examples/pyerrors":    []string{"py3"},
+		"_examples/iface":       []string{"py3"},
+		"_examples/pointers":    []string{"py3"},
+		"_examples/arrays":      []string{"py3"},
+		"_examples/slices":      []string{"py3"},
+		"_examples/maps":        []string{"py3"},
+		"_examples/gostrings":   []string{"py3"},
+		"_examples/rename":      []string{"py3"},
+		"_examples/lot":         []string{"py3"},
+		"_examples/unicode":     []string{"py3"},
+		"_examples/osfile":      []string{"py3"},
+		"_examples/gopygc":      []string{"py3"},
+		"_examples/cstrings":    []string{"py3"},
+		"_examples/pkgconflict": []string{"py3"},
 		"_examples/variadic":    []string{"py3"},
 	}
 
@@ -130,7 +130,6 @@ ignoring python incompatible function: .func github.com/go-python/gopy/_examples
 func TestHi(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/hi"
-	// NOTE: output differs for python2 -- only valid checking for 3
 	testPkg(t, pkg{
 		path:   path,
 		lang:   features[path],
@@ -923,7 +922,6 @@ type pkg struct {
 }
 
 func testPkg(t *testing.T, table pkg) {
-	// backends := []string{"py2", "py3"}
 	backends := []string{"py3"}
 	// backends := table.lang // todo: enabling py2 testing requires separate "want" output
 	for _, be := range backends {
@@ -935,11 +933,6 @@ func testPkg(t *testing.T, table pkg) {
 			continue
 		}
 		switch be {
-		case "py2":
-			t.Run(be, func(t *testing.T) {
-				// t.Parallel()
-				testPkgBackend(t, vm, table)
-			})
 		case "py3":
 			t.Run(be, func(t *testing.T) {
 				// t.Parallel()
