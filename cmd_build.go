@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -215,11 +216,17 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 
 		if bind.WindowsOS {
 			fmt.Printf("Doing windows sed hack to fix declspec for PyInit\n")
-			cmd = exec.Command("sed", "-i", "s/ PyInit_/ __declspec(dllexport) PyInit_/g", cfg.Name+".c")
-			cmdout, err = cmd.CombinedOutput()
+			fname := cfg.Name + ".c"
+			raw, err := os.ReadFile(fname)
 			if err != nil {
-				fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
-				return err
+				fmt.Printf("could not read %s: %+v", fname, err)
+				return fmt.Errorf("could not read %s: %w", fname, err)
+			}
+			raw = bytes.ReplaceAll(raw, []byte(" PyInit_"), []byte(" __declspec(dllexport) PyInit_"))
+			err = os.WriteFile(fname, raw, 0644)
+			if err != nil {
+				fmt.Printf("could not apply sed hack to fix declspec for PyInit: %+v", err)
+				return fmt.Errorf("could not apply sed hack to fix PyInit: %w", err)
 			}
 		}
 
