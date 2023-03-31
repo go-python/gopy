@@ -1055,6 +1055,10 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 				diff, _ := cmd.CombinedOutput()
 				diffTxt = string(diff) + "\n"
 			}
+			t.Fatalf("[%s:%s]: error running python module:\n%s",
+				pyvm, table.path,
+				diffTxt,
+			)
 		}
 
 		t.Fatalf("[%s:%s]: error running python module:\ngot:\n%s\n\nwant:\n%s\n[%s:%s] diff:\n%s",
