@@ -103,7 +103,13 @@ func (pc *PyConfig) AllFlags() string {
 // python VM (python, python2, python3, pypy, etc...)
 func GetPythonConfig(vm string) (PyConfig, error) {
 	code := `import sys
-import distutils.sysconfig as ds
+try:
+	import sysconfig as ds
+	def _get_python_inc():
+		return ds.get_path('include')
+except ImportError:
+	import distutils.sysconfig as ds
+	_get_python_inc = ds.get_config_var
 import json
 import os
 version=sys.version_info.major
@@ -133,7 +139,7 @@ else:
 	print(json.dumps({
 		"version": sys.version_info.major,
 		"minor": sys.version_info.minor,
-		"incdir":  ds.get_python_inc(),
+		"incdir":  _get_python_inc(),
 		"libdir":  ds.get_config_var("LIBDIR"),
 		"libpy":   ds.get_config_var("LIBRARY"),
 		"shlibs":  ds.get_config_var("SHLIBS"),

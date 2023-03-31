@@ -40,7 +40,6 @@ func init() {
 		mandatory bool
 	}{
 		{"py3", py3, "", true},
-		// {"py2", py2, "", true},
 	} {
 		args := []string{"-c", ""}
 		if be.module != "" {
