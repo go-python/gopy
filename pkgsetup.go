@@ -19,6 +19,12 @@ const (
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+
+class BinaryDistribution(setuptools.Distribution):
+    def has_ext_modules(_):
+        return True
+
+
 setuptools.setup(
     name="%[1]s%[2]s",
     version="%[3]s",
@@ -35,6 +41,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     include_package_data=True,
+    distclass=BinaryDistribution,
 )
 `
 
