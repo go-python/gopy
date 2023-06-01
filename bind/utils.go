@@ -186,11 +186,10 @@ else:
 	raw.LibDir = filepath.ToSlash(raw.LibDir)
 
 	// on windows these can be empty -- use include dir which is usu good
+	// replace suffix case insensitive 'include' with 'libs'
 	if raw.LibDir == "" && raw.IncDir != "" {
-		raw.LibDir = raw.IncDir
-		if strings.HasSuffix(raw.LibDir, "include") {
-			raw.LibDir = raw.LibDir[:len(raw.LibDir)-len("include")] + "libs"
-		}
+		regexInc := regexp.MustCompile(`(?i)\binclude$`)
+		raw.LibDir = regexInc.ReplaceAllString(raw.IncDir, "libs")
 		fmt.Printf("no LibDir -- copy from IncDir: %s\n", raw.LibDir)
 	}
 
