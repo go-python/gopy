@@ -7,7 +7,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -101,7 +100,7 @@ func TestGofmt(t *testing.T) {
 
 func TestGoPyErrors(t *testing.T) {
 	pyvm := testBackends["py3"]
-	workdir, err := ioutil.TempDir("", "gopy-")
+	workdir, err := os.MkdirTemp("", "gopy-")
 	if err != nil {
 		t.Fatalf("could not create workdir: %v\n", err)
 	}
@@ -886,14 +885,14 @@ don't modify manually.
 	}
 
 	if os.Getenv("GOPY_GENERATE_SUPPORT_MATRIX") == "1" {
-		err := ioutil.WriteFile("SUPPORT_MATRIX.md", buf.Bytes(), 0644)
+		err := os.WriteFile("SUPPORT_MATRIX.md", buf.Bytes(), 0644)
 		if err != nil {
 			log.Fatalf("Unable to write SUPPORT_MATRIX.md")
 		}
 		return
 	}
 
-	src, err := ioutil.ReadFile("SUPPORT_MATRIX.md")
+	src, err := os.ReadFile("SUPPORT_MATRIX.md")
 	if err != nil {
 		log.Fatalf("Unable to read SUPPORT_MATRIX.md")
 	}
@@ -952,7 +951,7 @@ require github.com/go-python/gopy v0.0.0
 replace github.com/go-python/gopy => %s
 `
 	contents := fmt.Sprintf(template, pkgDir)
-	if err := ioutil.WriteFile(filepath.Join(tstDir, "go.mod"), []byte(contents), 0666); err != nil {
+	if err := os.WriteFile(filepath.Join(tstDir, "go.mod"), []byte(contents), 0666); err != nil {
 		t.Fatalf("failed to write go.mod file: %v", err)
 	}
 }
@@ -961,7 +960,7 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	curPkgPath := reflect.TypeOf(table).PkgPath()
 	_, pkgNm := filepath.Split(table.path)
 	cwd, _ := os.Getwd()
-	workdir, err := ioutil.TempDir("", "gopy-")
+	workdir, err := os.MkdirTemp("", "gopy-")
 	if err != nil {
 		t.Fatalf("[%s:%s]: could not create workdir: %v\n", pyvm, table.path, err)
 	}
