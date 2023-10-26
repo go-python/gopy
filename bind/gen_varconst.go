@@ -125,6 +125,16 @@ func (g *pyGen) genConstValue(c *Const) {
 		val = "False"
 	}
 	g.pywrap.Printf("%s = %s\n", c.GoName(), val)
+	if c.doc != "" {
+		lns := strings.Split(c.doc, "\n")
+		g.pywrap.Printf(`"""`)
+		g.pywrap.Printf("\n")
+		for _, l := range lns {
+			g.pywrap.Printf("%s\n", l)
+		}
+		g.pywrap.Printf(`"""`)
+		g.pywrap.Printf("\n")
+	}
 }
 
 func (g *pyGen) genEnum(e *Enum) {
