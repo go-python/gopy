@@ -122,12 +122,12 @@ func (p *Package) getDoc(parent string, o types.Object) string {
 		}
 		// Check for typed consts
 		scopeName := p.pkg.Scope().Lookup(n)
-		constType := scopeName.Type().(*types.Named)
+		constType := scopeName.Type()
 		if constType == nil {
 			return ""
 		}
 		for _, t := range p.doc.Types {
-			if t.Name == constType.Obj().Name() {
+			if p.pkg.Path()+"."+t.Name == constType.String() {
 				for _, c := range t.Consts {
 					for _, cn := range c.Names {
 						if n == cn {
