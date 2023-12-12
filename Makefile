@@ -43,13 +43,6 @@ mod-update:
 	go get -u ./...
 	go mod tidy
 
-# gopath-update is for GOPATH to get most things updated.
-# need to call it in a target executable directory
-gopath-update: export GO111MODULE = off
-gopath-update:
-	@echo "GO111MODULE = $(value GO111MODULE)"
-	go get -u ./...
-
 prereq:
 	@echo "Installing python prerequisites -- ignore err if already installed:"
 	- $(PIP) install -r requirements.txt
