@@ -49,7 +49,7 @@ impl 1
 impl 2
 `
 
-	str := string(out.Bytes())
+	str := out.String()
 	if !reflect.DeepEqual(str, want) {
 		t.Fatalf("error:\nwant=%q\ngot =%q\n", want, str)
 	}
