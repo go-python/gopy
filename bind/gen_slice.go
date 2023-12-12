@@ -246,7 +246,11 @@ otherwise parameter is a python list that we copy from
 		g.pywrap.Indent()
 		g.pywrap.Printf("if self.index < len(self):\n")
 		g.pywrap.Indent()
-		g.pywrap.Printf("rv = _%s_elem(self.handle, self.index)\n", qNm)
+		if esym.hasHandle() {
+			g.pywrap.Printf("rv = %s(handle=_%s_elem(self.handle, self.index))\n", esym.pyPkgId(slc.gopkg), qNm)
+		} else {
+			g.pywrap.Printf("rv = _%s_elem(self.handle, self.index)\n", qNm)
+		}
 		g.pywrap.Println("self.index = self.index + 1")
 		g.pywrap.Println("return rv")
 		g.pywrap.Outdent()

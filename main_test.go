@@ -593,7 +593,7 @@ slices.IntSum from Python list: 10
 slices.IntSum from Go slice: 10
 unsigned slice elements: 1 2 3 4
 signed slice elements: -1 -2 -3 -4
-struct slice:  slices.Slice_Ptr_slices_S len: 3 handle: 11 [12, 13, 14]
+struct slice:  slices.Slice_Ptr_slices_S len: 3 handle: 11 [slices.S{Name=S0, handle=12}, slices.S{Name=S1, handle=13}, slices.S{Name=S2, handle=14}]
 struct slice[0]:  slices.S{Name=S0, handle=15}
 struct slice[1]:  slices.S{Name=S1, handle=16}
 struct slice[2].Name:  S2
