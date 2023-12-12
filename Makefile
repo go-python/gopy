@@ -8,6 +8,9 @@ GOGET=$(GOCMD) get
 
 DIRS=`go list ./...`
 
+PYTHON=python3
+PIP=$(PYTHON) -m pip
+
 all: build
 
 build: 
@@ -46,6 +49,16 @@ gopath-update: export GO111MODULE = off
 gopath-update:
 	@echo "GO111MODULE = $(value GO111MODULE)"
 	go get -u ./...
+
+prereq:
+	@echo "Installing python prerequisites -- ignore err if already installed:"
+	- $(PIP) install -r requirements.txt
+	@echo
+	@echo "if this fails, you may see errors like this:"
+	@echo "    Undefined symbols for architecture x86_64:"
+	@echo "    _PyInit__gi, referenced from:..."
+	@echo
+
 	
 # NOTE: MUST update version number here prior to running 'make release' and edit this file! 
 VERS=v0.4.7
