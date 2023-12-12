@@ -5,12 +5,12 @@
 package main
 
 import (
-	"io/ioutil"
+	"os"
 )
 
 // Dirs returns a slice of all the directories within a given directory
 func Dirs(path string) []string {
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
 		return nil
 	}
