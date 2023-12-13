@@ -23,6 +23,7 @@ var (
 	testBackends = map[string]string{}
 	features     = map[string][]string{
 		"_examples/hi":          []string{"py3"},
+		"_examples/gobytes":     []string{"py3"},
 		"_examples/funcs":       []string{"py3"},
 		"_examples/sliceptr":    []string{"py3"},
 		"_examples/simple":      []string{"py3"},
@@ -261,6 +262,25 @@ slice: go.Slice_int len: 2 handle: 300037 [1, 42]
 slice repr: go.Slice_int([1, 42])
 len(slice): 2
 mem(slice): caught: memoryview: a bytes-like object is required, not 'Slice_int'
+OK
+`),
+	})
+
+}
+
+func TestBytes(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/gobytes"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`Python bytes: b'\x00\x01\x02\x03'
+Go slice:  go.Slice_byte len: 10 handle: 1 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+gobytes.HashBytes from Go bytes: gobytes.Array_4_byte len: 4 handle: 2 [12, 13, 81, 81]
+Python bytes to Go:  go.Slice_byte len: 4 handle: 3 [0, 1, 2, 3]
+Go bytes to Python:  b'\x03\x04\x05'
 OK
 `),
 	})

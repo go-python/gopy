@@ -11,6 +11,7 @@ _examples/consts | yes
 _examples/cstrings | yes
 _examples/empty | yes
 _examples/funcs | yes
+_examples/gobytes | yes
 _examples/gopygc | yes
 _examples/gostrings | yes
 _examples/hi | yes
