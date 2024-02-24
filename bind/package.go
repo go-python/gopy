@@ -337,8 +337,15 @@ func (p *Package) process() error {
 			funcs[name] = fv
 
 		case *types.TypeName:
-			named := obj.Type().(*types.Named)
-			switch typ := named.Underlying().(type) {
+			typ := obj.Type()
+			if named, ok := typ.(*types.Named); ok {
+				typ = named.Underlying()
+			} else {
+				// we are dealing with a type alias to a type literal.
+				// this is a cursed feature used to do structural typing.
+				// just pass it as-is.
+			}
+			switch typ := typ.(type) {
 			case *types.Struct:
 				sv, err := newStruct(p, obj)
 				if err != nil {
