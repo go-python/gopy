@@ -303,7 +303,7 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n")
 		if esym.go2py != "" {
-			g.gofile.Printf("return %s(v)%s\n", esym.go2py, esym.go2pyParenEx)
+			g.gofile.Printf("return %s(&v)%s\n", esym.go2py, esym.go2pyParenEx)
 		} else {
 			g.gofile.Printf("return v\n")
 		}
