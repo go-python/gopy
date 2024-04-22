@@ -167,7 +167,7 @@ func buildPkgRecurse(odir, path, rootpath string, exmap map[string]struct{}, bui
 	drs := Dirs(dir)
 	for _, dr := range drs {
 		_, ex := exmap[dr]
-		if ex || dr[0] == '.' || dr[0] == '_' {
+		if ex || dr[0] == '.' || dr[0] == '_' || dr == "internal" {
 			continue
 		}
 		sp := filepath.Join(path, dr)
