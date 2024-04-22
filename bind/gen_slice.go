@@ -277,6 +277,25 @@ otherwise parameter is a python list that we copy from
 			g.pywrap.Outdent()
 			g.pywrap.Outdent()
 		}
+
+		if slNm == "Slice_byte" {
+			g.pywrap.Printf("@staticmethod\n")
+			g.pywrap.Printf("def from_bytes(value):\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf(`"""Create a Go []byte object from a Python bytes object"""
+`)
+			g.pywrap.Printf("handle = _%s_from_bytes(value)\n", qNm)
+			g.pywrap.Printf("return Slice_byte(handle=handle)\n")
+			g.pywrap.Outdent()
+			g.pywrap.Printf("def __bytes__(self):\n")
+			g.pywrap.Indent()
+			g.pywrap.Printf(`"""Convert the slice to a bytes object."""
+`)
+			g.pywrap.Printf("return _%s_to_bytes(self.handle)\n", qNm)
+			g.pywrap.Outdent()
+			g.pywrap.Outdent()
+
+		}
 	}
 
 	if !extTypes || !pyWrapOnly {
@@ -366,6 +385,33 @@ otherwise parameter is a python list that we copy from
 			g.gofile.Printf("}\n\n")
 
 			g.pybuild.Printf("mod.add_function('%s_append', None, [param('%s', 'handle'), param('%s', 'value'%s)])\n", slNm, PyHandle, esym.cpyname, transfer_ownership)
+		}
+
+		if slNm == "Slice_byte" {
+			g.gofile.Printf("//export Slice_byte_from_bytes\n")
+			g.gofile.Printf("func Slice_byte_from_bytes(o *C.PyObject) CGoHandle {\n")
+			g.gofile.Indent()
+			g.gofile.Printf("size := C.PyBytes_Size(o)\n")
+			g.gofile.Printf("ptr := unsafe.Pointer(C.PyBytes_AsString(o))\n")
+			g.gofile.Printf("data := make([]byte, size)\n")
+			g.gofile.Printf("tmp := unsafe.Slice((*byte)(ptr), size)\n")
+			g.gofile.Printf("copy(data, tmp)\n")
+			g.gofile.Printf("return handleFromPtr_Slice_byte(&data)\n")
+			g.gofile.Outdent()
+			g.gofile.Printf("}\n\n")
+
+			g.gofile.Printf("//export Slice_byte_to_bytes\n")
+			g.gofile.Printf("func Slice_byte_to_bytes(handle CGoHandle) *C.PyObject {\n")
+			g.gofile.Indent()
+			g.gofile.Printf("s := deptrFromHandle_Slice_byte(handle)\n")
+			g.gofile.Printf("ptr := unsafe.Pointer(&s[0])\n")
+			g.gofile.Printf("size := len(s)\n")
+			g.gofile.Printf("return C.PyBytes_FromStringAndSize((*C.char)(ptr), C.long(size))\n")
+			g.gofile.Outdent()
+			g.gofile.Printf("}\n\n")
+
+			g.pybuild.Printf("mod.add_function('Slice_byte_from_bytes', retval('%s'%s), [param('PyObject*', 'o', transfer_ownership=False)])\n", PyHandle, caller_owns_ret)
+			g.pybuild.Printf("mod.add_function('Slice_byte_to_bytes', retval('PyObject*', caller_owns_return=True), [param('%s', 'handle')])\n", PyHandle)
 		}
 	}
 }
