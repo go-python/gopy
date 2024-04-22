@@ -208,11 +208,11 @@ else:
 	cfg.Version = raw.Version
 	cfg.ExtSuffix = raw.ExtSuffix
 	cfg.CFlags = strings.Join([]string{
-		"-I" + raw.IncDir,
+		`"-I` + raw.IncDir + `"`,
 	}, " ")
 	cfg.LdFlags = strings.Join([]string{
-		"-L" + raw.LibDir,
-		"-l" + raw.LibPy,
+		`"-L` + raw.LibDir + `"`,
+		`"-l` + raw.LibPy + `"`,
 		raw.ShLibs,
 		raw.SysLibs,
 	}, " ")
