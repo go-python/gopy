@@ -134,7 +134,7 @@ otherwise parameter is a python list that we copy from
 				if isStringer(m.obj) {
 					g.pywrap.Printf("def __str__(self):\n")
 					g.pywrap.Indent()
-					g.pywrap.Printf("return self.String()\n")
+					g.genStringerCall()
 					g.pywrap.Outdent()
 					g.pywrap.Printf("\n")
 				}

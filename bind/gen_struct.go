@@ -101,7 +101,7 @@ in which case a new Go object is constructed first
 			}
 			g.pywrap.Printf("def __str__(self):\n")
 			g.pywrap.Indent()
-			g.pywrap.Printf("return self.String()\n")
+			g.genStringerCall()
 			g.pywrap.Outdent()
 			g.pywrap.Printf("\n")
 		}
@@ -345,7 +345,7 @@ handle=A Go-side object is always initialized with an explicit handle=arg
 		}
 		g.pywrap.Printf("def __str__(self):\n")
 		g.pywrap.Indent()
-		g.pywrap.Printf("return self.String()\n")
+		g.genStringerCall()
 		g.pywrap.Outdent()
 		g.pywrap.Printf("\n")
 	}

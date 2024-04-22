@@ -863,3 +863,13 @@ func (g *pyGen) genGoPkg() {
 		g.genType(sym, false, false) // not exttypes
 	}
 }
+
+// genStringerCall generates a call to either self.String() or self.string()
+// depending on RenameCase option
+func (g *pyGen) genStringerCall() {
+	if g.cfg.RenameCase {
+		g.pywrap.Printf("return self.string()\n")
+	} else {
+		g.pywrap.Printf("return self.String()\n")
+	}
+}
