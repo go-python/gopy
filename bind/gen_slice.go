@@ -325,11 +325,14 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Indent()
 		g.gofile.Printf("s := deptrFromHandle_%s(handle)\n", slNm)
 		if esym.go2py != "" {
-			if !esym.isPointer() && esym.isStruct() {
-				g.gofile.Printf("return %s(&(s[_idx]))%s\n", esym.go2py, esym.go2pyParenEx)
+			// If the go2py starts with handleFromPtr_, use reference &, otherwise just return the value
+			val_str := ""
+			if strings.HasPrefix(esym.go2py, "handleFromPtr_") {
+				val_str = "&(s[_idx])"
 			} else {
-				g.gofile.Printf("return %s(s[_idx])%s\n", esym.go2py, esym.go2pyParenEx)
+				val_str = "s[_idx]"
 			}
+			g.gofile.Printf("return %s(%s)%s\n", esym.go2py, val_str, esym.go2pyParenEx)
 		} else {
 			g.gofile.Printf("return s[_idx]\n")
 		}

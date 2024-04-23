@@ -60,3 +60,16 @@ func CmplxSqrt(arr SliceComplex) SliceComplex {
 	}
 	return res
 }
+
+func GetEmptyMatrix(xSize int, ySize int) [][]bool {
+	result := [][]bool{}
+
+	for i := 0; i < xSize; i++ {
+		result = append(result, []bool{})
+		for j := 0; j < ySize; j++ {
+			result[i] = append(result[i], false)
+		}
+	}
+
+	return result
+}

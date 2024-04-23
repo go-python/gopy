@@ -44,4 +44,11 @@ for root, orig in zip(sqrts, cmplx):
     assert math.isclose(root_squared.real, orig.real)
     assert math.isclose(root_squared.imag, orig.imag)
 
+
+matrix = slices.GetEmptyMatrix(4,4)
+for i in range(4):
+    for j in range(4):
+        assert not matrix[i][j]
+print("[][]bool working as expected")
+
 print("OK")
