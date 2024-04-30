@@ -406,7 +406,7 @@ otherwise parameter is a python list that we copy from
 			g.gofile.Printf("s := deptrFromHandle_Slice_byte(handle)\n")
 			g.gofile.Printf("ptr := unsafe.Pointer(&s[0])\n")
 			g.gofile.Printf("size := len(s)\n")
-			g.gofile.Printf("return C.PyBytes_FromStringAndSize((*C.char)(ptr), C.long(size))\n")
+			g.gofile.Printf("return C.PyBytes_FromStringAndSize((*C.char)(ptr), C.longlong(size))\n")
 			g.gofile.Outdent()
 			g.gofile.Printf("}\n\n")
 
