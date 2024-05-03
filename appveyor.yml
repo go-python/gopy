@@ -14,15 +14,13 @@ branches:
 
 environment:
   GOPATH: C:\gopath
-  GOROOT: C:\go119
+  GOROOT: C:\go121
   GOPY_APPVEYOR_CI: '1'
   GOTRACEBACK: 'crash'
-  #CPYTHON2DIR: "C:\\Python27-x64"
-  CPYTHON3DIR: "C:\\Python37-x64"
-  #PATH: '%GOPATH%\bin;%CPYTHON2DIR%;%CPYTHON2DIR%\\Scripts;%CPYTHON3DIR%;%CPYTHON3DIR%\\Scripts;C:\msys64\mingw64\bin;C:\msys64\usr\bin\;%PATH%'
+  CPYTHON3DIR: "C:\\Python311-x64"
   PATH: '%GOPATH%\bin;%GOROOT%\bin;%CPYTHON3DIR%;%CPYTHON3DIR%\\Scripts;C:\msys64\mingw64\bin;C:\msys64\usr\bin\;%PATH%'
 
-stack: go 1.19
+stack: go 1.21
 
 build_script:
   - python --version
