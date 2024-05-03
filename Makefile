@@ -54,7 +54,7 @@ prereq:
 
 	
 # NOTE: MUST update version number here prior to running 'make release' and edit this file! 
-VERS=v0.4.9
+VERS=v0.4.10
 PACKAGE=main
 GIT_COMMIT=`git rev-parse --short HEAD`
 VERS_DATE=`date -u +%Y-%m-%d\ %H:%M`
