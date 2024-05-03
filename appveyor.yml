@@ -31,7 +31,7 @@ build_script:
   - go version
   - go env
   - go get -v -t ./...
-  - go install github.com/goki/go-tools/cmd/goimports@latest
+  - go install golang.org/x/tools/cmd/goimports@latest
 
 test_script:
   - go test ./...
