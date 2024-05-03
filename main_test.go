@@ -616,6 +616,7 @@ struct slice:  slices.Slice_Ptr_slices_S len: 3 handle: 11 [slices.S{Name=S0, ha
 struct slice[0]:  slices.S{Name=S0, handle=15}
 struct slice[1]:  slices.S{Name=S1, handle=16}
 struct slice[2].Name:  S2
+[][]bool working as expected
 OK
 `),
 	})
