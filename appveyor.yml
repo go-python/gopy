@@ -27,7 +27,7 @@ build_script:
   - "%CPYTHON3DIR%\\python --version"
   - "%CPYTHON3DIR%\\python -m pip install --upgrade pip"
   - "%CPYTHON3DIR%\\python -m pip install cffi"
-  - "%CPYTHON3DIR%\\python -m pip install pybindgen"
+  - "%CPYTHON3DIR%\\python -m pip install --user -U pybindgen"
   - go version
   - go env
   - go get -v -t ./...
