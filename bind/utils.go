@@ -198,12 +198,8 @@ else:
 		fmt.Printf("no LibPy -- set to: %s\n", raw.LibPy)
 	}
 
-	if strings.HasSuffix(raw.LibPy, ".a") {
-		raw.LibPy = raw.LibPy[:len(raw.LibPy)-len(".a")]
-	}
-	if strings.HasPrefix(raw.LibPy, "lib") {
-		raw.LibPy = raw.LibPy[len("lib"):]
-	}
+	raw.LibPy = strings.TrimSuffix(raw.LibPy, ".a")
+	raw.LibPy = strings.TrimPrefix(raw.LibPy, "lib")
 
 	cfg.Version = raw.Version
 	cfg.ExtSuffix = raw.ExtSuffix
