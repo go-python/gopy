@@ -235,6 +235,9 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		if include, exists := os.LookupEnv("GOPY_INCLUDE"); exists {
 			cflags = append(cflags, "-I"+filepath.ToSlash(include))
 		}
+		if oldcflags, exists := os.LookupEnv("CGO_CFLAGS"); exists {
+			cflags = append(cflags, oldcflags)
+		}
 		var ldflags []string
 		if cfg.DynamicLinking {
 			ldflags = strings.Fields(strings.TrimSpace(pycfg.LdDynamicFlags))
@@ -249,6 +252,9 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		}
 		if libname, exists := os.LookupEnv("GOPY_PYLIB"); exists {
 			ldflags = append(ldflags, "-l"+filepath.ToSlash(libname))
+		}
+		if oldldflags, exists := os.LookupEnv("CGO_LDFLAGS"); exists {
+			ldflags = append(ldflags, oldldflags)
 		}
 
 		removeEmpty := func(src []string) []string {
