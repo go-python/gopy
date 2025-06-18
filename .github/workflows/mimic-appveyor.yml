@@ -1,0 +1,88 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: windows-2019
+    
+    env:
+      GOPATH: C:\gopath
+      GOROOT: C:\go
+      GOPY_APPVEYOR_CI: '1'
+      GOTRACEBACK: 'crash'
+      CPYTHON3DIR: C:\Python311-x64
+    
+    steps:
+    - name: Create Go directory structure
+      run: |
+        mkdir -Force -Path "$env:GOPATH\src\github.com\go-python"
+
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        path: ${{ env.GOPATH }}\src\github.com\go-python\gopy
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        architecture: 'x64'
+    
+    - name: Install MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: mingw-w64-x86_64-gcc make
+    
+    - name: Update PATH
+      run: |
+        echo "$env:GOPATH\bin" >> $env:GITHUB_PATH
+        echo "$env:GOROOT\bin" >> $env:GITHUB_PATH
+        echo "$env:CPYTHON3DIR" >> $env:GITHUB_PATH
+        echo "$env:CPYTHON3DIR\Scripts" >> $env:GITHUB_PATH
+        echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
+        echo "C:\msys64\usr\bin" >> $env:GITHUB_PATH
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~\AppData\Local\go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**\go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~\AppData\Local\pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**\requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Build
+      run: |
+        python --version
+        & "$env:CPYTHON3DIR\python" --version
+        & "$env:CPYTHON3DIR\python" -m pip install --upgrade pip
+        & "$env:CPYTHON3DIR\python" -m pip install cffi
+        & "$env:CPYTHON3DIR\python" -m pip install pybindgen
+        go version
+        go env
+        go get -v -t ./...
+        go install golang.org/x/tools/cmd/goimports@latest
+      working-directory: ${{ env.GOPATH }}\src\github.com\go-python\gopy
+    
+    - name: Test
+      run: go test ./...
+      working-directory: ${{ env.GOPATH }}\src\github.com\go-python\gopy
