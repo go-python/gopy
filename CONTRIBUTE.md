@@ -6,8 +6,9 @@ The `go-python` project (and `gopy`) eagerly accepts contributions from the comm
 
 
 The `go-python` project provides libraries and tools in Go for the Go community to better integrate with Python projects and libraries, and we would like you to join us in improving `go-python`'s quality and scope.
-This document is for contributors or those interested in contributing.
-Questions about `go-python` and the use of its libraries can be directed to the [go-python](mailto:go-python@googlegroups.com) mailing list.
+This document is for contributors or those interested in contributing.  
+
+Questions about `gopy` can be directed to the [the `gopy` discussions area in Github: https://github.com/go-python/gopy/discussions].
 
 ## Contributing
 
@@ -35,7 +36,7 @@ As a rule, we keep all tests OK and try to increase code coverage.
 ### Suggesting Enhancements
 
 If the scope of the enhancement is small, open an issue.
-If it is large, such as suggesting a new repository, sub-repository, or interface refactoring, then please start a discussion on [the go-python list](https://groups.google.com/forum/#!forum/go-python).
+If it is large, such as suggesting a new repository, sub-repository, or interface refactoring, then please start a discussion using [the `gopy` discussions area in Github: https://github.com/go-python/gopy/discussions].
 
 ### Your First Code Contribution
 
@@ -140,3 +141,5 @@ We use [Go style](https://github.com/golang/go/wiki/CodeReviewComments).
 
 This _"Contributing"_ guide has been extracted from the [Gonum](https://gonum.org) project.
 Its guide is [here](https://github.com/gonum/license/blob/master/CONTRIBUTING.md).
+
+[the `gopy` discussions area in Github: https://github.com/go-python/gopy/discussions]: https://github.com/go-python/gopy/discussions
