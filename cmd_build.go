@@ -231,7 +231,7 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		}
 
 		cflags := strings.Fields(strings.TrimSpace(pycfg.CFlags))
-		cflags = append(cflags, "-fPIC", "-Ofast")
+		cflags = append(cflags, "-fPIC", "-O3", "-ffast-math")
 		if include, exists := os.LookupEnv("GOPY_INCLUDE"); exists {
 			cflags = append(cflags, "-I"+filepath.ToSlash(include))
 		}
