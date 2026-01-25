@@ -52,7 +52,9 @@ package main
 %[3]s
 // #define Py_LIMITED_API // need full API for PyRun*
 #include <Python.h>
+#if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 202311L)
 typedef uint8_t bool;
+#endif
 // static inline is trick for avoiding need for extra .c file
 // the following are used for build value -- switch on reflect.Kind
 // or the types equivalent
@@ -409,8 +411,8 @@ build:
 	# goimports is needed to ensure that the imports list is valid
 	$(GOIMPORTS) -w %[1]s.go
 	# this will otherwise be built during go build and may be out of date
-	- rm %[1]s.c 
-	echo "typedef uint8_t bool;" > %[1]s_go.h
+	- rm %[1]s.c
+	printf "#if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 202311L)\ntypedef uint8_t bool;\n#endif\n" > %[1]s_go.h
 	# this will fail but is needed to generate the .c file that then allows go build to work
 	- $(PYTHON) build.py >/dev/null 2>&1
 	# generate %[1]s_go.h from %[1]s.go -- unfortunately no way to build .h only

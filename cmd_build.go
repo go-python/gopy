@@ -125,7 +125,7 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 
 	if mode == bind.ModeExe {
 		of, err := os.Create(buildname + ".h") // overwrite existing
-		fmt.Fprintf(of, "typedef uint8_t bool;\n")
+		fmt.Fprintf(of, "#if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 202311L)\ntypedef uint8_t bool;\n#endif\n")
 		of.Close()
 
 		fmt.Printf("%v build.py   # will fail, but needed to generate .c file\n", cfg.VM)
