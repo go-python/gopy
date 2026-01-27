@@ -57,6 +57,16 @@ https://stackoverflow.com/questions/39910730/python3-is-not-recognized-as-an-int
 
 If you get a bunch of errors during linking in the build process, set `LIBDIR` or `GOPY_LIBDIR` to path to python libraries, and `LIBRARY` or `GOPY_PYLIB` to name of python library (e.g., python39 for 3.9).
 
+#### Running Tests on Windows
+
+To run the test suite on Windows, you need to install `psutil` for memory tracking. This is required because Python's built-in `resource` module is [only available on Unix](https://docs.python.org/3/library/resource.html):
+
+```sh
+python -m pip install psutil
+```
+
+Without `psutil`, tests that check for memory leaks will fail with `ModuleNotFoundError`.
+
 ## Community
 
 See the [CONTRIBUTING](https://github.com/go-python/gopy/blob/master/CONTRIBUTE.md) guide for pointers on how to contribute to `gopy`.
