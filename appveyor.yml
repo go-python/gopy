@@ -13,14 +13,11 @@ branches:
     - master
 
 environment:
-  GOPATH: C:\gopath
-  GOROOT: C:\go121
+  GOROOT: C:\go122
   GOPY_APPVEYOR_CI: '1'
   GOTRACEBACK: 'crash'
   CPYTHON3DIR: "C:\\Python311-x64"
-  PATH: '%GOPATH%\bin;%GOROOT%\bin;%CPYTHON3DIR%;%CPYTHON3DIR%\\Scripts;C:\msys64\mingw64\bin;C:\msys64\usr\bin\;%PATH%'
-
-stack: go 1.21
+  PATH: 'C:\go122\bin;%USERPROFILE%\go\bin;%CPYTHON3DIR%;%CPYTHON3DIR%\\Scripts;C:\msys64\mingw64\bin;C:\msys64\usr\bin\;%PATH%'
 
 build_script:
   - python --version
@@ -28,10 +25,12 @@ build_script:
   - "%CPYTHON3DIR%\\python -m pip install --upgrade pip"
   - "%CPYTHON3DIR%\\python -m pip install cffi"
   - "%CPYTHON3DIR%\\python -m pip install pybindgen"
+  - "where go"
+  - "C:\\go122\\bin\\go.exe version"
   - go version
   - go env
   - go get -v -t ./...
-  - go install golang.org/x/tools/cmd/goimports@latest
+  - go install golang.org/x/tools/cmd/goimports
 
 test_script:
   - go test ./...
