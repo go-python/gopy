@@ -21,10 +21,9 @@ environment:
 
 build_script:
   - python --version
-  - "%CPYTHON3DIR%\\python --version"
-  - "%CPYTHON3DIR%\\python -m pip install --upgrade pip"
-  - "%CPYTHON3DIR%\\python -m pip install cffi"
-  - "%CPYTHON3DIR%\\python -m pip install pybindgen"
+  - "python -m pip install --upgrade pip"
+  - "python -m pip install cffi"
+  - "python -m pip install pybindgen"
   - "where go"
   - "C:\\go122\\bin\\go.exe version"
   - go version
