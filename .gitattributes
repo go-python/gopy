@@ -1,0 +1,23 @@
+# Ensure all text files use LF line endings in the repository
+* text=auto
+
+# Explicitly set LF for specific files that are checked in tests
+*.go text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.so binary
+*.pyd binary
+*.dll binary
+*.exe binary
+*.pyc binary

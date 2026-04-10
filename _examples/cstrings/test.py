@@ -7,7 +7,16 @@ from __future__ import print_function
 
 import cstrings
 import gc
-import resource
+import sys
+
+# resource module is Unix-only, not available on Windows
+# On Windows, use psutil for memory tracking
+if sys.platform == 'win32':
+    import psutil
+    HAS_RESOURCE = False
+else:
+    import resource
+    HAS_RESOURCE = True
 
 verbose = False
 iterations = 10000
@@ -39,7 +48,11 @@ def gofnMap():
 
 
 def print_memory(s):
-    m = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    if HAS_RESOURCE:
+        m = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    else:
+        # psutil returns memory in bytes, convert to KB to match resource module
+        m = psutil.Process().memory_info().rss // 1024
     if verbose:
         print(s, m)
     return m
@@ -69,17 +82,18 @@ def _run_fn(fn):
 
 for fn in [gofnString, gofnStruct, gofnNestedStruct,  gofnSlice, gofnMap]:
     alloced = size * iterations
-    a = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    a = print_memory("Initial memory:")
     pass1 = _run_fn(fn)
-    b = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    b = print_memory("After first pass:")
     pass2 = _run_fn(fn)
-    c = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    c = print_memory("After second pass:")
     if verbose:
         print(fn.__name__, pass1)
         print(fn.__name__, pass2)
         print(fn.__name__, a, b, c)
 
-    print(fn.__name__,  "leaked: ", (c-b) > (size * iterations))
+    leaked = (c-b) > (size * iterations)
+    print(fn.__name__,  "leaked: ", leaked)
 
     # bump up the size of each successive test to ensure that leaks
     # are not absorbed by previous rss growth.

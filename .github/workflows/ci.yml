@@ -4,7 +4,7 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    branches: [ master ]
+    branches: [ '**' ]
 
 env:
   TAGS: "-tags=ci"
@@ -20,32 +20,26 @@ jobs:
   build:
     name: Build
     strategy:
+      fail-fast: false
       matrix:
-        go-version: [1.22.x, 1.21.x]
-        platform: [ubuntu-latest]
+        go-version: [1.25.x, 1.24.x, 1.22.x, 1.21.x]
+        platform: [ubuntu-latest, windows-latest]
         #platform: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go-version }}
- 
-    - name: Cache-Go
-      uses: actions/cache@v1
-      with:
-        path: |
-            ~/go/pkg/mod              # Module download cache
-            ~/.cache/go-build         # Build cache (Linux)
-            ~/Library/Caches/go-build # Build cache (Mac)
-            '%LocalAppData%\go-build' # Build cache (Windows)
-
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
- 
-    - name: Checkout code
-      uses: actions/checkout@v2
+        cache: true
 
     - name: Install Linux packages
       if: matrix.platform == 'ubuntu-latest'
@@ -57,7 +51,15 @@ jobs:
         # install goimports
         go install golang.org/x/tools/cmd/goimports@latest
 
- 
+    - name: Install Windows packages
+      if: matrix.platform == 'windows-latest'
+      run: |
+        # install pybindgen and psutil (for memory tracking in tests)
+        python -m pip install -U pybindgen psutil
+        # install goimports
+        go install golang.org/x/tools/cmd/goimports@latest
+
+
     - name: Build-Linux
       if: matrix.platform == 'ubuntu-latest'
       run: |
@@ -66,6 +68,15 @@ jobs:
       if: matrix.platform == 'ubuntu-latest'
       run: |
         make test
+
+    - name: Build-Windows
+      if: matrix.platform == 'windows-latest'
+      run: |
+        go build -v ./...
+    - name: Test Windows
+      if: matrix.platform == 'windows-latest'
+      run: |
+        go test -v ./...
     - name: Upload-Coverage
       if: matrix.platform == 'ubuntu-latest'
-      uses: codecov/codecov-action@v1
+      uses: codecov/codecov-action@v4
