@@ -316,7 +316,6 @@ OK
 }
 
 func TestBindSimple(t *testing.T) {
-	t.Skip("Skipping due to Go 1.21+ CGO issue (see https://github.com/go-python/gopy/issues/370)")
 	// t.Parallel()
 	path := "_examples/simple"
 	testPkg(t, pkg{
@@ -546,7 +545,6 @@ OK
 }
 
 func TestBindCgoPackage(t *testing.T) {
-	t.Skip("Skipping due to Go 1.21+ CGO issue (see https://github.com/go-python/gopy/issues/370)")
 	// t.Parallel()
 	path := "_examples/cgo"
 	testPkg(t, pkg{

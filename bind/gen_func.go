@@ -263,7 +263,18 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 
 	// release GIL
 	g.gofile.Printf("_saved_thread := C.PyEval_SaveThread()\n")
-	if !rvIsErr && nres != 2 {
+	// Use defer only when there is no go2py return conversion that calls
+	// Python C API (which requires the GIL to already be reacquired).
+	// For go2py returns (excluding handle types) and error/multi-return cases,
+	// we restore explicitly. Handle types use handleFromPtr which is pure Go
+	// and doesn't need the GIL, so they can keep using defer.
+	nresForDefer := nres
+	// hasRetCvt fires when go2py != "" and NOT (hasHandle && !isPtrOrIface).
+	// Suppress defer in exactly those cases so the explicit restore below is the only one.
+	if nres > 0 && res[0].sym.go2py != "" && !(res[0].sym.hasHandle() && !res[0].sym.isPtrOrIface()) {
+		nresForDefer = 2 // treat like nres==2: no defer, explicit restore
+	}
+	if !rvIsErr && nresForDefer != 2 {
 		// reacquire GIL after return
 		g.gofile.Printf("defer C.PyEval_RestoreThread(_saved_thread)\n")
 	}
@@ -357,8 +368,8 @@ if __err != nil {
 		g.pywrap.Printf("_%s.%s(", pkgname, mnm)
 	}
 
-	hasRetCvt := false
 	hasAddrOfTmp := false
+	hasRetCvt := false
 	if nres > 0 {
 		ret := res[0]
 		switch {
@@ -370,8 +381,10 @@ if __err != nil {
 			hasAddrOfTmp = true
 			g.gofile.Printf("cret := ")
 		case ret.sym.go2py != "":
+			// Assign to cret first; we'll restore the GIL before calling go2py
+			// so that Python C API functions inside go2py run with the GIL held.
 			hasRetCvt = true
-			g.gofile.Printf("return %s(", ret.sym.go2py)
+			g.gofile.Printf("cret := ")
 		default:
 			g.gofile.Printf("return ")
 		}
@@ -394,11 +407,6 @@ if __err != nil {
 	} else {
 		funCall = fmt.Sprintf("%s(%s)", fsym.GoFmt(), strings.Join(callArgs, ", "))
 	}
-	if hasRetCvt {
-		ret := res[0]
-		funCall += fmt.Sprintf(")%s", ret.sym.go2pyParenEx)
-	}
-
 	if nres == 0 {
 		g.gofile.Printf("if boolPyToGo(goRun) {\n")
 		g.gofile.Indent()
@@ -411,6 +419,13 @@ if __err != nil {
 		g.gofile.Printf("}")
 	} else {
 		g.gofile.Printf("%s\n", funCall)
+	}
+
+	if hasRetCvt {
+		// Restore GIL before calling go2py, which may call Python C API.
+		ret := res[0]
+		g.gofile.Printf("C.PyEval_RestoreThread(_saved_thread)\n")
+		g.gofile.Printf("return %s(cret)%s\n", ret.sym.go2py, ret.sym.go2pyParenEx)
 	}
 
 	if rvIsErr || nres == 2 {

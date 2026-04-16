@@ -227,7 +227,11 @@ func (g *pyGen) genStructMemberGetter(s *Struct, i int, f types.Object) {
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n\n")
 
-	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [param('%s', 'handle')])\n", cgoFn, ret.cpyname, PyHandle)
+	if ret.go2py == "C.CString" {
+		g.pybuild.Printf("add_checked_string_function(mod, '%s', retval('%s'), [param('%s', 'handle')])\n", cgoFn, ret.cpyname, PyHandle)
+	} else {
+		g.pybuild.Printf("mod.add_function('%s', retval('%s'), [param('%s', 'handle')])\n", cgoFn, ret.cpyname, PyHandle)
+	}
 }
 
 func (g *pyGen) genStructMemberSetter(s *Struct, i int, f types.Object) {
