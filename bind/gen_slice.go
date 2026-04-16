@@ -345,7 +345,11 @@ otherwise parameter is a python list that we copy from
 			caller_owns_ret = ", caller_owns_return=True"
 			transfer_ownership = ", transfer_ownership=False"
 		}
-		g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'%s), [param('%s', 'handle'), param('int', 'idx')])\n", slNm, esym.cpyname, caller_owns_ret, PyHandle)
+		if esym.go2py == "C.CString" {
+			g.pybuild.Printf("add_checked_string_function(mod, '%s_elem', retval('%s'), [param('%s', 'handle'), param('int', 'idx')])\n", slNm, esym.cpyname, PyHandle)
+		} else {
+			g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'%s), [param('%s', 'handle'), param('int', 'idx')])\n", slNm, esym.cpyname, caller_owns_ret, PyHandle)
+		}
 
 		if slc.isSlice() {
 			g.gofile.Printf("//export %s_subslice\n", slNm)
