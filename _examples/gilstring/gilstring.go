@@ -8,6 +8,17 @@
 // without holding the GIL, causing crashes under repeated calls.
 package gilstring
 
+import "fmt"
+
+// Add returns the sum of its arguments, mirroring simple.Add from the issue
+// report reproduction script.
+func Add(i, j int) int { return i + j }
+
+// Hello returns a greeting string, mirroring hi.Hello from the issue report
+// reproduction script. Returning a non-trivial string stresses go2py
+// string conversion (C.CString) on every call.
+func Hello(s string) string { return fmt.Sprintf("Hello, %s!", s) }
+
 // Item is a struct with a string field to exercise struct member string getters.
 type Item struct {
 	Label string
