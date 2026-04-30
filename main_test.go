@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -546,11 +545,6 @@ OK
 }
 
 func TestBindCgoPackage(t *testing.T) {
-	// Skip for some Go versions due to CGO issue
-	// See: https://github.com/go-python/gopy/issues/370
-	if strings.HasPrefix(runtime.Version(), "go1.23") {
-		t.Skip("Skipping due to CGO issue (see https://github.com/go-python/gopy/issues/370)")
-	}
 	// t.Parallel()
 	path := "_examples/cgo"
 	testPkg(t, pkg{
