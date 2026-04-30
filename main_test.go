@@ -49,6 +49,7 @@ var (
 		"_examples/cstrings":    []string{"py3"},
 		"_examples/pkgconflict": []string{"py3"},
 		"_examples/variadic":    []string{"py3"},
+		"_examples/gilstring":   []string{"py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -555,6 +556,7 @@ func TestBindCgoPackage(t *testing.T) {
 		want: []byte(`cgo.doc: '\nPackage cgo tests bindings of CGo-based packages.\n\n'
 cgo.Hi()= 'hi from go\n'
 cgo.Hello(you)= 'hello you from go\n'
+stress OK
 OK
 `),
 	})
@@ -780,6 +782,18 @@ gofnSlice leaked:  False
 gofnMap leaked:  False
 OK
 `),
+	})
+}
+
+func TestGilString(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/gilstring"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want:   []byte("OK\n"),
 	})
 }
 
