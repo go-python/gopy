@@ -49,6 +49,7 @@ var (
 		"_examples/cstrings":    []string{"py3"},
 		"_examples/pkgconflict": []string{"py3"},
 		"_examples/variadic":    []string{"py3"},
+		"_examples/gilstring":   []string{"py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -316,7 +317,6 @@ OK
 }
 
 func TestBindSimple(t *testing.T) {
-	t.Skip("Skipping due to Go 1.21+ CGO issue (see https://github.com/go-python/gopy/issues/370)")
 	// t.Parallel()
 	path := "_examples/simple"
 	testPkg(t, pkg{
@@ -546,7 +546,6 @@ OK
 }
 
 func TestBindCgoPackage(t *testing.T) {
-	t.Skip("Skipping due to Go 1.21+ CGO issue (see https://github.com/go-python/gopy/issues/370)")
 	// t.Parallel()
 	path := "_examples/cgo"
 	testPkg(t, pkg{
@@ -557,6 +556,7 @@ func TestBindCgoPackage(t *testing.T) {
 		want: []byte(`cgo.doc: '\nPackage cgo tests bindings of CGo-based packages.\n\n'
 cgo.Hi()= 'hi from go\n'
 cgo.Hello(you)= 'hello you from go\n'
+stress OK
 OK
 `),
 	})
@@ -782,6 +782,18 @@ gofnSlice leaked:  False
 gofnMap leaked:  False
 OK
 `),
+	})
+}
+
+func TestGilString(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/gilstring"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want:   []byte("OK\n"),
 	})
 }
 
