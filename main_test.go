@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -767,6 +768,9 @@ OK
 }
 
 func TestCStrings(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("skipping cstrings test on darwin since it leaks all but String")
+	}
 	// t.Parallel()
 	path := "_examples/cstrings"
 	testPkg(t, pkg{
