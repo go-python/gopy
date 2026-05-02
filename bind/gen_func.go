@@ -261,20 +261,53 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 		}
 	}
 
+	// Idea 1 (fix for issue #370): C→Go argument conversions such as C.GoString
+	// call runtime.gostring → mallocgc, which can corrupt Go's GC sweep-generation
+	// counter when executed inside a CGo callback without the GIL held — causing
+	// "fatal error: bad sweepgen in refill" on Go ≥1.24 / x86_64.
+	//
+	// The fix pre-converts each C argument into a Go variable *before* calling
+	// PyEval_SaveThread, so that any Go heap allocation happens while the GIL is
+	// held and the Go runtime is in a consistent state. The GIL is released via
+	// PyGILState_Ensure/Release (not the SaveThread mechanism) so the two paths
+	// are balanced independently.
+	//
+	// Idea 2 (possible future optimisation): Replace C.GoString with
+	//   unsafe.String((*byte)(unsafe.Pointer(cs)), C.strlen(cs))
+	// for each string parameter. unsafe.String constructs a Go string header
+	// directly from the C pointer without any heap allocation, so the mallocgc
+	// call that triggers the sweep-gen check never happens. This is faster
+	// (no malloc) and avoids the bug at its source, but requires that the
+	// resulting string does not escape the CGo callback frame — storing it
+	// beyond the call would be a use-after-free. Both fixes together provide
+	// defence in depth.
+
+	// Pre-convert any C arguments that need a py2go conversion (e.g. C.GoString)
+	// while the GIL is still held. Record the variable name to use in the call.
+	preConvertedArgs := map[int]string{} // arg index → temp variable name
+	needsGILForArgs := false
+	for _, arg := range args {
+		if arg.sym.py2go != "" && !arg.sym.isSignature() {
+			needsGILForArgs = true
+			break
+		}
+	}
+	if needsGILForArgs {
+		g.gofile.Printf("_gstate := C.PyGILState_Ensure()\n")
+		for i, arg := range args {
+			if arg.sym.py2go != "" && !arg.sym.isSignature() {
+				anm := pySafeArg(arg.Name(), i)
+				tmpVar := fmt.Sprintf("_arg%d", i)
+				g.gofile.Printf("%s := %s(%s)%s\n", tmpVar, arg.sym.py2go, anm, arg.sym.py2goParenEx)
+				preConvertedArgs[i] = tmpVar
+			}
+		}
+		g.gofile.Printf("C.PyGILState_Release(_gstate)\n")
+	}
+
 	// release GIL
 	g.gofile.Printf("_saved_thread := C.PyEval_SaveThread()\n")
-	// Use defer only when there is no go2py return conversion that calls
-	// Python C API (which requires the GIL to already be reacquired).
-	// For go2py returns (excluding handle types) and error/multi-return cases,
-	// we restore explicitly. Handle types use handleFromPtr which is pure Go
-	// and doesn't need the GIL, so they can keep using defer.
-	nresForDefer := nres
-	// hasRetCvt fires when go2py != "" and NOT (hasHandle && !isPtrOrIface).
-	// Suppress defer in exactly those cases so the explicit restore below is the only one.
-	if nres > 0 && res[0].sym.go2py != "" && !(res[0].sym.hasHandle() && !res[0].sym.isPtrOrIface()) {
-		nresForDefer = 2 // treat like nres==2: no defer, explicit restore
-	}
-	if !rvIsErr && nresForDefer != 2 {
+	if !rvIsErr && nres != 2 {
 		// reacquire GIL after return
 		g.gofile.Printf("defer C.PyEval_RestoreThread(_saved_thread)\n")
 	}
@@ -317,6 +350,9 @@ if __err != nil {
 			na = fmt.Sprintf(`gopyh.VarFromHandle((gopyh.CGoHandle)(%s), "interface{}")`, anm)
 		case arg.sym.isSignature():
 			na = fmt.Sprintf("%s", arg.sym.py2go)
+		case preConvertedArgs[i] != "":
+			// Use the pre-converted variable (conversion happened before PyEval_SaveThread).
+			na = preConvertedArgs[i]
 		case arg.sym.py2go != "":
 			na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, anm, arg.sym.py2goParenEx)
 		default:
@@ -368,8 +404,8 @@ if __err != nil {
 		g.pywrap.Printf("_%s.%s(", pkgname, mnm)
 	}
 
-	hasAddrOfTmp := false
 	hasRetCvt := false
+	hasAddrOfTmp := false
 	if nres > 0 {
 		ret := res[0]
 		switch {
@@ -381,10 +417,8 @@ if __err != nil {
 			hasAddrOfTmp = true
 			g.gofile.Printf("cret := ")
 		case ret.sym.go2py != "":
-			// Assign to cret first; we'll restore the GIL before calling go2py
-			// so that Python C API functions inside go2py run with the GIL held.
 			hasRetCvt = true
-			g.gofile.Printf("cret := ")
+			g.gofile.Printf("return %s(", ret.sym.go2py)
 		default:
 			g.gofile.Printf("return ")
 		}
@@ -407,6 +441,11 @@ if __err != nil {
 	} else {
 		funCall = fmt.Sprintf("%s(%s)", fsym.GoFmt(), strings.Join(callArgs, ", "))
 	}
+	if hasRetCvt {
+		ret := res[0]
+		funCall += fmt.Sprintf(")%s", ret.sym.go2pyParenEx)
+	}
+
 	if nres == 0 {
 		g.gofile.Printf("if boolPyToGo(goRun) {\n")
 		g.gofile.Indent()
@@ -419,13 +458,6 @@ if __err != nil {
 		g.gofile.Printf("}")
 	} else {
 		g.gofile.Printf("%s\n", funCall)
-	}
-
-	if hasRetCvt {
-		// Restore GIL before calling go2py, which may call Python C API.
-		ret := res[0]
-		g.gofile.Printf("C.PyEval_RestoreThread(_saved_thread)\n")
-		g.gofile.Printf("return %s(cret)%s\n", ret.sym.go2py, ret.sym.go2pyParenEx)
 	}
 
 	if rvIsErr || nres == 2 {
