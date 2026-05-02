@@ -785,16 +785,80 @@ OK
 	})
 }
 
+// TestGilString is a regression test for the GIL ordering bug (issue #370).
+// It replicates the exact reproduction from the issue report: two separately-built
+// gopy extensions (gilstring and simple) loaded in the same Python process, with
+// calls interleaved in a loop of 5000 iterations.
 func TestGilString(t *testing.T) {
-	// t.Parallel()
-	path := "_examples/gilstring"
-	testPkg(t, pkg{
-		path:   path,
-		lang:   features[path],
-		cmd:    "build",
-		extras: nil,
-		want:   []byte("OK\n"),
-	})
+	backends := []string{"py3"}
+	for _, be := range backends {
+		vm, ok := testBackends[be]
+		if !ok || vm == "" {
+			t.Logf("Skipped testing backend %s for TestGilString\n", be)
+			continue
+		}
+		t.Run(be, func(t *testing.T) {
+			cwd, _ := os.Getwd()
+
+			// workdir is the PYTHONPATH root; each package gets its own subdir
+			// so their generated C files don't collide during compilation.
+			workdir, err := os.MkdirTemp("", "gopy-")
+			if err != nil {
+				t.Fatalf("could not create workdir: %v", err)
+			}
+			defer os.RemoveAll(workdir)
+			defer bind.ResetPackages()
+
+			gilDir := filepath.Join(workdir, "gilstring")
+			if err := os.MkdirAll(gilDir, 0700); err != nil {
+				t.Fatalf("could not create gilstring subdir: %v", err)
+			}
+
+			// Build gilstring into its own subdir.
+			writeGoMod(t, cwd, gilDir)
+			if err := run([]string{"build", "-vm=" + vm, "-output=" + gilDir, "./_examples/gilstring"}); err != nil {
+				t.Fatalf("error building gilstring: %v", err)
+			}
+			bind.ResetPackages()
+
+			simpleDir := filepath.Join(workdir, "simple")
+			if err := os.MkdirAll(simpleDir, 0700); err != nil {
+				t.Fatalf("could not create simple subdir: %v", err)
+			}
+
+			// Build simple into its own subdir.
+			writeGoMod(t, cwd, simpleDir)
+			if err := run([]string{"build", "-vm=" + vm, "-output=" + simpleDir, "./_examples/simple"}); err != nil {
+				t.Fatalf("error building simple: %v", err)
+			}
+
+			// Copy test.py into workdir root and run with PYTHONPATH=workdir.
+			tstSrc := filepath.Join(cwd, "_examples/gilstring/test.py")
+			tstDst := filepath.Join(workdir, "test.py")
+			if err := copyCmd(tstSrc, tstDst); err != nil {
+				t.Fatalf("error copying test.py: %v", err)
+			}
+
+			env := make([]string, len(testEnvironment))
+			copy(env, testEnvironment)
+			env = append(env, fmt.Sprintf("PYTHONPATH=%s", workdir))
+
+			cmd := exec.Command(vm, "./test.py")
+			cmd.Env = env
+			cmd.Dir = workdir
+			cmd.Stdin = os.Stdin
+			buf, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("error running python module: err=%v\n%s", err, string(buf))
+			}
+
+			got := strings.Replace(string(buf), "\r\n", "\n", -1)
+			want := "OK\n"
+			if got != want {
+				t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+			}
+		})
+	}
 }
 
 func TestPackagePrefix(t *testing.T) {
