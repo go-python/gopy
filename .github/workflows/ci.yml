@@ -94,6 +94,75 @@ jobs:
       run: |
         make test
 
+    - name: Symbol diagnostic (macOS Intel)
+      if: always() && matrix.platform == 'macos-15-intel'
+      continue-on-error: true
+      env:
+        GOFLAGS: "-mod=mod"
+      run: |
+        echo "=== building test packages for symbol analysis ==="
+        go build -o /tmp/gopy_diag .
+        DIAGDIR=$(mktemp -d)
+        CWD=$(pwd)
+        mkdir -p "$DIAGDIR/gilstring" "$DIAGDIR/simple"
+        printf 'module dummy\nrequire github.com/go-python/gopy v0.0.0\nreplace github.com/go-python/gopy => %s\n' \
+          "$CWD" > "$DIAGDIR/gilstring/go.mod"
+        printf 'module dummy\nrequire github.com/go-python/gopy v0.0.0\nreplace github.com/go-python/gopy => %s\n' \
+          "$CWD" > "$DIAGDIR/simple/go.mod"
+        /tmp/gopy_diag build -vm=python3 -output="$DIAGDIR/gilstring" ./_examples/gilstring 2>&1 | tail -3
+        /tmp/gopy_diag build -vm=python3 -output="$DIAGDIR/simple"    ./_examples/simple    2>&1 | tail -3
+
+        GIL_SO=$(find "$DIAGDIR/gilstring" -name "_gilstring*.so" 2>/dev/null | head -1)
+        SIM_SO=$(find "$DIAGDIR/simple"    -name "_simple*.so"    2>/dev/null | head -1)
+        echo "gilstring: $GIL_SO"
+        echo "simple:    $SIM_SO"
+        [ -n "$GIL_SO" ] && [ -n "$SIM_SO" ] || { echo "SKIP: .so files not found"; exit 0; }
+
+        echo ""
+        echo "=== shared dynamic symbols ==="
+        nm "$GIL_SO" | awk '$2~/^[A-Z]$/{print $3}' | sort > /tmp/diag_g1.txt
+        nm "$SIM_SO" | awk '$2~/^[A-Z]$/{print $3}' | sort > /tmp/diag_g2.txt
+        echo "total shared: $(comm -12 /tmp/diag_g1.txt /tmp/diag_g2.txt | wc -l | tr -d ' ')"
+        echo "critical CGo bridge symbols shared between both .so files:"
+        comm -12 /tmp/diag_g1.txt /tmp/diag_g2.txt \
+          | grep -E "crosscall|cgo_topofstack|x_cgo_init|x_cgo_inittls|cgo_yield|cgo_panic" \
+          || echo "  (none)"
+
+        echo ""
+        echo "=== indirect symbol table / PLT stubs in gilstring (otool -Iv) ==="
+        TOTAL=$(otool -Iv "$GIL_SO" | grep -c '0x' || true)
+        echo "total indirect entries: $TOTAL"
+        otool -Iv "$GIL_SO" \
+          | grep -E "crosscall|cgo_topofstack|x_cgo_init|x_cgo_inittls|cgo_yield|cgo_panic" \
+          || echo "  (none of the critical CGo symbols appear as PLT stubs)"
+
+        echo ""
+        echo "=== indirect symbol table / PLT stubs in simple (otool -Iv) ==="
+        TOTAL=$(otool -Iv "$SIM_SO" | grep -c '0x' || true)
+        echo "total indirect entries: $TOTAL"
+        otool -Iv "$SIM_SO" \
+          | grep -E "crosscall|cgo_topofstack|x_cgo_init|x_cgo_inittls|cgo_yield|cgo_panic" \
+          || echo "  (none of the critical CGo symbols appear as PLT stubs)"
+
+        echo ""
+        echo "=== runtime: which library wins in the global namespace ==="
+        GIL_SO="$GIL_SO" SIM_SO="$SIM_SO" python3 << 'PYEOF'
+        import ctypes, os
+        GLOBAL = getattr(ctypes, 'RTLD_GLOBAL', 8)
+        gil = ctypes.CDLL(os.environ['GIL_SO'], mode=GLOBAL)
+        sim = ctypes.CDLL(os.environ['SIM_SO'], mode=GLOBAL)
+        glb = ctypes.CDLL(None)
+        for s in ['crosscall2', '_cgo_topofstack', 'x_cgo_init', 'x_cgo_inittls', '_cgo_yield', 'x_cgo_mmap']:
+            try:
+                a1 = ctypes.cast(getattr(gil, s), ctypes.c_void_p).value
+                a2 = ctypes.cast(getattr(sim, s), ctypes.c_void_p).value
+                ag = ctypes.cast(getattr(glb, s), ctypes.c_void_p).value
+                who = 'gilstring' if ag == a1 else ('simple' if ag == a2 else 'other')
+                print('  %-35s -> %-12s  (global=%s)' % (s, who, hex(ag) if ag else 'N/A'))
+            except Exception as e:
+                print('  %-35s error: %s' % (s, e))
+        PYEOF
+
     - name: Upload-Coverage
       if: matrix.platform == 'ubuntu-latest'
       uses: codecov/codecov-action@v4
