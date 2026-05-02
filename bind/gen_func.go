@@ -287,7 +287,7 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	preConvertedArgs := map[int]string{} // arg index → temp variable name
 	needsGILForArgs := false
 	for _, arg := range args {
-		if arg.sym.py2go != "" && !arg.sym.isSignature() {
+		if arg.sym.py2go != "" && !arg.sym.isSignature() && !(ifchandle && arg.sym.goname == "interface{}") {
 			needsGILForArgs = true
 			break
 		}
@@ -295,7 +295,7 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	if needsGILForArgs {
 		g.gofile.Printf("_gstate := C.PyGILState_Ensure()\n")
 		for i, arg := range args {
-			if arg.sym.py2go != "" && !arg.sym.isSignature() {
+			if arg.sym.py2go != "" && !arg.sym.isSignature() && !(ifchandle && arg.sym.goname == "interface{}") {
 				anm := pySafeArg(arg.Name(), i)
 				tmpVar := fmt.Sprintf("_arg%d", i)
 				g.gofile.Printf("%s := %s(%s)%s\n", tmpVar, arg.sym.py2go, anm, arg.sym.py2goParenEx)
