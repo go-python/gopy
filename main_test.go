@@ -800,6 +800,8 @@ func TestGilString(t *testing.T) {
 		t.Run(be, func(t *testing.T) {
 			cwd, _ := os.Getwd()
 
+			// workdir is the PYTHONPATH root; each package gets its own subdir
+			// so their generated C files don't collide during compilation.
 			workdir, err := os.MkdirTemp("", "gopy-")
 			if err != nil {
 				t.Fatalf("could not create workdir: %v", err)
@@ -807,20 +809,30 @@ func TestGilString(t *testing.T) {
 			defer os.RemoveAll(workdir)
 			defer bind.ResetPackages()
 
-			// Build gilstring into workdir.
-			writeGoMod(t, cwd, workdir)
-			if err := run([]string{"build", "-vm=" + vm, "-output=" + workdir, "./_examples/gilstring"}); err != nil {
+			gilDir := filepath.Join(workdir, "gilstring")
+			if err := os.MkdirAll(gilDir, 0700); err != nil {
+				t.Fatalf("could not create gilstring subdir: %v", err)
+			}
+
+			// Build gilstring into its own subdir.
+			writeGoMod(t, cwd, gilDir)
+			if err := run([]string{"build", "-vm=" + vm, "-output=" + gilDir, "./_examples/gilstring"}); err != nil {
 				t.Fatalf("error building gilstring: %v", err)
 			}
 			bind.ResetPackages()
 
-			// Build simple into workdir alongside gilstring.
-			writeGoMod(t, cwd, workdir)
-			if err := run([]string{"build", "-vm=" + vm, "-output=" + workdir, "./_examples/simple"}); err != nil {
+			simpleDir := filepath.Join(workdir, "simple")
+			if err := os.MkdirAll(simpleDir, 0700); err != nil {
+				t.Fatalf("could not create simple subdir: %v", err)
+			}
+
+			// Build simple into its own subdir.
+			writeGoMod(t, cwd, simpleDir)
+			if err := run([]string{"build", "-vm=" + vm, "-output=" + simpleDir, "./_examples/simple"}); err != nil {
 				t.Fatalf("error building simple: %v", err)
 			}
 
-			// Copy test.py into workdir.
+			// Copy test.py into workdir root and run with PYTHONPATH=workdir.
 			tstSrc := filepath.Join(cwd, "_examples/gilstring/test.py")
 			tstDst := filepath.Join(workdir, "test.py")
 			if err := copyCmd(tstSrc, tstDst); err != nil {
