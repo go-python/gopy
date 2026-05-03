@@ -305,11 +305,19 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 		g.gofile.Printf("C.PyGILState_Release(_gstate)\n")
 	}
 
-	// release GIL
+	// Ensure the process-wide mutex is initialized (lazy, GIL must be held).
+	g.gofile.Printf("C.gopy_ensure_mu()\n")
+	// release GIL then acquire the process-wide runtime mutex.
+	// Ordering: GIL released first so that a second Python thread blocked on
+	// the mutex does not hold the GIL while we try to reclaim it, which would
+	// deadlock.  gopy_unlock must run before PyEval_RestoreThread (LIFO defer).
 	g.gofile.Printf("_saved_thread := C.PyEval_SaveThread()\n")
+	g.gofile.Printf("C.gopy_lock()\n")
 	if !rvIsErr && nres != 2 {
-		// reacquire GIL after return
+		// PyEval_RestoreThread deferred first → runs last (LIFO).
 		g.gofile.Printf("defer C.PyEval_RestoreThread(_saved_thread)\n")
+		// gopy_unlock deferred second → runs first (LIFO): release mutex before reclaiming GIL.
+		g.gofile.Printf("defer C.gopy_unlock()\n")
 	}
 
 	if isMethod {
@@ -462,7 +470,8 @@ if __err != nil {
 
 	if rvIsErr || nres == 2 {
 		g.gofile.Printf("\n")
-		// reacquire GIL
+		// release mutex then reacquire GIL
+		g.gofile.Printf("C.gopy_unlock()\n")
 		g.gofile.Printf("C.PyEval_RestoreThread(_saved_thread)\n")
 
 		g.gofile.Printf("if __err != nil {\n")

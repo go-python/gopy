@@ -87,6 +87,42 @@ static inline void gopy_err_handle() {
 		PyErr_Print();
 	}
 }
+// gopy_lock / gopy_unlock serialize all gopy extension calls to prevent
+// concurrent Go runtimes in the same process from corrupting each other's
+// GC sweep-generation counters (issue #370 / #385).
+// On non-Windows, the mutex lives in builtins._gopy_global_mu so every
+// extension loaded in the same Python process shares the same instance.
+// gopy_ensure_mu() must be called while the Python GIL is held (before
+// each PyEval_SaveThread), after which gopy_lock/unlock need no GIL.
+#ifndef _WIN32
+#include <pthread.h>
+#include <stdlib.h>
+static pthread_mutex_t *_gopy_mu = NULL;
+static void gopy_ensure_mu(void) {
+	if (_gopy_mu) return;
+	PyObject *bi = PyImport_ImportModule("builtins");
+	if (!bi) { PyErr_Clear(); return; }
+	PyObject *cap = PyObject_GetAttrString(bi, "_gopy_global_mu");
+	if (cap && PyCapsule_CheckExact(cap)) {
+		_gopy_mu = (pthread_mutex_t *)PyCapsule_GetPointer(cap, "gopy.global_mu");
+		Py_DECREF(cap);
+	} else {
+		PyErr_Clear();
+		pthread_mutex_t *mu = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+		pthread_mutex_init(mu, NULL);
+		PyObject *nc = PyCapsule_New(mu, "gopy.global_mu", NULL);
+		if (nc) { PyObject_SetAttrString(bi, "_gopy_global_mu", nc); Py_DECREF(nc); }
+		_gopy_mu = mu;
+	}
+	Py_DECREF(bi);
+}
+static inline void gopy_lock(void)   { if (_gopy_mu) pthread_mutex_lock(_gopy_mu); }
+static inline void gopy_unlock(void) { if (_gopy_mu) pthread_mutex_unlock(_gopy_mu); }
+#else
+static void          gopy_ensure_mu(void) {}
+static inline void   gopy_lock(void)      {}
+static inline void   gopy_unlock(void)    {}
+#endif
 %[8]s
 */
 import "C"
