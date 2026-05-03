@@ -317,7 +317,22 @@ except ImportError:
 cwd = os.getcwd()
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 os.chdir(currentdir)
+# Load the extension with RTLD_LOCAL so each gopy .so keeps its own copy of
+# the Go runtime globals (mheap_, TLS keys, etc.).  On macOS, Python's default
+# dlopen flags include RTLD_GLOBAL which causes symbol interposition across
+# independently-built Go runtimes loaded in the same process (issue #385).
+if hasattr(sys, 'getdlopenflags'):
+	try:
+		import ctypes as _gopy_ctypes
+		_gopy_saved_flags = sys.getdlopenflags()
+		sys.setdlopenflags(_gopy_saved_flags & ~getattr(_gopy_ctypes, 'RTLD_GLOBAL', 0))
+	except Exception:
+		_gopy_saved_flags = None
+else:
+	_gopy_saved_flags = None
 %[6]s
+if _gopy_saved_flags is not None:
+	sys.setdlopenflags(_gopy_saved_flags)
 os.chdir(cwd)
 
 # to use this code in your end-user python file, import it as follows:
