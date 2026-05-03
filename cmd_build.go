@@ -185,12 +185,15 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		if cfg.BuildTags != "" {
 			args = append(args, "-tags", cfg.BuildTags)
 		}
+		// Collect all Go linker flags into one -ldflags argument so we can
+		// combine -s/-w with the symbol-visibility extldflags below.
+		var goLdFlags []string
 		if !cfg.Symbols {
 			// These flags will omit the various symbol tables, thereby
 			// reducing the final size of the binary. From https://golang.org/cmd/link/
 			// -s Omit the symbol table and debug information
 			// -w Omit the DWARF symbol table
-			args = append(args, "-ldflags=-s -w")
+			goLdFlags = append(goLdFlags, "-s", "-w")
 		}
 		args = append(args, "-o", buildLib, ".")
 		fmt.Printf("go %v\n", strings.Join(args, " "))
@@ -212,6 +215,42 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		if err != nil {
 			fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
 			return err
+		}
+
+		// Restrict exported symbols to only PyInit__<name> so that Go runtime
+		// globals (e.g. runtime.mheap_, mcache0) are not placed in the global
+		// dynamic-linker namespace.  Two independently-loaded Go runtimes
+		// sharing those globals via RTLD_GLOBAL interposition corrupt each
+		// other's GC sweep-generation counters (issue #370 / #385).
+		switch runtime.GOOS {
+		case "darwin":
+			// macOS exported_symbols_list: one symbol per line, with leading _.
+			ef, ferr := os.CreateTemp("", "gopy-exports-*.txt")
+			if ferr == nil {
+				fmt.Fprintf(ef, "_%sPyInit__%s\n", "", cfg.Name)
+				ef.Close()
+				defer os.Remove(ef.Name())
+				goLdFlags = append(goLdFlags,
+					"-extldflags=-Wl,-exported_symbols_list,"+ef.Name())
+			}
+		case "linux":
+			// GNU ld version script: export only PyInit__<name>.
+			ef, ferr := os.CreateTemp("", "gopy-exports-*.map")
+			if ferr == nil {
+				fmt.Fprintf(ef, "{ global: PyInit__%s; local: *; };\n", cfg.Name)
+				ef.Close()
+				defer os.Remove(ef.Name())
+				goLdFlags = append(goLdFlags,
+					"-extldflags=-Wl,--version-script="+ef.Name())
+			}
+		}
+		if len(goLdFlags) > 0 {
+			// Replace or append the single combined -ldflags argument.
+			// The args slice currently ends with "-o", modlib, "."
+			// Insert before the final ".".
+			combined := "-ldflags=" + strings.Join(goLdFlags, " ")
+			n := len(args)
+			args = append(args[:n-1], combined, args[n-1])
 		}
 
 		if bind.WindowsOS {
