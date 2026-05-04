@@ -181,29 +181,66 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 
 		// build the go shared library upfront to generate the header
 		// needed by our generated cpython code
-		args := []string{"build", "-mod=mod", "-buildmode=c-shared"}
+		firstArgs := []string{"build", "-mod=mod", "-buildmode=c-shared"}
 		if cfg.BuildTags != "" {
-			args = append(args, "-tags", cfg.BuildTags)
+			firstArgs = append(firstArgs, "-tags", cfg.BuildTags)
 		}
 		if !cfg.Symbols {
 			// These flags will omit the various symbol tables, thereby
 			// reducing the final size of the binary. From https://golang.org/cmd/link/
 			// -s Omit the symbol table and debug information
 			// -w Omit the DWARF symbol table
-			args = append(args, "-ldflags=-s -w")
+			firstArgs = append(firstArgs, "-ldflags=-s -w")
 		}
-		args = append(args, "-o", buildLib, ".")
-		fmt.Printf("go %v\n", strings.Join(args, " "))
-		cmd = exec.Command("go", args...)
+		firstArgs = append(firstArgs, "-o", buildLib, ".")
+		fmt.Printf("go %v\n", strings.Join(firstArgs, " "))
+		cmd = exec.Command("go", firstArgs...)
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
 			return err
 		}
-		// update the output name to the one with the ABI extension
-		args[len(args)-2] = modlib
 		// we don't need this initial lib because we are going to relink
 		os.Remove(buildLib)
+
+		// Build the final extension with symbol-visibility restriction so that
+		// Go runtime globals are not placed in the global dynamic-linker
+		// namespace. Two independently-loaded Go runtimes sharing those globals
+		// via RTLD_GLOBAL interposition corrupt each other's GC state (#370).
+		// This applies only to the second build, which is where PyInit__<name>
+		// exists and where the exported-symbols list is valid.
+		finalArgs := []string{"build", "-mod=mod", "-buildmode=c-shared"}
+		if cfg.BuildTags != "" {
+			finalArgs = append(finalArgs, "-tags", cfg.BuildTags)
+		}
+		var finalLdFlags []string
+		if !cfg.Symbols {
+			finalLdFlags = append(finalLdFlags, "-s", "-w")
+		}
+		switch runtime.GOOS {
+		case "darwin":
+			ef, ferr := os.CreateTemp("", "gopy-exports-*.txt")
+			if ferr == nil {
+				fmt.Fprintf(ef, "_PyInit__%s\n", cfg.Name)
+				ef.Close()
+				defer os.Remove(ef.Name())
+				finalLdFlags = append(finalLdFlags, "-extldflags=-Wl,-exported_symbols_list,"+ef.Name())
+			}
+		case "linux":
+			ef, ferr := os.CreateTemp("", "gopy-exports-*.map")
+			if ferr == nil {
+				fmt.Fprintf(ef, "{ global: PyInit__%s; local: *; };\n", cfg.Name)
+				ef.Close()
+				defer os.Remove(ef.Name())
+				finalLdFlags = append(finalLdFlags, "-extldflags=-Wl,--version-script="+ef.Name())
+			}
+		}
+		if len(finalLdFlags) > 0 {
+			finalArgs = append(finalArgs, "-ldflags="+strings.Join(finalLdFlags, " "))
+		}
+		finalArgs = append(finalArgs, "-o", modlib, ".")
+		// args is still used below for the CGO env build; point it at finalArgs.
+		args := finalArgs
 
 		// generate c code
 		fmt.Printf("%v build.py\n", cfg.VM)

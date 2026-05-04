@@ -87,10 +87,27 @@ static inline void gopy_err_handle() {
 		PyErr_Print();
 	}
 }
+// _gopy_clear_go_tls clears the Go goroutine pointer from this thread's TLS.
+// When multiple gopy extensions share a process, each has its own Go runtime
+// but all runtimes use the same TLS slot for the current goroutine pointer
+// (GS:0x30 on darwin/amd64, FS:-8 on linux/amd64). After one extension's
+// init(), TLS is left pointing to that runtime's g0. If another extension's
+// CGo entry-point reads TLS and finds a non-nil goroutine, it takes the fast
+// path (no needm()) and runs with the wrong M/P/mcache -- corrupting the heap.
+// Clearing the slot before each CGo entry forces needm() to run, which
+// establishes the correct per-extension context (issue #370).
+static void _gopy_clear_go_tls(void) {
+#if defined(__x86_64__) && defined(__APPLE__)
+	__asm__ volatile("movq $0, %%%%gs:0x30" ::: "memory");
+#elif defined(__x86_64__) && defined(__linux__)
+	__asm__ volatile("movq $0, %%%%fs:-8" ::: "memory");
+#endif
+}
 %[8]s
 */
 import "C"
 import (
+	"runtime"
 	"github.com/go-python/gopy/gopyh" // handler
 	%[6]s
 )
@@ -130,6 +147,34 @@ func IncRef(handle CGoHandle) {
 //export NumHandles
 func NumHandles() int {
 	return gopyh.NumHandles()
+}
+
+// _gcReq carries GC requests from RequestGC (called on a CGo/needm M) to a
+// dedicated goroutine that actually calls runtime.GC().  Calling runtime.GC()
+// directly from the gc.callbacks context (a CGo-needm M) races with goroutines
+// mid-sweep on the same heap, causing "bad sweepgen in refill" panics on
+// multi-core machines.  Running GC on a proper goroutine eliminates that race.
+// RequestGC blocks until the GC cycle completes, so Python memory measurements
+// taken immediately after gc.collect() see the reclaimed Go memory.
+var _gcReq = make(chan chan struct{})
+
+func init() {
+	go func() {
+		for done := range _gcReq {
+			runtime.GC()
+			close(done)
+		}
+	}()
+}
+
+// RequestGC runs Go's garbage collector synchronously and safely.
+// gopy registers this via Python gc.callbacks so it fires after each Python
+// GC cycle, keeping Go-heap objects freed via DecRef promptly collected.
+//export RequestGC
+func RequestGC() {
+	done := make(chan struct{})
+	_gcReq <- done
+	<-done
 }
 
 // boolGoToPy converts a Go bool to python-compatible C.char
@@ -259,6 +304,8 @@ mod.add_function('GoPyInit', None, [])
 mod.add_function('DecRef', None, [param('int64_t', 'handle')])
 mod.add_function('IncRef', None, [param('int64_t', 'handle')])
 mod.add_function('NumHandles', retval('int'), [])
+mod.add_function('RequestGC', None, [])
+mod.add_function('_gopy_clear_go_tls', None, [])
 `
 
 	// appended to imports in py wrap preamble as key for adding at end
@@ -281,8 +328,39 @@ except ImportError:
 cwd = os.getcwd()
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 os.chdir(currentdir)
+# When multiple gopy extensions coexist in one Python process each carries its own
+# independent Go runtime. The Go extension is loaded without RTLD_GLOBAL below, and
+# _gopy_clear_go_tls() is called before each CGo entry to force needm() to run, which
+# establishes the correct per-extension M/P/mcache context (issue #370).
+# Also load the extension without RTLD_GLOBAL so that Go runtime symbols stay
+# local to each .so — belt-and-suspenders on platforms where RTLD_GLOBAL is the
+# Python default (e.g. some Linux builds).
+if hasattr(sys, 'getdlopenflags'):
+	try:
+		import ctypes as _gopy_ctypes
+		_gopy_saved_flags = sys.getdlopenflags()
+		sys.setdlopenflags(_gopy_saved_flags & ~getattr(_gopy_ctypes, 'RTLD_GLOBAL', 0))
+	except Exception:
+		_gopy_saved_flags = None
+else:
+	_gopy_saved_flags = None
 %[6]s
+if _gopy_saved_flags is not None:
+	sys.setdlopenflags(_gopy_saved_flags)
 os.chdir(cwd)
+# Run Go's GC whenever Python's GC runs so that Go-heap objects whose handles
+# were released via DecRef are promptly collected.  Without this, Go memory
+# can accumulate between Python gc.collect() calls because Python GC only
+# frees the Python wrapper; the underlying Go allocation is not reclaimed
+# until Go's own GC fires.
+try:
+	import gc as _gopy_gc
+	def _gopy_gc_cb(phase, info):
+		if phase == 'stop':
+			_%[1]s.RequestGC()
+	_gopy_gc.callbacks.append(_gopy_gc_cb)
+except Exception:
+	pass
 
 # to use this code in your end-user python file, import it as follows:
 # from %[1]s import %[3]s
