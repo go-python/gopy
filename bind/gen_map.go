@@ -317,7 +317,11 @@ otherwise parameter is a python list that we copy from
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
 
-		g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'), [param('%s', 'handle'), param('%s', '_ky')])\n", slNm, esym.cpyname, PyHandle, ksym.cpyname)
+		if esym.cpyname == "char*" {
+			g.pybuild.Printf("add_checked_string_function(mod, '%s_elem', retval('%s'), [param('%s', 'handle'), param('%s', '_ky')])\n", slNm, esym.cpyname, PyHandle, ksym.cpyname)
+		} else {
+			g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'), [param('%s', 'handle'), param('%s', '_ky')])\n", slNm, esym.cpyname, PyHandle, ksym.cpyname)
+		}
 
 		// contains
 		g.gofile.Printf("//export %s_contains\n", slNm)

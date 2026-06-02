@@ -261,10 +261,8 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 		}
 	}
 
-	// release GIL
 	g.gofile.Printf("_saved_thread := C.PyEval_SaveThread()\n")
 	if !rvIsErr && nres != 2 {
-		// reacquire GIL after return
 		g.gofile.Printf("defer C.PyEval_RestoreThread(_saved_thread)\n")
 	}
 
@@ -337,6 +335,12 @@ if __err != nil {
 			g.pywrap.Printf("%s = %s%s(args)\n", anm, packagePrefix, arg.sym.id)
 		}
 	}
+
+	// Clear the Go TLS goroutine slot before the CGo entry point so that
+	// Go's needm() runs and establishes the correct per-extension context.
+	// Without this, two extensions sharing the same process can corrupt
+	// each other's heap via TLS collision (issue #370).
+	g.pywrap.Printf("_%s._gopy_clear_go_tls()\n", pkgname)
 
 	// pywrap output
 	mnm := fsym.ID()
@@ -415,7 +419,6 @@ if __err != nil {
 
 	if rvIsErr || nres == 2 {
 		g.gofile.Printf("\n")
-		// reacquire GIL
 		g.gofile.Printf("C.PyEval_RestoreThread(_saved_thread)\n")
 
 		g.gofile.Printf("if __err != nil {\n")

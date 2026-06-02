@@ -49,6 +49,7 @@ var (
 		"_examples/cstrings":    []string{"py3"},
 		"_examples/pkgconflict": []string{"py3"},
 		"_examples/variadic":    []string{"py3"},
+		"_examples/gilstring":   []string{"py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -316,7 +317,6 @@ OK
 }
 
 func TestBindSimple(t *testing.T) {
-	t.Skip("Skipping due to Go 1.21+ CGO issue (see https://github.com/go-python/gopy/issues/370)")
 	// t.Parallel()
 	path := "_examples/simple"
 	testPkg(t, pkg{
@@ -546,7 +546,6 @@ OK
 }
 
 func TestBindCgoPackage(t *testing.T) {
-	t.Skip("Skipping due to Go 1.21+ CGO issue (see https://github.com/go-python/gopy/issues/370)")
 	// t.Parallel()
 	path := "_examples/cgo"
 	testPkg(t, pkg{
@@ -774,7 +773,6 @@ func TestCStrings(t *testing.T) {
 		lang:   features[path],
 		cmd:    "build",
 		extras: nil,
-		// todo: this test on mac leaks everything except String
 		want: []byte(`gofnString leaked:  False
 gofnStruct leaked:  False
 gofnNestedStruct leaked:  False
@@ -783,6 +781,74 @@ gofnMap leaked:  False
 OK
 `),
 	})
+}
+
+// TestGilString is a regression test for the multi-runtime crash (issue #370).
+// It replicates the exact reproduction from the issue report: two separately-built
+// gopy extensions (gilstring and simple) loaded in the same Python process, with
+// calls interleaved in a loop of 5000 iterations.
+func TestGilString(t *testing.T) {
+	backends := []string{"py3"}
+	for _, be := range backends {
+		vm, ok := testBackends[be]
+		if !ok || vm == "" {
+			t.Logf("Skipped testing backend %s for TestGilString\n", be)
+			continue
+		}
+		t.Run(be, func(t *testing.T) {
+			cwd, _ := os.Getwd()
+
+			workdir, err := os.MkdirTemp("", "gopy-")
+			if err != nil {
+				t.Fatalf("could not create workdir: %v", err)
+			}
+			defer os.RemoveAll(workdir)
+			defer bind.ResetPackages()
+
+			gilDir := filepath.Join(workdir, "gilstring")
+			if err := os.MkdirAll(gilDir, 0700); err != nil {
+				t.Fatalf("could not create gilstring subdir: %v", err)
+			}
+			writeGoMod(t, cwd, gilDir)
+			if err := run([]string{"build", "-vm=" + vm, "-output=" + gilDir, "./_examples/gilstring"}); err != nil {
+				t.Fatalf("error building gilstring: %v", err)
+			}
+			bind.ResetPackages()
+
+			simpleDir := filepath.Join(workdir, "simple")
+			if err := os.MkdirAll(simpleDir, 0700); err != nil {
+				t.Fatalf("could not create simple subdir: %v", err)
+			}
+			writeGoMod(t, cwd, simpleDir)
+			if err := run([]string{"build", "-vm=" + vm, "-output=" + simpleDir, "./_examples/simple"}); err != nil {
+				t.Fatalf("error building simple: %v", err)
+			}
+
+			tstDst := filepath.Join(workdir, "test.py")
+			if err := copyCmd(filepath.Join(cwd, "_examples/gilstring/test.py"), tstDst); err != nil {
+				t.Fatalf("error copying test.py: %v", err)
+			}
+
+			env := make([]string, len(testEnvironment))
+			copy(env, testEnvironment)
+			env = append(env, fmt.Sprintf("PYTHONPATH=%s", workdir))
+
+			cmd := exec.Command(vm, "./test.py")
+			cmd.Env = env
+			cmd.Dir = workdir
+			cmd.Stdin = os.Stdin
+			buf, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("error running python module: err=%v\n%s", err, string(buf))
+			}
+
+			got := strings.Replace(string(buf), "\r\n", "\n", -1)
+			want := "OK\n"
+			if got != want {
+				t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+			}
+		})
+	}
 }
 
 func TestPackagePrefix(t *testing.T) {

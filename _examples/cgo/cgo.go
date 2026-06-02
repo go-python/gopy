@@ -9,7 +9,7 @@ package cgo
 //#include <string.h>
 //#include <stdlib.h>
 //const char* cpkg_sprintf(const char *str) {
-//  char *o = (char*)malloc(strlen(str));
+//  char *o = (char*)malloc(strlen(str) + 1);
 //	sprintf(o, "%s", str);
 //	return o;
 //}
