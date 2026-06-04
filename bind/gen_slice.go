@@ -411,6 +411,11 @@ otherwise parameter is a python list that we copy from
 			g.gofile.Printf("func Slice_byte_to_bytes(handle CGoHandle) *C.PyObject {\n")
 			g.gofile.Indent()
 			g.gofile.Printf("s := deptrFromHandle_Slice_byte(handle)\n")
+			g.gofile.Printf("if len(s) == 0 {\n")
+			g.gofile.Indent()
+			g.gofile.Printf("return C.PyBytes_FromStringAndSize(nil, 0)\n")
+			g.gofile.Outdent()
+			g.gofile.Printf("}\n")
 			g.gofile.Printf("ptr := unsafe.Pointer(&s[0])\n")
 			g.gofile.Printf("size := len(s)\n")
 			if WindowsOS {

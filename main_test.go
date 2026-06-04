@@ -282,6 +282,8 @@ Go slice:  go.Slice_byte len: 10 handle: 1 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 gobytes.HashBytes from Go bytes: gobytes.Array_4_byte len: 4 handle: 2 [12, 13, 81, 81]
 Python bytes to Go:  go.Slice_byte len: 4 handle: 3 [0, 1, 2, 3]
 Go bytes to Python:  b'\x03\x04\x05'
+Go empty slice:  go.Slice_byte len: 0 handle: 5 []
+Go empty bytes to Python:  b''
 OK
 `),
 	})

@@ -15,4 +15,11 @@ print ("gobytes.HashBytes from Go bytes:", gobytes.HashBytes(b))
 print("Python bytes to Go: ", go.Slice_byte.from_bytes(a))
 print("Go bytes to Python: ", bytes(go.Slice_byte([3, 4, 5])))
 
+# Regression test for issue #359: 0-length slice must not crash
+empty = gobytes.CreateBytes(0)
+print("Go empty slice: ", empty)
+empty_bytes = bytes(empty)
+assert empty_bytes == b"", "expected b'', got %r" % (empty_bytes,)
+print("Go empty bytes to Python: ", empty_bytes)
+
 print("OK")
