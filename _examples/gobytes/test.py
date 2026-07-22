@@ -22,4 +22,12 @@ empty_bytes = bytes(empty)
 assert empty_bytes == b"", "expected b'', got %r" % (empty_bytes,)
 print("Go empty bytes to Python: ", empty_bytes)
 
+# Regression test for issue #359 (reverse direction): converting a 0-length
+# Python bytes to a Go []byte, then back, must not crash either.
+empty_from_bytes = go.Slice_byte.from_bytes(b"")
+print("Python empty bytes to Go: ", empty_from_bytes)
+roundtrip_bytes = bytes(empty_from_bytes)
+assert roundtrip_bytes == b"", "expected b'', got %r" % (roundtrip_bytes,)
+print("Go empty bytes round-trip: ", roundtrip_bytes)
+
 print("OK")

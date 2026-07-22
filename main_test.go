@@ -284,6 +284,8 @@ Python bytes to Go:  go.Slice_byte len: 4 handle: 3 [0, 1, 2, 3]
 Go bytes to Python:  b'\x03\x04\x05'
 Go empty slice:  go.Slice_byte len: 0 handle: 5 []
 Go empty bytes to Python:  b''
+Python empty bytes to Go:  go.Slice_byte len: 0 handle: 6 []
+Go empty bytes round-trip:  b''
 OK
 `),
 	})
