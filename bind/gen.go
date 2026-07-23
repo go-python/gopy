@@ -329,12 +329,13 @@ cwd = os.getcwd()
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 os.chdir(currentdir)
 # When multiple gopy extensions coexist in one Python process each carries its own
-# independent Go runtime. The Go extension is loaded without RTLD_GLOBAL below, and
-# _gopy_clear_go_tls() is called before each CGo entry to force needm() to run, which
-# establishes the correct per-extension M/P/mcache context (issue #370).
-# Also load the extension without RTLD_GLOBAL so that Go runtime symbols stay
-# local to each .so — belt-and-suspenders on platforms where RTLD_GLOBAL is the
-# Python default (e.g. some Linux builds).
+# independent Go runtime. Loading each extension without RTLD_GLOBAL below keeps its
+# Go runtime symbols (including the per-runtime goroutine-pointer TLS slot) local to
+# its own .so, which is what prevents the runtimes from colliding (issue #370).
+# A _gopy_clear_go_tls() call before each CGo entry is available as an extra safety
+# net but is opt-in (gopy build -clear-go-tls), off by default: on glibc + CPython
+# 3.12+ its hardcoded TLS store clobbers the interpreter thread state and crashes on
+# the first call in the common single-extension case (issue #395).
 if hasattr(sys, 'getdlopenflags'):
 	try:
 		import ctypes as _gopy_ctypes
@@ -517,6 +518,17 @@ var NoWarn = false
 
 // NoMake turns off generation of Makefiles
 var NoMake = false
+
+// ClearGoTLS controls whether generated wrappers emit a _gopy_clear_go_tls()
+// call before every CGo entry point (issue #370). It is opt-in and off by
+// default. The clear performs a hardcoded TLS store (movq $0, %gs:0x30 on
+// darwin/amd64, movq $0, %fs:-8 on linux/amd64); with a single gopy extension
+// in the process it is unnecessary, and on glibc + CPython 3.12+ that offset
+// overlaps the TLS slot CPython uses for the current thread state, so the store
+// nulls it and the interpreter segfaults on the first call (issue #395).
+// Loading each extension without RTLD_GLOBAL, done unconditionally, already
+// keeps each runtime's goroutine-pointer TLS local to its own .so.
+var ClearGoTLS = false
 
 // GenPyBind generates a .go file, build.py file to enable pybindgen to create python bindings,
 // and wrapper .py file(s) that are loaded as the interface to the package with shadow
