@@ -45,7 +45,6 @@ ex:
 	cmd.Flag.Bool("symbols", true, "include symbols in output")
 	cmd.Flag.Bool("no-warn", false, "suppress warning messages, which may be expected")
 	cmd.Flag.Bool("no-make", false, "do not generate a Makefile, e.g., when called from Makefile")
-	cmd.Flag.Bool("clear-go-tls", false, "emit a _gopy_clear_go_tls() call before every CGo entry (issue #370); off by default, needed only when several gopy extensions share one process and known to crash CPython 3.12+ (issue #395)")
 	cmd.Flag.Bool("dynamic-link", false, "whether to link output shared library dynamically to Python")
 	cmd.Flag.String("build-tags", "", "build tags to be passed to `go build`")
 	return cmd
@@ -73,7 +72,6 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 
 	bind.NoWarn = cfg.NoWarn
 	bind.NoMake = cfg.NoMake
-	bind.ClearGoTLS = cmdr.Flag.Lookup("clear-go-tls").Value.Get().(bool)
 
 	for _, path := range args {
 		bpkg, err := loadPackage(path, true, cfg.BuildTags) // build first

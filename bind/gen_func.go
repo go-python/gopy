@@ -339,13 +339,8 @@ if __err != nil {
 	// Clear the Go TLS goroutine slot before the CGo entry point so that
 	// Go's needm() runs and establishes the correct per-extension context.
 	// Without this, two extensions sharing the same process can corrupt
-	// each other's heap via TLS collision (issue #370). Opt-in and off by
-	// default: the hardcoded TLS store crashes CPython 3.12+ in the common
-	// single-extension case (issue #395), and RTLD_GLOBAL-local loading
-	// already isolates each runtime's goroutine-pointer TLS.
-	if ClearGoTLS {
-		g.pywrap.Printf("_%s._gopy_clear_go_tls()\n", pkgname)
-	}
+	// each other's heap via TLS collision (issue #370).
+	g.pywrap.Printf("_%s._gopy_clear_go_tls()\n", pkgname)
 
 	// pywrap output
 	mnm := fsym.ID()
