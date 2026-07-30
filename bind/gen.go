@@ -194,7 +194,10 @@ func boolPyToGo(b C.char) bool {
 }
 
 func complex64GoToPy(c complex64) *C.PyObject {
-	return C.PyComplex_FromDoubles(C.double(real(c)), C.double(imag(c)))
+	gstate := C.PyGILState_Ensure()
+	obj := C.PyComplex_FromDoubles(C.double(real(c)), C.double(imag(c)))
+	C.PyGILState_Release(gstate)
+	return obj
 }
 
 func complex64PyToGo(o *C.PyObject) complex64 {
@@ -203,7 +206,10 @@ func complex64PyToGo(o *C.PyObject) complex64 {
 }
 
 func complex128GoToPy(c complex128) *C.PyObject {
-	return C.PyComplex_FromDoubles(C.double(real(c)), C.double(imag(c)))
+	gstate := C.PyGILState_Ensure()
+	obj := C.PyComplex_FromDoubles(C.double(real(c)), C.double(imag(c)))
+	C.PyGILState_Release(gstate)
+	return obj
 }
 
 func complex128PyToGo(o *C.PyObject) complex128 {
