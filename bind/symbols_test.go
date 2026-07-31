@@ -11,50 +11,65 @@ import (
 	"testing"
 )
 
-// TestBuildTupleHoldsGIL guards against a regression class already fixed
-// once for complex64/complex128 (see needsGILForArgMarshal in gen_func.go):
-// generated code that touches a raw *C.PyObject must never run outside a
-// PyGILState_Ensure/Release (or equivalent) bracket.
+// TestAddSignatureTypeHoldsGILThroughoutClosure guards against the family of
+// GIL bugs already fixed once for complex64/complex128 arguments (see
+// needsGILForArgMarshal in gen_func.go): generated code that touches a raw
+// *C.PyObject must never run outside a PyGILState_Ensure/Release bracket.
 //
-// buildTuple emits PyTuple_New/PyTuple_SetItem -- pure PyObject manipulation
-// -- as a bare code fragment with no way to know whether its caller already
-// holds the GIL. Its one current caller (addSignatureType's py2go closure)
-// happens to bracket it correctly today, but that's a convention external
-// to buildTuple, not something buildTuple enforces. This test requires
-// buildTuple's own output to be self-bracketing, so a future caller can't
-// reintroduce the complex64/128 bug by forgetting to hold the GIL.
-func TestBuildTupleHoldsGIL(t *testing.T) {
-	tuple := types.NewTuple(
-		types.NewVar(token.NoPos, nil, "i", types.Typ[types.Int]),
-		types.NewVar(token.NoPos, nil, "s", types.Typ[types.String]),
-	)
+// addSignatureType's py2go closure is the one place this whole family shows
+// up together: it builds a PyTuple from the Go-side arguments (PyTuple_New/
+// SetItem, via buildTuple), invokes the Python callback
+// (PyObject_CallObject), and converts the *C.PyObject result back to a Go
+// value (pyObjectToGo, e.g. PyBytes_AsString) before decref'ing it. All of
+// that touches raw PyObjects and must happen inside the single
+// PyGILState_Ensure/Release the closure takes out -- not just the tuple
+// build (buildTuple itself does not bracket its own output; it relies on
+// its only caller, this closure, to hold the GIL across build, call, and
+// return-conversion together). Getting the release point wrong here is not
+// hypothetical: _examples/funcs' CallBackRval passes a bool-returning
+// callback through exactly this path today.
+func TestAddSignatureTypeHoldsGILThroughoutClosure(t *testing.T) {
+	sig := types.NewSignature(nil,
+		types.NewTuple(types.NewVar(token.NoPos, nil, "x", types.Typ[types.Int])),
+		types.NewTuple(types.NewVar(token.NoPos, nil, "", types.Typ[types.String])),
+		false)
 
-	got, err := current.buildTuple(tuple, "_fcargs", "_fun_arg")
-	if err != nil {
-		t.Fatalf("buildTuple returned error: %v", err)
+	if err := current.addSignatureType(nil, nil, sig, 0, "sigtest_id", "sigtest"); err != nil {
+		t.Fatalf("addSignatureType returned error: %v", err)
 	}
 
-	ensureCount := strings.Count(got, "C.PyGILState_Ensure()")
-	releaseCount := strings.Count(got, "C.PyGILState_Release(")
-	if ensureCount == 0 || releaseCount == 0 {
-		t.Fatalf("buildTuple output does not self-bracket its PyTuple_* calls "+
-			"with PyGILState_Ensure/Release; got:\n%s", got)
+	sym := current.symtype(sig)
+	if sym == nil {
+		t.Fatalf("addSignatureType did not register a symbol for %s", current.fullTypeString(sig))
 	}
-	if ensureCount != releaseCount {
-		t.Fatalf("mismatched PyGILState_Ensure/Release counts (%d vs %d) in "+
-			"buildTuple output:\n%s", ensureCount, releaseCount, got)
-	}
+	got := sym.py2go
 
 	ensureIdx := strings.Index(got, "C.PyGILState_Ensure()")
-	firstTupleIdx := strings.Index(got, "C.PyTuple_")
 	lastTupleIdx := strings.LastIndex(got, "C.PyTuple_")
-	releaseIdx := strings.LastIndex(got, "C.PyGILState_Release(")
+	callIdx := strings.Index(got, "C.PyObject_CallObject(")
+	convIdx := strings.Index(got, "C.PyBytes_AsString(_fcret)")
+	decrefIdx := strings.Index(got, "C.gopy_decref(_fcret)")
+	releaseIdx := strings.LastIndex(got, "C.PyGILState_Release(_gstate)")
 
-	if ensureIdx == -1 || firstTupleIdx == -1 || releaseIdx == -1 {
-		t.Fatalf("could not locate expected markers in buildTuple output:\n%s", got)
+	for name, idx := range map[string]int{
+		"PyGILState_Ensure":        ensureIdx,
+		"PyTuple_*":                lastTupleIdx,
+		"PyObject_CallObject":      callIdx,
+		"PyBytes_AsString":         convIdx,
+		"gopy_decref(_fcret)":      decrefIdx,
+		"final PyGILState_Release": releaseIdx,
+	} {
+		if idx == -1 {
+			t.Fatalf("could not locate expected %s call in generated closure:\n%s", name, got)
+		}
 	}
-	if !(ensureIdx < firstTupleIdx && lastTupleIdx < releaseIdx) {
-		t.Fatalf("PyTuple_* calls are not nested inside the "+
-			"PyGILState_Ensure/Release bracket in buildTuple output:\n%s", got)
+
+	// Everything that touches a PyObject -- building the tuple, invoking
+	// the callback, converting and decref'ing the result -- must occur
+	// strictly between the Ensure and the final Release.
+	if !(ensureIdx < lastTupleIdx && lastTupleIdx < callIdx && callIdx < convIdx &&
+		convIdx < releaseIdx && decrefIdx < releaseIdx) {
+		t.Fatalf("generated closure does not hold the GIL across the entire "+
+			"build-tuple/call/convert/decref sequence:\n%s", got)
 	}
 }

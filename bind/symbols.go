@@ -638,17 +638,19 @@ func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string, methvar string) 
 
 	// PyTuple_New/PyTuple_SetItem below touch raw *C.PyObject values and
 	// must run with the GIL held. This code is spliced verbatim into a
-	// caller-generated function body, so it cannot assume the GIL is
-	// already held there -- bracket it here instead of relying on every
-	// caller to do so correctly (PyGILState_Ensure/Release nest safely, so
-	// this is sound even when the caller already holds the GIL itself).
-	// varnm is declared outside the block so it stays visible to
-	// caller-emitted code that follows (e.g. PyObject_CallObject).
+	// caller-generated function body, so the caller is responsible for
+	// holding the GIL across it -- addSignatureType (its only caller) does
+	// so already, bracketing this output together with the
+	// PyObject_CallObject/decref/return-conversion that follows it in the
+	// same generated closure, under one PyGILState_Ensure/Release. Do not
+	// re-bracket it here: a self-contained Ensure/Release around just this
+	// fragment would be redundant with the caller's (nesting is safe, so it
+	// wouldn't break anything), but it also wouldn't buy anything, since
+	// the built tuple is only ever used later, by the same caller, which
+	// must keep holding the GIL regardless.
 	//
 	// TODO: more efficient to use strings.Builder here..
-	bstr := fmt.Sprintf("var %s *C.PyObject\n{\n", varnm)
-	bstr += "_tuple_gstate := C.PyGILState_Ensure()\n"
-	bstr += fmt.Sprintf("%s = C.PyTuple_New(%d)\n", varnm, sz)
+	bstr := fmt.Sprintf("%s := C.PyTuple_New(%d)\n", varnm, sz)
 	for i := 0; i < sz; i++ {
 		v := tuple.At(i)
 		typ := v.Type()
@@ -690,8 +692,6 @@ func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string, methvar string) 
 			return "", fmt.Errorf("buildTuple: type not handled: %s", typ.String())
 		}
 	}
-	bstr += "C.PyGILState_Release(_tuple_gstate)\n"
-	bstr += "}\n"
 	return bstr, nil
 }
 
@@ -1128,13 +1128,23 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 		py2g += retstr + "C.PyObject_CallObject(_fun_arg, nil)\n"
 	}
 	py2g += "C.gopy_err_handle()\n"
-	py2g += "C.PyGILState_Release(_gstate)\n"
+	// _fcret (if any) is a *C.PyObject -- a new reference returned by
+	// PyObject_CallObject. Converting it to a Go value (pyObjectToGo, e.g.
+	// PyLong_AsLongLong/PyBytes_AsString) and decref'ing it both touch a
+	// raw PyObject and so must happen before PyGILState_Release, not after.
+	// The converted value is stashed in a local so it can still be returned
+	// once the GIL is no longer held.
 	if rets.Len() == 1 {
 		cvt, err := sym.pyObjectToGo(ret.Type(), rsym, "_fcret")
 		if err != nil {
 			return err
 		}
-		py2g += fmt.Sprintf("return %s", cvt)
+		py2g += fmt.Sprintf("_fcretgo := %s\n", cvt)
+		py2g += "C.gopy_decref(_fcret)\n"
+	}
+	py2g += "C.PyGILState_Release(_gstate)\n"
+	if rets.Len() == 1 {
+		py2g += "return _fcretgo"
 	}
 	py2g += "}"
 

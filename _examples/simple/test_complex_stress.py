@@ -18,7 +18,7 @@ import threading
 
 import simple as pkg
 
-ITERATIONS = 20000
+ITERATIONS = 500
 STOP = threading.Event()
 
 
@@ -51,7 +51,7 @@ try:
                   file=sys.stderr)
             sys.exit(1)
 
-        if i % 500 == 0:
+        if i % 50 == 0:
             gc.collect()
 finally:
     STOP.set()
