@@ -636,8 +636,19 @@ func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string, methvar string) 
 	// 	bstr += fmt.Sprintf("}\n")
 	// }
 
+	// PyTuple_New/PyTuple_SetItem below touch raw *C.PyObject values and
+	// must run with the GIL held. This code is spliced verbatim into a
+	// caller-generated function body, so it cannot assume the GIL is
+	// already held there -- bracket it here instead of relying on every
+	// caller to do so correctly (PyGILState_Ensure/Release nest safely, so
+	// this is sound even when the caller already holds the GIL itself).
+	// varnm is declared outside the block so it stays visible to
+	// caller-emitted code that follows (e.g. PyObject_CallObject).
+	//
 	// TODO: more efficient to use strings.Builder here..
-	bstr := fmt.Sprintf("%s := C.PyTuple_New(%d)\n", varnm, sz)
+	bstr := fmt.Sprintf("var %s *C.PyObject\n{\n", varnm)
+	bstr += "_tuple_gstate := C.PyGILState_Ensure()\n"
+	bstr += fmt.Sprintf("%s = C.PyTuple_New(%d)\n", varnm, sz)
 	for i := 0; i < sz; i++ {
 		v := tuple.At(i)
 		typ := v.Type()
@@ -679,6 +690,8 @@ func (sym *symtab) buildTuple(tuple *types.Tuple, varnm string, methvar string) 
 			return "", fmt.Errorf("buildTuple: type not handled: %s", typ.String())
 		}
 	}
+	bstr += "C.PyGILState_Release(_tuple_gstate)\n"
+	bstr += "}\n"
 	return bstr, nil
 }
 

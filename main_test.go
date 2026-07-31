@@ -851,6 +851,64 @@ func TestGilString(t *testing.T) {
 	}
 }
 
+// TestComplexGILStress is a regression/stress test for the complex64/128
+// GIL-handling fix. Comp64Add/Comp128Add marshal a raw *C.PyObject on both
+// sides of the call (PyComplex_AsCComplex on the argument-read side,
+// PyComplex_FromDoubles on the return side); both must run while the GIL is
+// held, since gopy releases it only around the pure-Go call in between. This
+// repeatedly exercises the round trip under GC/allocation pressure from a
+// background thread so a mis-timed marshalling window has a chance to
+// surface as corruption rather than passing silently.
+func TestComplexGILStress(t *testing.T) {
+	backends := []string{"py3"}
+	for _, be := range backends {
+		vm, ok := testBackends[be]
+		if !ok || vm == "" {
+			t.Logf("Skipped testing backend %s for TestComplexGILStress\n", be)
+			continue
+		}
+		t.Run(be, func(t *testing.T) {
+			cwd, _ := os.Getwd()
+
+			workdir, err := os.MkdirTemp("", "gopy-")
+			if err != nil {
+				t.Fatalf("could not create workdir: %v", err)
+			}
+			defer os.RemoveAll(workdir)
+			defer bind.ResetPackages()
+
+			writeGoMod(t, cwd, workdir)
+			if err := run([]string{"build", "-vm=" + vm, "-output=" + workdir, "-package-prefix", "", "./_examples/simple"}); err != nil {
+				t.Fatalf("error building simple: %v", err)
+			}
+
+			tstDst := filepath.Join(workdir, "test_complex_stress.py")
+			if err := copyCmd(filepath.Join(cwd, "_examples/simple/test_complex_stress.py"), tstDst); err != nil {
+				t.Fatalf("error copying test_complex_stress.py: %v", err)
+			}
+
+			env := make([]string, len(testEnvironment))
+			copy(env, testEnvironment)
+			env = append(env, fmt.Sprintf("PYTHONPATH=%s", workdir))
+
+			cmd := exec.Command(vm, "./test_complex_stress.py")
+			cmd.Env = env
+			cmd.Dir = workdir
+			cmd.Stdin = os.Stdin
+			buf, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("error running python module: err=%v\n%s", err, string(buf))
+			}
+
+			got := strings.Replace(string(buf), "\r\n", "\n", -1)
+			want := "OK\n"
+			if got != want {
+				t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+			}
+		})
+	}
+}
+
 func TestPackagePrefix(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/package/mypkg"
