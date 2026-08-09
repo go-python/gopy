@@ -60,6 +60,32 @@ func init() {
 	testEnvironment = append(testEnvironment, "GOFLAGS=-mod=mod")
 }
 
+var pyDocDedentCache = map[string]bool{}
+
+// pyDedentsDocstrings reports whether the python interpreter at vm strips
+// common leading whitespace from docstrings at compile time, a behavior
+// CPython introduced in Python 3.13 (gh-81283). Golden test output that
+// embeds indented docstrings needs to account for this.
+func pyDedentsDocstrings(t *testing.T, vm string) bool {
+	if vm == "" {
+		return false
+	}
+	if v, ok := pyDocDedentCache[vm]; ok {
+		return v
+	}
+	out, err := exec.Command(vm, "-c", "import sys; print(sys.version_info[0], sys.version_info[1])").Output()
+	if err != nil {
+		t.Fatalf("could not determine python version for %q: %v", vm, err)
+	}
+	var major, minor int
+	if _, err := fmt.Sscanf(string(out), "%d %d", &major, &minor); err != nil {
+		t.Fatalf("could not parse python version output %q: %v", string(out), err)
+	}
+	dedents := major > 3 || (major == 3 && minor >= 13)
+	pyDocDedentCache[vm] = dedents
+	return dedents
+}
+
 func TestGovet(t *testing.T) {
 	cmd := exec.Command("go", "vet", "./...")
 	buf := new(bytes.Buffer)
@@ -128,15 +154,19 @@ ignoring python incompatible function: .func github.com/go-python/gopy/_examples
 	}
 }
 
+// hiDocDedent adjusts the golden TestHi output for Python 3.13+, which
+// strips common leading whitespace from docstrings at compile time.
+var hiDocDedent = strings.NewReplacer(
+	"Hi() \n\t\n\tHi prints hi from Go\n\t\n", "Hi() \n\nHi prints hi from Go\n\n",
+	"Hello(str s) \n\t\n\tHello prints a greeting from Go\n\t\n", "Hello(str s) \n\nHello prints a greeting from Go\n\n",
+	"Add(int i, int j) int\n\t\n\tAdd returns the sum of its arguments.\n\t\n", "Add(int i, int j) int\n\nAdd returns the sum of its arguments.\n\n",
+	"Greet() str\n\t\t\n\t\tGreet sends greetings\n\t\t\n", "Greet() str\n\nGreet sends greetings\n\n",
+)
+
 func TestHi(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/hi"
-	testPkg(t, pkg{
-		path:   path,
-		lang:   features[path],
-		cmd:    "build",
-		extras: nil,
-		want: []byte(`hi from go
+	want := `hi from go
 hello you from go
 working...
 worked for 2 hours
@@ -264,7 +294,16 @@ slice repr: go.Slice_int([1, 42])
 len(slice): 2
 mem(slice): caught: memoryview: a bytes-like object is required, not 'Slice_int'
 OK
-`),
+`
+	if pyDedentsDocstrings(t, testBackends["py3"]) {
+		want = hiDocDedent.Replace(want)
+	}
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want:   []byte(want),
 	})
 
 }
@@ -445,15 +484,19 @@ OK
 	})
 }
 
+// varsDocDedent adjusts the golden TestBindVars output for Python 3.13+,
+// which strips common leading whitespace from docstrings at compile time.
+var varsDocDedent = strings.NewReplacer(
+	`'\n\tV1 Gets Go Variable: vars.V1\n\t\n\t'`, `'\nV1 Gets Go Variable: vars.V1\n\n'`,
+	`'\n\tSet_V1 Sets Go Variable: vars.V1\n\t\n\t'`, `'\nSet_V1 Sets Go Variable: vars.V1\n\n'`,
+	`'\n\tDoc Gets Go Variable: vars.Doc\n\tDoc is a top-level string with some documentation attached.\n\t\n\t'`, `'\nDoc Gets Go Variable: vars.Doc\nDoc is a top-level string with some documentation attached.\n\n'`,
+	`'\n\tSet_Doc Sets Go Variable: vars.Doc\n\tDoc is a top-level string with some documentation attached.\n\t\n\t'`, `'\nSet_Doc Sets Go Variable: vars.Doc\nDoc is a top-level string with some documentation attached.\n\n'`,
+)
+
 func TestBindVars(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/vars"
-	testPkg(t, pkg{
-		path:   path,
-		lang:   features[path],
-		cmd:    "build",
-		extras: nil,
-		want: []byte(`doc(vars):
+	want := `doc(vars):
 None
 doc(vars.V1()):
 '\n\tV1 Gets Go Variable: vars.V1\n\t\n\t'
@@ -483,7 +526,16 @@ vars.Doc() = 'A variable with some documentation'
 doc of vars.Doc = '\n\tDoc Gets Go Variable: vars.Doc\n\tDoc is a top-level string with some documentation attached.\n\t\n\t'
 doc of vars.Set_Doc = '\n\tSet_Doc Sets Go Variable: vars.Doc\n\tDoc is a top-level string with some documentation attached.\n\t\n\t'
 OK
-`),
+`
+	if pyDedentsDocstrings(t, testBackends["py3"]) {
+		want = varsDocDedent.Replace(want)
+	}
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want:   []byte(want),
 	})
 }
 
@@ -666,18 +718,22 @@ OK
 func TestBindRename(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/rename"
-	testPkg(t, pkg{
-		path:   path,
-		lang:   features[path],
-		cmd:    "build",
-		extras: []string{"-rename"},
-		want: []byte(`say_hi_fn(): hi
+	want := `say_hi_fn(): hi
 MyStruct().say_something(): something
 MyStruct.auto_renamed_property.__doc__: I should be renamed to auto_renamed_property
 		when generated with -rename flag
 MyStruct.custom_name.__doc__: I should be renamed to custom_name with the custom option
 OK
-`),
+`
+	if pyDedentsDocstrings(t, testBackends["py3"]) {
+		want = strings.Replace(want, "\t\twhen generated with -rename flag", "when generated with -rename flag", 1)
+	}
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: []string{"-rename"},
+		want:   []byte(want),
 	})
 }
 
