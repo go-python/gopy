@@ -25,7 +25,7 @@ jobs:
         # TODO: Consider official support matrix (OS and Go versions) and adjust this matrix accordingly
         go-version: [1.25.x, 1.24.x, 1.23.x, 1.22.x]
         platform: [ubuntu-latest, windows-latest, macos-15]
-        python-version: ['3.11', '3.12']
+        python-version: ['3.11', '3.12', '3.13', '3.14']
     runs-on: ${{ matrix.platform }}
     steps:
     - name: Checkout code
