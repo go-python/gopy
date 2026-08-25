@@ -7,7 +7,7 @@
 package main
 
 var (
-	Version     = "v0.4.10" // x-release-please-version
+	Version     = "v0.5.0" // x-release-please-version
 	GitCommit   = "unknown"
 	VersionDate = "unknown"
 )
