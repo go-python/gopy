@@ -1,0 +1,51 @@
+version: 2
+project_name: gopy
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: gopy
+    main: .
+    binary: gopy
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X main.GitCommit={{ .ShortCommit }}
+      - -X 'main.VersionDate={{ .CommitDate }} UTC'
+
+archives:
+  - id: gopy
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^Merge pull request"
+
+release:
+  github:
+    owner: go-python
+    name: gopy
+  # release-please already created the GitHub Release for this tag (with its
+  # own changelog-derived notes); keep those notes as-is and just attach
+  # the built archives/checksums to it.
+  mode: keep-existing
+  prerelease: auto
+  name_template: "{{ .Tag }}"

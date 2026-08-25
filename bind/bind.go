@@ -28,6 +28,9 @@ type BindCfg struct {
 	PkgPrefix string
 	// rename Go exported symbols to python PEP snake_case
 	RenameCase bool
+	// gopy version string embedded in this binary, stamped into generated
+	// file headers so output can be traced back to the release that produced it
+	Version string
 }
 
 // ErrorList is a list of errors

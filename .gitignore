@@ -1,3 +1,6 @@
 # IDE files
 .idea/
 *.iml
+
+# goreleaser build output
+/dist/
