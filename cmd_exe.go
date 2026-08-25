@@ -44,7 +44,7 @@ ex:
 	cmd.Flag.String("output", "", "output directory for root of package")
 	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
 	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library "+
-		"-- defaults to GoPyMainRun() but typically should be overriden")
+		"-- defaults to GoPyMainRun() but typically should be overridden")
 	// cmd.Flag.String("package-prefix", ".", "custom package prefix used when generating import "+
 	// 	"statements for generated package")
 	cmd.Flag.Bool("rename", false, "rename Go symbols to python PEP snake_case")
