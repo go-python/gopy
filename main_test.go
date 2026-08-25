@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -148,7 +149,11 @@ func TestVersionLdflags(t *testing.T) {
 	}
 	defer os.RemoveAll(workdir)
 
-	binPath := filepath.Join(workdir, "gopy-versioned")
+	binName := "gopy-versioned"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	binPath := filepath.Join(workdir, binName)
 	const (
 		wantCommit = "deadbeef"
 		wantDate   = "2026-01-02 03:04 UTC"
