@@ -719,6 +719,7 @@ maps.Values from Go map: go.Slice_float64 len: 2 handle: 4 [3.0, 5.0]
 maps.Keys from Python dictionary: go.Slice_int len: 2 handle: 6 [1, 2]
 maps.Values from Python dictionary: go.Slice_float64 len: 2 handle: 8 [3.0, 5.0]
 deleted 1 from a: maps.Map_int_float64 len: 1 handle: 1 {2=5.0, }
+maps.StringInterfaceMap()["id"]: 1
 OK
 `),
 	})
