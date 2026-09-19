@@ -63,6 +63,9 @@ func genOutDir(odir string) (string, error) {
 // mode = gen, build, pkg, exe
 func genPkg(mode bind.BuildMode, cfg *BuildCfg) error {
 	var err error
+	if _, err = bind.BackendFromEnv(); err != nil {
+		return err
+	}
 	cfg.OutputDir, err = genOutDir(cfg.OutputDir)
 	if err != nil {
 		return err
