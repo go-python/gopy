@@ -109,6 +109,8 @@ jobs:
     runs-on: ${{ matrix.platform }}
     env:
       GOPY_BACKEND: cffi
+      # print the python stack if the process crashes, e.g. at exit
+      PYTHONFAULTHANDLER: 1
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
