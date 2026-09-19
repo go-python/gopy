@@ -63,8 +63,11 @@ func genOutDir(odir string) (string, error) {
 // mode = gen, build, pkg, exe
 func genPkg(mode bind.BuildMode, cfg *BuildCfg) error {
 	var err error
-	if _, err = bind.BackendFromEnv(); err != nil {
+	if cfg.Backend, err = bind.BackendFromEnv(); err != nil {
 		return err
+	}
+	if cfg.Backend == bind.BackendCFFI && (mode == bind.ModePkg || mode == bind.ModeExe) {
+		return fmt.Errorf("gopy: %s=%s only supports gopy gen and gopy build", bind.BackendEnvVar, cfg.Backend)
 	}
 	cfg.OutputDir, err = genOutDir(cfg.OutputDir)
 	if err != nil {

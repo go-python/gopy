@@ -611,12 +611,12 @@ func (g *pyGen) genPre() {
 	g.gofile = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
 	g.leakfile = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
 	g.pybuild = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
-	if !NoMake {
+	if g.wantMakefile() {
 		g.makefile = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
 	}
 	g.genGoPreamble()
 	g.genPyBuildPreamble()
-	if !NoMake {
+	if g.wantMakefile() {
 		g.genMakefile()
 	}
 	oinit, err := os.Create(filepath.Join(g.cfg.OutputDir, "__init__.py"))
@@ -635,11 +635,15 @@ func (g *pyGen) genPrintOut(outfn string, pr *printer) {
 }
 
 func (g *pyGen) genOut() {
-	g.pybuild.Printf("\nmod.generate(open('%v.c', 'w'))\n\n", g.cfg.Name)
+	if g.isCFFI() {
+		g.pybuild.Printf("\nmod.generate()\n\n")
+	} else {
+		g.pybuild.Printf("\nmod.generate(open('%v.c', 'w'))\n\n", g.cfg.Name)
+	}
 	g.gofile.Printf("\n\n")
 	g.genPrintOut(g.cfg.Name+".go", g.gofile)
 	g.genPrintOut("build.py", g.pybuild)
-	if !NoMake {
+	if g.wantMakefile() {
 		g.makefile.Printf("\n\n")
 		g.genPrintOut("Makefile", g.makefile)
 	}
@@ -681,6 +685,12 @@ func (g *pyGen) genPkg(p *Package) {
 	g.pkg = nil
 }
 
+// wantMakefile reports whether to write a Makefile, which only knows how to
+// build the default backend.
+func (g *pyGen) wantMakefile() bool {
+	return !NoMake && !g.isCFFI()
+}
+
 func (g *pyGen) genGoPreamble() {
 	pkgimport := ""
 	for pp, pnm := range current.imports {
@@ -690,6 +700,12 @@ func (g *pyGen) genGoPreamble() {
 		} else {
 			pkgimport += fmt.Sprintf("\n\t%q", pp)
 		}
+	}
+	if g.isCFFI() {
+		g.gofile.Printf(goPreambleCFFI, g.cfg.Name, g.cfg.Cmd, "", GoHandle, CGoHandle,
+			pkgimport, g.cfg.Main, "", "", g.cfg.Version)
+		g.gofile.Printf("\n// --- generated code for package: %[1]s below: ---\n\n", g.cfg.Name)
+		return
 	}
 	libcfg := func() string {
 		pycfg, err := GetPythonConfig(g.cfg.VM)
@@ -727,6 +743,10 @@ func (g *pyGen) genGoPreamble() {
 }
 
 func (g *pyGen) genPyBuildPreamble() {
+	if g.isCFFI() {
+		g.pybuild.Printf("%s", g.cffiBuildPreamble())
+		return
+	}
 	g.pybuild.Printf(PyBuildPreamble, g.cfg.Name, g.cfg.Cmd, g.cfg.Version)
 }
 

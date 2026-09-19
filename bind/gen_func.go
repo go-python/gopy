@@ -261,9 +261,12 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 		}
 	}
 
-	g.gofile.Printf("_saved_thread := C.PyEval_SaveThread()\n")
-	if !rvIsErr && nres != 2 {
-		g.gofile.Printf("defer C.PyEval_RestoreThread(_saved_thread)\n")
+	// cffi releases the GIL itself around every call
+	if !g.isCFFI() {
+		g.gofile.Printf("_saved_thread := C.PyEval_SaveThread()\n")
+		if !rvIsErr && nres != 2 {
+			g.gofile.Printf("defer C.PyEval_RestoreThread(_saved_thread)\n")
+		}
 	}
 
 	if isMethod {
@@ -424,12 +427,18 @@ if __err != nil {
 
 	if rvIsErr || nres == 2 {
 		g.gofile.Printf("\n")
-		g.gofile.Printf("C.PyEval_RestoreThread(_saved_thread)\n")
+		if !g.isCFFI() {
+			g.gofile.Printf("C.PyEval_RestoreThread(_saved_thread)\n")
+		}
 
 		g.gofile.Printf("if __err != nil {\n")
 		g.gofile.Indent()
 		g.gofile.Printf("estr := C.CString(__err.Error())\n")
-		g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, estr)\n")
+		if g.isCFFI() {
+			g.gofile.Printf("%s", g.goSetError("RuntimeError", "__err.Error()"))
+		} else {
+			g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, estr)\n")
+		}
 		if rvIsErr {
 			g.gofile.Printf("return estr\n") // NOTE: leaked string
 		} else {

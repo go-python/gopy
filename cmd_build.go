@@ -123,6 +123,10 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		return err
 	}
 
+	if cfg.Backend == bind.BackendCFFI {
+		return buildCFFI(cfg, buildname+libExt)
+	}
+
 	pycfg, err := bind.GetPythonConfig(cfg.VM)
 
 	if mode == bind.ModeExe {
@@ -331,5 +335,32 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		}
 	}
 
+	return err
+}
+
+// buildCFFI builds the cgo shim as a plain shared library, and then runs
+// build.py to write the cffi module that loads it.  The current directory
+// is the output directory.
+func buildCFFI(cfg *BuildCfg, buildLib string) error {
+	args := []string{"build", "-mod=mod", "-buildmode=c-shared"}
+	if cfg.BuildTags != "" {
+		args = append(args, "-tags", cfg.BuildTags)
+	}
+	if !cfg.Symbols {
+		args = append(args, "-ldflags=-s -w")
+	}
+	args = append(args, "-o", buildLib, ".")
+	fmt.Printf("go %v\n", strings.Join(args, " "))
+	cmdout, err := exec.Command("go", args...).CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+		return err
+	}
+
+	fmt.Printf("%v build.py\n", cfg.VM)
+	cmdout, err = exec.Command(cfg.VM, "build.py").CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+	}
 	return err
 }
