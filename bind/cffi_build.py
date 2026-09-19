@@ -32,15 +32,24 @@ class Module(object):
         self.header = inc.strip('"')
 
     def add_function(self, name, ret, params, *a, **kw):
-        self.funcs.append((name, ret, params))
+        self.funcs.append(("plain", name, ret, params))
+
+    def add_complex_function(self, name, nargs):
+        # see genFuncComplexCFFI (gen_func.go) for the calling convention.
+        self.funcs.append(("complex", name, nargs))
 
     def generate(self):
         here = os.path.dirname(os.path.abspath(__file__))
         with open(os.path.join(here, self.header)) as f:
             typedefs, cdefs = go_decls(f.read())
         out = [MODULE_HEAD.replace("@CDEFS@", repr("\n".join(typedefs + list(cdefs.values()))))]
-        for name, ret, params in self.funcs:
-            out.append(wrapper(name, ret, params, name in cdefs))
+        for entry in self.funcs:
+            if entry[0] == "complex":
+                _, name, nargs = entry
+                out.append(complex_wrapper(name, nargs, name in cdefs))
+            else:
+                _, name, ret, params = entry
+                out.append(wrapper(name, ret, params, name in cdefs))
         # Slice_byte's converters exchange a raw pointer+length instead of a
         # PyObject* (see gen_slice.go); they are recognized by name here
         # rather than recorded via add_function, since their python bodies
@@ -59,20 +68,44 @@ add_checked_string_function = add_checked_function
 
 
 def go_decls(header):
-    """Returns the Go typedefs, and {function name: cdef line} for the functions cgo exports."""
+    """Returns the Go typedefs (plus any "struct X { ... };" body -- cgo emits
+    one ahead of a multi-value-returning export, see genFuncComplexCFFI in
+    gen_func.go), and {function name: cdef line} for the functions cgo exports.
+    """
     typedefs = []
     decls = {}
     ffi = cffi.FFI()
-    for line in header.split("\n"):
+    lines = header.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        m = re.match(r"struct (\w+) \{$", line)
+        if m:
+            block = [line]
+            i += 1
+            while i < len(lines) and lines[i] != "};":
+                block.append(lines[i])
+                i += 1
+            block.append("};")
+            i += 1
+            decl = "\n".join(block)
+            try:
+                ffi.cdef(decl)
+                typedefs.append(decl)
+            except Exception as err:
+                print("gopy: cffi cannot declare struct %s: %s" % (m.group(1), err), file=sys.stderr)
+            continue
         if re.match(r"typedef [\w ]+ Go\w+;$", line):
             try:
                 ffi.cdef(line)
                 typedefs.append(line)
             except Exception:
                 pass  # e.g. GoComplex64: not used by exports
+            i += 1
             continue
         m = re.match(r"extern (.*?(\w+)\(.*\));$", line.replace("__declspec(dllexport) ", ""))
         if not m or "_GoString_" in line:
+            i += 1
             continue
         # cffi takes a plain char as a byte string only; the integer kinds
         # (bool, int8, byte) are passed as ints, with the same C ABI.
@@ -81,8 +114,10 @@ def go_decls(header):
             ffi.cdef(decl)
         except Exception as err:
             print("gopy: cffi cannot declare %s: %s" % (m.group(2), err), file=sys.stderr)
+            i += 1
             continue
         decls[m.group(2)] = decl
+        i += 1
     return typedefs, decls
 
 
@@ -117,6 +152,28 @@ def wrapper(name, ret, params, exported):
     if ret is not None:
         body.append("    return _r")
     return "\n".join(body) + "\n"
+
+
+def complex_wrapper(name, nargs, exported):
+    """A plain function whose every argument and return value is
+    complex64/128 (see genFuncComplexCFFI, gen_func.go): each argument
+    crosses as two floats (.real, .imag), and the return value comes back
+    as the {r0, r1} struct cgo generates for a two-value Go return.
+    """
+    if not exported:
+        return (
+            "def %s(*args):\n"
+            "    raise NotImplementedError('%s is not available with the cffi backend')\n" % (name, name)
+        )
+    names = ["c%d" % i for i in range(nargs)]
+    sig = ", ".join(names)
+    callargs = ", ".join("%s.real, %s.imag" % (n, n) for n in names)
+    return (
+        "def %s(%s):\n"
+        "    _r = _lib.%s(%s)\n"
+        "    _check()\n"
+        "    return complex(_r.r0, _r.r1)\n" % (name, sig, name, callargs)
+    )
 
 
 MODULE_HEAD = '''# python bindings for package @NAME@ using cffi.
