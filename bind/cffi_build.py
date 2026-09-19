@@ -41,6 +41,12 @@ class Module(object):
         out = [MODULE_HEAD.replace("@CDEFS@", repr("\n".join(typedefs + list(cdefs.values()))))]
         for name, ret, params in self.funcs:
             out.append(wrapper(name, ret, params, name in cdefs))
+        # Slice_byte's converters exchange a raw pointer+length instead of a
+        # PyObject* (see gen_slice.go); they are recognized by name here
+        # rather than recorded via add_function, since their python bodies
+        # aren't derived from a plain C signature.
+        if "Slice_byte_from_bytes" in cdefs and "Slice_byte_to_bytes_ptr" in cdefs:
+            out.append(BYTES_FUNCS)
         with open(os.path.join(here, self.name + ".py"), "w") as f:
             f.write("\n".join(out))
 
@@ -159,6 +165,28 @@ def _check():
         kind, _, msg = _dec(e).partition(":")
         raise getattr(builtins, kind, RuntimeError)(msg)
 
+'''
+
+BYTES_FUNCS = '''
+def Slice_byte_from_bytes(b):
+    if not isinstance(b, (bytes, bytearray)):
+        raise TypeError("argument 1 must be bytes, not %s" % type(b).__name__)
+    _r = _lib.Slice_byte_from_bytes(_ffi.from_buffer(b), len(b))
+    _check()
+    return _r
+
+
+def Slice_byte_to_bytes(handle):
+    n = _lib.Slice_byte_to_bytes_len(handle)
+    _check()
+    if n == 0:
+        return b""
+    ptr = _lib.Slice_byte_to_bytes_ptr(handle)
+    _check()
+    try:
+        return bytes(_ffi.buffer(ptr, n))
+    finally:
+        _lib.Slice_byte_free_ptr(ptr)
 '''
 
 mod = Module('_@NAME@')

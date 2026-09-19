@@ -67,6 +67,23 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		return false
 	}
 
+	// cffi has no way to cross a raw PyObject* (complex64/128, and Python
+	// callback arguments -- see isSignature() below): skip these functions
+	// rather than emit a signature that references the CPython C API, which
+	// would fail to even compile under the cffi preamble.
+	if g.isCFFI() {
+		for _, arg := range args {
+			if sarg := current.symtype(arg.GoType()); sarg != nil && sarg.cpyname == "PyObject*" {
+				return false
+			}
+		}
+		for _, ret := range res {
+			if sret := current.symtype(ret.GoType()); sret != nil && sret.cpyname == "PyObject*" {
+				return false
+			}
+		}
+	}
+
 	var (
 		goArgs []string
 		pyArgs []string
