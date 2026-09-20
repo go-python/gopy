@@ -136,10 +136,8 @@ jobs:
     - name: Build
       run: go build -v ./...
 
-    # The skipped tests use features the cffi backend does not support yet:
-    # Python callbacks that take an interface{} or return a value
-    # (TestBindFuncs; see cffi_callback.go for the ones that work), and complex
-    # numbers as a slice element rather than a plain function arg/return
-    # (TestBuiltinSlices; see genFuncComplexCFFI in gen_func.go for the case that works).
+    # The skipped test uses a feature the cffi backend does not support yet:
+    # complex numbers as a slice element rather than a plain function
+    # arg/return (see genFuncComplexCFFI in gen_func.go for the case that works).
     - name: Test
-      run: go test -v -skip '^(TestBindFuncs|TestBuiltinSlices)$' ./...
+      run: go test -v -skip '^TestBuiltinSlices$' ./...

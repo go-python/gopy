@@ -9,6 +9,7 @@ package callbacks
 import (
 	"fmt"
 	"sync"
+	"time"
 )
 
 // Each calls fun for i in 0..n-1, with a label made from i.
@@ -30,6 +31,49 @@ func Twice(fun func()) {
 	fun()
 }
 
+// Describe calls fun with a string and a fmt.Stringer, as interface{} values.
+// They arrive as strings, made by fmt.Sprintf("%s", v).
+func Describe(fun func(v interface{})) {
+	fun("a string")
+	fun(1500 * time.Millisecond)
+}
+
+// Count returns how many of 0..n-1 keep says yes to.
+func Count(n int, keep func(i int) bool) int {
+	total := 0
+	for i := 0; i < n; i++ {
+		if keep(i) {
+			total++
+		}
+	}
+	return total
+}
+
+// Sum adds up what val returns for 0..n-1.
+func Sum(n int, val func(i int) int) int {
+	total := 0
+	for i := 0; i < n; i++ {
+		total += val(i)
+	}
+	return total
+}
+
+// Widest returns the largest of what size returns for 0..n-1.
+func Widest(n int, size func(i int) uint) uint {
+	var widest uint
+	for i := 0; i < n; i++ {
+		if w := size(i); w > widest {
+			widest = w
+		}
+	}
+	return widest
+}
+
+// Apply returns f(x).
+func Apply(x float64, f func(x float64) float64) float64 {
+	return f(x)
+}
+
 // Counter counts how many times it has been visited.
 type Counter struct {
 	N int
@@ -41,6 +85,11 @@ func (c *Counter) Visit(times int, fun func(c *Counter, n int)) {
 		c.N++
 		fun(c, c.N)
 	}
+}
+
+// Check calls fun with the counter itself, and reports what it answered.
+func (c *Counter) Check(fun func(c *Counter, n int) bool) bool {
+	return fun(c, c.N)
 }
 
 // InGoroutine calls fun from another goroutine, and waits for it.

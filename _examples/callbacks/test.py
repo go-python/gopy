@@ -31,6 +31,24 @@ def visit(handle, n):
 c.Visit(2, visit)
 print("counter:", c.N)
 
+print("--- Describe: an interface{} arrives as a string")
+callbacks.Describe(lambda v: print("describe:", repr(v)))
+
+print("--- Count: a bool result")
+print("count:", callbacks.Count(10, lambda i: i % 3 == 0))
+
+print("--- Sum: an int result")
+print("sum:", callbacks.Sum(5, lambda i: i * i))
+
+print("--- Widest: a uint result")
+print("widest:", callbacks.Widest(4, lambda i: i * 10))
+
+print("--- Apply: a float result")
+print("apply:", callbacks.Apply(1.5, lambda x: x * 2))
+
+print("--- Counter.Check: a handle argument and a bool result")
+print("check:", c.Check(lambda handle, n: callbacks.Counter(handle=handle).N == n))
+
 print("--- a bound method")
 
 class Box(object):

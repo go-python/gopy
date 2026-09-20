@@ -160,13 +160,16 @@ def wrapper(name, ret, params, exported):
 
 def callback_setup(pname, ctype, argn):
     """Returns the python source that wraps the callable pname in an
-    ffi.callback, for the C signature in ctype ("callback:void(int64_t,char*)",
-    see cffi_callback.go).  The wrapper passes it on to Go as _cb_<pname>,
-    which is kept referenced by this local variable until the Go call
-    returns: cffi frees a callback as soon as nothing refers to it.
+    ffi.callback, for the C signature in ctype
+    ("callback:<result or void>(<parameter types>)", see cffi_callback.go).
+    The wrapper passes it on to Go as _cb_<pname>, which is kept referenced by
+    this local variable until the Go call returns: cffi frees a callback as
+    soon as nothing refers to it.
+
+    If the callable raises, cffi prints the traceback and returns 0 to Go.
     """
-    cargs = ctype[len("callback:void("):-1]
-    ctypes = cargs.split(",") if cargs else []
+    ret, _, rest = ctype[len("callback:"):].partition("(")
+    ctypes = [t for t in rest[:-1].split(",") if t]
     names = ["a%d" % i for i in range(len(ctypes))]
     conv = []
     for n, t in zip(names, ctypes):
@@ -176,12 +179,23 @@ def callback_setup(pname, ctype, argn):
             conv.append("bool(%s)" % n)
         else:
             conv.append(n)
-    cdecl = "void(%s)" % ", ".join("unsigned char" if t == "bool" else t for t in ctypes)
+    call = "%s(%s)" % (pname, ", ".join(conv))
+    if ret == "void":
+        body = call
+    elif ret == "bool":
+        body = "return 1 if %s else 0" % call
+    else:
+        body = "return %s" % call
+
+    def cdecl_type(t):
+        return "unsigned char" if t == "bool" else t
+
+    cdecl = "%s(%s)" % (cdecl_type(ret), ", ".join(cdecl_type(t) for t in ctypes))
     return "\n".join([
         "    if not callable(%s):" % pname,
         "        raise TypeError('argument %d must be callable, not %%s' %% type(%s).__name__)" % (argn, pname),
         "    def _cbfn_%s(%s):" % (pname, ", ".join(names)),
-        "        %s(%s)" % (pname, ", ".join(conv)),
+        "        %s" % body,
         "    _cb_%s = _ffi.callback(%r, _cbfn_%s)" % (pname, cdecl, pname),
     ])
 

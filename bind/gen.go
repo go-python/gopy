@@ -608,7 +608,7 @@ type pyGen struct {
 	extraGccArgs string
 	lang         int // c-python api version (2,3)
 	dynamicLink  bool
-	cbSigs       []string // cffi: the callback types that have a C trampoline, see cffi_callback.go
+	cbs          []*cffiCallback // cffi: the callback types that have a C trampoline, see cffi_callback.go
 }
 
 func (g *pyGen) gen() error {

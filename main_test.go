@@ -414,6 +414,19 @@ twice: 2
 visit: 1 1
 visit: 2 2
 counter: 2
+--- Describe: an interface{} arrives as a string
+describe: 'a string'
+describe: '1.5s'
+--- Count: a bool result
+count: 4
+--- Sum: an int result
+sum: 30
+--- Widest: a uint result
+widest: 30
+--- Apply: a float result
+apply: 3.0
+--- Counter.Check: a handle argument and a bool result
+check: True
 --- a bound method
 box: [(0, 'item-0'), (1, 'item-1')]
 --- called from another goroutine
