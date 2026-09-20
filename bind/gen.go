@@ -608,6 +608,7 @@ type pyGen struct {
 	extraGccArgs string
 	lang         int // c-python api version (2,3)
 	dynamicLink  bool
+	cbSigs       []string // cffi: the callback types that have a C trampoline, see cffi_callback.go
 }
 
 func (g *pyGen) gen() error {
@@ -670,6 +671,7 @@ func (g *pyGen) genOut() {
 		g.pybuild.Printf("\nmod.generate(open('%v.c', 'w'))\n\n", g.cfg.Name)
 	}
 	g.gofile.Printf("\n\n")
+	g.spliceCFFITrampolines()
 	g.genPrintOut(g.cfg.Name+".go", g.gofile)
 	g.genPrintOut("build.py", g.pybuild)
 	if g.wantMakefile() {
@@ -731,7 +733,7 @@ func (g *pyGen) genGoPreamble() {
 	}
 	if g.isCFFI() {
 		g.gofile.Printf(goPreambleCFFI, g.cfg.Name, g.cfg.Cmd, "", GoHandle, CGoHandle,
-			pkgimport, g.cfg.Main, "", "", g.cfg.Version)
+			pkgimport, g.cfg.Main, cffiTrampolinesKey, "", g.cfg.Version)
 		g.gofile.Printf("\n// --- generated code for package: %[1]s below: ---\n\n", g.cfg.Name)
 		return
 	}

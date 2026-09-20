@@ -130,8 +130,12 @@ def wrapper(name, ret, params, exported):
             "    raise NotImplementedError('%s is not available with the cffi backend')\n" % (name, name)
         )
     args = []
+    setup = []
     for i, (ctype, pname) in enumerate(params):
-        if ctype == "char*":
+        if ctype.startswith("callback:"):
+            setup.append(callback_setup(pname, ctype, i + 1))
+            args.append("_ffi.cast('void*', _cb_%s)" % pname)
+        elif ctype == "char*":
             args.append("_enc(%s, %d)" % (pname, i + 1))
         elif ctype == "bool":
             args.append("(1 if %s else 0)" % pname)
@@ -141,7 +145,7 @@ def wrapper(name, ret, params, exported):
             args.append("_index(%s)" % pname)
         else:
             args.append(pname)
-    body = ["def %s(%s):" % (name, sig), "    _r = _lib.%s(%s)" % (name, ", ".join(args))]
+    body = ["def %s(%s):" % (name, sig)] + setup + ["    _r = _lib.%s(%s)" % (name, ", ".join(args))]
     if ret == "char*":
         body.append("    _r = _dec(_r)")
     elif ret == "bool":
@@ -152,6 +156,34 @@ def wrapper(name, ret, params, exported):
     if ret is not None:
         body.append("    return _r")
     return "\n".join(body) + "\n"
+
+
+def callback_setup(pname, ctype, argn):
+    """Returns the python source that wraps the callable pname in an
+    ffi.callback, for the C signature in ctype ("callback:void(int64_t,char*)",
+    see cffi_callback.go).  The wrapper passes it on to Go as _cb_<pname>,
+    which is kept referenced by this local variable until the Go call
+    returns: cffi frees a callback as soon as nothing refers to it.
+    """
+    cargs = ctype[len("callback:void("):-1]
+    ctypes = cargs.split(",") if cargs else []
+    names = ["a%d" % i for i in range(len(ctypes))]
+    conv = []
+    for n, t in zip(names, ctypes):
+        if t == "char*":
+            conv.append('_ffi.string(%s).decode("utf-8")' % n)
+        elif t == "bool":
+            conv.append("bool(%s)" % n)
+        else:
+            conv.append(n)
+    cdecl = "void(%s)" % ", ".join("unsigned char" if t == "bool" else t for t in ctypes)
+    return "\n".join([
+        "    if not callable(%s):" % pname,
+        "        raise TypeError('argument %d must be callable, not %%s' %% type(%s).__name__)" % (argn, pname),
+        "    def _cbfn_%s(%s):" % (pname, ", ".join(names)),
+        "        %s(%s)" % (pname, ", ".join(conv)),
+        "    _cb_%s = _ffi.callback(%r, _cbfn_%s)" % (pname, cdecl, pname),
+    ])
 
 
 def complex_wrapper(name, nargs, exported):

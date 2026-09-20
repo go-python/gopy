@@ -67,13 +67,20 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		return false
 	}
 
-	// cffi has no way to cross a raw PyObject* (complex64/128, and Python
-	// callback arguments -- see isSignature() below): skip these functions
+	// cffi has no way to cross a raw PyObject* (complex64/128, and callback
+	// arguments of a type cffiCallback doesn't support): skip these functions
 	// rather than emit a signature that references the CPython C API, which
 	// would fail to even compile under the cffi preamble.
 	if g.isCFFI() {
 		for _, arg := range args {
-			if sarg := current.symtype(arg.GoType()); sarg != nil && sarg.cpyname == "PyObject*" {
+			sarg := current.symtype(arg.GoType())
+			switch {
+			case sarg == nil:
+			case sarg.isSignature():
+				if g.cffiCallback(sarg) == nil {
+					return false
+				}
+			case sarg.cpyname == "PyObject*":
 				return false
 			}
 		}
@@ -105,10 +112,14 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		}
 		anm := pySafeArg(arg.Name(), i)
 
-		if ifchandle && arg.sym.goname == "interface{}" {
+		switch {
+		case g.isCFFI() && sarg.isSignature():
+			goArgs = append(goArgs, fmt.Sprintf("%s unsafe.Pointer", anm))
+			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", g.cffiCallback(sarg).pyType(), anm))
+		case ifchandle && arg.sym.goname == "interface{}":
 			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, CGoHandle))
 			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", PyHandle, anm))
-		} else {
+		default:
 			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, sarg.cgoname))
 			if sarg.cpyname == "PyObject*" {
 				pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s', transfer_ownership=False)", sarg.cpyname, anm))
@@ -355,7 +366,10 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	g.gofile.Indent()
 	if fsym.hasfun {
 		for i, arg := range args {
-			if arg.sym.isSignature() {
+			switch {
+			case arg.sym.isSignature() && g.isCFFI():
+				g.gofile.Printf("%s", cffiCallbackPrologue(pySafeArg(arg.Name(), i)))
+			case arg.sym.isSignature():
 				g.gofile.Printf("_fun_arg := %s\n", pySafeArg(arg.Name(), i))
 			}
 		}
@@ -405,6 +419,8 @@ if __err != nil {
 		switch {
 		case ifchandle && arg.sym.goname == "interface{}":
 			na = fmt.Sprintf(`gopyh.VarFromHandle((gopyh.CGoHandle)(%s), "interface{}")`, anm)
+		case arg.sym.isSignature() && g.isCFFI():
+			na = g.cffiCallbackLit(g.cffiCallback(arg.sym), anm)
 		case arg.sym.isSignature():
 			na = fmt.Sprintf("%s", arg.sym.py2go)
 		case arg.sym.py2go != "":
