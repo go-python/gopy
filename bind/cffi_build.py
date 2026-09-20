@@ -32,24 +32,15 @@ class Module(object):
         self.header = inc.strip('"')
 
     def add_function(self, name, ret, params, *a, **kw):
-        self.funcs.append(("plain", name, ret, params))
-
-    def add_complex_function(self, name, nargs):
-        # see genFuncComplexCFFI (gen_func.go) for the calling convention.
-        self.funcs.append(("complex", name, nargs))
+        self.funcs.append((name, ret, params))
 
     def generate(self):
         here = os.path.dirname(os.path.abspath(__file__))
         with open(os.path.join(here, self.header)) as f:
             typedefs, cdefs = go_decls(f.read())
         out = [MODULE_HEAD.replace("@CDEFS@", repr("\n".join(typedefs + list(cdefs.values()))))]
-        for entry in self.funcs:
-            if entry[0] == "complex":
-                _, name, nargs = entry
-                out.append(complex_wrapper(name, nargs, name in cdefs))
-            else:
-                _, name, ret, params = entry
-                out.append(wrapper(name, ret, params, name in cdefs))
+        for name, ret, params in self.funcs:
+            out.append(wrapper(name, ret, params, name in cdefs))
         # Slice_byte's converters exchange a raw pointer+length instead of a
         # PyObject* (see gen_slice.go); they are recognized by name here
         # rather than recorded via add_function, since their python bodies
@@ -69,8 +60,9 @@ add_checked_string_function = add_checked_function
 
 def go_decls(header):
     """Returns the Go typedefs (plus any "struct X { ... };" body -- cgo emits
-    one ahead of a multi-value-returning export, see genFuncComplexCFFI in
-    gen_func.go), and {function name: cdef line} for the functions cgo exports.
+    one ahead of an export that returns two values, which is how a complex
+    number is returned, see isCFFIComplex in cffi.go), and {function name:
+    cdef line} for the functions cgo exports.
     """
     typedefs = []
     decls = {}
@@ -137,6 +129,8 @@ def wrapper(name, ret, params, exported):
             args.append("_ffi.cast('void*', _cb_%s)" % pname)
         elif ctype == "char*":
             args.append("_enc(%s, %d)" % (pname, i + 1))
+        elif ctype in ("complex64", "complex128"):
+            args.append("%s.real, %s.imag" % (pname, pname))
         elif ctype == "bool":
             args.append("(1 if %s else 0)" % pname)
         elif ctype == "uint8_t":
@@ -152,6 +146,8 @@ def wrapper(name, ret, params, exported):
         body.append("    _r = bool(_r)")
     elif ret == "uint8_t":
         body.append("    _r = _r & 0xFF")
+    elif ret in ("complex64", "complex128"):
+        body.append("    _r = complex(_r.r0, _r.r1)")
     body.append("    _check()")
     if ret is not None:
         body.append("    return _r")
@@ -198,28 +194,6 @@ def callback_setup(pname, ctype, argn):
         "        %s" % body,
         "    _cb_%s = _ffi.callback(%r, _cbfn_%s)" % (pname, cdecl, pname),
     ])
-
-
-def complex_wrapper(name, nargs, exported):
-    """A plain function whose every argument and return value is
-    complex64/128 (see genFuncComplexCFFI, gen_func.go): each argument
-    crosses as two floats (.real, .imag), and the return value comes back
-    as the {r0, r1} struct cgo generates for a two-value Go return.
-    """
-    if not exported:
-        return (
-            "def %s(*args):\n"
-            "    raise NotImplementedError('%s is not available with the cffi backend')\n" % (name, name)
-        )
-    names = ["c%d" % i for i in range(nargs)]
-    sig = ", ".join(names)
-    callargs = ", ".join("%s.real, %s.imag" % (n, n) for n in names)
-    return (
-        "def %s(%s):\n"
-        "    _r = _lib.%s(%s)\n"
-        "    _check()\n"
-        "    return complex(_r.r0, _r.r1)\n" % (name, sig, name, callargs)
-    )
 
 
 MODULE_HEAD = '''# python bindings for package @NAME@ using cffi.

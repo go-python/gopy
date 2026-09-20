@@ -232,22 +232,14 @@ func (g *pyGen) genFunc(o *Func) {
 	}
 }
 
-func isComplexSym(sym *symbol) bool {
-	return sym != nil && (sym.goname == "complex64" || sym.goname == "complex128")
-}
-
 // genFuncComplexCFFI generates a plain (non-method) function whose every
-// argument and its one return value are complex64/128.  The normal path
-// (genFuncSig/genFuncBody) represents complex64/128 as a *C.PyObject, which
-// the cffi preamble doesn't declare -- fine for most types, but complex
-// values need actual marshaling here, not just a skip.  Instead, an
-// argument crosses as two plain floats (real, imag), and the return value
-// uses Go's native multi-value return, which cgo exports as a small C
-// struct {r0; r1;} that cffi can declare (see go_decls/complex_wrapper in
-// cffi_build.py). It returns false, writing nothing, if the signature
-// doesn't fit that narrow shape (methods, a mix of complex and other
-// argument types, or an error return) -- genFuncSig's PyObject* check then
-// skips the function instead of emitting code that fails to compile.
+// argument and its one return value are complex64/128, which the normal path
+// (genFuncSig/genFuncBody) can't do under cffi, where a complex value crosses
+// as two floats (see isCFFIComplex in cffi.go).  It returns false, writing
+// nothing, if the signature doesn't fit that narrow shape (methods, a mix of
+// complex and other argument types, or an error return): genFuncSig's
+// PyObject* check then skips the function instead of emitting code that
+// fails to compile.
 func (g *pyGen) genFuncComplexCFFI(fsym *Func) bool {
 	sig := fsym.sig
 	if sig == nil || fsym.isVariadic || fsym.err {
@@ -273,34 +265,25 @@ func (g *pyGen) genFuncComplexCFFI(fsym *Func) bool {
 		return false
 	}
 
-	cfloatOf := func(sym *symbol) (cgo, gotyp string) {
-		if sym.goname == "complex64" {
-			return "C.float", "float32"
-		}
-		return "C.double", "float64"
-	}
-
-	retFloat, _ := cfloatOf(current.symtype(res[0].GoType()))
-
-	var goArgs, callArgs, wpArgs []string
+	ret := current.symtype(res[0].GoType())
+	var goArgs, pyArgs, callArgs, wpArgs []string
 	for i, arg := range args {
 		anm := pySafeArg(arg.Name(), i)
-		cfloat, gofloat := cfloatOf(current.symtype(arg.GoType()))
-		reNm, imNm := anm+"_re", anm+"_im"
-		goArgs = append(goArgs, fmt.Sprintf("%s %s, %s %s", reNm, cfloat, imNm, cfloat))
-		callArgs = append(callArgs, fmt.Sprintf("complex(%s(%s), %s(%s))", gofloat, reNm, gofloat, imNm))
+		sarg := current.symtype(arg.GoType())
+		goArgs = append(goArgs, g.cgoParam(anm, sarg))
+		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", g.cpyName(sarg), anm))
+		callArgs = append(callArgs, g.cgoToGo(sarg, anm))
 		wpArgs = append(wpArgs, anm)
 	}
 
 	g.gofile.Printf("\n//export %s\n", fsym.ID())
-	g.gofile.Printf("func %s(%s) (%s, %s) {\n", fsym.ID(), strings.Join(goArgs, ", "), retFloat, retFloat)
+	g.gofile.Printf("func %s(%s) %s {\n", fsym.ID(), strings.Join(goArgs, ", "), g.cgoResult(ret))
 	g.gofile.Indent()
-	g.gofile.Printf("_r := %s(%s)\n", fsym.GoFmt(), strings.Join(callArgs, ", "))
-	g.gofile.Printf("return %s(real(_r)), %s(imag(_r))\n", retFloat, retFloat)
+	g.gofile.Printf("return %s\n", g.goToCgo(ret, fmt.Sprintf("%s(%s)", fsym.GoFmt(), strings.Join(callArgs, ", "))))
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n\n")
 
-	g.pybuild.Printf("mod.add_complex_function('%s', %d)\n", fsym.ID(), len(args))
+	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [%s])\n", fsym.ID(), g.cpyName(ret), strings.Join(pyArgs, ", "))
 
 	g.pywrap.Printf("def %s(%s):\n", gname, strings.Join(wpArgs, ", "))
 	g.pywrap.Indent()

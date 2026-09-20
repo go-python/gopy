@@ -74,7 +74,7 @@ func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool, slob *Slice
 	// which cffi's preamble doesn't declare (see genFuncSig for the same
 	// restriction on plain function args/returns); skip the whole wrapper
 	// rather than emit code that fails to compile.
-	if g.isCFFI() && esym != nil && esym.cpyname == "PyObject*" {
+	if g.isCFFI() && esym != nil && esym.cpyname == "PyObject*" && !isComplexSym(esym) {
 		return
 	}
 
@@ -329,21 +329,15 @@ otherwise parameter is a python list that we copy from
 		g.pybuild.Printf("mod.add_function('%s_len', retval('int'), [param('%s', 'handle')])\n", slNm, PyHandle)
 
 		g.gofile.Printf("//export %s_elem\n", slNm)
-		g.gofile.Printf("func %s_elem(handle CGoHandle, _idx int) %s {\n", slNm, esym.cgoname)
+		g.gofile.Printf("func %s_elem(handle CGoHandle, _idx int) %s {\n", slNm, g.cgoResult(esym))
 		g.gofile.Indent()
 		g.gofile.Printf("s := deptrFromHandle_%s(handle)\n", slNm)
-		if esym.go2py != "" {
-			// If the go2py starts with handleFromPtr_, use reference &, otherwise just return the value
-			val_str := ""
-			if strings.HasPrefix(esym.go2py, "handleFromPtr_") {
-				val_str = "&(s[_idx])"
-			} else {
-				val_str = "s[_idx]"
-			}
-			g.gofile.Printf("return %s(%s)%s\n", esym.go2py, val_str, esym.go2pyParenEx)
-		} else {
-			g.gofile.Printf("return s[_idx]\n")
+		// If the go2py starts with handleFromPtr_, use reference &, otherwise just return the value
+		val_str := "s[_idx]"
+		if strings.HasPrefix(esym.go2py, "handleFromPtr_") {
+			val_str = "&(s[_idx])"
 		}
+		g.gofile.Printf("return %s\n", g.goToCgo(esym, val_str))
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
 
@@ -356,7 +350,7 @@ otherwise parameter is a python list that we copy from
 		if esym.cpyname == "char*" {
 			g.pybuild.Printf("add_checked_string_function(mod, '%s_elem', retval('%s'), [param('%s', 'handle'), param('int', 'idx')])\n", slNm, esym.cpyname, PyHandle)
 		} else {
-			g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'%s), [param('%s', 'handle'), param('int', 'idx')])\n", slNm, esym.cpyname, caller_owns_ret, PyHandle)
+			g.pybuild.Printf("mod.add_function('%s_elem', retval('%s'%s), [param('%s', 'handle'), param('int', 'idx')])\n", slNm, g.cpyName(esym), caller_owns_ret, PyHandle)
 		}
 
 		if slc.isSlice() {
@@ -373,33 +367,25 @@ otherwise parameter is a python list that we copy from
 		}
 
 		g.gofile.Printf("//export %s_set\n", slNm)
-		g.gofile.Printf("func %s_set(handle CGoHandle, _idx int, _vl %s) {\n", slNm, esym.cgoname)
+		g.gofile.Printf("func %s_set(handle CGoHandle, _idx int, %s) {\n", slNm, g.cgoParam("_vl", esym))
 		g.gofile.Indent()
 		g.gofile.Printf("s := deptrFromHandle_%s(handle)\n", slNm)
-		if esym.py2go != "" {
-			g.gofile.Printf("s[_idx] = %s(_vl)%s\n", esym.py2go, esym.py2goParenEx)
-		} else {
-			g.gofile.Printf("s[_idx] = _vl\n")
-		}
+		g.gofile.Printf("s[_idx] = %s\n", g.cgoToGo(esym, "_vl"))
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n\n")
 
-		g.pybuild.Printf("mod.add_function('%s_set', None, [param('%s', 'handle'), param('int', 'idx'), param('%v', 'value'%s)])\n", slNm, PyHandle, esym.cpyname, transfer_ownership)
+		g.pybuild.Printf("mod.add_function('%s_set', None, [param('%s', 'handle'), param('int', 'idx'), param('%v', 'value'%s)])\n", slNm, PyHandle, g.cpyName(esym), transfer_ownership)
 
 		if slc.isSlice() {
 			g.gofile.Printf("//export %s_append\n", slNm)
-			g.gofile.Printf("func %s_append(handle CGoHandle, _vl %s) {\n", slNm, esym.cgoname)
+			g.gofile.Printf("func %s_append(handle CGoHandle, %s) {\n", slNm, g.cgoParam("_vl", esym))
 			g.gofile.Indent()
 			g.gofile.Printf("s := ptrFromHandle_%s(handle)\n", slNm)
-			if esym.py2go != "" {
-				g.gofile.Printf("*s = append(*s, %s(_vl)%s)\n", esym.py2go, esym.py2goParenEx)
-			} else {
-				g.gofile.Printf("*s = append(*s, _vl)\n")
-			}
+			g.gofile.Printf("*s = append(*s, %s)\n", g.cgoToGo(esym, "_vl"))
 			g.gofile.Outdent()
 			g.gofile.Printf("}\n\n")
 
-			g.pybuild.Printf("mod.add_function('%s_append', None, [param('%s', 'handle'), param('%s', 'value'%s)])\n", slNm, PyHandle, esym.cpyname, transfer_ownership)
+			g.pybuild.Printf("mod.add_function('%s_append', None, [param('%s', 'handle'), param('%s', 'value'%s)])\n", slNm, PyHandle, g.cpyName(esym), transfer_ownership)
 		}
 
 		if slNm == "Slice_byte" {

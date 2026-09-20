@@ -136,8 +136,5 @@ jobs:
     - name: Build
       run: go build -v ./...
 
-    # The skipped test uses a feature the cffi backend does not support yet:
-    # complex numbers as a slice element rather than a plain function
-    # arg/return (see genFuncComplexCFFI in gen_func.go for the case that works).
     - name: Test
-      run: go test -v -skip '^TestBuiltinSlices$' ./...
+      run: go test -v ./...
