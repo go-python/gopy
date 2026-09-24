@@ -133,6 +133,21 @@ package main
 #if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 202311L)
 typedef uint8_t bool;
 #endif
+#if defined(_MSC_VER)
+#define GOPY_TLS __declspec(thread)
+#else
+#define GOPY_TLS _Thread_local
+#endif
+static GOPY_TLS char* gopy_err_msg;
+static inline void gopy_set_err(char* msg) {
+	free(gopy_err_msg);
+	gopy_err_msg = msg;
+}
+static inline char* gopy_take_err(void) {
+	char* msg = gopy_err_msg;
+	gopy_err_msg = NULL;
+	return msg;
+}
 %[8]s
 */
 import "C"
@@ -195,32 +210,19 @@ func init() {
 	}()
 }
 
-// The error of the last call, for the python side to raise.  There is one
-// slot for the whole process, so calls from several python threads at once
-// can be given each other's errors.
-var (
-	gopyErrMu  sync.Mutex
-	gopyErrMsg string
-	gopyHasErr bool
-)
-
+// The error of the last call on the calling OS thread, for the python side
+// to raise; gopy_err_msg is thread-local so concurrent calls on other
+// threads don't see it.
 func gopySetError(kind, msg string) {
-	gopyErrMu.Lock()
-	gopyErrMsg, gopyHasErr = kind+":"+msg, true
-	gopyErrMu.Unlock()
+	C.gopy_set_err(C.CString(kind + ":" + msg))
 }
 
 // GopyTakeError returns "Kind:message" for the error recorded by the last
-// call and clears it, or NULL if there is none.  Free with GopyFreeString.
+// call on the calling thread and clears it, or NULL if there is none.
+// Free with GopyFreeString.
 //export GopyTakeError
 func GopyTakeError() *C.char {
-	gopyErrMu.Lock()
-	defer gopyErrMu.Unlock()
-	if !gopyHasErr {
-		return nil
-	}
-	gopyHasErr = false
-	return C.CString(gopyErrMsg)
+	return C.gopy_take_err()
 }
 
 // GopyFreeString frees a string returned by this library.
