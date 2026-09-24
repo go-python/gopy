@@ -133,19 +133,31 @@ package main
 #if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 202311L)
 typedef uint8_t bool;
 #endif
-#if defined(_MSC_VER)
-#define GOPY_TLS __declspec(thread)
+// Thread-local storage for the last error, read by the python side right
+// after the call that set it, on the same OS thread.  Windows gets its own
+// branch: mingw's compiler-provided thread-local storage (_Thread_local)
+// needs TLS support that a DLL loaded after process start (as cffi and
+// ctypes do) isn't guaranteed to have, so this uses the OS API instead,
+// which carries no such restriction (see TlsAlloc/TlsGetValue/TlsSetValue).
+#ifdef _WIN32
+#include <windows.h>
+static DWORD gopy_err_tls = TLS_OUT_OF_INDEXES;
+static inline void gopy_err_tls_init(void) { gopy_err_tls = TlsAlloc(); }
+static inline char* gopy_err_get(void) { return (char*)TlsGetValue(gopy_err_tls); }
+static inline void gopy_err_put(char* msg) { TlsSetValue(gopy_err_tls, msg); }
 #else
-#define GOPY_TLS _Thread_local
+static inline void gopy_err_tls_init(void) {}
+static _Thread_local char* gopy_err_msg;
+static inline char* gopy_err_get(void) { return gopy_err_msg; }
+static inline void gopy_err_put(char* msg) { gopy_err_msg = msg; }
 #endif
-static GOPY_TLS char* gopy_err_msg;
 static inline void gopy_set_err(char* msg) {
-	free(gopy_err_msg);
-	gopy_err_msg = msg;
+	free(gopy_err_get());
+	gopy_err_put(msg);
 }
 static inline char* gopy_take_err(void) {
-	char* msg = gopy_err_msg;
-	gopy_err_msg = NULL;
+	char* msg = gopy_err_get();
+	gopy_err_put(NULL);
 	return msg;
 }
 %[8]s
@@ -202,6 +214,7 @@ func RequestGC() {
 var _gcReq = make(chan chan struct{})
 
 func init() {
+	C.gopy_err_tls_init()
 	go func() {
 		for done := range _gcReq {
 			runtime.GC()
