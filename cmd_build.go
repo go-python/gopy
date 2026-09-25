@@ -446,10 +446,16 @@ func buildPyBind11(cfg *BuildCfg, buildLib string, pycfg bind.PyConfig) error {
 			cxxArgs = append(cxxArgs, "-Wl,-rpath,"+libdir)
 		}
 	case "windows":
-		// TODO: no rpath equivalent, and unlike buildCFFI (which loads
-		// buildLib explicitly, with a known path) modlib depends on it
-		// implicitly; Windows may not find it unless the output directory
-		// is already on PATH. Unverified -- no Windows environment to test.
+		// No rpath equivalent, but modlib finding buildLib (in the same
+		// directory) is handled at import time instead, by the generated
+		// wrapper's os.add_dll_directory() call (see PyWrapPreamble).
+		// MinGW's own runtime (libstdc++/libgcc/libwinpthread), which g++
+		// links dynamically by default, has no such fix available -- it
+		// isn't found by name alone unless its directory happens to be on
+		// PATH -- so link it in statically instead.  The C runtime (ucrt)
+		// stays dynamic, shared with Python's own.
+		cxxArgs = append(cxxArgs, "-static-libgcc", "-static-libstdc++",
+			"-Wl,-Bstatic,--whole-archive", "-lwinpthread", "-Wl,--no-whole-archive", "-Wl,-Bdynamic")
 	default:
 		cxxArgs = append(cxxArgs, "-Wl,-rpath,$ORIGIN")
 		if libdir != "" {
