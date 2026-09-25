@@ -19,7 +19,7 @@ func TestParseBackend(t *testing.T) {
 		{in: "pybindgen", want: BackendPyBindGen},
 		{in: " PyBindGen ", want: BackendPyBindGen},
 		{in: "cffi", want: BackendCFFI},
-		{in: "pybind11", errPart: "not implemented yet"},
+		{in: "pybind11", want: BackendPyBind11},
 		{in: "bogus", errPart: "unknown GOPY_BACKEND"},
 	} {
 		got, err := parseBackend(tc.in)

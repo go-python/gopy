@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -128,6 +129,13 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 	}
 
 	pycfg, err := bind.GetPythonConfig(cfg.VM)
+	if err != nil {
+		return err
+	}
+
+	if cfg.Backend == bind.BackendPyBind11 {
+		return buildPyBind11(cfg, buildname+libExt, pycfg)
+	}
 
 	if mode == bind.ModeExe {
 		of, err := os.Create(buildname + ".h") // overwrite existing
@@ -359,6 +367,102 @@ func buildCFFI(cfg *BuildCfg, buildLib string) error {
 
 	fmt.Printf("%v build.py\n", cfg.VM)
 	cmdout, err = exec.Command(cfg.VM, "build.py").CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+	}
+	return err
+}
+
+// buildPyBind11 builds the cgo shim as a plain shared library (same shape as
+// buildCFFI's), runs build.py to write a pybind11 C++ module wrapping it, and
+// compiles+links that with a C++ compiler.  The current directory is the
+// output directory.
+func buildPyBind11(cfg *BuildCfg, buildLib string, pycfg bind.PyConfig) error {
+	args := []string{"build", "-mod=mod", "-buildmode=c-shared"}
+	if cfg.BuildTags != "" {
+		args = append(args, "-tags", cfg.BuildTags)
+	}
+	if !cfg.Symbols {
+		args = append(args, "-ldflags=-s -w")
+	}
+	args = append(args, "-o", buildLib, ".")
+	fmt.Printf("go %v\n", strings.Join(args, " "))
+	cmdout, err := exec.Command("go", args...).CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+		return err
+	}
+
+	fmt.Printf("%v build.py\n", cfg.VM)
+	cmdout, err = exec.Command(cfg.VM, "build.py").CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+		return err
+	}
+
+	cmdout, err = exec.Command(cfg.VM, "-m", "pybind11", "--includes").CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n(is pybind11 installed? pip install pybind11)\n", err, string(cmdout))
+		return err
+	}
+	pyinc := strings.Fields(strings.TrimSpace(string(cmdout)))
+
+	extext := libExt
+	if runtime.GOOS == "windows" {
+		extext = ".pyd"
+	}
+	if pycfg.ExtSuffix != "" {
+		extext = pycfg.ExtSuffix
+	}
+	modlib := "_" + cfg.Name + extext
+
+	cxx := os.Getenv("CXX")
+	if cxx == "" {
+		cxx = "c++"
+	}
+	// pycfg.CFlags/LdFlags quote each path (for the shell that CGO_CFLAGS/
+	// CGO_LDFLAGS normally go through); exec.Command runs the compiler
+	// directly, with no shell to strip those, so unquote each field here.
+	unquote := func(fields []string) []string {
+		o := make([]string, len(fields))
+		for i, f := range fields {
+			o[i] = strings.Trim(f, `"`)
+		}
+		return o
+	}
+	// modlib depends on buildLib (alongside it) and libpython (wherever this
+	// VM's own one lives, e.g. not on the loader's default search path for a
+	// uv- or pyenv-managed Python); without an rpath for each, the loader
+	// only finds them if they happen to already be on its search path.
+	var libdir string
+	if m := regexp.MustCompile(`-L(\S+)`).FindStringSubmatch(pycfg.LdFlags); m != nil {
+		libdir = strings.Trim(m[1], `"`)
+	}
+	cxxArgs := []string{"-std=c++17", "-fPIC", "-shared", "-O2"}
+	switch runtime.GOOS {
+	case "darwin":
+		cxxArgs = append(cxxArgs, "-Wl,-rpath,@loader_path")
+		if libdir != "" {
+			cxxArgs = append(cxxArgs, "-Wl,-rpath,"+libdir)
+		}
+	case "windows":
+		// TODO: no rpath equivalent, and unlike buildCFFI (which loads
+		// buildLib explicitly, with a known path) modlib depends on it
+		// implicitly; Windows may not find it unless the output directory
+		// is already on PATH. Unverified -- no Windows environment to test.
+	default:
+		cxxArgs = append(cxxArgs, "-Wl,-rpath,$ORIGIN")
+		if libdir != "" {
+			cxxArgs = append(cxxArgs, "-Wl,-rpath,"+libdir)
+		}
+	}
+	cxxArgs = append(cxxArgs, pyinc...)
+	cxxArgs = append(cxxArgs, unquote(strings.Fields(pycfg.CFlags))...)
+	cxxArgs = append(cxxArgs, cfg.Name+".cpp", buildLib)
+	cxxArgs = append(cxxArgs, unquote(strings.Fields(pycfg.LdFlags))...)
+	cxxArgs = append(cxxArgs, "-o", modlib)
+	fmt.Printf("%v %v\n", cxx, strings.Join(cxxArgs, " "))
+	cmdout, err = exec.Command(cxx, cxxArgs...).CombinedOutput()
 	if err != nil {
 		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
 	}

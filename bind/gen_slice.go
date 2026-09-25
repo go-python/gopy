@@ -74,7 +74,7 @@ func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool, slob *Slice
 	// which cffi's preamble doesn't declare (see genFuncSig for the same
 	// restriction on plain function args/returns); skip the whole wrapper
 	// rather than emit code that fails to compile.
-	if g.isCFFI() && esym != nil && esym.cpyname == "PyObject*" && !isComplexSym(esym) {
+	if g.noAPIShim() && esym != nil && esym.cpyname == "PyObject*" && !g.isCFFIComplex(esym) {
 		return
 	}
 
@@ -389,7 +389,7 @@ otherwise parameter is a python list that we copy from
 		}
 
 		if slNm == "Slice_byte" {
-			if g.isCFFI() {
+			if g.noAPIShim() {
 				// PyBytes_* is off-limits for cffi (no CPython headers), so these
 				// exchange a raw pointer+length instead of a PyObject*; the cffi
 				// build script (cffi_build.py) recognizes them by name and writes

@@ -665,9 +665,10 @@ func (g *pyGen) genPrintOut(outfn string, pr *printer) {
 }
 
 func (g *pyGen) genOut() {
-	if g.isCFFI() {
+	switch {
+	case g.noAPIShim():
 		g.pybuild.Printf("\nmod.generate()\n\n")
-	} else {
+	default:
 		g.pybuild.Printf("\nmod.generate(open('%v.c', 'w'))\n\n", g.cfg.Name)
 	}
 	g.gofile.Printf("\n\n")
@@ -731,9 +732,13 @@ func (g *pyGen) genGoPreamble() {
 			pkgimport += fmt.Sprintf("\n\t%q", pp)
 		}
 	}
-	if g.isCFFI() {
+	if g.noAPIShim() {
+		trampolines := ""
+		if g.isCFFI() {
+			trampolines = cffiTrampolinesKey
+		}
 		g.gofile.Printf(goPreambleCFFI, g.cfg.Name, g.cfg.Cmd, "", GoHandle, CGoHandle,
-			pkgimport, g.cfg.Main, cffiTrampolinesKey, "", g.cfg.Version)
+			pkgimport, g.cfg.Main, trampolines, "", g.cfg.Version)
 		g.gofile.Printf("\n// --- generated code for package: %[1]s below: ---\n\n", g.cfg.Name)
 		return
 	}
@@ -773,11 +778,14 @@ func (g *pyGen) genGoPreamble() {
 }
 
 func (g *pyGen) genPyBuildPreamble() {
-	if g.isCFFI() {
+	switch {
+	case g.isCFFI():
 		g.pybuild.Printf("%s", g.cffiBuildPreamble())
-		return
+	case g.isPyBind11():
+		g.pybuild.Printf("%s", g.pybind11BuildPreamble())
+	default:
+		g.pybuild.Printf(PyBuildPreamble, g.cfg.Name, g.cfg.Cmd, g.cfg.Version)
 	}
-	g.pybuild.Printf(PyBuildPreamble, g.cfg.Name, g.cfg.Cmd, g.cfg.Version)
 }
 
 func (g *pyGen) genPyWrapPreamble() {

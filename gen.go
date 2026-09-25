@@ -66,10 +66,10 @@ func genPkg(mode bind.BuildMode, cfg *BuildCfg) error {
 	if cfg.Backend, err = bind.BackendFromEnv(); err != nil {
 		return err
 	}
-	if cfg.Backend == bind.BackendCFFI && mode == bind.ModeExe {
+	if (cfg.Backend == bind.BackendCFFI || cfg.Backend == bind.BackendPyBind11) && mode == bind.ModeExe {
 		// exe mode embeds the Python interpreter into the Go binary via the
 		// CPython C API (see goExePreambleC/Go in bind/gen.go), unrelated to
-		// how the bindings themselves are generated; cffi doesn't support it.
+		// how the bindings themselves are generated; neither backend supports it.
 		return fmt.Errorf("gopy: %s=%s does not support gopy exe", bind.BackendEnvVar, cfg.Backend)
 	}
 	cfg.OutputDir, err = genOutDir(cfg.OutputDir)

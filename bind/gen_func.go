@@ -67,11 +67,12 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		return false
 	}
 
-	// cffi has no way to cross a raw PyObject* (complex64/128, and callback
-	// arguments of a type cffiCallback doesn't support): skip these functions
-	// rather than emit a signature that references the CPython C API, which
-	// would fail to even compile under the cffi preamble.
-	if g.isCFFI() {
+	// Neither no-API backend (cffi, pybind11) can cross a raw PyObject*
+	// (complex64/128, and -- for cffi, which is all that supports callbacks
+	// so far -- a callback argument of a type cffiCallback doesn't handle):
+	// skip these functions rather than emit a signature referencing the
+	// CPython C API, which would fail to even compile under their preamble.
+	if g.noAPIShim() {
 		for _, arg := range args {
 			sarg := current.symtype(arg.GoType())
 			switch {
@@ -358,8 +359,8 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 		}
 	}
 
-	// cffi releases the GIL itself around every call
-	if !g.isCFFI() {
+	// cffi and pybind11 each release the GIL themselves around every call
+	if !g.noAPIShim() {
 		g.gofile.Printf("_saved_thread := C.PyEval_SaveThread()\n")
 		if !rvIsErr && nres != 2 {
 			g.gofile.Printf("defer C.PyEval_RestoreThread(_saved_thread)\n")
@@ -526,14 +527,14 @@ if __err != nil {
 
 	if rvIsErr || nres == 2 {
 		g.gofile.Printf("\n")
-		if !g.isCFFI() {
+		if !g.noAPIShim() {
 			g.gofile.Printf("C.PyEval_RestoreThread(_saved_thread)\n")
 		}
 
 		g.gofile.Printf("if __err != nil {\n")
 		g.gofile.Indent()
 		g.gofile.Printf("estr := C.CString(__err.Error())\n")
-		if g.isCFFI() {
+		if g.noAPIShim() {
 			g.gofile.Printf("%s", g.goSetError("RuntimeError", "__err.Error()"))
 		} else {
 			g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, estr)\n")

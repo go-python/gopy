@@ -33,7 +33,7 @@ var backends = []struct {
 }{
 	{BackendPyBindGen, true},
 	{BackendCFFI, true},
-	{BackendPyBind11, false},
+	{BackendPyBind11, true},
 	{BackendNanobind, false},
 	{BackendCAPI, false},
 	{BackendCGO, false},
