@@ -335,6 +335,11 @@ except ImportError:
 cwd = os.getcwd()
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 os.chdir(currentdir)
+# Windows only searches a dependent DLL's own directory for its further
+# dependencies (e.g. the pybind11 backend's _%[1]s.pyd needs %[1]s_go.pyd)
+# if that directory was added explicitly; harmless, and a no-op elsewhere.
+if hasattr(os, 'add_dll_directory'):
+	os.add_dll_directory(currentdir)
 # When multiple gopy extensions coexist in one Python process each carries its own
 # independent Go runtime. Loading each extension without RTLD_GLOBAL below keeps its
 # Go runtime symbols (including the per-runtime goroutine-pointer TLS slot) local to
