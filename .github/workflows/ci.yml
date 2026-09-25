@@ -138,3 +138,58 @@ jobs:
 
     - name: Test
       run: go test -v ./...
+
+  # Builds and tests the opt-in pybind11 backend (GOPY_BACKEND=pybind11).
+  # Runs beside the main matrix, on one Go version, and stops at the first
+  # failure.  Shares its cgo shim with cffi (see noAPIShim in bind/cffi.go);
+  # what's new here is compiling a C++ file against that shim with a real
+  # C++ compiler, so unlike the cffi job this needs no extra system packages
+  # (a C++ compiler is already required for CGO_ENABLED=1 on every platform).
+  pybind11:
+    name: pybind11 backend (${{ matrix.platform }}, Python ${{ matrix.python-version }})
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [ubuntu-latest, windows-latest, macos-15]
+        python-version: ['3.11', '3.12']
+    runs-on: ${{ matrix.platform }}
+    env:
+      GOPY_BACKEND: pybind11
+      # CXX defaults to "c++" in buildPyBind11 (cmd_build.go), which isn't a
+      # recognized command on windows-latest's MinGW toolchain (the same one
+      # CGO_ENABLED=1 already needs there, so no extra install is needed).
+      CXX: g++
+      PYTHONFAULTHANDLER: 1
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: pip
+        cache-dependency-path: .github/requirements-pybind11.txt
+
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.25.x
+        cache: true
+
+    - name: Install packages
+      run: |
+        python -m pip install -r .github/requirements-pybind11.txt
+        go install golang.org/x/tools/cmd/goimports@v0.29.0
+
+    - name: Build
+      run: go build -v ./...
+
+    # The skipped tests use features the pybind11 backend does not support
+    # yet: Python callbacks (TestBindFuncs, TestBindCallbacks), complex
+    # numbers (TestBindSimple, TestBuiltinSlices), []byte<->bytes (TestBytes),
+    # and pybind11's own auto-generated TypeError wording, which differs from
+    # pybindgen's for one case in TestHi (Person's setters given the wrong
+    # argument type) -- a message-text difference, not a functional one.
+    - name: Test
+      run: go test -v -skip '^(TestHi|TestBytes|TestBindFuncs|TestBindCallbacks|TestBindSimple|TestBuiltinSlices)$' ./...
