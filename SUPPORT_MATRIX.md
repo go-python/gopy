@@ -6,6 +6,7 @@ don't modify manually.
 Feature |py3
 --- | ---
 _examples/arrays | yes
+_examples/callbacks | yes
 _examples/cgo | yes
 _examples/consts | yes
 _examples/cstrings | yes

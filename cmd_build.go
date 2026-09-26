@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -123,7 +124,18 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		return err
 	}
 
+	if cfg.Backend == bind.BackendCFFI {
+		return buildCFFI(cfg, buildname+libExt)
+	}
+
 	pycfg, err := bind.GetPythonConfig(cfg.VM)
+	if err != nil {
+		return err
+	}
+
+	if cfg.Backend == bind.BackendPyBind11 {
+		return buildPyBind11(cfg, buildname, pycfg)
+	}
 
 	if mode == bind.ModeExe {
 		of, err := os.Create(buildname + ".h") // overwrite existing
@@ -331,5 +343,162 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		}
 	}
 
+	return err
+}
+
+// buildCFFI builds the cgo shim as a plain shared library, and then runs
+// build.py to write the cffi module that loads it.  The current directory
+// is the output directory.
+func buildCFFI(cfg *BuildCfg, buildLib string) error {
+	args := []string{"build", "-mod=mod", "-buildmode=c-shared"}
+	if cfg.BuildTags != "" {
+		args = append(args, "-tags", cfg.BuildTags)
+	}
+	if !cfg.Symbols {
+		args = append(args, "-ldflags=-s -w")
+	}
+	args = append(args, "-o", buildLib, ".")
+	fmt.Printf("go %v\n", strings.Join(args, " "))
+	cmdout, err := exec.Command("go", args...).CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+		return err
+	}
+
+	fmt.Printf("%v build.py\n", cfg.VM)
+	cmdout, err = exec.Command(cfg.VM, "build.py").CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+	}
+	return err
+}
+
+// buildPyBind11 builds the cgo shim as a static archive, runs build.py to
+// write a pybind11 C++ module wrapping it, and compiles+links that with a
+// C++ compiler.  The current directory is the output directory.
+//
+// Unlike cffi (buildCFFI), the wrapper Go generates (pybind11_callback.go)
+// has Go call INTO the wrapper's own C++ code (the per-callback-shape
+// trampolines) as well as the other way around.  Two separately-built
+// shared libraries can't have a dependency cycle like that -- neither can
+// exist as a complete, loadable file before the other -- so instead of a
+// shared library (buildCFFI's buildLib), the Go side here builds as a
+// static archive (-buildmode=c-archive), with its symbols left unresolved
+// until the single final link below, alongside the C++ object code that
+// defines them.
+func buildPyBind11(cfg *BuildCfg, buildname string, pycfg bind.PyConfig) error {
+	archive := buildname + ".a"
+	args := []string{"build", "-mod=mod", "-buildmode=c-archive"}
+	if cfg.BuildTags != "" {
+		args = append(args, "-tags", cfg.BuildTags)
+	}
+	if !cfg.Symbols {
+		args = append(args, "-ldflags=-s -w")
+	}
+	args = append(args, "-o", archive, ".")
+	fmt.Printf("go %v\n", strings.Join(args, " "))
+	cmdout, err := exec.Command("go", args...).CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+		return err
+	}
+
+	fmt.Printf("%v build.py\n", cfg.VM)
+	cmdout, err = exec.Command(cfg.VM, "build.py").CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+		return err
+	}
+
+	cmdout, err = exec.Command(cfg.VM, "-m", "pybind11", "--includes").CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n(is pybind11 installed? pip install pybind11)\n", err, string(cmdout))
+		return err
+	}
+	pyinc := strings.Fields(strings.TrimSpace(string(cmdout)))
+
+	extext := libExt
+	if runtime.GOOS == "windows" {
+		extext = ".pyd"
+	}
+	if pycfg.ExtSuffix != "" {
+		extext = pycfg.ExtSuffix
+	}
+	modlib := "_" + cfg.Name + extext
+
+	cxx := os.Getenv("CXX")
+	if cxx == "" {
+		cxx = "c++"
+	}
+	// pycfg.CFlags/LdFlags quote each path (for the shell that CGO_CFLAGS/
+	// CGO_LDFLAGS normally go through); exec.Command runs the compiler
+	// directly, with no shell to strip those, so unquote each field here.
+	unquote := func(fields []string) []string {
+		o := make([]string, len(fields))
+		for i, f := range fields {
+			o[i] = strings.Trim(f, `"`)
+		}
+		return o
+	}
+	// modlib depends on libpython (wherever this VM's own one lives, e.g.
+	// not on the loader's default search path for a uv- or pyenv-managed
+	// Python); without an rpath, the loader only finds it if it happens to
+	// already be on its search path.
+	var libdir string
+	if m := regexp.MustCompile(`-L(\S+)`).FindStringSubmatch(pycfg.LdFlags); m != nil {
+		libdir = strings.Trim(m[1], `"`)
+	}
+	// The archive's Go runtime code calls into gopy_cb_N (defined below, in
+	// the .cpp), so the linker must be told to keep every object in it --
+	// left to its own judgement, it would see nothing in the .cpp calling
+	// into the archive first and drop it as unused.  GNU ld (Linux, and
+	// Windows' MinGW) and ld64 (macOS) spell that differently.
+	var archiveArgs []string
+	if runtime.GOOS == "darwin" {
+		archiveArgs = []string{"-Wl,-force_load," + archive}
+	} else {
+		archiveArgs = []string{"-Wl,--whole-archive", archive, "-Wl,--no-whole-archive"}
+	}
+	cxxArgs := []string{"-std=c++17", "-fPIC", "-shared", "-O2"}
+	switch runtime.GOOS {
+	case "darwin":
+		cxxArgs = append(cxxArgs, "-Wl,-rpath,@loader_path")
+		if libdir != "" {
+			cxxArgs = append(cxxArgs, "-Wl,-rpath,"+libdir)
+		}
+	case "windows":
+		// No rpath equivalent; modlib depends on nothing but libpython now
+		// that the Go side is a static archive, not a separate DLL of its
+		// own (see the buildPyBind11 doc comment).  MinGW's own runtime
+		// (libstdc++/libgcc/libwinpthread), which g++ links dynamically by
+		// default, has no such fix available -- it isn't found by name
+		// alone unless its directory happens to be on PATH -- so link it in
+		// statically instead.  The C runtime (ucrt) stays dynamic, shared
+		// with Python's own.
+		cxxArgs = append(cxxArgs, "-static-libgcc", "-static-libstdc++",
+			"-Wl,-Bstatic,--whole-archive", "-lwinpthread", "-Wl,--no-whole-archive", "-Wl,-Bdynamic")
+	default:
+		cxxArgs = append(cxxArgs, "-Wl,-rpath,$ORIGIN")
+		if libdir != "" {
+			cxxArgs = append(cxxArgs, "-Wl,-rpath,"+libdir)
+		}
+	}
+	cxxArgs = append(cxxArgs, pyinc...)
+	cxxArgs = append(cxxArgs, unquote(strings.Fields(pycfg.CFlags))...)
+	cxxArgs = append(cxxArgs, cfg.Name+".cpp")
+	cxxArgs = append(cxxArgs, archiveArgs...)
+	cxxArgs = append(cxxArgs, unquote(strings.Fields(pycfg.LdFlags))...)
+	// c-archive mode (unlike c-shared) doesn't resolve the Go runtime's own
+	// dependencies on these itself; TODO: verified only on Linux -- unclear
+	// yet whether Windows/macOS need anything of their own added here too.
+	if runtime.GOOS != "windows" {
+		cxxArgs = append(cxxArgs, "-lpthread", "-ldl", "-lm")
+	}
+	cxxArgs = append(cxxArgs, "-o", modlib)
+	fmt.Printf("%v %v\n", cxx, strings.Join(cxxArgs, " "))
+	cmdout, err = exec.Command(cxx, cxxArgs...).CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+	}
 	return err
 }

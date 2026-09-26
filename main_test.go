@@ -51,6 +51,7 @@ var (
 		"_examples/pkgconflict": []string{"py3"},
 		"_examples/variadic":    []string{"py3"},
 		"_examples/gilstring":   []string{"py3"},
+		"_examples/callbacks":   []string{"py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -387,6 +388,51 @@ cls.CallSelf...
 in python class fun: FieldI:  42  FieldS:  str field  ival:  77  sval:  str field
 fs.ObjArg with nil
 fs.ObjArg with fs
+OK
+`),
+	})
+}
+
+func TestBindCallbacks(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/callbacks"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`--- Each: int and string arguments
+each: 0 item-0
+each: 1 item-1
+each: 2 item-2
+--- Mixed: bool, float and uint8 arguments
+mixed: True 1.5 200
+mixed: False -2.25 7
+--- Twice: no arguments
+twice: 2
+--- Counter.Visit: a Go struct arrives as a handle
+visit: 1 1
+visit: 2 2
+counter: 2
+--- Describe: an interface{} arrives as a string
+describe: 'a string'
+describe: '1.5s'
+--- Count: a bool result
+count: 4
+--- Sum: an int result
+sum: 30
+--- Widest: a uint result
+widest: 30
+--- Apply: a float result
+apply: 3.0
+--- Counter.Check: a handle argument and a bool result
+check: True
+--- a bound method
+box: [(0, 'item-0'), (1, 'item-1')]
+--- called from another goroutine
+goroutine: 7
+--- an exception in a callback is reported, and Go carries on
+calls: 3 reported: 3
 OK
 `),
 	})

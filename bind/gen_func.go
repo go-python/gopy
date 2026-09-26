@@ -67,6 +67,31 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		return false
 	}
 
+	// Neither no-API backend (cffi, pybind11) can cross a raw PyObject*
+	// (complex64/128, and -- for cffi, which is all that supports callbacks
+	// so far -- a callback argument of a type cffiCallback doesn't handle):
+	// skip these functions rather than emit a signature referencing the
+	// CPython C API, which would fail to even compile under their preamble.
+	if g.noAPIShim() {
+		for _, arg := range args {
+			sarg := current.symtype(arg.GoType())
+			switch {
+			case sarg == nil:
+			case sarg.isSignature():
+				if g.cffiCallback(sarg) == nil {
+					return false
+				}
+			case sarg.cpyname == "PyObject*":
+				return false
+			}
+		}
+		for _, ret := range res {
+			if sret := current.symtype(ret.GoType()); sret != nil && sret.cpyname == "PyObject*" {
+				return false
+			}
+		}
+	}
+
 	var (
 		goArgs []string
 		pyArgs []string
@@ -88,10 +113,17 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		}
 		anm := pySafeArg(arg.Name(), i)
 
-		if ifchandle && arg.sym.goname == "interface{}" {
+		switch {
+		case g.isCFFI() && sarg.isSignature():
+			goArgs = append(goArgs, fmt.Sprintf("%s unsafe.Pointer", anm))
+			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", g.cffiCallback(sarg).pyType(), anm))
+		case g.isPyBind11() && sarg.isSignature():
+			goArgs = append(goArgs, fmt.Sprintf("%s CGoHandle", anm))
+			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", g.cffiCallback(sarg).pyType(), anm))
+		case ifchandle && arg.sym.goname == "interface{}":
 			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, CGoHandle))
 			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", PyHandle, anm))
-		} else {
+		default:
 			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, sarg.cgoname))
 			if sarg.cpyname == "PyObject*" {
 				pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s', transfer_ownership=False)", sarg.cpyname, anm))
@@ -196,9 +228,75 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 }
 
 func (g *pyGen) genFunc(o *Func) {
+	if g.noAPIShim() && g.genFuncComplexCFFI(o) {
+		return
+	}
 	if g.genFuncSig(nil, o) {
 		g.genFuncBody(nil, o)
 	}
+}
+
+// genFuncComplexCFFI generates a plain (non-method) function whose every
+// argument and its one return value are complex64/128, which the normal path
+// (genFuncSig/genFuncBody) can't do under cffi, where a complex value crosses
+// as two floats (see isComplexShim in cffi.go).  It returns false, writing
+// nothing, if the signature doesn't fit that narrow shape (methods, a mix of
+// complex and other argument types, or an error return): genFuncSig's
+// PyObject* check then skips the function instead of emitting code that
+// fails to compile.
+func (g *pyGen) genFuncComplexCFFI(fsym *Func) bool {
+	sig := fsym.sig
+	if sig == nil || fsym.isVariadic || fsym.err {
+		return false
+	}
+	args := sig.Params()
+	res := sig.Results()
+	if len(res) != 1 || !isComplexSym(current.symtype(res[0].GoType())) {
+		return false
+	}
+	for _, arg := range args {
+		if !isComplexSym(current.symtype(arg.GoType())) {
+			return false
+		}
+	}
+
+	gname := fsym.GoName()
+	if g.cfg.RenameCase {
+		gname = toSnakeCase(gname)
+	}
+	gname, gdoc, err := extractPythonName(gname, fsym.Doc())
+	if err != nil {
+		return false
+	}
+
+	ret := current.symtype(res[0].GoType())
+	var goArgs, pyArgs, callArgs, wpArgs []string
+	for i, arg := range args {
+		anm := pySafeArg(arg.Name(), i)
+		sarg := current.symtype(arg.GoType())
+		goArgs = append(goArgs, g.cgoParam(anm, sarg))
+		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", g.cpyName(sarg), anm))
+		callArgs = append(callArgs, g.cgoToGo(sarg, anm))
+		wpArgs = append(wpArgs, anm)
+	}
+
+	g.gofile.Printf("\n//export %s\n", fsym.ID())
+	g.gofile.Printf("func %s(%s) %s {\n", fsym.ID(), strings.Join(goArgs, ", "), g.cgoResult(ret))
+	g.gofile.Indent()
+	g.gofile.Printf("return %s\n", g.goToCgo(ret, fmt.Sprintf("%s(%s)", fsym.GoFmt(), strings.Join(callArgs, ", "))))
+	g.gofile.Outdent()
+	g.gofile.Printf("}\n\n")
+
+	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [%s])\n", fsym.ID(), g.cpyName(ret), strings.Join(pyArgs, ", "))
+
+	g.pywrap.Printf("def %s(%s):\n", gname, strings.Join(wpArgs, ", "))
+	g.pywrap.Indent()
+	g.pywrap.Printf(`"""%s"""`, gdoc)
+	g.pywrap.Printf("\n")
+	g.pywrap.Printf("return _%s.%s(%s)\n", g.cfg.Name, fsym.ID(), strings.Join(wpArgs, ", "))
+	g.pywrap.Outdent()
+
+	return true
 }
 
 func (g *pyGen) genMethod(s *symbol, o *Func) {
@@ -255,15 +353,25 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	g.gofile.Indent()
 	if fsym.hasfun {
 		for i, arg := range args {
-			if arg.sym.isSignature() {
+			switch {
+			case arg.sym.isSignature() && g.isCFFI():
+				g.gofile.Printf("%s", cffiCallbackPrologue(pySafeArg(arg.Name(), i)))
+			case arg.sym.isSignature() && g.isPyBind11():
+				// no Go-side setup: the C++ registry itself refuses a call
+				// once the wrapping python call unregisters it (see
+				// pybind11_callback.go)
+			case arg.sym.isSignature():
 				g.gofile.Printf("_fun_arg := %s\n", pySafeArg(arg.Name(), i))
 			}
 		}
 	}
 
-	g.gofile.Printf("_saved_thread := C.PyEval_SaveThread()\n")
-	if !rvIsErr && nres != 2 {
-		g.gofile.Printf("defer C.PyEval_RestoreThread(_saved_thread)\n")
+	// cffi and pybind11 each release the GIL themselves around every call
+	if !g.noAPIShim() {
+		g.gofile.Printf("_saved_thread := C.PyEval_SaveThread()\n")
+		if !rvIsErr && nres != 2 {
+			g.gofile.Printf("defer C.PyEval_RestoreThread(_saved_thread)\n")
+		}
 	}
 
 	if isMethod {
@@ -302,6 +410,10 @@ if __err != nil {
 		switch {
 		case ifchandle && arg.sym.goname == "interface{}":
 			na = fmt.Sprintf(`gopyh.VarFromHandle((gopyh.CGoHandle)(%s), "interface{}")`, anm)
+		case arg.sym.isSignature() && g.isCFFI():
+			na = g.cffiCallbackLit(g.cffiCallback(arg.sym), anm)
+		case arg.sym.isSignature() && g.isPyBind11():
+			na = g.pybind11CallbackLit(g.cffiCallback(arg.sym), anm)
 		case arg.sym.isSignature():
 			na = fmt.Sprintf("%s", arg.sym.py2go)
 		case arg.sym.py2go != "":
@@ -424,12 +536,18 @@ if __err != nil {
 
 	if rvIsErr || nres == 2 {
 		g.gofile.Printf("\n")
-		g.gofile.Printf("C.PyEval_RestoreThread(_saved_thread)\n")
+		if !g.noAPIShim() {
+			g.gofile.Printf("C.PyEval_RestoreThread(_saved_thread)\n")
+		}
 
 		g.gofile.Printf("if __err != nil {\n")
 		g.gofile.Indent()
 		g.gofile.Printf("estr := C.CString(__err.Error())\n")
-		g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, estr)\n")
+		if g.noAPIShim() {
+			g.gofile.Printf("%s", g.goSetError("RuntimeError", "__err.Error()"))
+		} else {
+			g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, estr)\n")
+		}
 		if rvIsErr {
 			g.gofile.Printf("return estr\n") // NOTE: leaked string
 		} else {
