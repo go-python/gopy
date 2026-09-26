@@ -132,6 +132,25 @@ static inline void _check() {
 }
 
 PYBIND11_MODULE(_@NAME@, m) {
+    // gen_slice.go always exports these 4 (under noAPIShim()) for the
+    // built-in byte slice, regardless of whether the package uses []byte;
+    // they exchange a raw pointer+length rather than a PyObject*, same as
+    // the cffi backend, but bound directly here rather than by name-sniffing
+    // the header (cffi_build.py's BYTES_FUNCS) since nothing here needs to.
+    m.def("Slice_byte_from_bytes", [](py::bytes b) -> int64_t {
+        std::string s = b;
+        return Slice_byte_from_bytes(const_cast<char*>(s.data()), (long long)s.size());
+    });
+    m.def("Slice_byte_to_bytes", [](int64_t handle) -> py::bytes {
+        long long n = Slice_byte_to_bytes_len(handle);
+        if (n == 0) {
+            return py::bytes("", 0);
+        }
+        void* ptr = Slice_byte_to_bytes_ptr(handle);
+        py::bytes result(static_cast<const char*>(ptr), (size_t)n);
+        Slice_byte_free_ptr(ptr);
+        return result;
+    });
 @DEFS@
 }
 '''

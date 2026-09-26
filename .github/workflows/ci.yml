@@ -187,9 +187,9 @@ jobs:
 
     # The skipped tests use features the pybind11 backend does not support
     # yet: Python callbacks (TestBindFuncs, TestBindCallbacks), complex
-    # numbers (TestBindSimple, TestBuiltinSlices), []byte<->bytes (TestBytes),
-    # and pybind11's own auto-generated TypeError wording, which differs from
-    # pybindgen's for one case in TestHi (Person's setters given the wrong
-    # argument type) -- a message-text difference, not a functional one.
+    # numbers (TestBindSimple, TestBuiltinSlices), and pybind11's own
+    # auto-generated TypeError wording, which differs from pybindgen's for
+    # one case in TestHi (Person's setters given the wrong argument type) --
+    # a message-text difference, not a functional one.
     - name: Test
-      run: go test -v -skip '^(TestHi|TestBytes|TestBindFuncs|TestBindCallbacks|TestBindSimple|TestBuiltinSlices)$' ./...
+      run: go test -v -skip '^(TestHi|TestBindFuncs|TestBindCallbacks|TestBindSimple|TestBuiltinSlices)$' ./...
