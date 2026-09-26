@@ -6,37 +6,16 @@ package bind
 
 import (
 	_ "embed"
-	"fmt"
 	"strings"
 )
 
-// The cffi backend (GOPY_BACKEND=cffi) generates the same cgo shim as the
-// default backend, minus every call into the CPython C API: the shim is a
-// plain C shared library that Python loads with cffi.  Errors are recorded
-// for the Python side to raise, instead of being set with PyErr_SetString.
+// The cffi backend (GOPY_BACKEND=cffi) uses the shared no-API cgo shim (see
+// noapi.go): a plain C shared library that Python loads with cffi.  Errors
+// are recorded for the Python side to raise, instead of being set with
+// PyErr_SetString.
 
 //go:embed cffi_build.py
 var cffiBuildPy string
-
-func (g *pyGen) isCFFI() bool {
-	return g.cfg.Backend == BackendCFFI
-}
-
-func (g *pyGen) isPyBind11() bool {
-	return g.cfg.Backend == BackendPyBind11
-}
-
-// noAPIShim reports whether the exported Go functions must avoid the
-// CPython C API: true for every backend whose python-facing wrapper is
-// produced from outside the Go build (cffi loads a plain shared library;
-// pybind11 compiles a C++ file against the same one).  Both share the shim
-// this decides the shape of -- see cffi_callback.go and the complex64/128
-// and byte-slice handling below and in gen_slice.go -- and each then has its
-// own way of consuming it (cffiBuildPreamble here, pybind11BuildPreamble in
-// pybind11.go).
-func (g *pyGen) noAPIShim() bool {
-	return g.isCFFI() || g.isPyBind11()
-}
 
 // cffiBuildPreamble returns the start of build.py: the cffi recorder.
 func (g *pyGen) cffiBuildPreamble() string {
@@ -46,90 +25,6 @@ func (g *pyGen) cffiBuildPreamble() string {
 		"@VERSION@", g.cfg.Version,
 		"@LIBEXT@", g.libext,
 	).Replace(cffiBuildPy)
-}
-
-// goSetError returns Go code that records an error for Python to raise.
-// kind is the name of a Python builtin exception, msg a Go string expression.
-func (g *pyGen) goSetError(kind, msg string) string {
-	return "gopySetError(\"" + kind + "\", " + msg + ")\n"
-}
-
-func isComplexSym(sym *symbol) bool {
-	return sym != nil && (sym.goname == "complex64" || sym.goname == "complex128")
-}
-
-// A complex64/complex128 value has no single C type that cffi can declare
-// (cgo's is _Complex), and cgo won't export a struct, so under cffi it crosses
-// as two floats: as two parameters (<name>_re, <name>_im), and as a result in
-// cgo's two-value return, which it exports as a plain C struct {r0; r1;}.
-// The methods below say how a value of a given symbol crosses, so that the
-// generators only differ from the default backend here.
-
-// isCFFIComplex reports whether sym crosses as two floats.
-func (g *pyGen) isCFFIComplex(sym *symbol) bool {
-	return g.isCFFI() && isComplexSym(sym)
-}
-
-// cffiComplexFloat returns the cgo and the Go float type of the parts of a
-// complex64 or complex128 symbol.
-func cffiComplexFloat(sym *symbol) (cfloat, gofloat string) {
-	if sym.goname == "complex64" {
-		return "C.float", "float32"
-	}
-	return "C.double", "float64"
-}
-
-// cgoParam returns the declaration of the parameter of an exported function
-// that carries a value of sym.
-func (g *pyGen) cgoParam(name string, sym *symbol) string {
-	if g.isCFFIComplex(sym) {
-		cf, _ := cffiComplexFloat(sym)
-		return fmt.Sprintf("%[1]s_re %[2]s, %[1]s_im %[2]s", name, cf)
-	}
-	return name + " " + sym.cgoname
-}
-
-// cgoResult returns the result type of an exported function that returns a
-// value of sym.
-func (g *pyGen) cgoResult(sym *symbol) string {
-	if g.isCFFIComplex(sym) {
-		cf, _ := cffiComplexFloat(sym)
-		return "(" + cf + ", " + cf + ")"
-	}
-	return sym.cgoname
-}
-
-// cpyName returns the type that build.py records for a value of sym.
-// wrapper in cffi_build.py expands complex64 and complex128.
-func (g *pyGen) cpyName(sym *symbol) string {
-	if g.isCFFIComplex(sym) {
-		return sym.goname
-	}
-	return sym.cpyname
-}
-
-// goToCgo returns the Go expression that converts expr, a value of sym, to
-// what an exported function returns.
-func (g *pyGen) goToCgo(sym *symbol, expr string) string {
-	switch {
-	case g.isCFFIComplex(sym):
-		return sym.goname + "GoToPyCFFI(" + expr + ")"
-	case sym.go2py != "":
-		return sym.go2py + "(" + expr + ")" + sym.go2pyParenEx
-	}
-	return expr
-}
-
-// cgoToGo returns the Go expression that converts the parameter name, as
-// declared by cgoParam, to a value of sym.
-func (g *pyGen) cgoToGo(sym *symbol, name string) string {
-	switch {
-	case g.isCFFIComplex(sym):
-		return sym.goname + "PyToGoCFFI(" + name + "_re, " + name + "_im)"
-	case sym.py2go != "":
-		return sym.py2go + "(" + name + ")" + sym.py2goParenEx
-	}
-	return name
 }
 
 // same argument positions as goPreamble: 1 = name of package, 2 = cmdstr,
@@ -314,7 +209,7 @@ func errorGoToPy(e error) *C.char {
 	return C.CString("")
 }
 
-// complex values cross as two floats, see isCFFIComplex in cffi.go
+// complex values cross as two floats, see isComplexShim in cffi.go
 func complex64GoToPyCFFI(c complex64) (C.float, C.float) {
 	return C.float(real(c)), C.float(imag(c))
 }

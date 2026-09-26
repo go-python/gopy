@@ -74,7 +74,7 @@ func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool, slob *Slice
 	// which cffi's preamble doesn't declare (see genFuncSig for the same
 	// restriction on plain function args/returns); skip the whole wrapper
 	// rather than emit code that fails to compile.
-	if g.noAPIShim() && esym != nil && esym.cpyname == "PyObject*" && !g.isCFFIComplex(esym) {
+	if g.noAPIShim() && esym != nil && esym.cpyname == "PyObject*" && !g.isComplexShim(esym) {
 		return
 	}
 
