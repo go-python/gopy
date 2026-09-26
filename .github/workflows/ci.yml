@@ -185,15 +185,14 @@ jobs:
     - name: Build
       run: go build -v ./...
 
-    # The skipped tests use features the pybind11 backend does not support
-    # yet: Python callbacks (TestBindFuncs, TestBindCallbacks), and
-    # pybind11's own auto-generated TypeError wording, which differs from
-    # pybindgen's for one case in TestHi (Person's setters given the wrong
-    # argument type) -- a message-text difference, not a functional one.
+    # The skipped test is pybind11's own auto-generated TypeError wording,
+    # which differs from pybindgen's for one case in TestHi (Person's
+    # setters given the wrong argument type) -- a message-text difference,
+    # not a functional one.
     #
     # -timeout raises go test's own default (10m): each test here compiles
     # twice (cgo, then a separate C++ step), against cffi's one, and once
     # measured at ~18.5s/test average on windows-latest, 32 tests alone used
     # 590s of the default budget.
     - name: Test
-      run: go test -v -timeout=30m -skip '^(TestHi|TestBindFuncs|TestBindCallbacks)$' ./...
+      run: go test -v -timeout=30m -skip '^TestHi$' ./...

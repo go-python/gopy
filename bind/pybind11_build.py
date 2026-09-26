@@ -34,9 +34,17 @@ class Module(object):
         import os
 
         here = os.path.dirname(os.path.abspath(__file__))
-        defs = [d for d in (wrapper(name, ret, params) for name, ret, params in self.funcs) if d]
-        cpp = MODULE_TEMPLATE.replace("@HEADER@", self.header).replace(
-            "@DEFS@", "\n".join(defs)
+        # a callback's C++ trampoline is shared by every callable of the same
+        # shape (see pybind11_callback.go), keyed and numbered here in the
+        # same first-seen order Go numbered them in, so "gopy_cb_<i>" means
+        # the same thing on both sides without the two ever exchanging it.
+        callback_kinds = {}
+        defs = [d for d in (wrapper(name, ret, params, callback_kinds) for name, ret, params in self.funcs) if d]
+        trampolines = "\n".join(callback_trampoline(ctype, i) for ctype, i in callback_kinds.items())
+        cpp = (
+            MODULE_TEMPLATE.replace("@HEADER@", self.header)
+            .replace("@CALLBACK_TRAMPOLINES@", trampolines)
+            .replace("@DEFS@", "\n".join(defs))
         )
         with open(os.path.join(here, self.cpp_name), "w") as f:
             f.write(cpp)
@@ -49,16 +57,19 @@ def add_checked_function(mod, name, retval, params, failure_expression="", *a, *
 add_checked_string_function = add_checked_function
 
 
-def wrapper(name, ret, params):
+def wrapper(name, ret, params, callback_kinds):
     """Returns the m.def(...) call binding name, or "" if its signature
-    isn't supported yet (a raw PyObject*, i.e. a callback argument): the .cpp
-    simply never binds it, so calling it from python raises AttributeError
-    instead of NotImplementedError -- close enough for a function nothing in
-    gopy's own generated wrapper calls unconditionally.
+    isn't supported yet (a raw PyObject*): the .cpp simply never binds it, so
+    calling it from python raises AttributeError instead of
+    NotImplementedError -- close enough for a function nothing in gopy's own
+    generated wrapper calls unconditionally.  callback_kinds is shared across
+    every call from Module.generate, one entry per distinct callback shape
+    seen so far (see there and callback_trampoline).
     """
     if ret == "PyObject*" or any(p[0] == "PyObject*" for p in params):
         return ""
     args = []
+    setup = []
     call_args = []
     for ctype, pname in params:
         if ctype == "char*":
@@ -71,10 +82,29 @@ def wrapper(name, ret, params):
             cxxfloat = "float" if ctype == "complex64" else "double"
             args.append("std::complex<%s> %s" % (cxxfloat, pname))
             call_args.append("%s.real(), %s.imag()" % (pname, pname))
+        elif ctype.startswith("callback:"):
+            i = callback_kinds.setdefault(ctype, len(callback_kinds))
+            args.append("py::function " + pname)
+            setup.append(
+                "int64_t _h_%s = gopy_cb_register(%s);\n"
+                "        GopyCBGuard _g_%s{_h_%s};" % (pname, pname, pname, pname)
+            )
+            call_args.append("_h_%s" % pname)
         else:
             args.append(ctype + " " + pname)
             call_args.append(pname)
     call = "%s(%s)" % (name, ", ".join(call_args))
+    # Releasing the GIL only around the call itself (not the setup/result
+    # handling around it, which need it) matches what cffi gets for free
+    # from ctypes/cffi's own default behavior, and is what makes a callback
+    # arrive correctly rather than deadlock: Go may run it from a goroutine
+    # (see InGoroutine in _examples/callbacks) while this call's own thread
+    # blocks waiting for that goroutine, so it must not be left holding the
+    # only GIL there is.
+    if ret is None:
+        call = "[&]{ py::gil_scoped_release _rel; %s; }()" % call
+    else:
+        call = "[&]{ py::gil_scoped_release _rel; return %s; }()" % call
     if ret is None:
         body, cpptype = "%s;\n        _check();" % call, "void"
     elif ret == "char*":
@@ -100,6 +130,8 @@ def wrapper(name, ret, params):
     else:
         body = "auto _r = %s;\n        _check();\n        return _r;" % call
         cpptype = ret
+    if setup:
+        body = "\n        ".join(setup) + "\n        " + body
     return '    m.def("%s", [](%s) -> %s {\n        %s\n    });' % (
         name,
         ", ".join(args),
@@ -108,13 +140,78 @@ def wrapper(name, ret, params):
     )
 
 
+def callback_trampoline(ctype, idx):
+    """Returns the static gopy_cb_<idx> trampoline for the callback shape in
+    ctype ("callback:<result or void>(<parameter types>)", see cffiCallback
+    in cffi_callback.go): the Go closure for every callable of this shape
+    calls gopy_cb_<idx>, passing its own registry handle as the first
+    argument (see pybind11CallbackLit in pybind11_callback.go).
+    """
+    ret, _, rest = ctype[len("callback:") :].partition("(")
+    ctypes_ = [t for t in rest[:-1].split(",") if t]
+    names = ["a%d" % i for i in range(len(ctypes_))]
+
+    def cxxparam(t):
+        return "unsigned char" if t == "bool" else t
+
+    params = "".join(", %s %s" % (cxxparam(t), n) for t, n in zip(ctypes_, names))
+    call_args = []
+    for t, n in zip(ctypes_, names):
+        if t == "char*":
+            call_args.append("%s ? py::str(%s) : py::str()" % (n, n))
+        elif t == "bool":
+            call_args.append("py::bool_(%s != 0)" % n)
+        else:
+            call_args.append(n)
+    call = "fn(%s)" % ", ".join(call_args)
+    cxxret = "void" if ret == "void" else cxxparam(ret)
+    zero = "" if ret == "void" else " 0"
+    if ret == "void":
+        body = "%s;" % call
+    elif ret == "bool":
+        body = "return %s.cast<bool>() ? 1 : 0;" % call
+    else:
+        body = "return %s.cast<%s>();" % (call, ret)
+    # A raised exception must not reach the extern "C" boundary as a C++
+    # exception: unwinding through Go's compiled call frames is undefined
+    # behavior (a hard crash in practice).  Printing it and returning the
+    # zero value instead matches what cffi's ffi.callback does by default.
+    body = (
+        "try {\n"
+        "        %s\n"
+        "    } catch (py::error_already_set& e) {\n"
+        "        e.restore();\n"
+        "        PyErr_Print();\n"
+        "        return%s;\n"
+        "    }" % (body, zero)
+    )
+    return (
+        # gil must be declared (and so acquired) before fn: C++ destroys
+        # locals in reverse declaration order, and fn (a py::function) needs
+        # the GIL held for its own destructor -- declared the other way
+        # around, gil would release it first, and fn would decref without it.
+        'extern "C" %s gopy_cb_%d(int64_t h%s) {\n'
+        "    py::gil_scoped_acquire gil;\n"
+        "    py::function fn;\n"
+        "    if (!gopy_cb_lookup(h, fn)) {\n"
+        "        return%s;\n"
+        "    }\n"
+        "    %s\n"
+        "}" % (cxxret, idx, params, zero, body)
+    )
+
+
 MODULE_TEMPLATE = '''// python bindings for package @NAME@ using pybind11.
 // File is generated by gopy version @VERSION@. Do not edit.
 #include <complex>
+#include <cstdint>
 #include <cstdlib>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 
 #include <pybind11/complex.h>
+#include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 
 namespace py = pybind11;
@@ -144,6 +241,52 @@ static inline void _check() {
     PyErr_SetString(exc, msg.c_str());
     throw py::error_already_set();
 }
+
+// A python callable passed as a func-typed argument is registered here for
+// the duration of the call it was passed to (see pybind11_callback.go for
+// why a registry rather than one C function pointer per callable), and the
+// trampolines below (one per callback shape, see callback_trampoline in
+// pybind11_build.py) look it up by handle each time Go calls back in.
+static std::mutex gopy_cb_mutex;
+static std::unordered_map<int64_t, py::function> gopy_cb_registry;
+static int64_t gopy_cb_next = 1;
+
+static int64_t gopy_cb_register(py::function fn) {
+    std::lock_guard<std::mutex> lock(gopy_cb_mutex);
+    int64_t h = gopy_cb_next++;
+    gopy_cb_registry[h] = std::move(fn);
+    return h;
+}
+
+static void gopy_cb_unregister(int64_t h) {
+    std::lock_guard<std::mutex> lock(gopy_cb_mutex);
+    gopy_cb_registry.erase(h);
+}
+
+// Unregisters a callback's handle once the call it was passed to returns,
+// even if that call raised: playing the same role gopyCallbackScope plays
+// for cffi.
+struct GopyCBGuard {
+    int64_t h;
+    ~GopyCBGuard() { gopy_cb_unregister(h); }
+};
+
+// Looks up the callable registered under h, or returns false if the call it
+// was passed to has already returned (h was never valid, or was already
+// unregistered).  The caller must already hold the GIL (see
+// callback_trampoline in pybind11_build.py for why it acquires that itself,
+// rather than here).
+static bool gopy_cb_lookup(int64_t h, py::function& out) {
+    std::lock_guard<std::mutex> lock(gopy_cb_mutex);
+    auto it = gopy_cb_registry.find(h);
+    if (it == gopy_cb_registry.end()) {
+        return false;
+    }
+    out = it->second;
+    return true;
+}
+
+@CALLBACK_TRAMPOLINES@
 
 PYBIND11_MODULE(_@NAME@, m) {
     // gen_slice.go always exports these 4 (under noAPIShim()) for the

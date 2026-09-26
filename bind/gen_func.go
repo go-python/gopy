@@ -117,6 +117,9 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		case g.isCFFI() && sarg.isSignature():
 			goArgs = append(goArgs, fmt.Sprintf("%s unsafe.Pointer", anm))
 			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", g.cffiCallback(sarg).pyType(), anm))
+		case g.isPyBind11() && sarg.isSignature():
+			goArgs = append(goArgs, fmt.Sprintf("%s CGoHandle", anm))
+			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", g.cffiCallback(sarg).pyType(), anm))
 		case ifchandle && arg.sym.goname == "interface{}":
 			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, CGoHandle))
 			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", PyHandle, anm))
@@ -353,6 +356,10 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 			switch {
 			case arg.sym.isSignature() && g.isCFFI():
 				g.gofile.Printf("%s", cffiCallbackPrologue(pySafeArg(arg.Name(), i)))
+			case arg.sym.isSignature() && g.isPyBind11():
+				// no Go-side setup: the C++ registry itself refuses a call
+				// once the wrapping python call unregisters it (see
+				// pybind11_callback.go)
 			case arg.sym.isSignature():
 				g.gofile.Printf("_fun_arg := %s\n", pySafeArg(arg.Name(), i))
 			}
@@ -405,6 +412,8 @@ if __err != nil {
 			na = fmt.Sprintf(`gopyh.VarFromHandle((gopyh.CGoHandle)(%s), "interface{}")`, anm)
 		case arg.sym.isSignature() && g.isCFFI():
 			na = g.cffiCallbackLit(g.cffiCallback(arg.sym), anm)
+		case arg.sym.isSignature() && g.isPyBind11():
+			na = g.pybind11CallbackLit(g.cffiCallback(arg.sym), anm)
 		case arg.sym.isSignature():
 			na = fmt.Sprintf("%s", arg.sym.py2go)
 		case arg.sym.py2go != "":

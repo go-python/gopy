@@ -678,6 +678,7 @@ func (g *pyGen) genOut() {
 	}
 	g.gofile.Printf("\n\n")
 	g.spliceCFFITrampolines()
+	g.splicePyBind11Trampolines()
 	g.genPrintOut(g.cfg.Name+".go", g.gofile)
 	g.genPrintOut("build.py", g.pybuild)
 	if g.wantMakefile() {
@@ -739,8 +740,11 @@ func (g *pyGen) genGoPreamble() {
 	}
 	if g.noAPIShim() {
 		trampolines := ""
-		if g.isCFFI() {
+		switch {
+		case g.isCFFI():
 			trampolines = cffiTrampolinesKey
+		case g.isPyBind11():
+			trampolines = pybind11TrampolinesKey
 		}
 		g.gofile.Printf(goPreambleCFFI, g.cfg.Name, g.cfg.Cmd, "", GoHandle, CGoHandle,
 			pkgimport, g.cfg.Main, trampolines, "", g.cfg.Version)
