@@ -743,7 +743,7 @@ func (g *pyGen) genGoPreamble() {
 		switch {
 		case g.isCFFI():
 			trampolines = cffiTrampolinesKey
-		case g.isPyBind11():
+		case g.isCXXShim():
 			trampolines = pybind11TrampolinesKey
 		}
 		g.gofile.Printf(goPreambleCFFI, g.cfg.Name, g.cfg.Cmd, "", GoHandle, CGoHandle,
@@ -792,6 +792,8 @@ func (g *pyGen) genPyBuildPreamble() {
 		g.pybuild.Printf("%s", g.cffiBuildPreamble())
 	case g.isPyBind11():
 		g.pybuild.Printf("%s", g.pybind11BuildPreamble())
+	case g.isNanobind():
+		g.pybuild.Printf("%s", g.nanobindBuildPreamble())
 	default:
 		g.pybuild.Printf(PyBuildPreamble, g.cfg.Name, g.cfg.Cmd, g.cfg.Version)
 	}

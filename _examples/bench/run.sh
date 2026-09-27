@@ -5,7 +5,7 @@
 
 # Builds _examples/bench under each of gopy's backends and prints a table
 # comparing run_bench.py's timing/memory numbers across them.  Run from the repo
-# root; needs pybindgen, cffi and pybind11 all installed for the python
+# root; needs pybindgen, cffi, pybind11 and nanobind all installed for the python
 # interpreter named by $PYTHON (defaults to python3), and a C++ compiler.
 set -eu
 
@@ -20,7 +20,7 @@ GOPY="$WORK/gopy"
 
 printf '%-10s %8s %14s %14s %10s\n' backend calls "add (s)" "concat (s)" "peak (KB)"
 
-for backend in pybindgen cffi pybind11; do
+for backend in pybindgen cffi pybind11 nanobind; do
 	out="$WORK/$backend"
 	mkdir -p "$out"
 	# gopy build cds into -output and runs go build there; give it a module

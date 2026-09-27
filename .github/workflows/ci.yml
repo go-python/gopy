@@ -155,7 +155,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     env:
       GOPY_BACKEND: pybind11
-      # CXX defaults to "c++" in buildPyBind11 (cmd_build.go), which isn't a
+      # CXX defaults to "c++" in buildCXXModule (cmd_build.go), which isn't a
       # recognized command on windows-latest's MinGW toolchain (the same one
       # CGO_ENABLED=1 already needs there, so no extra install is needed).
       CXX: g++
@@ -197,6 +197,55 @@ jobs:
     - name: Test
       run: go test -v -timeout=30m -skip '^TestHi$' ./...
 
+  # Builds and tests the opt-in nanobind backend (GOPY_BACKEND=nanobind).
+  # Same shape as the pybind11 job above (the two share a cgo shim and a
+  # build step, see buildCXXModule in cmd_build.go); nanobind additionally
+  # compiles its own runtime (nb_combined.cpp) into every module, which
+  # needs no extra system packages either.
+  nanobind:
+    name: nanobind backend (${{ matrix.platform }}, Python ${{ matrix.python-version }})
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [ubuntu-latest, windows-latest, macos-15]
+        python-version: ['3.11', '3.12']
+    runs-on: ${{ matrix.platform }}
+    env:
+      GOPY_BACKEND: nanobind
+      # see the pybind11 job
+      CXX: g++
+      PYTHONFAULTHANDLER: 1
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: pip
+        cache-dependency-path: .github/requirements-nanobind.txt
+
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.25.x
+        cache: true
+
+    - name: Install packages
+      run: |
+        python -m pip install -r .github/requirements-nanobind.txt
+        go install golang.org/x/tools/cmd/goimports@v0.29.0
+
+    - name: Build
+      run: go build -v ./...
+
+    # Skipped for the same reason as in the pybind11 job: nanobind words its
+    # own auto-generated TypeError the same way pybind11 does, not the way
+    # pybindgen does.
+    - name: Test
+      run: go test -v -timeout=30m -skip '^TestHi$' ./...
+
   # Compares per-call overhead across backends (see _examples/bench/run.sh):
   # not a pass/fail check, just a table uploaded as a build artifact.  Runs
   # on ubuntu-latest only -- the comparison is between backends, not OSes.
@@ -220,7 +269,7 @@ jobs:
 
     - name: Install packages
       run: |
-        python -m pip install pybindgen cffi pybind11
+        python -m pip install pybindgen cffi pybind11 nanobind
         go install golang.org/x/tools/cmd/goimports@v0.29.0
 
     - name: Run benchmark

@@ -8,13 +8,14 @@ import "fmt"
 
 // A "no-API" backend generates exported Go functions that never touch the
 // CPython C API, because their python-facing wrapper is produced outside the
-// Go build: cffi loads a plain shared library at runtime; pybind11 compiles
-// a C++ file against that same library.  This file holds what the two share
-// about the shape of that library -- backend detection, error reporting
-// (gopySetError, defined in cffi.go's preamble and used by both), and how a
-// complex64/128 value crosses the boundary -- leaving each backend's own file
-// for what only it needs (cffiBuildPreamble in cffi.go, pybind11BuildPreamble
-// in pybind11.go).
+// Go build: cffi loads a plain shared library at runtime; pybind11 and
+// nanobind compile a C++ file against that same library.  This file holds
+// what they share about the shape of that library -- backend detection,
+// error reporting (gopySetError, defined in cffi.go's preamble and used by
+// all of them), and how a complex64/128 value crosses the boundary --
+// leaving each backend's own file for what only it needs (cffiBuildPreamble
+// in cffi.go, pybind11BuildPreamble in pybind11.go, nanobindBuildPreamble in
+// nanobind.go).
 
 func (g *pyGen) isCFFI() bool {
 	return g.cfg.Backend == BackendCFFI
@@ -24,10 +25,21 @@ func (g *pyGen) isPyBind11() bool {
 	return g.cfg.Backend == BackendPyBind11
 }
 
+func (g *pyGen) isNanobind() bool {
+	return g.cfg.Backend == BackendNanobind
+}
+
+// isCXXShim reports whether the shim's consumer is a C++ module compiled
+// against it (pybind11 or nanobind), which also means callbacks cross as
+// registry handles (see pybind11_callback.go).
+func (g *pyGen) isCXXShim() bool {
+	return g.isPyBind11() || g.isNanobind()
+}
+
 // noAPIShim reports whether the exported Go functions must avoid the
 // CPython C API (see the file comment above).
 func (g *pyGen) noAPIShim() bool {
-	return g.isCFFI() || g.isPyBind11()
+	return g.isCFFI() || g.isCXXShim()
 }
 
 // goSetError returns Go code that records an error for Python to raise.
@@ -40,15 +52,15 @@ func isComplexSym(sym *symbol) bool {
 	return sym != nil && (sym.goname == "complex64" || sym.goname == "complex128")
 }
 
-// A complex64/complex128 value has no single C type that cffi or pybind11
-// can declare (cgo's is _Complex), and cgo won't export a struct, so under
-// either it crosses as two floats: as two parameters (<name>_re, <name>_im),
+// A complex64/complex128 value has no single C type that cffi or a C++
+// module can declare (cgo's is _Complex), and cgo won't export a struct, so
+// under any of them it crosses as two floats: as two parameters (<name>_re, <name>_im),
 // and as a result in cgo's two-value return, which it exports as a plain C
 // struct {r0; r1;}.  The methods below say how a value of a given symbol
 // crosses, so that the generators only differ from the default backend here.
 
 // isComplexShim reports whether sym crosses as two floats, under either
-// no-API backend (cffi or pybind11).
+// no-API backend (cffi, pybind11 or nanobind).
 func (g *pyGen) isComplexShim(sym *symbol) bool {
 	return g.noAPIShim() && isComplexSym(sym)
 }
@@ -83,7 +95,8 @@ func (g *pyGen) cgoResult(sym *symbol) string {
 }
 
 // cpyName returns the type that build.py records for a value of sym.
-// wrapper in cffi_build.py and pybind11_build.py expands complex64/128.
+// wrapper in cffi_build.py, pybind11_build.py and nanobind_build.py expands
+// complex64/128.
 func (g *pyGen) cpyName(sym *symbol) string {
 	if g.isComplexShim(sym) {
 		return sym.goname

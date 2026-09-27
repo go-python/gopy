@@ -27,12 +27,15 @@ import (
 // cffiCallbackParam, cffiCallbackResult in cffi_callback.go): the same Go
 // types are supported, crossing as the same int64_t/uint64_t/double/bool/
 // char* vocabulary either way.
+//
+// Everything in this file serves the nanobind backend too (see isCXXShim),
+// whose nanobind_build.py defines the same registry and trampolines.
 
 // pybind11TrampolinesKey stands in for the extern declarations in the cgo
 // preamble, which are written before the callback types that need them are
 // known.  Unlike cffiTrampolinesKey, these are declarations only: the
 // trampolines themselves are defined in the .cpp pybind11_build.py writes
-// (callback_trampoline), not here -- see the buildPyBind11 doc comment
+// (callback_trampoline), not here -- see the buildCXXModule doc comment
 // (cmd_build.go) for why Go and that .cpp can't be two separate libraries
 // with a dependency in each direction.
 const pybind11TrampolinesKey = "@@GOPY_PYBIND11_TRAMPOLINES@@"
@@ -40,10 +43,10 @@ const pybind11TrampolinesKey = "@@GOPY_PYBIND11_TRAMPOLINES@@"
 // splicePyBind11Trampolines writes the extern declarations into the cgo
 // preamble, so the C compiler accepts calls to a function it never sees
 // defined; the actual gopy_cb_N functions are resolved at the final link
-// step in buildPyBind11, against the object code pybind11_build.py's
+// step in buildCXXModule, against the object code pybind11_build.py's
 // generated .cpp compiles to.
 func (g *pyGen) splicePyBind11Trampolines() {
-	if !g.isPyBind11() {
+	if !g.isCXXShim() {
 		return
 	}
 	var c strings.Builder

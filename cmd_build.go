@@ -133,8 +133,11 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		return err
 	}
 
-	if cfg.Backend == bind.BackendPyBind11 {
+	switch cfg.Backend {
+	case bind.BackendPyBind11:
 		return buildPyBind11(cfg, buildname, pycfg)
+	case bind.BackendNanobind:
+		return buildNanobind(cfg, buildname, pycfg)
 	}
 
 	if mode == bind.ModeExe {
@@ -373,9 +376,49 @@ func buildCFFI(cfg *BuildCfg, buildLib string) error {
 	return err
 }
 
-// buildPyBind11 builds the cgo shim as a static archive, runs build.py to
-// write a pybind11 C++ module wrapping it, and compiles+links that with a
-// C++ compiler.  The current directory is the output directory.
+// buildPyBind11 builds the pybind11 backend's module (see buildCXXModule).
+func buildPyBind11(cfg *BuildCfg, buildname string, pycfg bind.PyConfig) error {
+	cmdout, err := exec.Command(cfg.VM, "-m", "pybind11", "--includes").CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n(is pybind11 installed? pip install pybind11)\n", err, string(cmdout))
+		return err
+	}
+	return buildCXXModule(cfg, buildname, pycfg, strings.Fields(strings.TrimSpace(string(cmdout))), nil)
+}
+
+// buildNanobind builds the nanobind backend's module (see buildCXXModule).
+// Unlike pybind11, nanobind isn't header-only: its own runtime (libnanobind)
+// ships as source, meant to be compiled into each extension alongside the
+// extension's own code, which nb_combined.cpp does in one translation unit.
+func buildNanobind(cfg *BuildCfg, buildname string, pycfg bind.PyConfig) error {
+	cmdout, err := exec.Command(cfg.VM, "-c",
+		"import nanobind; print(nanobind.include_dir()); print(nanobind.source_dir())").CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n(is nanobind installed? pip install nanobind)\n", err, string(cmdout))
+		return err
+	}
+	dirs := strings.Split(strings.TrimSpace(string(cmdout)), "\n")
+	if len(dirs) != 2 {
+		return fmt.Errorf("gopy: unexpected output locating nanobind: %q", string(cmdout))
+	}
+	incdir, srcdir := strings.TrimSpace(dirs[0]), strings.TrimSpace(dirs[1])
+	// robin_map is a dependency nanobind vendors next to its own headers.
+	robinmap := filepath.Join(filepath.Dir(incdir), "ext", "robin_map", "include")
+	flags := []string{
+		"-I" + incdir, "-I" + robinmap,
+		// as nanobind's own build does for libnanobind (see the comment at
+		// the top of nb_combined.cpp); harmless for the generated .cpp too.
+		"-DNDEBUG", "-DNB_COMPACT_ASSERTIONS", "-fno-strict-aliasing",
+	}
+	return buildCXXModule(cfg, buildname, pycfg, flags, []string{filepath.Join(srcdir, "nb_combined.cpp")})
+}
+
+// buildCXXModule builds the cgo shim as a static archive, runs build.py to
+// write a C++ module wrapping it (pybind11 or nanobind), and compiles+links
+// that with a C++ compiler, passing it cxxflags (the C++ library's include
+// directories, and any flags of its own) and, besides the generated .cpp,
+// the C++ library's own sources, if any.  The current directory is the
+// output directory.
 //
 // Unlike cffi (buildCFFI), the wrapper Go generates (pybind11_callback.go)
 // has Go call INTO the wrapper's own C++ code (the per-callback-shape
@@ -386,7 +429,7 @@ func buildCFFI(cfg *BuildCfg, buildLib string) error {
 // static archive (-buildmode=c-archive), with its symbols left unresolved
 // until the single final link below, alongside the C++ object code that
 // defines them.
-func buildPyBind11(cfg *BuildCfg, buildname string, pycfg bind.PyConfig) error {
+func buildCXXModule(cfg *BuildCfg, buildname string, pycfg bind.PyConfig, cxxflags, srcs []string) error {
 	archive := buildname + ".a"
 	args := []string{"build", "-mod=mod", "-buildmode=c-archive"}
 	if cfg.BuildTags != "" {
@@ -409,13 +452,6 @@ func buildPyBind11(cfg *BuildCfg, buildname string, pycfg bind.PyConfig) error {
 		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
 		return err
 	}
-
-	cmdout, err = exec.Command(cfg.VM, "-m", "pybind11", "--includes").CombinedOutput()
-	if err != nil {
-		fmt.Printf("cmd had error: %v  output:\n%v\n(is pybind11 installed? pip install pybind11)\n", err, string(cmdout))
-		return err
-	}
-	pyinc := strings.Fields(strings.TrimSpace(string(cmdout)))
 
 	extext := libExt
 	if runtime.GOOS == "windows" {
@@ -469,7 +505,7 @@ func buildPyBind11(cfg *BuildCfg, buildname string, pycfg bind.PyConfig) error {
 	case "windows":
 		// No rpath equivalent; modlib depends on nothing but libpython now
 		// that the Go side is a static archive, not a separate DLL of its
-		// own (see the buildPyBind11 doc comment).  MinGW's own runtime
+		// own (see the buildCXXModule doc comment).  MinGW's own runtime
 		// (libstdc++/libgcc/libwinpthread), which g++ links dynamically by
 		// default, has no such fix available -- it isn't found by name
 		// alone unless its directory happens to be on PATH -- so link it in
@@ -483,9 +519,10 @@ func buildPyBind11(cfg *BuildCfg, buildname string, pycfg bind.PyConfig) error {
 			cxxArgs = append(cxxArgs, "-Wl,-rpath,"+libdir)
 		}
 	}
-	cxxArgs = append(cxxArgs, pyinc...)
+	cxxArgs = append(cxxArgs, cxxflags...)
 	cxxArgs = append(cxxArgs, unquote(strings.Fields(pycfg.CFlags))...)
 	cxxArgs = append(cxxArgs, cfg.Name+".cpp")
+	cxxArgs = append(cxxArgs, srcs...)
 	cxxArgs = append(cxxArgs, archiveArgs...)
 	cxxArgs = append(cxxArgs, unquote(strings.Fields(pycfg.LdFlags))...)
 	// c-archive mode (unlike c-shared) doesn't resolve the Go runtime's own

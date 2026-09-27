@@ -67,9 +67,9 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		return false
 	}
 
-	// Neither no-API backend (cffi, pybind11) can cross a raw PyObject*
-	// (complex64/128, and -- for cffi, which is all that supports callbacks
-	// so far -- a callback argument of a type cffiCallback doesn't handle):
+	// None of the no-API backends (cffi, pybind11, nanobind) can cross a raw
+	// PyObject* (complex64/128, and a callback argument of a type
+	// cffiCallback doesn't handle):
 	// skip these functions rather than emit a signature referencing the
 	// CPython C API, which would fail to even compile under their preamble.
 	if g.noAPIShim() {
@@ -117,7 +117,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		case g.isCFFI() && sarg.isSignature():
 			goArgs = append(goArgs, fmt.Sprintf("%s unsafe.Pointer", anm))
 			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", g.cffiCallback(sarg).pyType(), anm))
-		case g.isPyBind11() && sarg.isSignature():
+		case g.isCXXShim() && sarg.isSignature():
 			goArgs = append(goArgs, fmt.Sprintf("%s CGoHandle", anm))
 			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", g.cffiCallback(sarg).pyType(), anm))
 		case ifchandle && arg.sym.goname == "interface{}":
@@ -356,7 +356,7 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 			switch {
 			case arg.sym.isSignature() && g.isCFFI():
 				g.gofile.Printf("%s", cffiCallbackPrologue(pySafeArg(arg.Name(), i)))
-			case arg.sym.isSignature() && g.isPyBind11():
+			case arg.sym.isSignature() && g.isCXXShim():
 				// no Go-side setup: the C++ registry itself refuses a call
 				// once the wrapping python call unregisters it (see
 				// pybind11_callback.go)
@@ -366,7 +366,8 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 		}
 	}
 
-	// cffi and pybind11 each release the GIL themselves around every call
+	// cffi, pybind11 and nanobind each release the GIL themselves around
+	// every call
 	if !g.noAPIShim() {
 		g.gofile.Printf("_saved_thread := C.PyEval_SaveThread()\n")
 		if !rvIsErr && nres != 2 {
@@ -412,7 +413,7 @@ if __err != nil {
 			na = fmt.Sprintf(`gopyh.VarFromHandle((gopyh.CGoHandle)(%s), "interface{}")`, anm)
 		case arg.sym.isSignature() && g.isCFFI():
 			na = g.cffiCallbackLit(g.cffiCallback(arg.sym), anm)
-		case arg.sym.isSignature() && g.isPyBind11():
+		case arg.sym.isSignature() && g.isCXXShim():
 			na = g.pybind11CallbackLit(g.cffiCallback(arg.sym), anm)
 		case arg.sym.isSignature():
 			na = fmt.Sprintf("%s", arg.sym.py2go)
