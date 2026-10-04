@@ -185,17 +185,12 @@ jobs:
     - name: Build
       run: go build -v ./...
 
-    # The skipped test is pybind11's own auto-generated TypeError wording,
-    # which differs from pybindgen's for one case in TestHi (Person's
-    # setters given the wrong argument type) -- a message-text difference,
-    # not a functional one.
-    #
     # -timeout raises go test's own default (10m): each test here compiles
     # twice (cgo, then a separate C++ step), against cffi's one, and once
     # measured at ~18.5s/test average on windows-latest, 32 tests alone used
     # 590s of the default budget.
     - name: Test
-      run: go test -v -timeout=30m -skip '^TestHi$' ./...
+      run: go test -v -timeout=30m ./...
 
   # Builds and tests the opt-in nanobind backend (GOPY_BACKEND=nanobind).
   # Same shape as the pybind11 job above (the two share a cgo shim and a
@@ -240,11 +235,9 @@ jobs:
     - name: Build
       run: go build -v ./...
 
-    # Skipped for the same reason as in the pybind11 job: nanobind words its
-    # own auto-generated TypeError the same way pybind11 does, not the way
-    # pybindgen does.
+    # -timeout: see the pybind11 job
     - name: Test
-      run: go test -v -timeout=30m -skip '^TestHi$' ./...
+      run: go test -v -timeout=30m ./...
 
   # Compares per-call overhead across backends (see _examples/bench/run.sh):
   # not a pass/fail check, just a table uploaded as a build artifact.  Runs

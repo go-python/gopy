@@ -22,11 +22,19 @@ import (
 //go:embed pybind11_build.py
 var pybind11BuildPy string
 
+// cxxArgHelpers is the argument conversion code shared by the pybind11 and
+// nanobind backends' generated .cpp, which each build.py has in place of
+// @ARG_HELPERS@.
+//
+//go:embed cxx_args.inc
+var cxxArgHelpers string
+
 // pybind11BuildPreamble returns the start of build.py: the pybind11 recorder.
 func (g *pyGen) pybind11BuildPreamble() string {
 	return strings.NewReplacer(
 		"@NAME@", g.cfg.Name,
 		"@CMD@", g.cfg.Cmd,
 		"@VERSION@", g.cfg.Version,
+		"@ARG_HELPERS@", cxxArgHelpers,
 	).Replace(pybind11BuildPy)
 }

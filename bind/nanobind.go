@@ -25,5 +25,6 @@ func (g *pyGen) nanobindBuildPreamble() string {
 		"@NAME@", g.cfg.Name,
 		"@CMD@", g.cfg.Cmd,
 		"@VERSION@", g.cfg.Version,
+		"@ARG_HELPERS@", cxxArgHelpers,
 	).Replace(nanobindBuildPy)
 }
