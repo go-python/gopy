@@ -21,7 +21,8 @@ func TestParseBackend(t *testing.T) {
 		{in: "cffi", want: BackendCFFI},
 		{in: "pybind11", want: BackendPyBind11},
 		{in: "nanobind", want: BackendNanobind},
-		{in: "capi", errPart: "not implemented yet"},
+		{in: "capi", want: BackendCAPI},
+		{in: "cgo", errPart: "not implemented yet"},
 		{in: "bogus", errPart: "unknown GOPY_BACKEND"},
 	} {
 		got, err := parseBackend(tc.in)

@@ -471,11 +471,11 @@ func TestMakefile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if backend == bind.BackendPyBindGen {
-		// TODO: its Makefile links _simple against a separate simple_go
-		// shared library with no rpath, so the result only imports with
-		// that library's directory on the loader's search path.
-		t.Skip("the pybindgen backend's Makefile output doesn't import as-is")
+	if backend == bind.BackendPyBindGen || backend == bind.BackendCAPI {
+		// TODO: their (shared) Makefile links _simple against a separate
+		// simple_go shared library with no rpath, so the result only imports
+		// with that library's directory on the loader's search path.
+		t.Skipf("the %s backend's Makefile output doesn't import as-is", backend)
 	}
 	if _, err := exec.LookPath("make"); err != nil {
 		t.Skip("make not found")

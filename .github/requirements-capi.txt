@@ -1,0 +1,4 @@
+# Python packages for the GOPY_BACKEND=capi job in workflows/ci.yml.
+# pybindgen is deliberately absent: the capi backend must not need it.
+# used by the memory-leak checks on Windows, where the resource module is missing
+psutil

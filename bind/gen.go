@@ -794,6 +794,8 @@ func (g *pyGen) genPyBuildPreamble() {
 		g.pybuild.Printf("%s", g.pybind11BuildPreamble())
 	case g.isNanobind():
 		g.pybuild.Printf("%s", g.nanobindBuildPreamble())
+	case g.isCAPI():
+		g.pybuild.Printf("%s", g.capiBuildPreamble())
 	default:
 		g.pybuild.Printf(PyBuildPreamble, g.cfg.Name, g.cfg.Cmd, g.cfg.Version)
 	}

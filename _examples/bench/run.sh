@@ -20,7 +20,7 @@ GOPY="$WORK/gopy"
 
 printf '%-10s %8s %14s %14s %10s\n' backend calls "add (s)" "concat (s)" "peak (KB)"
 
-for backend in pybindgen cffi pybind11 nanobind; do
+for backend in pybindgen capi cffi pybind11 nanobind; do
 	out="$WORK/$backend"
 	mkdir -p "$out"
 	# gopy build cds into -output and runs go build there; give it a module

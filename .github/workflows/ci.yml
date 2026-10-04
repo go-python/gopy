@@ -239,6 +239,50 @@ jobs:
     - name: Test
       run: go test -v -timeout=30m ./...
 
+  # Builds and tests the opt-in capi backend (GOPY_BACKEND=capi).  Runs beside
+  # the main matrix, on one Go version, and stops at the first failure.  Builds
+  # exactly as the default backend does, except that build.py writes the C
+  # module itself (see bind/capi_build.py), so pybindgen isn't installed here.
+  capi:
+    name: capi backend (${{ matrix.platform }}, Python ${{ matrix.python-version }})
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [ubuntu-latest, windows-latest, macos-15]
+        python-version: ['3.11', '3.12']
+    runs-on: ${{ matrix.platform }}
+    env:
+      GOPY_BACKEND: capi
+      # print the python stack if the process crashes, e.g. at exit
+      PYTHONFAULTHANDLER: 1
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: pip
+        cache-dependency-path: .github/requirements-capi.txt
+
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.25.x
+        cache: true
+
+    - name: Install packages
+      run: |
+        python -m pip install -r .github/requirements-capi.txt
+        go install golang.org/x/tools/cmd/goimports@v0.29.0
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Test
+      run: go test -v ./...
+
   # Compares per-call overhead across backends (see _examples/bench/run.sh):
   # not a pass/fail check, just a table uploaded as a build artifact.  Runs
   # on ubuntu-latest only -- the comparison is between backends, not OSes.
