@@ -467,15 +467,8 @@ func TestBindSimple(t *testing.T) {
 // TestMakefile builds _examples/simple with the Makefile gopy gen writes,
 // rather than with gopy build, under the backend GOPY_BACKEND selects.
 func TestMakefile(t *testing.T) {
-	backend, err := bind.BackendFromEnv()
-	if err != nil {
+	if _, err := bind.BackendFromEnv(); err != nil {
 		t.Fatal(err)
-	}
-	if backend == bind.BackendPyBindGen || backend == bind.BackendCAPI {
-		// TODO: their (shared) Makefile links _simple against a separate
-		// simple_go shared library with no rpath, so the result only imports
-		// with that library's directory on the loader's search path.
-		t.Skipf("the %s backend's Makefile output doesn't import as-is", backend)
 	}
 	if _, err := exec.LookPath("make"); err != nil {
 		t.Skip("make not found")
