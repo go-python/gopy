@@ -31,7 +31,7 @@ build generates and compiles (C)Python language bindings for Go package(s).
 ex:
  $ gopy build [options] <go-package-name> [other-go-package...]
  $ gopy build github.com/go-python/gopy/_examples/hi
-`,
+` + backendHelp,
 		Flag: *flag.NewFlagSet("gopy-build", flag.ExitOnError),
 	}
 

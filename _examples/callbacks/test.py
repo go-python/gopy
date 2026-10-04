@@ -5,6 +5,8 @@
 from __future__ import print_function
 
 import io
+import os
+import subprocess
 import sys
 
 import callbacks
@@ -79,5 +81,20 @@ try:
 finally:
     sys.stderr = stderr
 print("calls:", len(seen), "reported:", reported.count("ValueError: boom"))
+
+print("--- a callback Go keeps and calls after the call it was passed to returned")
+# Run in a child process: a callback that outlives its call must not crash it
+# (cffi, pybind11 and nanobind refuse the call, cffi with a warning on stderr,
+# which the output compared here mustn't depend on).
+here = os.path.dirname(os.path.abspath(__file__))
+child = subprocess.run(
+    [sys.executable, "-c", "import callbacks\ndef kept(i): pass\ncallbacks.Keep(kept)\ncallbacks.CallKept(1)\n"],
+    cwd=here,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+)
+print("kept: exit code", child.returncode)
+if child.returncode != 0:
+    print(child.stderr.decode(errors="replace"))
 
 print("OK")

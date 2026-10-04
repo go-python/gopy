@@ -102,3 +102,17 @@ func InGoroutine(fun func(i int)) {
 	}()
 	wg.Wait()
 }
+
+var kept func(i int)
+
+// Keep stores fun, for CallKept to call after Keep has returned.
+func Keep(fun func(i int)) {
+	kept = fun
+}
+
+// CallKept calls the func Keep stored, outside the call it was passed to.
+func CallKept(i int) {
+	if kept != nil {
+		kept(i)
+	}
+}

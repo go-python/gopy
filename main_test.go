@@ -433,6 +433,8 @@ box: [(0, 'item-0'), (1, 'item-1')]
 goroutine: 7
 --- an exception in a callback is reported, and Go carries on
 calls: 3 reported: 3
+--- a callback Go keeps and calls after the call it was passed to returned
+kept: exit code 0
 OK
 `),
 	})

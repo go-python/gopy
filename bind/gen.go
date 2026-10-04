@@ -335,9 +335,10 @@ except ImportError:
 cwd = os.getcwd()
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 os.chdir(currentdir)
-# Windows only searches a dependent DLL's own directory for its further
-# dependencies (e.g. the pybind11 backend's _%[1]s.pyd needs %[1]s_go.pyd)
-# if that directory was added explicitly; harmless, and a no-op elsewhere.
+# Windows only searches a DLL's own directory for its further dependencies if
+# that directory was added explicitly.  No backend's module currently depends
+# on another DLL next to it (the pybind11 backend's once needed %[1]s_go.pyd,
+# before it linked into a single module); harmless, and a no-op elsewhere.
 if hasattr(os, 'add_dll_directory'):
 	os.add_dll_directory(currentdir)
 # When multiple gopy extensions coexist in one Python process each carries its own
@@ -640,12 +641,12 @@ func (g *pyGen) genPre() {
 	g.gofile = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
 	g.leakfile = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
 	g.pybuild = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
-	if g.wantMakefile() {
+	if !NoMake {
 		g.makefile = &printer{buf: new(bytes.Buffer), indentEach: []byte("\t")}
 	}
 	g.genGoPreamble()
 	g.genPyBuildPreamble()
-	if g.wantMakefile() {
+	if !NoMake {
 		g.genMakefile()
 	}
 	oinit, err := os.Create(filepath.Join(g.cfg.OutputDir, "__init__.py"))
@@ -675,7 +676,7 @@ func (g *pyGen) genOut() {
 	g.splicePyBind11Trampolines()
 	g.genPrintOut(g.cfg.Name+".go", g.gofile)
 	g.genPrintOut("build.py", g.pybuild)
-	if g.wantMakefile() {
+	if !NoMake {
 		g.makefile.Printf("\n\n")
 		g.genPrintOut("Makefile", g.makefile)
 	}
@@ -715,11 +716,6 @@ func (g *pyGen) genPkg(p *Package) {
 		g.genPkgWrapOut()
 	}
 	g.pkg = nil
-}
-
-// wantMakefile reports whether to write a Makefile.
-func (g *pyGen) wantMakefile() bool {
-	return !NoMake
 }
 
 func (g *pyGen) genGoPreamble() {
