@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 
@@ -135,9 +134,9 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 
 	switch cfg.Backend {
 	case bind.BackendPyBind11:
-		return buildPyBind11(cfg, buildname, pycfg)
+		return buildPyBind11(cfg, pycfg)
 	case bind.BackendNanobind:
-		return buildNanobind(cfg, buildname, pycfg)
+		return buildNanobind(cfg, pycfg)
 	}
 
 	if mode == bind.ModeExe {
@@ -377,20 +376,20 @@ func buildCFFI(cfg *BuildCfg, buildLib string) error {
 }
 
 // buildPyBind11 builds the pybind11 backend's module (see buildCXXModule).
-func buildPyBind11(cfg *BuildCfg, buildname string, pycfg bind.PyConfig) error {
+func buildPyBind11(cfg *BuildCfg, pycfg bind.PyConfig) error {
 	cmdout, err := exec.Command(cfg.VM, "-m", "pybind11", "--includes").CombinedOutput()
 	if err != nil {
 		fmt.Printf("cmd had error: %v  output:\n%v\n(is pybind11 installed? pip install pybind11)\n", err, string(cmdout))
 		return err
 	}
-	return buildCXXModule(cfg, buildname, pycfg, strings.Fields(strings.TrimSpace(string(cmdout))), nil)
+	return buildCXXModule(cfg, pycfg, strings.Fields(strings.TrimSpace(string(cmdout))), nil)
 }
 
 // buildNanobind builds the nanobind backend's module (see buildCXXModule).
 // Unlike pybind11, nanobind isn't header-only: its own runtime (libnanobind)
 // ships as source, meant to be compiled into each extension alongside the
 // extension's own code, which nb_combined.cpp does in one translation unit.
-func buildNanobind(cfg *BuildCfg, buildname string, pycfg bind.PyConfig) error {
+func buildNanobind(cfg *BuildCfg, pycfg bind.PyConfig) error {
 	cmdout, err := exec.Command(cfg.VM, "-c",
 		"import nanobind; print(nanobind.include_dir()); print(nanobind.source_dir())").CombinedOutput()
 	if err != nil {
@@ -404,33 +403,19 @@ func buildNanobind(cfg *BuildCfg, buildname string, pycfg bind.PyConfig) error {
 	incdir, srcdir := strings.TrimSpace(dirs[0]), strings.TrimSpace(dirs[1])
 	// robin_map is a dependency nanobind vendors next to its own headers.
 	robinmap := filepath.Join(filepath.Dir(incdir), "ext", "robin_map", "include")
-	flags := []string{
-		"-I" + incdir, "-I" + robinmap,
-		// as nanobind's own build does for libnanobind (see the comment at
-		// the top of nb_combined.cpp); harmless for the generated .cpp too.
-		"-DNDEBUG", "-DNB_COMPACT_ASSERTIONS", "-fno-strict-aliasing",
-	}
-	return buildCXXModule(cfg, buildname, pycfg, flags, []string{filepath.Join(srcdir, "nb_combined.cpp")})
+	flags := append([]string{"-I" + incdir, "-I" + robinmap}, bind.NanobindCXXFlags...)
+	return buildCXXModule(cfg, pycfg, flags, []string{filepath.Join(srcdir, "nb_combined.cpp")})
 }
 
 // buildCXXModule builds the cgo shim as a static archive, runs build.py to
 // write a C++ module wrapping it (pybind11 or nanobind), and compiles+links
-// that with a C++ compiler, passing it cxxflags (the C++ library's include
+// that with a C++ compiler (see bind.CXXArgs, and bind/cxxbuild.go for why
+// a static archive), passing it cxxflags (the C++ library's include
 // directories, and any flags of its own) and, besides the generated .cpp,
 // the C++ library's own sources, if any.  The current directory is the
-// output directory.
-//
-// Unlike cffi (buildCFFI), the wrapper Go generates (pybind11_callback.go)
-// has Go call INTO the wrapper's own C++ code (the per-callback-shape
-// trampolines) as well as the other way around.  Two separately-built
-// shared libraries can't have a dependency cycle like that -- neither can
-// exist as a complete, loadable file before the other -- so instead of a
-// shared library (buildCFFI's buildLib), the Go side here builds as a
-// static archive (-buildmode=c-archive), with its symbols left unresolved
-// until the single final link below, alongside the C++ object code that
-// defines them.
-func buildCXXModule(cfg *BuildCfg, buildname string, pycfg bind.PyConfig, cxxflags, srcs []string) error {
-	archive := buildname + ".a"
+// output directory.  The Makefile gopy gen writes for these backends runs
+// the same steps.
+func buildCXXModule(cfg *BuildCfg, pycfg bind.PyConfig, cxxflags, srcs []string) error {
 	args := []string{"build", "-mod=mod", "-buildmode=c-archive"}
 	if cfg.BuildTags != "" {
 		args = append(args, "-tags", cfg.BuildTags)
@@ -438,7 +423,7 @@ func buildCXXModule(cfg *BuildCfg, buildname string, pycfg bind.PyConfig, cxxfla
 	if !cfg.Symbols {
 		args = append(args, "-ldflags=-s -w")
 	}
-	args = append(args, "-o", archive, ".")
+	args = append(args, "-o", bind.CXXArchive(cfg.Name), ".")
 	fmt.Printf("go %v\n", strings.Join(args, " "))
 	cmdout, err := exec.Command("go", args...).CombinedOutput()
 	if err != nil {
@@ -453,85 +438,8 @@ func buildCXXModule(cfg *BuildCfg, buildname string, pycfg bind.PyConfig, cxxfla
 		return err
 	}
 
-	extext := libExt
-	if runtime.GOOS == "windows" {
-		extext = ".pyd"
-	}
-	if pycfg.ExtSuffix != "" {
-		extext = pycfg.ExtSuffix
-	}
-	modlib := "_" + cfg.Name + extext
-
-	cxx := os.Getenv("CXX")
-	if cxx == "" {
-		cxx = "c++"
-	}
-	// pycfg.CFlags/LdFlags quote each path (for the shell that CGO_CFLAGS/
-	// CGO_LDFLAGS normally go through); exec.Command runs the compiler
-	// directly, with no shell to strip those, so unquote each field here.
-	unquote := func(fields []string) []string {
-		o := make([]string, len(fields))
-		for i, f := range fields {
-			o[i] = strings.Trim(f, `"`)
-		}
-		return o
-	}
-	// modlib depends on libpython (wherever this VM's own one lives, e.g.
-	// not on the loader's default search path for a uv- or pyenv-managed
-	// Python); without an rpath, the loader only finds it if it happens to
-	// already be on its search path.
-	var libdir string
-	if m := regexp.MustCompile(`-L(\S+)`).FindStringSubmatch(pycfg.LdFlags); m != nil {
-		libdir = strings.Trim(m[1], `"`)
-	}
-	// The archive's Go runtime code calls into gopy_cb_N (defined below, in
-	// the .cpp), so the linker must be told to keep every object in it --
-	// left to its own judgement, it would see nothing in the .cpp calling
-	// into the archive first and drop it as unused.  GNU ld (Linux, and
-	// Windows' MinGW) and ld64 (macOS) spell that differently.
-	var archiveArgs []string
-	if runtime.GOOS == "darwin" {
-		archiveArgs = []string{"-Wl,-force_load," + archive}
-	} else {
-		archiveArgs = []string{"-Wl,--whole-archive", archive, "-Wl,--no-whole-archive"}
-	}
-	cxxArgs := []string{"-std=c++17", "-fPIC", "-shared", "-O2"}
-	switch runtime.GOOS {
-	case "darwin":
-		cxxArgs = append(cxxArgs, "-Wl,-rpath,@loader_path")
-		if libdir != "" {
-			cxxArgs = append(cxxArgs, "-Wl,-rpath,"+libdir)
-		}
-	case "windows":
-		// No rpath equivalent; modlib depends on nothing but libpython now
-		// that the Go side is a static archive, not a separate DLL of its
-		// own (see the buildCXXModule doc comment).  MinGW's own runtime
-		// (libstdc++/libgcc/libwinpthread), which g++ links dynamically by
-		// default, has no such fix available -- it isn't found by name
-		// alone unless its directory happens to be on PATH -- so link it in
-		// statically instead.  The C runtime (ucrt) stays dynamic, shared
-		// with Python's own.
-		cxxArgs = append(cxxArgs, "-static-libgcc", "-static-libstdc++",
-			"-Wl,-Bstatic,--whole-archive", "-lwinpthread", "-Wl,--no-whole-archive", "-Wl,-Bdynamic")
-	default:
-		cxxArgs = append(cxxArgs, "-Wl,-rpath,$ORIGIN")
-		if libdir != "" {
-			cxxArgs = append(cxxArgs, "-Wl,-rpath,"+libdir)
-		}
-	}
-	cxxArgs = append(cxxArgs, cxxflags...)
-	cxxArgs = append(cxxArgs, unquote(strings.Fields(pycfg.CFlags))...)
-	cxxArgs = append(cxxArgs, cfg.Name+".cpp")
-	cxxArgs = append(cxxArgs, srcs...)
-	cxxArgs = append(cxxArgs, archiveArgs...)
-	cxxArgs = append(cxxArgs, unquote(strings.Fields(pycfg.LdFlags))...)
-	// c-archive mode (unlike c-shared) doesn't resolve the Go runtime's own
-	// dependencies on these itself; TODO: verified only on Linux -- unclear
-	// yet whether Windows/macOS need anything of their own added here too.
-	if runtime.GOOS != "windows" {
-		cxxArgs = append(cxxArgs, "-lpthread", "-ldl", "-lm")
-	}
-	cxxArgs = append(cxxArgs, "-o", modlib)
+	cxx := bind.CXX()
+	cxxArgs := bind.CXXArgs(cfg.Name, bind.ExtModuleName(cfg.Name, libExt, pycfg), pycfg, cxxflags, srcs)
 	fmt.Printf("%v %v\n", cxx, strings.Join(cxxArgs, " "))
 	cmdout, err = exec.Command(cxx, cxxArgs...).CombinedOutput()
 	if err != nil {

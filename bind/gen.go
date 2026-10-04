@@ -887,6 +887,8 @@ func (g *pyGen) genMakefile() {
 
 	if g.mode == ModeExe {
 		g.makefile.Printf(MakefileExeTemplate, g.cfg.Name, g.cfg.Cmd, gencmd, g.cfg.VM, g.libext, pycfg.CFlags, pycfg.LdFlags, g.cfg.Version)
+	} else if g.isCXXShim() {
+		g.genMakefileCXX(gencmd, pycfg)
 	} else if g.isCFFI() {
 		g.makefile.Printf(MakefileTemplateCFFI, g.cfg.Name, g.cfg.Cmd, gencmd, g.cfg.VM, g.libext, "", "", "", "", g.cfg.Version)
 	} else {
