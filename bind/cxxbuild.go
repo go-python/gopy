@@ -6,6 +6,7 @@ package bind
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -199,6 +200,11 @@ CXXLIBFOUND=$(NANOBIND_INC)
 	for i, a := range args {
 		args[i] = makeShellArg(a)
 	}
-	g.makefile.Printf(MakefileTemplateCXX, g.cfg.Name, g.cfg.Cmd, gencmd, g.cfg.VM, CXX(), libvars,
+	// make runs a $(shell ...) or recipe line through sh rather than
+	// directly whenever it has quotes or other shell syntax in it (as the
+	// nanobind lookups above do), and sh would strip a Windows path's
+	// backslashes from $(PYTHON); forward slashes work either way.
+	vm := filepath.ToSlash(g.cfg.VM)
+	g.makefile.Printf(MakefileTemplateCXX, g.cfg.Name, g.cfg.Cmd, gencmd, vm, CXX(), libvars,
 		strings.Join(args, " "), g.cfg.Version, g.cfg.Backend, modlib)
 }
