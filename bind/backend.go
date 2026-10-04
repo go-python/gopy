@@ -23,20 +23,15 @@ const (
 	BackendPyBind11  Backend = "pybind11"
 	BackendNanobind  Backend = "nanobind"
 	BackendCAPI      Backend = "capi"
-	BackendCGO       Backend = "cgo"
 )
 
-// backends lists every known backend and whether gopy can generate it yet.
-var backends = []struct {
-	name        Backend
-	implemented bool
-}{
-	{BackendPyBindGen, true},
-	{BackendCFFI, true},
-	{BackendPyBind11, true},
-	{BackendNanobind, true},
-	{BackendCAPI, true},
-	{BackendCGO, false},
+// backends lists every known backend.
+var backends = []Backend{
+	BackendPyBindGen,
+	BackendCFFI,
+	BackendPyBind11,
+	BackendNanobind,
+	BackendCAPI,
 }
 
 // BackendFromEnv returns the backend selected by GOPY_BACKEND.
@@ -52,14 +47,10 @@ func parseBackend(v string) (Backend, error) {
 	}
 	names := make([]string, len(backends))
 	for i, b := range backends {
-		names[i] = string(b.name)
-		if string(b.name) != v {
-			continue
+		names[i] = string(b)
+		if string(b) == v {
+			return b, nil
 		}
-		if !b.implemented {
-			return "", fmt.Errorf("gopy: %s=%q is not implemented yet", BackendEnvVar, v)
-		}
-		return b.name, nil
 	}
 	return "", fmt.Errorf("gopy: unknown %s=%q (valid values: %s)", BackendEnvVar, v, strings.Join(names, ", "))
 }

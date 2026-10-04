@@ -88,7 +88,7 @@ func genPkg(mode bind.BuildMode, cfg *BuildCfg) error {
 	if err != nil {
 		return err
 	}
-	err = bind.GenPyBind(mode, libExt, extraGccArgs, pyvers, cfg.DynamicLinking, &cfg.BindCfg)
+	err = bind.GenPyBind(mode, libExt, pyvers, cfg.DynamicLinking, &cfg.BindCfg)
 	if err != nil {
 		log.Println(err)
 	}

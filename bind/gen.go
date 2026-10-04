@@ -571,15 +571,14 @@ var ClearGoTLS = false
 // and wrapper .py file(s) that are loaded as the interface to the package with shadow
 // python-side classes
 // mode = gen, build, pkg, exe
-func GenPyBind(mode BuildMode, libext, extragccargs string, lang int, dynamicLink bool, cfg *BindCfg) error {
+func GenPyBind(mode BuildMode, libext string, lang int, dynamicLink bool, cfg *BindCfg) error {
 	gen := &pyGen{
-		mode:         mode,
-		pypkgname:    cfg.Name,
-		cfg:          cfg,
-		libext:       libext,
-		extraGccArgs: extragccargs,
-		lang:         lang,
-		dynamicLink:  dynamicLink,
+		mode:        mode,
+		pypkgname:   cfg.Name,
+		cfg:         cfg,
+		libext:      libext,
+		lang:        lang,
+		dynamicLink: dynamicLink,
 	}
 	gen.genPackageMap()
 	thePyGen = gen
@@ -602,14 +601,13 @@ type pyGen struct {
 	err    ErrorList
 	pkgmap map[string]struct{} // map of package paths
 
-	mode         BuildMode // mode: gen, build, pkg, exe
-	pypkgname    string
-	cfg          *BindCfg
-	libext       string
-	extraGccArgs string
-	lang         int // c-python api version (2,3)
-	dynamicLink  bool
-	cbs          []*cffiCallback // cffi: the callback types that have a C trampoline, see cffi_callback.go
+	mode        BuildMode // mode: gen, build, pkg, exe
+	pypkgname   string
+	cfg         *BindCfg
+	libext      string
+	lang        int // c-python api version (2,3)
+	dynamicLink bool
+	cbs         []*cffiCallback // cffi: the callback types that have a C trampoline, see cffi_callback.go
 }
 
 func (g *pyGen) gen() error {
