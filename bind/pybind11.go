@@ -6,7 +6,6 @@ package bind
 
 import (
 	_ "embed"
-	"strings"
 )
 
 // The pybind11 backend (GOPY_BACKEND=pybind11) shares its cgo shim with cffi
@@ -28,13 +27,3 @@ var pybind11BuildPy string
 //
 //go:embed cxx_args.inc
 var cxxArgHelpers string
-
-// pybind11BuildPreamble returns the start of build.py: the pybind11 recorder.
-func (g *pyGen) pybind11BuildPreamble() string {
-	return strings.NewReplacer(
-		"@NAME@", g.cfg.Name,
-		"@CMD@", g.cfg.Cmd,
-		"@VERSION@", g.cfg.Version,
-		"@ARG_HELPERS@", cxxArgHelpers,
-	).Replace(pybind11BuildPy)
-}

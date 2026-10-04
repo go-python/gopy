@@ -6,7 +6,6 @@ package bind
 
 import (
 	_ "embed"
-	"strings"
 )
 
 // The nanobind backend (GOPY_BACKEND=nanobind) is the pybind11 backend with
@@ -18,13 +17,3 @@ import (
 
 //go:embed nanobind_build.py
 var nanobindBuildPy string
-
-// nanobindBuildPreamble returns the start of build.py: the nanobind recorder.
-func (g *pyGen) nanobindBuildPreamble() string {
-	return strings.NewReplacer(
-		"@NAME@", g.cfg.Name,
-		"@CMD@", g.cfg.Cmd,
-		"@VERSION@", g.cfg.Version,
-		"@ARG_HELPERS@", cxxArgHelpers,
-	).Replace(nanobindBuildPy)
-}

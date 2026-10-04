@@ -13,9 +13,8 @@ import "fmt"
 // what they share about the shape of that library -- backend detection,
 // error reporting (gopySetError, defined in cffi.go's preamble and used by
 // all of them), and how a complex64/128 value crosses the boundary --
-// leaving each backend's own file for what only it needs (cffiBuildPreamble
-// in cffi.go, pybind11BuildPreamble in pybind11.go, nanobindBuildPreamble in
-// nanobind.go).
+// leaving each backend's own file for what only it needs (cffi.go,
+// pybind11.go, nanobind.go).
 
 func (g *pyGen) isCFFI() bool {
 	return g.cfg.Backend == BackendCFFI

@@ -6,7 +6,6 @@ package bind
 
 import (
 	_ "embed"
-	"strings"
 )
 
 // The capi backend (GOPY_BACKEND=capi) is the default backend without
@@ -20,13 +19,4 @@ var capiBuildPy string
 
 func (g *pyGen) isCAPI() bool {
 	return g.cfg.Backend == BackendCAPI
-}
-
-// capiBuildPreamble returns the start of build.py: the capi recorder.
-func (g *pyGen) capiBuildPreamble() string {
-	return strings.NewReplacer(
-		"@NAME@", g.cfg.Name,
-		"@CMD@", g.cfg.Cmd,
-		"@VERSION@", g.cfg.Version,
-	).Replace(capiBuildPy)
 }

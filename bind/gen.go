@@ -783,16 +783,28 @@ func (g *pyGen) genGoPreamble() {
 func (g *pyGen) genPyBuildPreamble() {
 	switch {
 	case g.isCFFI():
-		g.pybuild.Printf("%s", g.cffiBuildPreamble())
+		g.pybuild.Printf("%s", g.buildPreamble(cffiBuildPy, "@LIBEXT@", g.libext))
 	case g.isPyBind11():
-		g.pybuild.Printf("%s", g.pybind11BuildPreamble())
+		g.pybuild.Printf("%s", g.buildPreamble(pybind11BuildPy, "@ARG_HELPERS@", cxxArgHelpers))
 	case g.isNanobind():
-		g.pybuild.Printf("%s", g.nanobindBuildPreamble())
+		g.pybuild.Printf("%s", g.buildPreamble(nanobindBuildPy, "@ARG_HELPERS@", cxxArgHelpers))
 	case g.isCAPI():
-		g.pybuild.Printf("%s", g.capiBuildPreamble())
+		g.pybuild.Printf("%s", g.buildPreamble(capiBuildPy))
 	default:
 		g.pybuild.Printf(PyBuildPreamble, g.cfg.Name, g.cfg.Cmd, g.cfg.Version)
 	}
+}
+
+// buildPreamble returns src, the start of build.py for a backend whose
+// recorder is an embedded .py file, with its @NAME@, @CMD@ and @VERSION@
+// filled in, along with any of its own placeholders that extra gives as
+// placeholder, value pairs.
+func (g *pyGen) buildPreamble(src string, extra ...string) string {
+	return strings.NewReplacer(append([]string{
+		"@NAME@", g.cfg.Name,
+		"@CMD@", g.cfg.Cmd,
+		"@VERSION@", g.cfg.Version,
+	}, extra...)...).Replace(src)
 }
 
 func (g *pyGen) genPyWrapPreamble() {

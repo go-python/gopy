@@ -6,7 +6,6 @@ package bind
 
 import (
 	_ "embed"
-	"strings"
 )
 
 // The cffi backend (GOPY_BACKEND=cffi) uses the shared no-API cgo shim (see
@@ -16,16 +15,6 @@ import (
 
 //go:embed cffi_build.py
 var cffiBuildPy string
-
-// cffiBuildPreamble returns the start of build.py: the cffi recorder.
-func (g *pyGen) cffiBuildPreamble() string {
-	return strings.NewReplacer(
-		"@NAME@", g.cfg.Name,
-		"@CMD@", g.cfg.Cmd,
-		"@VERSION@", g.cfg.Version,
-		"@LIBEXT@", g.libext,
-	).Replace(cffiBuildPy)
-}
 
 // same argument positions as goPreamble: 1 = name of package, 2 = cmdstr,
 // 4 = GoHandle, 5 = CGoHandle, 6 = all imports, 7 = mainstr, 8 = C trampolines for
