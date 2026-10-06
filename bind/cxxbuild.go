@@ -130,13 +130,17 @@ func CXXArgs(name, modlib string, pycfg PyConfig, libflags, srcs []string) []str
 // shell make runs it with receives arg itself: make variable references
 // ("$(...)") are left for make to expand, any other "$" is escaped from
 // make, and anything the shell would split or expand is single-quoted.
+// Each "'" inside closes the quoting, adds a double-quoted "'", and reopens
+// it, rather than using a backslash: the double quote makes make hand the
+// line to the shell, where Windows make's own argument splitting would
+// otherwise drop the "'".
 func makeShellArg(arg string) string {
 	if strings.HasPrefix(arg, "$(") {
 		return arg
 	}
 	arg = strings.ReplaceAll(arg, "$", "$$")
 	if arg == "" || strings.ContainsAny(arg, " \t\n'\"\\`*?[#~&;|<>()$") {
-		return "'" + strings.ReplaceAll(arg, "'", `'\''`) + "'"
+		return "'" + strings.ReplaceAll(arg, "'", `'"'"'`) + "'"
 	}
 	return arg
 }

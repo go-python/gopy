@@ -22,7 +22,7 @@ var makeShellArgTests = []struct {
 	{"a$b", "'a$$b'"},
 	{"-I/opt/My Python/include", "'-I/opt/My Python/include'"},
 	{`C:\hostedtoolcache\Python\include`, `'C:\hostedtoolcache\Python\include'`},
-	{"it's", `'it'\''s'`},
+	{"it's", `'it'"'"'s'`},
 	{`say "hi"`, `'say "hi"'`},
 	{"*.cpp", "'*.cpp'"},
 	{"a;b", "'a;b'"},
