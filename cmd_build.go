@@ -31,7 +31,7 @@ build generates and compiles (C)Python language bindings for Go package(s).
 ex:
  $ gopy build [options] <go-package-name> [other-go-package...]
  $ gopy build github.com/go-python/gopy/_examples/hi
-`,
+` + backendHelp,
 		Flag: *flag.NewFlagSet("gopy-build", flag.ExitOnError),
 	}
 
@@ -115,15 +115,25 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 
 	os.Remove(cfg.Name + ".c") // may fail, we don't care
 
-	fmt.Printf("goimports -w %v\n", cfg.Name+".go")
-	cmd := exec.Command("goimports", "-w", cfg.Name+".go")
-	cmdout, err = cmd.CombinedOutput()
-	if err != nil {
-		fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
+	if err := runCmd(nil, "goimports", "-w", cfg.Name+".go"); err != nil {
 		return err
 	}
 
+	if cfg.Backend == bind.BackendCFFI {
+		return buildCFFI(cfg, buildname+libExt)
+	}
+
 	pycfg, err := bind.GetPythonConfig(cfg.VM)
+	if err != nil {
+		return err
+	}
+
+	switch cfg.Backend {
+	case bind.BackendPyBind11:
+		return buildPyBind11(cfg, pycfg)
+	case bind.BackendNanobind:
+		return buildNanobind(cfg, pycfg)
+	}
 
 	if mode == bind.ModeExe {
 		of, err := os.Create(buildname + ".h") // overwrite existing
@@ -131,7 +141,7 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		of.Close()
 
 		fmt.Printf("%v build.py   # will fail, but needed to generate .c file\n", cfg.VM)
-		cmd = exec.Command(cfg.VM, "build.py")
+		cmd := exec.Command(cfg.VM, "build.py")
 		cmd.Run() // will fail, we don't care about errors
 
 		args := []string{"build", "-mod=mod", "-buildmode=c-shared"}
@@ -183,23 +193,7 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 
 		// build the go shared library upfront to generate the header
 		// needed by our generated cpython code
-		firstArgs := []string{"build", "-mod=mod", "-buildmode=c-shared"}
-		if cfg.BuildTags != "" {
-			firstArgs = append(firstArgs, "-tags", cfg.BuildTags)
-		}
-		if !cfg.Symbols {
-			// These flags will omit the various symbol tables, thereby
-			// reducing the final size of the binary. From https://golang.org/cmd/link/
-			// -s Omit the symbol table and debug information
-			// -w Omit the DWARF symbol table
-			firstArgs = append(firstArgs, "-ldflags=-s -w")
-		}
-		firstArgs = append(firstArgs, "-o", buildLib, ".")
-		fmt.Printf("go %v\n", strings.Join(firstArgs, " "))
-		cmd = exec.Command("go", firstArgs...)
-		cmdout, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+		if err := runCmd(nil, "go", goBuildArgs(cfg, "c-shared", buildLib)...); err != nil {
 			return err
 		}
 		// we don't need this initial lib because we are going to relink
@@ -211,14 +205,7 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		// via RTLD_GLOBAL interposition corrupt each other's GC state (#370).
 		// This applies only to the second build, which is where PyInit__<name>
 		// exists and where the exported-symbols list is valid.
-		finalArgs := []string{"build", "-mod=mod", "-buildmode=c-shared"}
-		if cfg.BuildTags != "" {
-			finalArgs = append(finalArgs, "-tags", cfg.BuildTags)
-		}
-		var finalLdFlags []string
-		if !cfg.Symbols {
-			finalLdFlags = append(finalLdFlags, "-s", "-w")
-		}
+		var exportLdFlags []string
 		switch runtime.GOOS {
 		case "darwin":
 			ef, ferr := os.CreateTemp("", "gopy-exports-*.txt")
@@ -226,7 +213,7 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 				fmt.Fprintf(ef, "_PyInit__%s\n", cfg.Name)
 				ef.Close()
 				defer os.Remove(ef.Name())
-				finalLdFlags = append(finalLdFlags, "-extldflags=-Wl,-exported_symbols_list,"+ef.Name())
+				exportLdFlags = append(exportLdFlags, "-extldflags=-Wl,-exported_symbols_list,"+ef.Name())
 			}
 		case "linux":
 			ef, ferr := os.CreateTemp("", "gopy-exports-*.map")
@@ -234,22 +221,12 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 				fmt.Fprintf(ef, "{ global: PyInit__%s; local: *; };\n", cfg.Name)
 				ef.Close()
 				defer os.Remove(ef.Name())
-				finalLdFlags = append(finalLdFlags, "-extldflags=-Wl,--version-script="+ef.Name())
+				exportLdFlags = append(exportLdFlags, "-extldflags=-Wl,--version-script="+ef.Name())
 			}
 		}
-		if len(finalLdFlags) > 0 {
-			finalArgs = append(finalArgs, "-ldflags="+strings.Join(finalLdFlags, " "))
-		}
-		finalArgs = append(finalArgs, "-o", modlib, ".")
-		// args is still used below for the CGO env build; point it at finalArgs.
-		args := finalArgs
 
 		// generate c code
-		fmt.Printf("%v build.py\n", cfg.VM)
-		cmd = exec.Command(cfg.VM, "build.py")
-		cmdout, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("cmd had error: %v  output:\no%v\n", err, string(cmdout))
+		if err := runCmd(nil, cfg.VM, "build.py"); err != nil {
 			return err
 		}
 
@@ -321,15 +298,103 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		fmt.Println(ldflagsEnv)
 
 		// build extension with go + c
-		fmt.Printf("go %v\n", strings.Join(args, " "))
-		cmd = exec.Command("go", args...)
-		cmd.Env = env
-		cmdout, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
+		if err := runCmd(env, "go", goBuildArgs(cfg, "c-shared", modlib, exportLdFlags...)...); err != nil {
 			return err
 		}
 	}
 
+	return err
+}
+
+// buildCFFI builds the cgo shim as a plain shared library, and then runs
+// build.py to write the cffi module that loads it.  The current directory
+// is the output directory.
+func buildCFFI(cfg *BuildCfg, buildLib string) error {
+	if err := runCmd(nil, "go", goBuildArgs(cfg, "c-shared", buildLib)...); err != nil {
+		return err
+	}
+	return runCmd(nil, cfg.VM, "build.py")
+}
+
+// buildPyBind11 builds the pybind11 backend's module (see buildCXXModule).
+func buildPyBind11(cfg *BuildCfg, pycfg bind.PyConfig) error {
+	cmdout, err := exec.Command(cfg.VM, "-m", "pybind11", "--includes").CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n(is pybind11 installed? pip install pybind11)\n", err, string(cmdout))
+		return err
+	}
+	return buildCXXModule(cfg, pycfg, strings.Fields(strings.TrimSpace(string(cmdout))), nil)
+}
+
+// buildNanobind builds the nanobind backend's module (see buildCXXModule).
+// Unlike pybind11, nanobind isn't header-only: its own runtime (libnanobind)
+// ships as source, meant to be compiled into each extension alongside the
+// extension's own code, which nb_combined.cpp does in one translation unit.
+func buildNanobind(cfg *BuildCfg, pycfg bind.PyConfig) error {
+	cmdout, err := exec.Command(cfg.VM, "-c",
+		"import nanobind; print(nanobind.include_dir()); print(nanobind.source_dir())").CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n(is nanobind installed? pip install nanobind)\n", err, string(cmdout))
+		return err
+	}
+	dirs := strings.Split(strings.TrimSpace(string(cmdout)), "\n")
+	if len(dirs) != 2 {
+		return fmt.Errorf("gopy: unexpected output locating nanobind: %q", string(cmdout))
+	}
+	incdir, srcdir := strings.TrimSpace(dirs[0]), strings.TrimSpace(dirs[1])
+	// robin_map is a dependency nanobind vendors next to its own headers.
+	robinmap := filepath.Join(filepath.Dir(incdir), "ext", "robin_map", "include")
+	flags := append([]string{"-I" + incdir, "-I" + robinmap}, bind.NanobindCXXFlags...)
+	return buildCXXModule(cfg, pycfg, flags, []string{filepath.Join(srcdir, "nb_combined.cpp")})
+}
+
+// buildCXXModule builds the cgo shim as a static archive, runs build.py to
+// write a C++ module wrapping it (pybind11 or nanobind), and compiles+links
+// that with a C++ compiler (see bind.CXXArgs, and bind/cxxbuild.go for why
+// a static archive), passing it cxxflags (the C++ library's include
+// directories, and any flags of its own) and, besides the generated .cpp,
+// the C++ library's own sources, if any.  The current directory is the
+// output directory.  The Makefile gopy gen writes for these backends runs
+// the same steps.
+func buildCXXModule(cfg *BuildCfg, pycfg bind.PyConfig, cxxflags, srcs []string) error {
+	if err := runCmd(nil, "go", goBuildArgs(cfg, "c-archive", bind.CXXArchive(cfg.Name))...); err != nil {
+		return err
+	}
+	if err := runCmd(nil, cfg.VM, "build.py"); err != nil {
+		return err
+	}
+	cxxArgs := bind.CXXArgs(cfg.Name, bind.ExtModuleName(cfg.Name, libExt, pycfg), pycfg, cxxflags, srcs)
+	return runCmd(nil, bind.CXX(), cxxArgs...)
+}
+
+// goBuildArgs returns the go build arguments that build the package in the
+// current directory into out with the given -buildmode, with cfg's build
+// tags and, unless cfg.Symbols is set, without symbol tables (-s omits the
+// symbol table and debug information, -w the DWARF symbol table; see
+// https://golang.org/cmd/link/).  ldflags are any further linker flags.
+func goBuildArgs(cfg *BuildCfg, buildmode, out string, ldflags ...string) []string {
+	args := []string{"build", "-mod=mod", "-buildmode=" + buildmode}
+	if cfg.BuildTags != "" {
+		args = append(args, "-tags", cfg.BuildTags)
+	}
+	if !cfg.Symbols {
+		ldflags = append([]string{"-s", "-w"}, ldflags...)
+	}
+	if len(ldflags) > 0 {
+		args = append(args, "-ldflags="+strings.Join(ldflags, " "))
+	}
+	return append(args, "-o", out, ".")
+}
+
+// runCmd runs name with args, in env if it isn't nil, printing the command
+// line first, and its output if it fails.
+func runCmd(env []string, name string, args ...string) error {
+	fmt.Printf("%s %s\n", name, strings.Join(args, " "))
+	cmd := exec.Command(name, args...)
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(out))
+	}
 	return err
 }

@@ -44,6 +44,19 @@ for root, orig in zip(sqrts, cmplx):
     assert math.isclose(root_squared.real, orig.real)
     assert math.isclose(root_squared.imag, orig.imag)
 
+# complex elements: assignment and append, in both float widths, and reading an array
+cmplx[0] = 3 + 4j
+assert cmplx[0] == 3 + 4j
+cmplx.append(1 - 2j)
+assert len(cmplx) == 17 and cmplx[16] == 1 - 2j
+
+cmplx64 = slices.SliceComplex64([1 + 2j, 3.5 - 4.25j])
+cmplx64[1] = -0.5 + 8j
+cmplx64.append(2j)
+assert list(cmplx64) == [1 + 2j, -0.5 + 8j, 2j]
+
+cmplx_arr = slices.CmplxArray()
+assert len(cmplx_arr) == 3 and cmplx_arr[2] == 3 + 3j
 
 matrix = slices.GetEmptyMatrix(4,4)
 for i in range(4):

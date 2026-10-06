@@ -13,6 +13,16 @@ import (
 	"github.com/gonuts/flag"
 )
 
+// backendHelp ends the help text of the commands that GOPY_BACKEND applies to.
+const backendHelp = `
+backends:
+ GOPY_BACKEND chooses the tool that binds Go to python: pybindgen (the
+ default), capi, cffi, pybind11 or nanobind.  capi needs nothing beyond python
+ itself; the others need their own python package (pip install <name>), and
+ pybind11 and nanobind also a C++ compiler.
+ $ GOPY_BACKEND=capi gopy build github.com/go-python/gopy/_examples/hi
+`
+
 func gopyMakeCmdGen() *commander.Command {
 	cmd := &commander.Command{
 		Run:       gopyRunCmdGen,
@@ -24,7 +34,7 @@ gen generates (C)Python language bindings for Go package(s).
 ex:
  $ gopy gen [options] <go-package-name> [other-go-package...]
  $ gopy gen github.com/go-python/gopy/_examples/hi
-`,
+` + backendHelp,
 		Flag: *flag.NewFlagSet("gopy-gen", flag.ExitOnError),
 	}
 

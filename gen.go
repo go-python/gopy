@@ -63,6 +63,16 @@ func genOutDir(odir string) (string, error) {
 // mode = gen, build, pkg, exe
 func genPkg(mode bind.BuildMode, cfg *BuildCfg) error {
 	var err error
+	if cfg.Backend, err = bind.BackendFromEnv(); err != nil {
+		return err
+	}
+	if (cfg.Backend == bind.BackendCFFI || cfg.Backend == bind.BackendPyBind11 || cfg.Backend == bind.BackendNanobind) && mode == bind.ModeExe {
+		// exe mode embeds the Python interpreter into the Go binary via the
+		// CPython C API (see goExePreambleC/Go in bind/gen.go), unrelated to
+		// how the bindings themselves are generated; none of these backends
+		// supports it.
+		return fmt.Errorf("gopy: %s=%s does not support gopy exe", bind.BackendEnvVar, cfg.Backend)
+	}
 	cfg.OutputDir, err = genOutDir(cfg.OutputDir)
 	if err != nil {
 		return err
@@ -78,7 +88,7 @@ func genPkg(mode bind.BuildMode, cfg *BuildCfg) error {
 	if err != nil {
 		return err
 	}
-	err = bind.GenPyBind(mode, libExt, extraGccArgs, pyvers, cfg.DynamicLinking, &cfg.BindCfg)
+	err = bind.GenPyBind(mode, libExt, pyvers, cfg.DynamicLinking, &cfg.BindCfg)
 	if err != nil {
 		log.Println(err)
 	}

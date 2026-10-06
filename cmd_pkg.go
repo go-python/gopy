@@ -34,7 +34,7 @@ When including multiple packages, list in order of increasing dependency, and us
 ex:
  $ gopy pkg [options] <go-package-name> [other-go-package...]
  $ gopy pkg github.com/go-python/gopy/_examples/hi
-`,
+` + backendHelp,
 		Flag: *flag.NewFlagSet("gopy-pkg", flag.ExitOnError),
 	}
 

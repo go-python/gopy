@@ -31,6 +31,8 @@ type BindCfg struct {
 	// gopy version string embedded in this binary, stamped into generated
 	// file headers so output can be traced back to the release that produced it
 	Version string
+	// tool used to bind the cgo shim to CPython, see BackendFromEnv
+	Backend Backend
 }
 
 // ErrorList is a list of errors
