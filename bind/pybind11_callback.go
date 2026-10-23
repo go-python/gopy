@@ -5,7 +5,6 @@
 package bind
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 )
@@ -23,51 +22,24 @@ import (
 // working once the python call it was passed to returns, playing the same
 // role gopyCallbackScope plays for cffi.
 //
-// The parameter/result type rules are shared with cffi (cffiCallback,
-// cffiCallbackParam, cffiCallbackResult in cffi_callback.go): the same Go
-// types are supported, crossing as the same int64_t/uint64_t/double/bool/
-// char* vocabulary either way.
+// The parameter/result type rules are shared with cffi (callbackSig in
+// callback.go): the same Go types are supported, crossing as the same
+// int64_t/uint64_t/double/bool/char* vocabulary either way.
 //
-// Everything in this file serves the nanobind backend too (see isCXXShim),
+// Everything in this file serves the nanobind backend too (see cxxBackend),
 // whose nanobind_build.py defines the same registry and trampolines.
 
-// pybind11TrampolinesKey stands in for the extern declarations in the cgo
-// preamble, which are written before the callback types that need them are
-// known.  Unlike cffiTrampolinesKey, these are declarations only: the
-// trampolines themselves are defined in the .cpp pybind11_build.py writes
-// (callback_trampoline), not here -- see the buildCXXModule doc comment
-// (cmd_build.go) for why Go and that .cpp can't be two separate libraries
-// with a dependency in each direction.
-const pybind11TrampolinesKey = "@@GOPY_PYBIND11_TRAMPOLINES@@"
+// cbGoParam returns CGoHandle: the callable crosses as its registry handle.
+func (cxxBackend) cbGoParam() string { return "CGoHandle" }
 
-// splicePyBind11Trampolines writes the extern declarations into the cgo
-// preamble, so the C compiler accepts calls to a function it never sees
-// defined; the actual gopy_cb_N functions are resolved at the final link
-// step in buildCXXModule, against the object code pybind11_build.py's
-// generated .cpp compiles to.
-func (g *pyGen) splicePyBind11Trampolines() {
-	if !g.isCXXShim() {
-		return
-	}
-	var c strings.Builder
-	for i, cb := range g.cbs {
-		params := []string{"int64_t h"}
-		for j, p := range cb.params {
-			params = append(params, fmt.Sprintf("%s a%d", cffiCType(p.ctype), j))
-		}
-		ret := "void"
-		if cb.ret != nil {
-			ret = cffiCType(cb.ret.ctype)
-		}
-		fmt.Fprintf(&c, "extern %s gopy_cb_%d(%s);\n", ret, i, strings.Join(params, ", "))
-	}
-	b := bytes.Replace(g.gofile.buf.Bytes(), []byte(pybind11TrampolinesKey), []byte(c.String()), 1)
-	g.gofile.buf = bytes.NewBuffer(b)
-}
+// cbPrologue returns nothing: there is no Go-side setup, since the C++
+// registry itself refuses a call once the wrapping python call unregisters
+// the handle.
+func (cxxBackend) cbPrologue(anm string) string { return "" }
 
-// pybind11CallbackLit returns a Go func literal that calls the Python
-// callable registered under the handle named anm.
-func (g *pyGen) pybind11CallbackLit(cb *cffiCallback, anm string) string {
+// cbLit returns a closure that calls trampoline n with the handle, which
+// looks up the callable in the registry.
+func (cxxBackend) cbLit(cb *callbackSig, n int, anm string) string {
 	var decl, pre []string
 	args := []string{"C.int64_t(" + anm + ")"}
 	for _, p := range cb.params {
@@ -77,7 +49,7 @@ func (g *pyGen) pybind11CallbackLit(cb *cffiCallback, anm string) string {
 		}
 		args = append(args, p.conv)
 	}
-	call := fmt.Sprintf("C.gopy_cb_%d(%s)", g.cffiTrampoline(cb), strings.Join(args, ", "))
+	call := fmt.Sprintf("C.gopy_cb_%d(%s)", n, strings.Join(args, ", "))
 	result := ""
 	if cb.ret != nil {
 		result = " " + cb.ret.gotyp
@@ -87,4 +59,27 @@ func (g *pyGen) pybind11CallbackLit(cb *cffiCallback, anm string) string {
 		call = "return " + cb.ret.gotyp + "(" + call + ")"
 	}
 	return fmt.Sprintf("func(%s)%s {\n%s%s\n}", strings.Join(decl, ", "), result, strings.Join(pre, ""), call)
+}
+
+// cbTrampolines writes extern declarations only, so the C compiler accepts
+// calls to a function it never sees defined: the trampolines themselves are
+// defined in the .cpp build.py writes (callback_trampoline in
+// pybind11_build.py), and resolved at the final link step in
+// buildCXXModule -- see the buildCXXModule doc comment (cmd_build.go) for
+// why Go and that .cpp can't be two separate libraries with a dependency in
+// each direction.
+func (cxxBackend) cbTrampolines(cbs []*callbackSig) string {
+	var c strings.Builder
+	for i, cb := range cbs {
+		params := []string{"int64_t h"}
+		for j, p := range cb.params {
+			params = append(params, fmt.Sprintf("%s a%d", callbackCType(p.ctype), j))
+		}
+		ret := "void"
+		if cb.ret != nil {
+			ret = callbackCType(cb.ret.ctype)
+		}
+		fmt.Fprintf(&c, "extern %s gopy_cb_%d(%s);\n", ret, i, strings.Join(params, ", "))
+	}
+	return c.String()
 }

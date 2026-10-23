@@ -14,7 +14,7 @@ import (
 
 // How the C++ backends (pybind11, nanobind) compile and link their module,
 // shared by gopy build (buildCXXModule in cmd_build.go, which runs these
-// steps itself) and the Makefile written by gopy gen/pkg (genMakefileCXX).
+// steps itself) and the Makefile written by gopy gen/pkg (cxxBackend.genMakefile).
 //
 // The Go side builds as a static archive (-buildmode=c-archive), not a
 // shared library: the generated .cpp defines the callback trampolines Go
@@ -179,26 +179,25 @@ build:
 
 `
 
-// genMakefileCXX writes the Makefile for the C++ backends.
-func (g *pyGen) genMakefileCXX(gencmd string, pycfg PyConfig) {
-	// The C++ library's own include directories and sources are looked up
-	// when make runs, not now, so that gopy gen works without it installed.
-	var libvars string
-	switch {
-	case g.isPyBind11():
-		libvars = `CXXLIBFLAGS=$(shell $(PYTHON) -m pybind11 --includes)
-CXXLIBSRCS=
-CXXLIBFOUND=$(CXXLIBFLAGS)
-`
-	case g.isNanobind():
-		libvars = `NANOBIND_INC=$(shell $(PYTHON) -c "import nanobind; print(nanobind.include_dir())")
-NANOBIND_SRC=$(shell $(PYTHON) -c "import nanobind; print(nanobind.source_dir())")
-# robin_map is a dependency nanobind vendors next to its own headers
-CXXLIBFLAGS=-I$(NANOBIND_INC) -I$(NANOBIND_INC)/../ext/robin_map/include ` + strings.Join(NanobindCXXFlags, " ") + `
-CXXLIBSRCS=$(NANOBIND_SRC)/nb_combined.cpp
-CXXLIBFOUND=$(NANOBIND_INC)
-`
-	}
+// cxxBackend is a C++ backend (pybind11 or nanobind): a C++ module,
+// written by buildPy, compiled against the no-API shim.  Its callbackABI is
+// in pybind11_callback.go.
+type cxxBackend struct {
+	name    Backend
+	buildPy string // the embedded build.py, which has @ARG_HELPERS@ for cxxArgHelpers
+	// makeVars defines the Makefile variables CXXLIBFLAGS and CXXLIBSRCS
+	// (the C++ library's own include directories and flags, and sources),
+	// and CXXLIBFOUND (empty if the library wasn't found).  They are looked
+	// up when make runs, not now, so that gopy gen works without the
+	// library installed.
+	makeVars string
+}
+
+func (b cxxBackend) pyBuildPreamble(g *pyGen) string {
+	return g.buildPreamble(b.buildPy, "@ARG_HELPERS@", cxxArgHelpers)
+}
+
+func (b cxxBackend) genMakefile(g *pyGen, gencmd string, pycfg PyConfig) {
 	modlib := ExtModuleName(g.cfg.Name, g.libext, pycfg)
 	args := CXXArgs(g.cfg.Name, modlib, pycfg, []string{"$(CXXLIBFLAGS)"}, []string{"$(CXXLIBSRCS)"})
 	for i, a := range args {
@@ -206,9 +205,9 @@ CXXLIBFOUND=$(NANOBIND_INC)
 	}
 	// make runs a $(shell ...) or recipe line through sh rather than
 	// directly whenever it has quotes or other shell syntax in it (as the
-	// nanobind lookups above do), and sh would strip a Windows path's
+	// nanobind lookups do), and sh would strip a Windows path's
 	// backslashes from $(PYTHON); forward slashes work either way.
 	vm := filepath.ToSlash(g.cfg.VM)
-	g.makefile.Printf(MakefileTemplateCXX, g.cfg.Name, g.cfg.Cmd, gencmd, vm, CXX(), libvars,
-		strings.Join(args, " "), g.cfg.Version, g.cfg.Backend, modlib)
+	g.makefile.Printf(MakefileTemplateCXX, g.cfg.Name, g.cfg.Cmd, gencmd, vm, CXX(), b.makeVars,
+		strings.Join(args, " "), g.cfg.Version, b.name, modlib)
 }

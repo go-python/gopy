@@ -157,7 +157,8 @@ def wrapper(name, ret, params, exported):
 def callback_setup(pname, ctype, argn):
     """Returns the python source that wraps the callable pname in an
     ffi.callback, for the C signature in ctype
-    ("callback:<result or void>(<parameter types>)", see cffi_callback.go).
+    ("callback:<result or void>(<parameter types>)", see callbackSig.pyType
+    in callback.go).
     The wrapper passes it on to Go as _cb_<pname>, which is kept referenced by
     this local variable until the Go call returns: cffi frees a callback as
     soon as nothing refers to it.

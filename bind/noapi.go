@@ -4,7 +4,10 @@
 
 package bind
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
 
 // A "no-API" backend generates exported Go functions that never touch the
 // CPython C API, because their python-facing wrapper is produced outside the
@@ -16,29 +19,54 @@ import "fmt"
 // leaving each backend's own file for what only it needs (cffi.go,
 // pybind11.go, nanobind.go).
 
-func (g *pyGen) isCFFI() bool {
-	return g.cfg.Backend == BackendCFFI
+// callbackABI is how a python callable passed to Go as a func-typed argument
+// crosses a no-API shim: as a C function pointer for cffi (see
+// cffi_callback.go), or as a registry handle for the C++ backends (see
+// pybind11_callback.go).  Both support the same callback types (see
+// callback.go).
+type callbackABI interface {
+	// cbGoParam returns the Go type of the exported function's parameter
+	// that carries the callable.
+	cbGoParam() string
+	// cbPrologue returns the Go statements that set up the callable passed
+	// as the argument named anm, ahead of the call cbLit's result is
+	// passed to.
+	cbPrologue(anm string) string
+	// cbLit returns a Go func literal, of the callback type cb describes,
+	// that calls the callable passed as the argument named anm through
+	// trampoline n (gopy_cb_<n>, see pyGen.trampoline).
+	cbLit(cb *callbackSig, n int, anm string) string
+	// cbTrampolines returns the C code for the cgo preamble that lets Go
+	// call each of cbs, numbered gopy_cb_<index>.
+	cbTrampolines(cbs []*callbackSig) string
 }
 
-func (g *pyGen) isPyBind11() bool {
-	return g.cfg.Backend == BackendPyBind11
-}
+// trampolinesKey stands in for cbTrampolines' result in the cgo preamble,
+// which is written before the callback types that need them are known.
+const trampolinesKey = "@@GOPY_TRAMPOLINES@@"
 
-func (g *pyGen) isNanobind() bool {
-	return g.cfg.Backend == BackendNanobind
-}
-
-// isCXXShim reports whether the shim's consumer is a C++ module compiled
-// against it (pybind11 or nanobind), which also means callbacks cross as
-// registry handles (see pybind11_callback.go).
-func (g *pyGen) isCXXShim() bool {
-	return g.isPyBind11() || g.isNanobind()
+// noAPI returns the backend if its shim must avoid the CPython C API (see
+// the file comment above), or nil if it doesn't.
+func (g *pyGen) noAPI() noAPIBackend {
+	nb, _ := g.be.(noAPIBackend)
+	return nb
 }
 
 // noAPIShim reports whether the exported Go functions must avoid the
 // CPython C API (see the file comment above).
 func (g *pyGen) noAPIShim() bool {
-	return g.isCFFI() || g.isCXXShim()
+	return g.noAPI() != nil
+}
+
+// spliceTrampolines writes the callback trampolines in place of
+// trampolinesKey, for a no-API backend.
+func (g *pyGen) spliceTrampolines() {
+	nb := g.noAPI()
+	if nb == nil {
+		return
+	}
+	b := bytes.Replace(g.gofile.buf.Bytes(), []byte(trampolinesKey), []byte(nb.cbTrampolines(g.cbs)), 1)
+	g.gofile.buf = bytes.NewBuffer(b)
 }
 
 // goSetError returns Go code that records an error for Python to raise.

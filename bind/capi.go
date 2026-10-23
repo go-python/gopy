@@ -17,6 +17,9 @@ import (
 //go:embed capi_build.py
 var capiBuildPy string
 
-func (g *pyGen) isCAPI() bool {
-	return g.cfg.Backend == BackendCAPI
+// capiBackend is pybindgenBackend with its own build.py.
+type capiBackend struct{ pybindgenBackend }
+
+func (capiBackend) pyBuildPreamble(g *pyGen) string {
+	return g.buildPreamble(capiBuildPy)
 }

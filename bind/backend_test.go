@@ -5,6 +5,7 @@
 package bind
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -47,4 +48,49 @@ func TestBackendFromEnv(t *testing.T) {
 	if _, err := BackendFromEnv(); err == nil {
 		t.Error("bogus value: want error")
 	}
+}
+
+func TestBackendImpl(t *testing.T) {
+	for _, tc := range []struct {
+		b     Backend
+		want  backendImpl
+		noAPI bool
+	}{
+		{b: "", want: pybindgenBackend{}},
+		{b: BackendPyBindGen, want: pybindgenBackend{}},
+		{b: BackendCAPI, want: capiBackend{}},
+		{b: BackendCFFI, want: cffiBackend{}, noAPI: true},
+		{b: BackendPyBind11, want: pybind11Backend, noAPI: true},
+		{b: BackendNanobind, want: nanobindBackend, noAPI: true},
+	} {
+		got := tc.b.impl()
+		if got != tc.want {
+			t.Errorf("%q.impl() = %s, want %s", tc.b, implName(got), implName(tc.want))
+		}
+		// capiBackend embeds pybindgenBackend: it must not pick up a
+		// callbackABI that way, nor a C++ backend lose its own.
+		if _, noAPI := got.(noAPIBackend); noAPI != tc.noAPI {
+			t.Errorf("%q.impl() is a noAPIBackend: %v, want %v", tc.b, noAPI, tc.noAPI)
+		}
+		if got := tc.b.SupportsExe(); got != !tc.noAPI {
+			t.Errorf("%q.SupportsExe() = %v, want %v", tc.b, got, !tc.noAPI)
+		}
+		if cb, ok := got.(cxxBackend); ok && cb.name != tc.b {
+			t.Errorf("%q.impl().name = %q", tc.b, cb.name)
+		}
+	}
+	for _, b := range backends {
+		if b != BackendPyBindGen && b.impl() == (pybindgenBackend{}) {
+			t.Errorf("%q.impl() falls back to pybindgen", b)
+		}
+	}
+}
+
+// implName names impl in a test failure, without the embedded build.py a
+// cxxBackend's %v would print.
+func implName(impl backendImpl) string {
+	if cb, ok := impl.(cxxBackend); ok {
+		return fmt.Sprintf("cxxBackend(%s)", cb.name)
+	}
+	return fmt.Sprintf("%T", impl)
 }

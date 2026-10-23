@@ -21,6 +21,15 @@ import (
 //go:embed pybind11_build.py
 var pybind11BuildPy string
 
+var pybind11Backend = cxxBackend{
+	name:    BackendPyBind11,
+	buildPy: pybind11BuildPy,
+	makeVars: `CXXLIBFLAGS=$(shell $(PYTHON) -m pybind11 --includes)
+CXXLIBSRCS=
+CXXLIBFOUND=$(CXXLIBFLAGS)
+`,
+}
+
 // cxxArgHelpers is the argument conversion code shared by the pybind11 and
 // nanobind backends' generated .cpp, which each build.py has in place of
 // @ARG_HELPERS@.

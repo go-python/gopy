@@ -577,6 +577,7 @@ func GenPyBind(mode BuildMode, libext string, lang int, dynamicLink bool, cfg *B
 		mode:        mode,
 		pypkgname:   cfg.Name,
 		cfg:         cfg,
+		be:          cfg.Backend.impl(),
 		libext:      libext,
 		lang:        lang,
 		dynamicLink: dynamicLink,
@@ -605,10 +606,11 @@ type pyGen struct {
 	mode        BuildMode // mode: gen, build, pkg, exe
 	pypkgname   string
 	cfg         *BindCfg
+	be          backendImpl // what differs by cfg.Backend
 	libext      string
 	lang        int // c-python api version (2,3)
 	dynamicLink bool
-	cbs         []*cffiCallback // cffi: the callback types that have a C trampoline, see cffi_callback.go
+	cbs         []*callbackSig // no-API backends: the callback types that have a trampoline, see pyGen.trampoline
 }
 
 func (g *pyGen) gen() error {
@@ -672,8 +674,7 @@ func (g *pyGen) genOut() {
 		g.pybuild.Printf("\nmod.generate(open('%v.c', 'w'))\n\n", g.cfg.Name)
 	}
 	g.gofile.Printf("\n\n")
-	g.spliceCFFITrampolines()
-	g.splicePyBind11Trampolines()
+	g.spliceTrampolines()
 	g.genPrintOut(g.cfg.Name+".go", g.gofile)
 	g.genPrintOut("build.py", g.pybuild)
 	if !NoMake {
@@ -729,15 +730,8 @@ func (g *pyGen) genGoPreamble() {
 		}
 	}
 	if g.noAPIShim() {
-		trampolines := ""
-		switch {
-		case g.isCFFI():
-			trampolines = cffiTrampolinesKey
-		case g.isCXXShim():
-			trampolines = pybind11TrampolinesKey
-		}
 		g.gofile.Printf(goPreambleCFFI, g.cfg.Name, g.cfg.Cmd, "", GoHandle, CGoHandle,
-			pkgimport, g.cfg.Main, trampolines, "", g.cfg.Version)
+			pkgimport, g.cfg.Main, trampolinesKey, "", g.cfg.Version)
 		g.gofile.Printf("\n// --- generated code for package: %[1]s below: ---\n\n", g.cfg.Name)
 		return
 	}
@@ -777,18 +771,7 @@ func (g *pyGen) genGoPreamble() {
 }
 
 func (g *pyGen) genPyBuildPreamble() {
-	switch {
-	case g.isCFFI():
-		g.pybuild.Printf("%s", g.buildPreamble(cffiBuildPy, "@LIBEXT@", g.libext))
-	case g.isPyBind11():
-		g.pybuild.Printf("%s", g.buildPreamble(pybind11BuildPy, "@ARG_HELPERS@", cxxArgHelpers))
-	case g.isNanobind():
-		g.pybuild.Printf("%s", g.buildPreamble(nanobindBuildPy, "@ARG_HELPERS@", cxxArgHelpers))
-	case g.isCAPI():
-		g.pybuild.Printf("%s", g.buildPreamble(capiBuildPy))
-	default:
-		g.pybuild.Printf(PyBuildPreamble, g.cfg.Name, g.cfg.Cmd, g.cfg.Version)
-	}
+	g.pybuild.Printf("%s", g.be.pyBuildPreamble(g))
 }
 
 // buildPreamble returns src, the start of build.py for a backend whose
@@ -891,19 +874,8 @@ func (g *pyGen) genMakefile() {
 
 	if g.mode == ModeExe {
 		g.makefile.Printf(MakefileExeTemplate, g.cfg.Name, g.cfg.Cmd, gencmd, g.cfg.VM, g.libext, pycfg.CFlags, pycfg.LdFlags, g.cfg.Version)
-	} else if g.isCXXShim() {
-		g.genMakefileCXX(gencmd, pycfg)
-	} else if g.isCFFI() {
-		g.makefile.Printf(MakefileTemplateCFFI, g.cfg.Name, g.cfg.Cmd, gencmd, g.cfg.VM, g.libext, "", "", "", "", g.cfg.Version)
 	} else {
-		winhack := ""
-		if WindowsOS {
-			winhack = fmt.Sprintf(`
-	# windows-only sed hack here to fix pybindgen declaration of PyInit
-	sed -i "s/ PyInit_/ __declspec(dllexport) PyInit_/g" %s.c`, g.cfg.Name)
-		}
-		g.makefile.Printf(MakefileTemplate, g.cfg.Name, g.cfg.Cmd, gencmd, g.cfg.VM, g.libext,
-			ExtModuleName(g.cfg.Name, g.libext, pycfg), winhack, g.cfg.Version)
+		g.be.genMakefile(g, gencmd, pycfg)
 	}
 }
 

@@ -179,10 +179,10 @@ def wrapper(name, ret, params, callback_kinds):
 
 def callback_trampoline(ctype, idx):
     """Returns the static gopy_cb_<idx> trampoline for the callback shape in
-    ctype ("callback:<result or void>(<parameter types>)", see cffiCallback
-    in cffi_callback.go): the Go closure for every callable of this shape
+    ctype ("callback:<result or void>(<parameter types>)", see callbackSig.pyType
+    in callback.go): the Go closure for every callable of this shape
     calls gopy_cb_<idx>, passing its own registry handle as the first
-    argument (see pybind11CallbackLit in pybind11_callback.go).
+    argument (see cxxBackend.cbLit in pybind11_callback.go).
     """
     ret, _, rest = ctype[len("callback:") :].partition("(")
     ctypes_ = [t for t in rest[:-1].split(",") if t]
