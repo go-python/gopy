@@ -107,8 +107,6 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 
 	fmt.Printf("\n--- building package ---\n%s\n", cfg.Cmd)
 
-	buildname := cfg.Name + "_go"
-	var cmdout []byte
 	cwd, err := os.Getwd()
 	os.Chdir(cfg.OutputDir)
 	defer os.Chdir(cwd)
@@ -119,20 +117,29 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		return err
 	}
 
-	if cfg.Backend == bind.BackendCFFI {
-		return buildCFFI(cfg, buildname+libExt)
+	switch cfg.Backend {
+	case bind.BackendPyBindGen, bind.BackendCAPI:
+		return buildCPython(mode, cfg)
+	case bind.BackendCFFI:
+		return buildCFFI(cfg)
+	case bind.BackendPyBind11:
+		return buildPyBind11(cfg)
+	case bind.BackendNanobind:
+		return buildNanobind(cfg)
+	default:
+		return fmt.Errorf("gopy: no build for %s=%s", bind.BackendEnvVar, cfg.Backend)
 	}
+}
 
+// buildCPython builds the pybindgen and capi backends' module, whose cgo
+// shim calls the CPython C API itself, or for mode exe an executable.  The
+// current directory is the output directory.
+func buildCPython(mode bind.BuildMode, cfg *BuildCfg) error {
+	buildname := cfg.Name + "_go"
+	var cmdout []byte
 	pycfg, err := bind.GetPythonConfig(cfg.VM)
 	if err != nil {
 		return err
-	}
-
-	switch cfg.Backend {
-	case bind.BackendPyBind11:
-		return buildPyBind11(cfg, pycfg)
-	case bind.BackendNanobind:
-		return buildNanobind(cfg, pycfg)
 	}
 
 	if mode == bind.ModeExe {
@@ -309,28 +316,28 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 // buildCFFI builds the cgo shim as a plain shared library, and then runs
 // build.py to write the cffi module that loads it.  The current directory
 // is the output directory.
-func buildCFFI(cfg *BuildCfg, buildLib string) error {
-	if err := runCmd(nil, "go", goBuildArgs(cfg, "c-shared", buildLib)...); err != nil {
+func buildCFFI(cfg *BuildCfg) error {
+	if err := runCmd(nil, "go", goBuildArgs(cfg, "c-shared", cfg.Name+"_go"+libExt)...); err != nil {
 		return err
 	}
 	return runCmd(nil, cfg.VM, "build.py")
 }
 
 // buildPyBind11 builds the pybind11 backend's module (see buildCXXModule).
-func buildPyBind11(cfg *BuildCfg, pycfg bind.PyConfig) error {
+func buildPyBind11(cfg *BuildCfg) error {
 	cmdout, err := exec.Command(cfg.VM, "-m", "pybind11", "--includes").CombinedOutput()
 	if err != nil {
 		fmt.Printf("cmd had error: %v  output:\n%v\n(is pybind11 installed? pip install pybind11)\n", err, string(cmdout))
 		return err
 	}
-	return buildCXXModule(cfg, pycfg, strings.Fields(strings.TrimSpace(string(cmdout))), nil)
+	return buildCXXModule(cfg, strings.Fields(strings.TrimSpace(string(cmdout))), nil)
 }
 
 // buildNanobind builds the nanobind backend's module (see buildCXXModule).
 // Unlike pybind11, nanobind isn't header-only: its own runtime (libnanobind)
 // ships as source, meant to be compiled into each extension alongside the
 // extension's own code, which nb_combined.cpp does in one translation unit.
-func buildNanobind(cfg *BuildCfg, pycfg bind.PyConfig) error {
+func buildNanobind(cfg *BuildCfg) error {
 	cmdout, err := exec.Command(cfg.VM, "-c",
 		"import nanobind; print(nanobind.include_dir()); print(nanobind.source_dir())").CombinedOutput()
 	if err != nil {
@@ -345,7 +352,7 @@ func buildNanobind(cfg *BuildCfg, pycfg bind.PyConfig) error {
 	// robin_map is a dependency nanobind vendors next to its own headers.
 	robinmap := filepath.Join(filepath.Dir(incdir), "ext", "robin_map", "include")
 	flags := append([]string{"-I" + incdir, "-I" + robinmap}, bind.NanobindCXXFlags...)
-	return buildCXXModule(cfg, pycfg, flags, []string{filepath.Join(srcdir, "nb_combined.cpp")})
+	return buildCXXModule(cfg, flags, []string{filepath.Join(srcdir, "nb_combined.cpp")})
 }
 
 // buildCXXModule builds the cgo shim as a static archive, runs build.py to
@@ -356,7 +363,11 @@ func buildNanobind(cfg *BuildCfg, pycfg bind.PyConfig) error {
 // the C++ library's own sources, if any.  The current directory is the
 // output directory.  The Makefile gopy gen writes for these backends runs
 // the same steps.
-func buildCXXModule(cfg *BuildCfg, pycfg bind.PyConfig, cxxflags, srcs []string) error {
+func buildCXXModule(cfg *BuildCfg, cxxflags, srcs []string) error {
+	pycfg, err := bind.GetPythonConfig(cfg.VM)
+	if err != nil {
+		return err
+	}
 	if err := runCmd(nil, "go", goBuildArgs(cfg, "c-archive", bind.CXXArchive(cfg.Name))...); err != nil {
 		return err
 	}
