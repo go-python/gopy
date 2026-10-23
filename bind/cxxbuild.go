@@ -5,6 +5,7 @@
 package bind
 
 import (
+	_ "embed"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -28,6 +29,13 @@ import (
 // (see the comment at the top of its nb_combined.cpp), which the nanobind
 // backend compiles into every module; harmless for the generated .cpp too.
 var NanobindCXXFlags = []string{"-DNDEBUG", "-DNB_COMPACT_ASSERTIONS", "-fno-strict-aliasing"}
+
+// cxxArgHelpers is the argument conversion code shared by the pybind11 and
+// nanobind backends' generated .cpp, which each build.py has in place of
+// @ARG_HELPERS@.
+//
+//go:embed cxx_args.inc
+var cxxArgHelpers string
 
 // CXX returns the C++ compiler to use: $CXX, or else c++.
 func CXX() string {

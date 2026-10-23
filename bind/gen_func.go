@@ -225,7 +225,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 }
 
 func (g *pyGen) genFunc(o *Func) {
-	if g.noAPIShim() && g.genFuncComplexCFFI(o) {
+	if g.noAPIShim() && g.genFuncComplexNoAPI(o) {
 		return
 	}
 	if g.genFuncSig(nil, o) {
@@ -233,15 +233,15 @@ func (g *pyGen) genFunc(o *Func) {
 	}
 }
 
-// genFuncComplexCFFI generates a plain (non-method) function whose every
+// genFuncComplexNoAPI generates a plain (non-method) function whose every
 // argument and its one return value are complex64/128, which the normal path
-// (genFuncSig/genFuncBody) can't do under cffi, where a complex value crosses
-// as two floats (see isComplexShim in cffi.go).  It returns false, writing
+// (genFuncSig/genFuncBody) can't do under a no-API backend, where a complex
+// value crosses as two floats (see isComplexShim in noapi.go).  It returns false, writing
 // nothing, if the signature doesn't fit that narrow shape (methods, a mix of
 // complex and other argument types, or an error return): genFuncSig's
 // PyObject* check then skips the function instead of emitting code that
 // fails to compile.
-func (g *pyGen) genFuncComplexCFFI(fsym *Func) bool {
+func (g *pyGen) genFuncComplexNoAPI(fsym *Func) bool {
 	sig := fsym.sig
 	if sig == nil || fsym.isVariadic || fsym.err {
 		return false

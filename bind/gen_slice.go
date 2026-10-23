@@ -71,7 +71,7 @@ func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool, slob *Slice
 	}
 
 	// element access (elem/set/append) below would reference *C.PyObject,
-	// which cffi's preamble doesn't declare (see genFuncSig for the same
+	// which the no-API preamble doesn't declare (see genFuncSig for the same
 	// restriction on plain function args/returns); skip the whole wrapper
 	// rather than emit code that fails to compile.
 	if g.noAPIShim() && esym != nil && esym.cpyname == "PyObject*" && !g.isComplexShim(esym) {
@@ -390,10 +390,11 @@ otherwise parameter is a python list that we copy from
 
 		if slNm == "Slice_byte" {
 			if g.noAPIShim() {
-				// PyBytes_* is off-limits for cffi (no CPython headers), so these
-				// exchange a raw pointer+length instead of a PyObject*; the cffi
-				// build script (cffi_build.py) recognizes them by name and writes
-				// the bytes<->buffer conversion into the generated python module.
+				// PyBytes_* is off-limits for a no-API shim (no CPython headers),
+				// so these exchange a raw pointer+length instead of a PyObject*;
+				// each no-API build.py binds them by name (BYTES_FUNCS in
+				// cffi_build.py, MODULE_TEMPLATE in pybind11_build.py and
+				// nanobind_build.py) to convert from and to python bytes.
 				g.gofile.Printf("//export Slice_byte_from_bytes\n")
 				g.gofile.Printf("func Slice_byte_from_bytes(ptr unsafe.Pointer, size C.longlong) CGoHandle {\n")
 				g.gofile.Indent()
