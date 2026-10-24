@@ -1,0 +1,357 @@
+// Copyright 2026 The go-python Authors.  All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+package bind
+
+import (
+	"bytes"
+	"fmt"
+)
+
+// A "no-API" backend generates exported Go functions that never touch the
+// CPython C API, because their python-facing wrapper is produced outside the
+// Go build: cffi loads a plain shared library at runtime; pybind11 and
+// nanobind compile a C++ file against that same library.  This file holds
+// what they share about the shape of that library -- its cgo preamble
+// (goPreambleNoAPI, below), backend detection, error reporting
+// (gopySetError), and how a complex64/128 value crosses the boundary --
+// leaving each backend's own file for what only it needs (cffi.go,
+// pybind11.go, nanobind.go).
+
+// callbackABI is how a python callable passed to Go as a func-typed argument
+// crosses a no-API shim: as a C function pointer for cffi (see
+// cffi_callback.go), or as a registry handle for the C++ backends (see
+// pybind11_callback.go).  Both support the same callback types (see
+// callback.go).
+type callbackABI interface {
+	// cbGoParam returns the Go type of the exported function's parameter
+	// that carries the callable.
+	cbGoParam() string
+	// cbPrologue returns the Go statements that set up the callable passed
+	// as the argument named anm, ahead of the call cbLit's result is
+	// passed to.
+	cbPrologue(anm string) string
+	// cbLit returns a Go func literal, of the callback type cb describes,
+	// that calls the callable passed as the argument named anm through
+	// trampoline n (gopy_cb_<n>, see pyGen.trampoline).
+	cbLit(cb *callbackSig, n int, anm string) string
+	// cbTrampolines returns the C code for the cgo preamble that lets Go
+	// call each of cbs, numbered gopy_cb_<index>.
+	cbTrampolines(cbs []*callbackSig) string
+}
+
+// trampolinesKey stands in for cbTrampolines' result in the cgo preamble,
+// which is written before the callback types that need them are known.
+const trampolinesKey = "@@GOPY_TRAMPOLINES@@"
+
+// noAPI returns the backend if its shim must avoid the CPython C API (see
+// the file comment above), or nil if it doesn't.
+func (g *pyGen) noAPI() noAPIBackend {
+	nb, _ := g.be.(noAPIBackend)
+	return nb
+}
+
+// noAPIShim reports whether the exported Go functions must avoid the
+// CPython C API (see the file comment above).
+func (g *pyGen) noAPIShim() bool {
+	return g.noAPI() != nil
+}
+
+// spliceTrampolines writes the callback trampolines in place of
+// trampolinesKey, for a no-API backend.
+func (g *pyGen) spliceTrampolines() {
+	nb := g.noAPI()
+	if nb == nil {
+		return
+	}
+	b := bytes.Replace(g.gofile.buf.Bytes(), []byte(trampolinesKey), []byte(nb.cbTrampolines(g.cbs)), 1)
+	g.gofile.buf = bytes.NewBuffer(b)
+}
+
+// goSetError returns Go code that records an error for Python to raise.
+// kind is the name of a Python builtin exception, msg a Go string expression.
+func (g *pyGen) goSetError(kind, msg string) string {
+	return "gopySetError(\"" + kind + "\", " + msg + ")\n"
+}
+
+func isComplexSym(sym *symbol) bool {
+	return sym != nil && (sym.goname == "complex64" || sym.goname == "complex128")
+}
+
+// A complex64/complex128 value has no single C type that cffi or a C++
+// module can declare (cgo's is _Complex), and cgo won't export a struct, so
+// under any of them it crosses as two floats: as two parameters (<name>_re, <name>_im),
+// and as a result in cgo's two-value return, which it exports as a plain C
+// struct {r0; r1;}.  The methods below say how a value of a given symbol
+// crosses, so that the generators only differ from the default backend here.
+
+// isComplexShim reports whether sym crosses as two floats, under either
+// no-API backend (cffi, pybind11 or nanobind).
+func (g *pyGen) isComplexShim(sym *symbol) bool {
+	return g.noAPIShim() && isComplexSym(sym)
+}
+
+// complexPartType returns the cgo type of each part of a complex64 or
+// complex128 symbol.
+func complexPartType(sym *symbol) string {
+	if sym.goname == "complex64" {
+		return "C.float"
+	}
+	return "C.double"
+}
+
+// cgoParam returns the declaration of the parameter of an exported function
+// that carries a value of sym.
+func (g *pyGen) cgoParam(name string, sym *symbol) string {
+	if g.isComplexShim(sym) {
+		cf := complexPartType(sym)
+		return fmt.Sprintf("%[1]s_re %[2]s, %[1]s_im %[2]s", name, cf)
+	}
+	return name + " " + sym.cgoname
+}
+
+// cgoResult returns the result type of an exported function that returns a
+// value of sym.
+func (g *pyGen) cgoResult(sym *symbol) string {
+	if g.isComplexShim(sym) {
+		cf := complexPartType(sym)
+		return "(" + cf + ", " + cf + ")"
+	}
+	return sym.cgoname
+}
+
+// cpyName returns the type that build.py records for a value of sym.
+// wrapper in cffi_build.py, pybind11_build.py and nanobind_build.py expands
+// complex64/128.
+func (g *pyGen) cpyName(sym *symbol) string {
+	if g.isComplexShim(sym) {
+		return sym.goname
+	}
+	return sym.cpyname
+}
+
+// goToCgo returns the Go expression that converts expr, a value of sym, to
+// what an exported function returns.
+func (g *pyGen) goToCgo(sym *symbol, expr string) string {
+	switch {
+	case g.isComplexShim(sym):
+		return sym.goname + "GoToPyNoAPI(" + expr + ")"
+	case sym.go2py != "":
+		return sym.go2py + "(" + expr + ")" + sym.go2pyParenEx
+	}
+	return expr
+}
+
+// cgoToGo returns the Go expression that converts the parameter name, as
+// declared by cgoParam, to a value of sym.
+func (g *pyGen) cgoToGo(sym *symbol, name string) string {
+	switch {
+	case g.isComplexShim(sym):
+		return sym.goname + "PyToGoNoAPI(" + name + "_re, " + name + "_im)"
+	case sym.py2go != "":
+		return sym.py2go + "(" + name + ")" + sym.py2goParenEx
+	}
+	return name
+}
+
+// goPreambleNoAPI is the cgo preamble of every no-API backend's shim:
+// 1 = name of package, 2 = cmdstr, 3 = GoHandle, 4 = CGoHandle, 5 = all
+// imports, 6 = mainstr, 7 = C trampolines for callbacks (see callbackABI),
+// 8 = gopy version.
+const goPreambleNoAPI = `/*
+cgo stubs for package %[1]s, for use with cffi, pybind11 or nanobind.
+File is generated by gopy version %[8]s. Do not edit.
+%[2]s
+*/
+
+package main
+
+/*
+#include <stdint.h>
+#include <stdlib.h>
+// pybind11's consumer #includes this same preamble (via the generated
+// header) as C++, where bool/thread_local are keywords, not the C ones below.
+#if !defined(__cplusplus) && (!defined(__STDC_VERSION__) || (__STDC_VERSION__ < 202311L))
+typedef uint8_t bool;
+#endif
+#if defined(__cplusplus)
+#define GOPY_THREAD_LOCAL thread_local
+#else
+#define GOPY_THREAD_LOCAL _Thread_local
+#endif
+// Thread-local storage for the last error, read by the python side right
+// after the call that set it, on the same OS thread.  Windows gets its own
+// branch: mingw's compiler-provided thread-local storage (_Thread_local)
+// needs TLS support that a DLL loaded after process start (as cffi and
+// ctypes do) isn't guaranteed to have, so this uses the OS API instead,
+// which carries no such restriction (see TlsAlloc/TlsGetValue/TlsSetValue).
+#ifdef _WIN32
+#include <windows.h>
+static DWORD gopy_err_tls = TLS_OUT_OF_INDEXES;
+static inline void gopy_err_tls_init(void) { gopy_err_tls = TlsAlloc(); }
+static inline char* gopy_err_get(void) { return (char*)TlsGetValue(gopy_err_tls); }
+static inline void gopy_err_put(char* msg) { TlsSetValue(gopy_err_tls, msg); }
+#else
+static inline void gopy_err_tls_init(void) {}
+static GOPY_THREAD_LOCAL char* gopy_err_msg;
+static inline char* gopy_err_get(void) { return gopy_err_msg; }
+static inline void gopy_err_put(char* msg) { gopy_err_msg = msg; }
+#endif
+static inline void gopy_set_err(char* msg) {
+	free(gopy_err_get());
+	gopy_err_put(msg);
+}
+static inline char* gopy_take_err(void) {
+	char* msg = gopy_err_get();
+	gopy_err_put(NULL);
+	return msg;
+}
+%[7]s
+*/
+import "C"
+import (
+	"runtime"
+	"sync"
+	"unsafe"
+	"github.com/go-python/gopy/gopyh" // handler
+	%[5]s
+)
+
+func main() {
+	%[6]s
+}
+
+//export GoPyInit
+func GoPyInit() {
+	%[6]s
+}
+
+// type for the handle -- int64 for speed (can switch to string)
+type GoHandle %[3]s
+type CGoHandle %[4]s
+
+// DecRef decrements the reference count for the specified handle
+// and deletes it it goes to zero.
+//export DecRef
+func DecRef(handle CGoHandle) {
+	gopyh.DecRef(gopyh.CGoHandle(handle))
+}
+
+// IncRef increments the reference count for the specified handle.
+//export IncRef
+func IncRef(handle CGoHandle) {
+	gopyh.IncRef(gopyh.CGoHandle(handle))
+}
+
+// NumHandles returns the number of handles currently in use.
+//export NumHandles
+func NumHandles() int {
+	return gopyh.NumHandles()
+}
+
+// RequestGC runs Go's garbage collector on a dedicated goroutine, and waits.
+//export RequestGC
+func RequestGC() {
+	done := make(chan struct{})
+	_gcReq <- done
+	<-done
+}
+
+var _gcReq = make(chan chan struct{})
+
+func init() {
+	C.gopy_err_tls_init()
+	go func() {
+		for done := range _gcReq {
+			runtime.GC()
+			close(done)
+		}
+	}()
+}
+
+// The error of the last call on the calling OS thread, for the python side
+// to raise; gopy_err_msg is thread-local so concurrent calls on other
+// threads don't see it.
+func gopySetError(kind, msg string) {
+	C.gopy_set_err(C.CString(kind + ":" + msg))
+}
+
+// GopyTakeError returns "Kind:message" for the error recorded by the last
+// call on the calling thread and clears it, or NULL if there is none.
+// Free with GopyFreeString.
+//export GopyTakeError
+func GopyTakeError() *C.char {
+	return C.gopy_take_err()
+}
+
+// GopyFreeString frees a string returned by this library.
+//export GopyFreeString
+func GopyFreeString(s *C.char) {
+	C.free(unsafe.Pointer(s))
+}
+
+// gopyCallbackScope guards a python callback passed to Go, which only exists
+// while the python call it was passed to is running (see cffi_callback.go):
+// close waits for callbacks that are running, and then refuses new ones.
+type gopyCallbackScope struct {
+	mu   sync.RWMutex
+	done bool
+}
+
+func (s *gopyCallbackScope) enter() bool {
+	s.mu.RLock()
+	if s.done {
+		s.mu.RUnlock()
+		println("gopy: callback called after the python call it was passed to returned")
+		return false
+	}
+	return true
+}
+
+func (s *gopyCallbackScope) leave() { s.mu.RUnlock() }
+
+func (s *gopyCallbackScope) close() {
+	s.mu.Lock()
+	s.done = true
+	s.mu.Unlock()
+}
+
+// boolGoToPy converts a Go bool to python-compatible C.char
+func boolGoToPy(b bool) C.char {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// boolPyToGo converts a python-compatible C.Char to Go bool
+func boolPyToGo(b C.char) bool {
+	return b != 0
+}
+
+// errorGoToPy converts a Go error to python-compatible C.CString
+func errorGoToPy(e error) *C.char {
+	if e != nil {
+		return C.CString(e.Error())
+	}
+	return C.CString("")
+}
+
+// complex values cross as two floats, see isComplexShim in noapi.go
+func complex64GoToPyNoAPI(c complex64) (C.float, C.float) {
+	return C.float(real(c)), C.float(imag(c))
+}
+
+func complex64PyToGoNoAPI(re, im C.float) complex64 {
+	return complex(float32(re), float32(im))
+}
+
+func complex128GoToPyNoAPI(c complex128) (C.double, C.double) {
+	return C.double(real(c)), C.double(imag(c))
+}
+
+func complex128PyToGoNoAPI(re, im C.double) complex128 {
+	return complex(float64(re), float64(im))
+}
+`

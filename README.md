@@ -19,7 +19,7 @@ New features:
 
 Gopy now assumes that you are working with modules-based builds, and requires a valid `go.mod` file, and works only with Go versions 1.15 and above.
 
-Currently using [pybindgen](https://pybindgen.readthedocs.io/en/latest/tutorial/) to generate the low-level c-to-python bindings, but support for [cffi](https://cffi.readthedocs.io/en/latest/) should be relatively straightforward for those using PyPy instead of CPython (pybindgen should be significantly faster for CPython apparently).  You also need `goimports` to ensure the correct imports are included.
+By default, gopy uses [pybindgen](https://pybindgen.readthedocs.io/en/latest/tutorial/) to generate the low-level c-to-python bindings.  You also need `goimports` to ensure the correct imports are included.
 
 ```sh
 $ python3 -m pip install pybindgen
@@ -28,6 +28,22 @@ $ go install github.com/go-python/gopy@latest
 ```
 
 (This all assumes you have already installed [Go itself](https://golang.org/doc/install), and added `~/go/bin` to your `PATH`).
+
+### Choosing a backend (experimental)
+
+The `GOPY_BACKEND` environment variable picks a different tool for those bindings, for `gopy gen`, `gopy build` and `gopy pkg`:
+
+| `GOPY_BACKEND` | Needs | |
+|---|---|---|
+| `pybindgen` (default) | `pip install pybindgen` | |
+| `capi` | nothing beyond python itself | writes the C-API bindings directly, without pybindgen |
+| `cffi` | `pip install cffi` | |
+| `pybind11` | `pip install pybind11`, a C++ compiler | |
+| `nanobind` | `pip install nanobind`, a C++ compiler | |
+
+```sh
+$ GOPY_BACKEND=capi gopy build github.com/go-python/gopy/_examples/hi
+```
 
 To [install python modules](https://packaging.python.org/tutorials/packaging-projects/), you will need the python install packages:
 

@@ -1,0 +1,5 @@
+# Python packages for the GOPY_BACKEND=cffi job in workflows/ci.yml.
+# pybindgen is deliberately absent: the cffi backend must not need it.
+cffi
+# used by the memory-leak checks on Windows, where the resource module is missing
+psutil

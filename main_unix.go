@@ -7,7 +7,4 @@
 
 package main
 
-const (
-	libExt       = ".so"
-	extraGccArgs = ""
-)
+const libExt = ".so"

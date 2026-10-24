@@ -9,10 +9,7 @@ package main
 
 import "github.com/go-python/gopy/bind"
 
-const (
-	libExt       = ".pyd"
-	extraGccArgs = ""
-)
+const libExt = ".pyd"
 
 func init() {
 	bind.WindowsOS = true

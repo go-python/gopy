@@ -96,3 +96,107 @@ jobs:
     - name: Upload-Coverage
       if: matrix.platform == 'ubuntu-latest'
       uses: codecov/codecov-action@v4
+
+  # Builds and tests each opt-in backend (GOPY_BACKEND), beside the main
+  # matrix and on one Go version.  None installs pybindgen: no backend here
+  # may need it.
+  #   cffi:     loads the cgo shim at runtime, with no C compiler step.
+  #   pybind11: compiles a C++ module against the same shim (see noAPIShim in
+  #             bind/noapi.go), so needs no extra system packages: a C++
+  #             compiler is already required for CGO_ENABLED=1 everywhere.
+  #   nanobind: as pybind11 (see buildCXXModule in cmd_build.go), and also
+  #             compiles nanobind's own runtime (nb_combined.cpp) into every
+  #             module.
+  #   capi:     builds exactly as the default backend does, except that
+  #             build.py writes the C module itself (see bind/capi_build.py).
+  backends:
+    name: ${{ matrix.backend }} backend (${{ matrix.platform }}, Python ${{ matrix.python-version }})
+    strategy:
+      # a failure in one backend doesn't cancel the others
+      fail-fast: false
+      matrix:
+        backend: [cffi, pybind11, nanobind, capi]
+        platform: [ubuntu-latest, windows-latest, macos-15]
+        python-version: ['3.11', '3.12']
+        include:
+          # CXX defaults to "c++" in buildCXXModule (cmd_build.go), which
+          # isn't a recognized command on windows-latest's MinGW toolchain (the
+          # same one CGO_ENABLED=1 already needs there, so no extra install is
+          # needed).  timeout raises go test's own default (10m): each test
+          # here compiles twice (cgo, then a separate C++ step), and once
+          # measured at ~18.5s/test average on windows-latest, 32 tests alone
+          # used 590s of the default budget.
+          - backend: pybind11
+            cxx: g++
+            timeout: 30m
+          - backend: nanobind
+            cxx: g++
+            timeout: 30m
+    runs-on: ${{ matrix.platform }}
+    env:
+      GOPY_BACKEND: ${{ matrix.backend }}
+      CXX: ${{ matrix.cxx }}
+      # print the python stack if the process crashes, e.g. at exit
+      PYTHONFAULTHANDLER: 1
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: pip
+        cache-dependency-path: .github/requirements-${{ matrix.backend }}.txt
+
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.25.x
+        cache: true
+
+    - name: Install packages
+      run: |
+        python -m pip install -r .github/requirements-${{ matrix.backend }}.txt
+        go install golang.org/x/tools/cmd/goimports@v0.29.0
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Test
+      run: go test -v -timeout=${{ matrix.timeout || '10m' }} ./...
+
+  # Compares per-call overhead across backends (see _examples/bench/run.sh):
+  # not a pass/fail check, just a table uploaded as a build artifact.  Runs
+  # on ubuntu-latest only -- the comparison is between backends, not OSes.
+  benchmark:
+    name: benchmark backends
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.25.x
+        cache: true
+
+    - name: Install packages
+      run: |
+        python -m pip install pybindgen cffi pybind11 nanobind
+        go install golang.org/x/tools/cmd/goimports@v0.29.0
+
+    - name: Run benchmark
+      run: bash _examples/bench/run.sh | tee benchmark.txt
+
+    - name: Upload benchmark table
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark
+        path: benchmark.txt

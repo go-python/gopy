@@ -1,0 +1,5 @@
+# Python packages for the GOPY_BACKEND=pybind11 job in workflows/ci.yml.
+# pybindgen is deliberately absent: the pybind11 backend must not need it.
+pybind11
+# used by the memory-leak checks on Windows, where the resource module is missing
+psutil
