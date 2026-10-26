@@ -28,9 +28,9 @@ type BuildMode string
 
 const (
 	ModeGen   BuildMode = "gen"
-	ModeBuild           = "build"
-	ModeExe             = "exe"
-	ModePkg             = "pkg"
+	ModeBuild BuildMode = "build"
+	ModeExe   BuildMode = "exe"
+	ModePkg   BuildMode = "pkg"
 )
 
 // set this to true if OS is windows

@@ -88,7 +88,7 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 			cfg.Name = pkg.Name()
 		}
 	}
-	return runBuild("build", cfg)
+	return runBuild(bind.ModeBuild, cfg)
 }
 
 // runBuild calls genPkg and then executes commands to build the resulting files
