@@ -42,10 +42,10 @@ func BackendFromEnv() (Backend, error) {
 
 // SupportsExe reports whether gopy exe works with b.  exe mode embeds the
 // Python interpreter into the Go binary via the CPython C API (see
-// goExePreambleC/Go in gen.go), which a no-API backend's shim avoids.
+// goExePreambleC/Go in gen.go), which a plain-C backend's shim avoids.
 func (b Backend) SupportsExe() bool {
-	_, noAPI := b.impl().(noAPIBackend)
-	return !noAPI
+	_, plainC := b.impl().(plainCBackend)
+	return !plainC
 }
 
 // backendImpl is what code generation needs from a backend.  The generators
@@ -58,19 +58,19 @@ type backendImpl interface {
 	genMakefile(g *pyGen, gencmd string, pycfg PyConfig)
 }
 
-// noAPIBackend is a backendImpl whose cgo shim never touches the CPython C
-// API (see noapi.go): cffi, pybind11 and nanobind.  A backend that doesn't
+// plainCBackend is a backendImpl whose cgo shim never touches the CPython C
+// API (see plainc.go): cffi, pybind11 and nanobind.  A backend that doesn't
 // implement it (pybindgen, capi) uses the C API in the shim itself.
-type noAPIBackend interface {
+type plainCBackend interface {
 	backendImpl
 	callbackABI
 }
 
 var (
-	_ backendImpl  = pybindgenBackend{}
-	_ backendImpl  = capiBackend{}
-	_ noAPIBackend = cffiBackend{}
-	_ noAPIBackend = cxxBackend{}
+	_ backendImpl   = pybindgenBackend{}
+	_ backendImpl   = capiBackend{}
+	_ plainCBackend = cffiBackend{}
+	_ plainCBackend = cxxBackend{}
 )
 
 // impl returns the implementation of b.  An empty Backend is pybindgen, as

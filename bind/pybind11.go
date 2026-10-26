@@ -9,7 +9,7 @@ import (
 )
 
 // The pybind11 backend (GOPY_BACKEND=pybind11) shares its cgo shim with cffi
-// (see noAPIShim in noapi.go): the same plain-C exported functions, the same
+// (see plainCShim in plainc.go): the same plain-C exported functions, the same
 // gopySetError/GopyTakeError error channel, the same byte-slice and callback
 // conventions.  What differs is the consumer: instead of a pure-Python module
 // that loads the shim at runtime with cffi, pybind11_build.py writes a C++

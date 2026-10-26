@@ -67,29 +67,8 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		return false
 	}
 
-	// None of the no-API backends (cffi, pybind11, nanobind) can cross a raw
-	// PyObject* (complex64/128, and a callback argument of a type
-	// callbackSig doesn't handle):
-	// skip these functions rather than emit a signature referencing the
-	// CPython C API, which would fail to even compile under their preamble.
-	if g.noAPIShim() {
-		for _, arg := range args {
-			sarg := current.symtype(arg.GoType())
-			switch {
-			case sarg == nil:
-			case sarg.isSignature():
-				if g.callbackSig(sarg) == nil {
-					return false
-				}
-			case sarg.cpyname == "PyObject*":
-				return false
-			}
-		}
-		for _, ret := range res {
-			if sret := current.symtype(ret.GoType()); sret != nil && sret.cpyname == "PyObject*" {
-				return false
-			}
-		}
+	if !g.shim.funcSupported(g, args, res) {
+		return false
 	}
 
 	var (
@@ -113,10 +92,11 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		}
 		anm := pySafeArg(arg.Name(), i)
 
-		switch nb := g.noAPI(); {
-		case nb != nil && sarg.isSignature():
-			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, nb.cbGoParam()))
-			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", g.callbackSig(sarg).pyType(), anm))
+		cbGoArg, cbPyArg, isCb := g.shim.callbackParam(g, anm, sarg)
+		switch {
+		case isCb:
+			goArgs = append(goArgs, cbGoArg)
+			pyArgs = append(pyArgs, cbPyArg)
 		case ifchandle && arg.sym.goname == "interface{}":
 			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, CGoHandle))
 			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", PyHandle, anm))
@@ -225,7 +205,7 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 }
 
 func (g *pyGen) genFunc(o *Func) {
-	if g.noAPIShim() && g.genFuncComplexNoAPI(o) {
+	if g.shim.genComplexFunc(g, o) {
 		return
 	}
 	if g.genFuncSig(nil, o) {
@@ -233,15 +213,15 @@ func (g *pyGen) genFunc(o *Func) {
 	}
 }
 
-// genFuncComplexNoAPI generates a plain (non-method) function whose every
+// genFuncComplexPlainC generates a plain (non-method) function whose every
 // argument and its one return value are complex64/128, which the normal path
-// (genFuncSig/genFuncBody) can't do under a no-API backend, where a complex
-// value crosses as two floats (see isComplexShim in noapi.go).  It returns false, writing
+// (genFuncSig/genFuncBody) can't do under a plain-C backend, where a complex
+// value crosses as two floats (see plainCShim.complexParts in plainc.go).  It returns false, writing
 // nothing, if the signature doesn't fit that narrow shape (methods, a mix of
 // complex and other argument types, or an error return): genFuncSig's
 // PyObject* check then skips the function instead of emitting code that
 // fails to compile.
-func (g *pyGen) genFuncComplexNoAPI(fsym *Func) bool {
+func (g *pyGen) genFuncComplexPlainC(fsym *Func) bool {
 	sig := fsym.sig
 	if sig == nil || fsym.isVariadic || fsym.err {
 		return false
@@ -350,23 +330,13 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	g.gofile.Indent()
 	if fsym.hasfun {
 		for i, arg := range args {
-			switch nb := g.noAPI(); {
-			case arg.sym.isSignature() && nb != nil:
-				g.gofile.Printf("%s", nb.cbPrologue(pySafeArg(arg.Name(), i)))
-			case arg.sym.isSignature():
-				g.gofile.Printf("_fun_arg := %s\n", pySafeArg(arg.Name(), i))
+			if arg.sym.isSignature() {
+				g.gofile.Printf("%s", g.shim.callbackPrologue(pySafeArg(arg.Name(), i)))
 			}
 		}
 	}
 
-	// cffi, pybind11 and nanobind each release the GIL themselves around
-	// every call
-	if !g.noAPIShim() {
-		g.gofile.Printf("_saved_thread := C.PyEval_SaveThread()\n")
-		if !rvIsErr && nres != 2 {
-			g.gofile.Printf("defer C.PyEval_RestoreThread(_saved_thread)\n")
-		}
-	}
+	g.gofile.Printf("%s", g.shim.saveThread(!rvIsErr && nres != 2))
 
 	if isMethod {
 		g.gofile.Printf(
@@ -401,14 +371,11 @@ if __err != nil {
 	for i, arg := range args {
 		na := ""
 		anm := pySafeArg(arg.Name(), i)
-		switch nb := g.noAPI(); {
+		switch {
 		case ifchandle && arg.sym.goname == "interface{}":
 			na = fmt.Sprintf(`gopyh.VarFromHandle((gopyh.CGoHandle)(%s), "interface{}")`, anm)
-		case arg.sym.isSignature() && nb != nil:
-			cb := g.callbackSig(arg.sym)
-			na = nb.cbLit(cb, g.trampoline(cb), anm)
 		case arg.sym.isSignature():
-			na = fmt.Sprintf("%s", arg.sym.py2go)
+			na = g.shim.callbackArg(g, anm, arg.sym)
 		case arg.sym.py2go != "":
 			na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, anm, arg.sym.py2goParenEx)
 		default:
@@ -529,18 +496,12 @@ if __err != nil {
 
 	if rvIsErr || nres == 2 {
 		g.gofile.Printf("\n")
-		if !g.noAPIShim() {
-			g.gofile.Printf("C.PyEval_RestoreThread(_saved_thread)\n")
-		}
+		g.gofile.Printf("%s", g.shim.restoreThread())
 
 		g.gofile.Printf("if __err != nil {\n")
 		g.gofile.Indent()
 		g.gofile.Printf("estr := C.CString(__err.Error())\n")
-		if g.noAPIShim() {
-			g.gofile.Printf("%s", g.goSetError("RuntimeError", "__err.Error()"))
-		} else {
-			g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, estr)\n")
-		}
+		g.gofile.Printf("%s", g.shim.setError("RuntimeError", "__err.Error()", "estr"))
 		if rvIsErr {
 			g.gofile.Printf("return estr\n") // NOTE: leaked string
 		} else {

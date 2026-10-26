@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// What a no-API backend's callbacks share, whichever way the callable
+// What a plain-C backend's callbacks share, whichever way the callable
 // itself crosses (see callbackABI): which callback types are supported, and
 // how each parameter and result crosses.
 //
@@ -148,7 +148,7 @@ func newCallbackResult(typ types.Type) (*callbackResult, bool) {
 }
 
 // pyType is the type given to the callback's parameter in build.py, which
-// each no-API backend's build.py takes apart (callback_setup in
+// each plain-C backend's build.py takes apart (callback_setup in
 // cffi_build.py, callback_trampoline in pybind11_build.py and
 // nanobind_build.py):
 // callback:<result or void>(<parameter types>)

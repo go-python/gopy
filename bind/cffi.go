@@ -8,8 +8,8 @@ import (
 	_ "embed"
 )
 
-// The cffi backend (GOPY_BACKEND=cffi) uses the shared no-API cgo shim (see
-// noapi.go): a plain C shared library that Python loads with cffi.  Errors
+// The cffi backend (GOPY_BACKEND=cffi) uses the shared plain-C cgo shim (see
+// plainc.go), built as a shared library that Python loads with cffi.  Errors
 // are recorded for the Python side to raise, instead of being set with
 // PyErr_SetString.
 

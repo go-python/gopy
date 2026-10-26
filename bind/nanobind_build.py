@@ -335,7 +335,7 @@ static bool gopy_cb_lookup(int64_t h, nb::callable& out) {
 @CALLBACK_TRAMPOLINES@
 
 NB_MODULE(_@NAME@, m) {
-    // gen_slice.go always exports these 4 (under noAPIShim()) for the
+    // plainCShim.genBytesFuncs (plainc.go) always exports these 4 for the
     // built-in byte slice, regardless of whether the package uses []byte;
     // they exchange a raw pointer+length rather than a PyObject*, same as
     // the cffi and pybind11 backends.

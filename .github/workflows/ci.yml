@@ -101,8 +101,8 @@ jobs:
   # matrix and on one Go version.  None installs pybindgen: no backend here
   # may need it.
   #   cffi:     loads the cgo shim at runtime, with no C compiler step.
-  #   pybind11: compiles a C++ module against the same shim (see noAPIShim in
-  #             bind/noapi.go), so needs no extra system packages: a C++
+  #   pybind11: compiles a C++ module against the same shim (see plainCShim in
+  #             bind/plainc.go), so needs no extra system packages: a C++
   #             compiler is already required for CGO_ENABLED=1 everywhere.
   #   nanobind: as pybind11 (see buildCXXModule in cmd_build.go), and also
   #             compiles nanobind's own runtime (nb_combined.cpp) into every

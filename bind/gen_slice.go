@@ -70,11 +70,7 @@ func (g *pyGen) genSliceInit(slc *symbol, extTypes, pyWrapOnly bool, slob *Slice
 		esym = current.symtype(typ.Elem())
 	}
 
-	// element access (elem/set/append) below would reference *C.PyObject,
-	// which the no-API preamble doesn't declare (see genFuncSig for the same
-	// restriction on plain function args/returns); skip the whole wrapper
-	// rather than emit code that fails to compile.
-	if g.noAPIShim() && esym != nil && esym.cpyname == "PyObject*" && !g.isComplexShim(esym) {
+	if !g.shim.sliceSupported(esym) {
 		return
 	}
 
@@ -389,90 +385,7 @@ otherwise parameter is a python list that we copy from
 		}
 
 		if slNm == "Slice_byte" {
-			if g.noAPIShim() {
-				// PyBytes_* is off-limits for a no-API shim (no CPython headers),
-				// so these exchange a raw pointer+length instead of a PyObject*;
-				// each no-API build.py binds them by name (BYTES_FUNCS in
-				// cffi_build.py, MODULE_TEMPLATE in pybind11_build.py and
-				// nanobind_build.py) to convert from and to python bytes.
-				g.gofile.Printf("//export Slice_byte_from_bytes\n")
-				g.gofile.Printf("func Slice_byte_from_bytes(ptr unsafe.Pointer, size C.longlong) CGoHandle {\n")
-				g.gofile.Indent()
-				g.gofile.Printf("data := make([]byte, size)\n")
-				g.gofile.Printf("if size > 0 {\n")
-				g.gofile.Indent()
-				g.gofile.Printf("tmp := unsafe.Slice((*byte)(ptr), size)\n")
-				g.gofile.Printf("copy(data, tmp)\n")
-				g.gofile.Outdent()
-				g.gofile.Printf("}\n")
-				g.gofile.Printf("return handleFromPtr_Slice_byte(&data)\n")
-				g.gofile.Outdent()
-				g.gofile.Printf("}\n\n")
-
-				g.gofile.Printf("//export Slice_byte_to_bytes_len\n")
-				g.gofile.Printf("func Slice_byte_to_bytes_len(handle CGoHandle) C.longlong {\n")
-				g.gofile.Indent()
-				g.gofile.Printf("s := deptrFromHandle_Slice_byte(handle)\n")
-				g.gofile.Printf("return C.longlong(len(s))\n")
-				g.gofile.Outdent()
-				g.gofile.Printf("}\n\n")
-
-				// Returning &s[0] directly would hand cgo a pointer into the Go
-				// heap, which cgo's pointer checks reject once it crosses back
-				// to the caller; copy into a C-owned buffer instead, freed by
-				// the python side (Slice_byte_free_ptr) once it has read it.
-				g.gofile.Printf("//export Slice_byte_to_bytes_ptr\n")
-				g.gofile.Printf("func Slice_byte_to_bytes_ptr(handle CGoHandle) unsafe.Pointer {\n")
-				g.gofile.Indent()
-				g.gofile.Printf("s := deptrFromHandle_Slice_byte(handle)\n")
-				g.gofile.Printf("n := len(s)\n")
-				g.gofile.Printf("if n == 0 {\n")
-				g.gofile.Indent()
-				g.gofile.Printf("return nil\n")
-				g.gofile.Outdent()
-				g.gofile.Printf("}\n")
-				g.gofile.Printf("buf := C.malloc(C.size_t(n))\n")
-				g.gofile.Printf("copy(unsafe.Slice((*byte)(buf), n), s)\n")
-				g.gofile.Printf("return buf\n")
-				g.gofile.Outdent()
-				g.gofile.Printf("}\n\n")
-
-				g.gofile.Printf("//export Slice_byte_free_ptr\n")
-				g.gofile.Printf("func Slice_byte_free_ptr(ptr unsafe.Pointer) {\n")
-				g.gofile.Indent()
-				g.gofile.Printf("C.free(ptr)\n")
-				g.gofile.Outdent()
-				g.gofile.Printf("}\n\n")
-			} else {
-				g.gofile.Printf("//export Slice_byte_from_bytes\n")
-				g.gofile.Printf("func Slice_byte_from_bytes(o *C.PyObject) CGoHandle {\n")
-				g.gofile.Indent()
-				g.gofile.Printf("size := C.PyBytes_Size(o)\n")
-				g.gofile.Printf("ptr := unsafe.Pointer(C.PyBytes_AsString(o))\n")
-				g.gofile.Printf("data := make([]byte, size)\n")
-				g.gofile.Printf("tmp := unsafe.Slice((*byte)(ptr), size)\n")
-				g.gofile.Printf("copy(data, tmp)\n")
-				g.gofile.Printf("return handleFromPtr_Slice_byte(&data)\n")
-				g.gofile.Outdent()
-				g.gofile.Printf("}\n\n")
-
-				g.gofile.Printf("//export Slice_byte_to_bytes\n")
-				g.gofile.Printf("func Slice_byte_to_bytes(handle CGoHandle) *C.PyObject {\n")
-				g.gofile.Indent()
-				g.gofile.Printf("s := deptrFromHandle_Slice_byte(handle)\n")
-				g.gofile.Printf("ptr := unsafe.Pointer(&s[0])\n")
-				g.gofile.Printf("size := len(s)\n")
-				if WindowsOS {
-					g.gofile.Printf("return C.PyBytes_FromStringAndSize((*C.char)(ptr), C.longlong(size))\n")
-				} else {
-					g.gofile.Printf("return C.PyBytes_FromStringAndSize((*C.char)(ptr), C.long(size))\n")
-				}
-				g.gofile.Outdent()
-				g.gofile.Printf("}\n\n")
-
-				g.pybuild.Printf("mod.add_function('Slice_byte_from_bytes', retval('%s'%s), [param('PyObject*', 'o', transfer_ownership=False)])\n", PyHandle, caller_owns_ret)
-				g.pybuild.Printf("mod.add_function('Slice_byte_to_bytes', retval('PyObject*', caller_owns_return=True), [param('%s', 'handle')])\n", PyHandle)
-			}
+			g.shim.genBytesFuncs(g)
 		}
 	}
 }

@@ -52,16 +52,16 @@ func TestBackendFromEnv(t *testing.T) {
 
 func TestBackendImpl(t *testing.T) {
 	for _, tc := range []struct {
-		b     Backend
-		want  backendImpl
-		noAPI bool
+		b      Backend
+		want   backendImpl
+		plainC bool
 	}{
 		{b: "", want: pybindgenBackend{}},
 		{b: BackendPyBindGen, want: pybindgenBackend{}},
 		{b: BackendCAPI, want: capiBackend{}},
-		{b: BackendCFFI, want: cffiBackend{}, noAPI: true},
-		{b: BackendPyBind11, want: pybind11Backend, noAPI: true},
-		{b: BackendNanobind, want: nanobindBackend, noAPI: true},
+		{b: BackendCFFI, want: cffiBackend{}, plainC: true},
+		{b: BackendPyBind11, want: pybind11Backend, plainC: true},
+		{b: BackendNanobind, want: nanobindBackend, plainC: true},
 	} {
 		got := tc.b.impl()
 		if got != tc.want {
@@ -69,11 +69,11 @@ func TestBackendImpl(t *testing.T) {
 		}
 		// capiBackend embeds pybindgenBackend: it must not pick up a
 		// callbackABI that way, nor a C++ backend lose its own.
-		if _, noAPI := got.(noAPIBackend); noAPI != tc.noAPI {
-			t.Errorf("%q.impl() is a noAPIBackend: %v, want %v", tc.b, noAPI, tc.noAPI)
+		if _, plainC := got.(plainCBackend); plainC != tc.plainC {
+			t.Errorf("%q.impl() is a plainCBackend: %v, want %v", tc.b, plainC, tc.plainC)
 		}
-		if got := tc.b.SupportsExe(); got != !tc.noAPI {
-			t.Errorf("%q.SupportsExe() = %v, want %v", tc.b, got, !tc.noAPI)
+		if got := tc.b.SupportsExe(); got != !tc.plainC {
+			t.Errorf("%q.SupportsExe() = %v, want %v", tc.b, got, !tc.plainC)
 		}
 		if cb, ok := got.(cxxBackend); ok && cb.name != tc.b {
 			t.Errorf("%q.impl().name = %q", tc.b, cb.name)

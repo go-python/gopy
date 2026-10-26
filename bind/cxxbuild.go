@@ -188,7 +188,7 @@ build:
 `
 
 // cxxBackend is a C++ backend (pybind11 or nanobind): a C++ module,
-// written by buildPy, compiled against the no-API shim.  Its callbackABI is
+// written by buildPy, compiled against the plain-C shim.  Its callbackABI is
 // in pybind11_callback.go.
 type cxxBackend struct {
 	name    Backend

@@ -61,7 +61,7 @@ add_checked_string_function = add_checked_function
 def go_decls(header):
     """Returns the Go typedefs (plus any "struct X { ... };" body -- cgo emits
     one ahead of an export that returns two values, which is how a complex
-    number is returned, see isComplexShim in noapi.go), and {function name:
+    number is returned, see plainCShim.complexParts in plainc.go), and {function name:
     cdef line} for the functions cgo exports.
     """
     typedefs = []

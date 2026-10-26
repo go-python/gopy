@@ -573,11 +573,13 @@ var ClearGoTLS = false
 // python-side classes
 // mode = gen, build, pkg, exe
 func GenPyBind(mode BuildMode, libext string, lang int, dynamicLink bool, cfg *BindCfg) error {
+	be := cfg.Backend.impl()
 	gen := &pyGen{
 		mode:        mode,
 		pypkgname:   cfg.Name,
 		cfg:         cfg,
-		be:          cfg.Backend.impl(),
+		be:          be,
+		shim:        newShim(be),
 		libext:      libext,
 		lang:        lang,
 		dynamicLink: dynamicLink,
@@ -607,10 +609,11 @@ type pyGen struct {
 	pypkgname   string
 	cfg         *BindCfg
 	be          backendImpl // what differs by cfg.Backend
+	shim        shimABI     // what differs by the kind of cgo shim be generates
 	libext      string
 	lang        int // c-python api version (2,3)
 	dynamicLink bool
-	cbs         []*callbackSig // no-API backends: the callback types that have a trampoline, see pyGen.trampoline
+	cbs         []*callbackSig // plain-C backends: the callback types that have a trampoline, see pyGen.trampoline
 }
 
 func (g *pyGen) gen() error {
@@ -667,14 +670,9 @@ func (g *pyGen) genPrintOut(outfn string, pr *printer) {
 }
 
 func (g *pyGen) genOut() {
-	switch {
-	case g.noAPIShim():
-		g.pybuild.Printf("\nmod.generate()\n\n")
-	default:
-		g.pybuild.Printf("\nmod.generate(open('%v.c', 'w'))\n\n", g.cfg.Name)
-	}
+	g.pybuild.Printf("%s", g.shim.pyGenerate(g))
 	g.gofile.Printf("\n\n")
-	g.spliceTrampolines()
+	g.shim.finishGo(g)
 	g.genPrintOut(g.cfg.Name+".go", g.gofile)
 	g.genPrintOut("build.py", g.pybuild)
 	if !NoMake {
@@ -729,44 +727,7 @@ func (g *pyGen) genGoPreamble() {
 			pkgimport += fmt.Sprintf("\n\t%q", pp)
 		}
 	}
-	if g.noAPIShim() {
-		g.gofile.Printf(goPreambleNoAPI, g.cfg.Name, g.cfg.Cmd, GoHandle, CGoHandle,
-			pkgimport, g.cfg.Main, trampolinesKey, g.cfg.Version)
-		g.gofile.Printf("\n// --- generated code for package: %[1]s below: ---\n\n", g.cfg.Name)
-		return
-	}
-	libcfg := func() string {
-		pycfg, err := GetPythonConfig(g.cfg.VM)
-		if err != nil {
-			panic(err)
-		}
-		var ldflags string
-		if g.mode == ModeExe || !g.dynamicLink {
-			ldflags = pycfg.LdFlags
-		} else {
-			ldflags = pycfg.LdDynamicFlags
-		}
-		// this is critical to avoid pybindgen errors:
-		exflags := " -Wno-error -Wno-implicit-function-declaration -Wno-int-conversion"
-		pkgcfg := fmt.Sprintf(`
-#cgo CFLAGS: %s
-#cgo LDFLAGS: %s
-`, pycfg.CFlags+exflags, ldflags)
-
-		return pkgcfg
-	}()
-
-	if g.mode == ModeExe && g.cfg.Main == "" {
-		g.cfg.Main = "GoPyMainRun()" // default is just to run main
-	}
-	exeprec := ""
-	exeprego := ""
-	if g.mode == ModeExe {
-		exeprec = fmt.Sprintf(goExePreambleC, g.cfg.Name)
-		exeprego = goExePreambleGo
-	}
-	g.gofile.Printf(goPreamble, g.cfg.Name, g.cfg.Cmd, libcfg, GoHandle, CGoHandle,
-		pkgimport, g.cfg.Main, exeprec, exeprego, g.cfg.Version)
+	g.shim.genGoPreamble(g, pkgimport)
 	g.gofile.Printf("\n// --- generated code for package: %[1]s below: ---\n\n", g.cfg.Name)
 }
 
