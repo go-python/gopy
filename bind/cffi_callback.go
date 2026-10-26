@@ -49,7 +49,7 @@ func (cffiBackend) cbLit(cb *callbackSig, n int, anm string) string {
 	if cb.ret != nil {
 		// named, so that a refused call returns its zero value
 		result = " (_r " + cb.ret.gotyp + ")"
-		if cb.ret.ctype == "bool" {
+		if cb.ret.ctype == cbBool {
 			call += " != 0"
 		}
 		call = "return " + cb.ret.gotyp + "(" + call + ")"
@@ -67,7 +67,7 @@ func (cffiBackend) cbTrampolines(cbs []*callbackSig) string {
 		ptypes := []string{}
 		args := []string{}
 		for j, p := range cb.params {
-			t := callbackCType(p.ctype)
+			t := p.ctype.c()
 			params = append(params, fmt.Sprintf("%s a%d", t, j))
 			ptypes = append(ptypes, t)
 			args = append(args, fmt.Sprintf("a%d", j))
@@ -77,7 +77,7 @@ func (cffiBackend) cbTrampolines(cbs []*callbackSig) string {
 		}
 		ret, retStmt := "void", ""
 		if cb.ret != nil {
-			ret, retStmt = callbackCType(cb.ret.ctype), "return "
+			ret, retStmt = cb.ret.ctype.c(), "return "
 		}
 		fmt.Fprintf(&c, "static inline %s gopy_cb_%d(%s) { %s((%s (*)(%s))f)(%s); }\n",
 			ret, i, strings.Join(params, ", "), retStmt, ret, strings.Join(ptypes, ", "), strings.Join(args, ", "))

@@ -6,12 +6,13 @@ package bind
 
 import (
 	"go/parser"
+	"go/types"
 	"testing"
 )
 
 func TestCallbackTrampolines(t *testing.T) {
 	cbs := []*callbackSig{
-		{params: []callbackParam{{ctype: "int64_t"}, {ctype: "bool"}}, ret: &callbackResult{ctype: "double"}},
+		{params: []callbackParam{{ctype: cbInt64}, {ctype: cbBool}}, ret: &callbackResult{ctype: cbDouble}},
 		{},
 	}
 	for _, tc := range []struct {
@@ -32,10 +33,10 @@ func TestCallbackTrampolines(t *testing.T) {
 func TestCallbackLit(t *testing.T) {
 	full := &callbackSig{
 		params: []callbackParam{
-			{name: "i", gotyp: "int", ctype: "int64_t", conv: "C.int64_t(i)"},
-			{name: "s", gotyp: "string", ctype: "char*", conv: "_cs", pre: "_cs := C.CString(string(s))\n"},
+			{name: "i", gotyp: "int", ctype: cbInt64, conv: "C.int64_t(i)"},
+			{name: "s", gotyp: "string", ctype: cbCString, conv: "_cs", pre: "_cs := C.CString(string(s))\n"},
 		},
-		ret: &callbackResult{gotyp: "bool", ctype: "bool"},
+		ret: &callbackResult{gotyp: "bool", ctype: cbBool},
 	}
 	empty := &callbackSig{}
 	for _, tc := range []struct {
@@ -69,7 +70,7 @@ func TestCallbackLit(t *testing.T) {
 
 func TestTrampolineNumbering(t *testing.T) {
 	g := &pyGen{}
-	intArg := func() *callbackSig { return &callbackSig{params: []callbackParam{{ctype: "int64_t"}}} }
+	intArg := func() *callbackSig { return &callbackSig{params: []callbackParam{{ctype: cbInt64}}} }
 	noArg := &callbackSig{}
 	for i, tc := range []struct {
 		cb   *callbackSig
@@ -78,7 +79,7 @@ func TestTrampolineNumbering(t *testing.T) {
 		{intArg(), 0},
 		{noArg, 1},
 		{intArg(), 0}, // a distinct callbackSig of the same shape shares its trampoline
-		{&callbackSig{ret: &callbackResult{ctype: "int64_t"}}, 2},
+		{&callbackSig{ret: &callbackResult{ctype: cbInt64}}, 2},
 		{noArg, 1},
 	} {
 		if got := g.trampoline(tc.cb); got != tc.want {
@@ -87,5 +88,40 @@ func TestTrampolineNumbering(t *testing.T) {
 	}
 	if len(g.cbs) != 3 {
 		t.Errorf("len(g.cbs) = %d, want 3", len(g.cbs))
+	}
+}
+
+func TestCbCType(t *testing.T) {
+	// String is what each plain-C build.py parses, so it must not change.
+	for _, tc := range []struct {
+		t      cbCType
+		str, c string
+		kinds  []types.BasicKind
+	}{
+		{cbInt64, "int64_t", "int64_t", []types.BasicKind{types.Int, types.Int8, types.Int64}},
+		{cbUint64, "uint64_t", "uint64_t", []types.BasicKind{types.Uint, types.Uint8, types.Uintptr}},
+		{cbDouble, "double", "double", []types.BasicKind{types.Float32, types.Float64}},
+		{cbBool, "bool", "uint8_t", []types.BasicKind{types.Bool}},
+		{cbCString, "char*", "char*", []types.BasicKind{types.String}},
+	} {
+		if got := tc.t.String(); got != tc.str {
+			t.Errorf("%d.String() = %q, want %q", uint8(tc.t), got, tc.str)
+		}
+		if got := tc.t.c(); got != tc.c {
+			t.Errorf("%s.c() = %q, want %q", tc.t, got, tc.c)
+		}
+		for _, k := range tc.kinds {
+			if got, ok := callbackBasicCType(k); !ok || got != tc.t {
+				t.Errorf("callbackBasicCType(%v) = %s, %v; want %s", k, got, ok, tc.t)
+			}
+		}
+	}
+	for _, k := range []types.BasicKind{types.Complex64, types.Complex128, types.UnsafePointer} {
+		if got, ok := callbackBasicCType(k); ok {
+			t.Errorf("callbackBasicCType(%v) = %s, want none", k, got)
+		}
+	}
+	if got := cbCType(0).String(); got != "cbCType(0)" {
+		t.Errorf("zero cbCType.String() = %q", got)
 	}
 }

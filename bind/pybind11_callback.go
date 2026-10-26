@@ -53,7 +53,7 @@ func (cxxBackend) cbLit(cb *callbackSig, n int, anm string) string {
 	result := ""
 	if cb.ret != nil {
 		result = " " + cb.ret.gotyp
-		if cb.ret.ctype == "bool" {
+		if cb.ret.ctype == cbBool {
 			call += " != 0"
 		}
 		call = "return " + cb.ret.gotyp + "(" + call + ")"
@@ -73,11 +73,11 @@ func (cxxBackend) cbTrampolines(cbs []*callbackSig) string {
 	for i, cb := range cbs {
 		params := []string{"int64_t h"}
 		for j, p := range cb.params {
-			params = append(params, fmt.Sprintf("%s a%d", callbackCType(p.ctype), j))
+			params = append(params, fmt.Sprintf("%s a%d", p.ctype.c(), j))
 		}
 		ret := "void"
 		if cb.ret != nil {
-			ret = callbackCType(cb.ret.ctype)
+			ret = cb.ret.ctype.c()
 		}
 		fmt.Fprintf(&c, "extern %s gopy_cb_%d(%s);\n", ret, i, strings.Join(params, ", "))
 	}
