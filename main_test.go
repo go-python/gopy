@@ -485,6 +485,30 @@ func TestMakefile(t *testing.T) {
 	})
 }
 
+// TestPkg builds _examples/simple as an installable package with gopy pkg,
+// under the backend GOPY_BACKEND selects.
+func TestPkg(t *testing.T) {
+	path := "_examples/simple"
+	testPkg(t, pkg{
+		path: path,
+		lang: features[path],
+		cmd:  "pkg",
+		want: simpleWant,
+	})
+}
+
+// TestExeUnsupportedBackend checks that gopy exe refuses, up front, the
+// backends that can't build an executable.
+func TestExeUnsupportedBackend(t *testing.T) {
+	for _, b := range []bind.Backend{bind.BackendCFFI, bind.BackendPyBind11, bind.BackendNanobind} {
+		t.Setenv(bind.BackendEnvVar, string(b))
+		err := genPkg(bind.ModeExe, NewBuildCfg())
+		if err == nil || !strings.Contains(err.Error(), "does not support gopy exe") {
+			t.Errorf("%s: genPkg(ModeExe) = %v, want a does-not-support error", b, err)
+		}
+	}
+}
+
 func TestBindEmpty(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/empty"
