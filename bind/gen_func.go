@@ -68,6 +68,11 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 	}
 
 	if !g.shim.funcSupported(g, args, res) {
+		fname := fsym.GoFmt()
+		if isMethod {
+			fname = sym.goname + "." + fsym.GoName()
+		}
+		fmt.Printf("ignoring function not supported by %s=%s: %s: %s\n", BackendEnvVar, g.cfg.Backend, fname, fsym.GoType())
 		return false
 	}
 

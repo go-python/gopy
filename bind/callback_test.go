@@ -5,7 +5,10 @@
 package bind
 
 import (
+	"go/ast"
+	"go/doc"
 	"go/parser"
+	"go/token"
 	"go/types"
 	"testing"
 )
@@ -124,4 +127,72 @@ func TestCbCType(t *testing.T) {
 	if got := cbCType(0).String(); got != "cbCType(0)" {
 		t.Errorf("zero cbCType.String() = %q", got)
 	}
+}
+
+// TestPlainCFuncSupported checks which functions a plain-C backend binds,
+// and which it skips, for each kind of argument callbackSig rejects.  (A
+// callback with two results, or a result that isn't a basic type, never gets
+// this far: package loading drops the function, whatever the backend.)
+func TestPlainCFuncSupported(t *testing.T) {
+	const src = `package cb
+
+func Ok(f func(i int, s string) bool) {}
+func NoArgs(f func())                 {}
+func Variadic(f func(...int))         {}
+func SliceArg(f func([]int))          {}
+func ComplexArg(f func(complex128))   {}
+func StringResult(f func() string)    {}
+func Complex(c complex128)            {}
+func ComplexResult() complex128       { return 0 }
+`
+	want := map[string]bool{
+		"Ok":            true,
+		"NoArgs":        true,
+		"Variadic":      false,
+		"SliceArg":      false,
+		"ComplexArg":    false,
+		"StringResult":  false,
+		"Complex":       false,
+		"ComplexResult": false,
+	}
+	p := loadTestPackage(t, src)
+	g := &pyGen{}
+	got := map[string]bool{}
+	for _, f := range p.funcs {
+		got[f.GoName()] = plainCShim{}.funcSupported(g, f.sig.Params(), f.sig.Results())
+	}
+	for name, w := range want {
+		if s, ok := got[name]; !ok {
+			t.Errorf("%s: not in the package", name)
+		} else if s != w {
+			t.Errorf("%s: funcSupported = %v, want %v", name, s, w)
+		}
+	}
+}
+
+// loadTestPackage type-checks src, a single-file package with no imports,
+// into the symbol table, as gopy's own package loading does.
+func loadTestPackage(t *testing.T, src string) *Package {
+	t.Helper()
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "cb.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := []*ast.File{f}
+	tpkg, err := new(types.Config).Check("example.com/cb", fset, files, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dpkg, err := doc.NewFromFiles(fset, files, "example.com/cb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ResetPackages()
+	t.Cleanup(ResetPackages)
+	p, err := NewPackage(tpkg, dpkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
 }
