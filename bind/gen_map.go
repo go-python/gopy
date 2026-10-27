@@ -299,7 +299,7 @@ otherwise parameter is a python list that we copy from
 		}
 		g.gofile.Printf("if !ok {\n")
 		g.gofile.Indent()
-		g.gofile.Printf("%s", g.shim.setError("KeyError", `"key not in map"`, `C.CString("key not in map")`))
+		g.gofile.Print(g.shim.setError("KeyError", `"key not in map"`, `C.CString("key not in map")`))
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n")
 		if esym.go2py != "" {

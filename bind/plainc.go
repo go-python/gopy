@@ -156,55 +156,49 @@ func (plainCShim) setError(exc, goMsg, cMsg string) string {
 // pybind11_build.py and nanobind_build.py) to convert from and to python
 // bytes.
 func (plainCShim) genBytesFuncs(g *pyGen) {
-	g.gofile.Printf("//export Slice_byte_from_bytes\n")
-	g.gofile.Printf("func Slice_byte_from_bytes(ptr unsafe.Pointer, size C.longlong) CGoHandle {\n")
-	g.gofile.Indent()
-	g.gofile.Printf("data := make([]byte, size)\n")
-	g.gofile.Printf("if size > 0 {\n")
-	g.gofile.Indent()
-	g.gofile.Printf("tmp := unsafe.Slice((*byte)(ptr), size)\n")
-	g.gofile.Printf("copy(data, tmp)\n")
-	g.gofile.Outdent()
-	g.gofile.Printf("}\n")
-	g.gofile.Printf("return handleFromPtr_Slice_byte(&data)\n")
-	g.gofile.Outdent()
-	g.gofile.Printf("}\n\n")
-
-	g.gofile.Printf("//export Slice_byte_to_bytes_len\n")
-	g.gofile.Printf("func Slice_byte_to_bytes_len(handle CGoHandle) C.longlong {\n")
-	g.gofile.Indent()
-	g.gofile.Printf("s := deptrFromHandle_Slice_byte(handle)\n")
-	g.gofile.Printf("return C.longlong(len(s))\n")
-	g.gofile.Outdent()
-	g.gofile.Printf("}\n\n")
-
-	// Returning &s[0] directly would hand cgo a pointer into the Go
-	// heap, which cgo's pointer checks reject once it crosses back
-	// to the caller; copy into a C-owned buffer instead, freed by
-	// the python side (Slice_byte_free_ptr) once it has read it.
-	g.gofile.Printf("//export Slice_byte_to_bytes_ptr\n")
-	g.gofile.Printf("func Slice_byte_to_bytes_ptr(handle CGoHandle) unsafe.Pointer {\n")
-	g.gofile.Indent()
-	g.gofile.Printf("s := deptrFromHandle_Slice_byte(handle)\n")
-	g.gofile.Printf("n := len(s)\n")
-	g.gofile.Printf("if n == 0 {\n")
-	g.gofile.Indent()
-	g.gofile.Printf("return nil\n")
-	g.gofile.Outdent()
-	g.gofile.Printf("}\n")
-	g.gofile.Printf("buf := C.malloc(C.size_t(n))\n")
-	g.gofile.Printf("copy(unsafe.Slice((*byte)(buf), n), s)\n")
-	g.gofile.Printf("return buf\n")
-	g.gofile.Outdent()
-	g.gofile.Printf("}\n\n")
-
-	g.gofile.Printf("//export Slice_byte_free_ptr\n")
-	g.gofile.Printf("func Slice_byte_free_ptr(ptr unsafe.Pointer) {\n")
-	g.gofile.Indent()
-	g.gofile.Printf("C.free(ptr)\n")
-	g.gofile.Outdent()
-	g.gofile.Printf("}\n\n")
+	g.gofile.Print(goBytesFuncsPlainC)
 }
+
+// goBytesFuncsPlainC is plainCShim's Slice_byte_* functions.
+//
+// Returning &s[0] directly from Slice_byte_to_bytes_ptr would hand cgo a
+// pointer into the Go heap, which cgo's pointer checks reject once it crosses
+// back to the caller; it copies into a C-owned buffer instead, freed by the
+// python side (Slice_byte_free_ptr) once it has read it.
+const goBytesFuncsPlainC = `//export Slice_byte_from_bytes
+func Slice_byte_from_bytes(ptr unsafe.Pointer, size C.longlong) CGoHandle {
+	data := make([]byte, size)
+	if size > 0 {
+		tmp := unsafe.Slice((*byte)(ptr), size)
+		copy(data, tmp)
+	}
+	return handleFromPtr_Slice_byte(&data)
+}
+
+//export Slice_byte_to_bytes_len
+func Slice_byte_to_bytes_len(handle CGoHandle) C.longlong {
+	s := deptrFromHandle_Slice_byte(handle)
+	return C.longlong(len(s))
+}
+
+//export Slice_byte_to_bytes_ptr
+func Slice_byte_to_bytes_ptr(handle CGoHandle) unsafe.Pointer {
+	s := deptrFromHandle_Slice_byte(handle)
+	n := len(s)
+	if n == 0 {
+		return nil
+	}
+	buf := C.malloc(C.size_t(n))
+	copy(unsafe.Slice((*byte)(buf), n), s)
+	return buf
+}
+
+//export Slice_byte_free_ptr
+func Slice_byte_free_ptr(ptr unsafe.Pointer) {
+	C.free(ptr)
+}
+
+`
 
 func isComplexSym(sym *symbol) bool {
 	return sym != nil && (sym.goname == "complex64" || sym.goname == "complex128")

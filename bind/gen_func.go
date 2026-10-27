@@ -331,12 +331,12 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	if fsym.hasfun {
 		for i, arg := range args {
 			if arg.sym.isSignature() {
-				g.gofile.Printf("%s", g.shim.callbackPrologue(pySafeArg(arg.Name(), i)))
+				g.gofile.Print(g.shim.callbackPrologue(pySafeArg(arg.Name(), i)))
 			}
 		}
 	}
 
-	g.gofile.Printf("%s", g.shim.saveThread(!rvIsErr && nres != 2))
+	g.gofile.Print(g.shim.saveThread(!rvIsErr && nres != 2))
 
 	if isMethod {
 		g.gofile.Printf(
@@ -496,12 +496,12 @@ if __err != nil {
 
 	if rvIsErr || nres == 2 {
 		g.gofile.Printf("\n")
-		g.gofile.Printf("%s", g.shim.restoreThread())
+		g.gofile.Print(g.shim.restoreThread())
 
 		g.gofile.Printf("if __err != nil {\n")
 		g.gofile.Indent()
 		g.gofile.Printf("estr := C.CString(__err.Error())\n")
-		g.gofile.Printf("%s", g.shim.setError("RuntimeError", "__err.Error()", "estr"))
+		g.gofile.Print(g.shim.setError("RuntimeError", "__err.Error()", "estr"))
 		if rvIsErr {
 			g.gofile.Printf("return estr\n") // NOTE: leaked string
 		} else {

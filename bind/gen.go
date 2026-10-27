@@ -670,7 +670,7 @@ func (g *pyGen) genPrintOut(outfn string, pr *printer) {
 }
 
 func (g *pyGen) genOut() {
-	g.pybuild.Printf("%s", g.shim.pyGenerate(g))
+	g.pybuild.Print(g.shim.pyGenerate(g))
 	g.gofile.Printf("\n\n")
 	g.shim.finishGo(g)
 	g.genPrintOut(g.cfg.Name+".go", g.gofile)
@@ -732,7 +732,7 @@ func (g *pyGen) genGoPreamble() {
 }
 
 func (g *pyGen) genPyBuildPreamble() {
-	g.pybuild.Printf("%s", g.be.pyBuildPreamble(g))
+	g.pybuild.Print(g.be.pyBuildPreamble(g))
 }
 
 // buildPreamble returns src, the start of build.py for a backend whose

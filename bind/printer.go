@@ -7,6 +7,7 @@ package bind
 import (
 	"bytes"
 	"fmt"
+	"io"
 )
 
 type printer struct {
@@ -56,6 +57,14 @@ func (p *printer) Write(b []byte) (n int, err error) {
 
 func (p *printer) Printf(format string, args ...interface{}) {
 	if _, err := fmt.Fprintf(p, format, args...); err != nil {
+		panic(fmt.Sprintf("printer: %v", err))
+	}
+}
+
+// Print writes out verbatim, unlike Printf, which would read any % in it as a
+// verb.
+func (p *printer) Print(out string) {
+	if _, err := io.WriteString(p, out); err != nil {
 		panic(fmt.Sprintf("printer: %v", err))
 	}
 }
