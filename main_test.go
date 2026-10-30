@@ -1,4 +1,4 @@
-// Copyright 2015 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -51,6 +52,8 @@ var (
 		"_examples/pkgconflict": []string{"py3"},
 		"_examples/variadic":    []string{"py3"},
 		"_examples/gilstring":   []string{"py3"},
+		"_examples/callbacks":   []string{"py3"},
+		"_examples/cgoldflags":  []string{"py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -392,15 +395,163 @@ OK
 	})
 }
 
-func TestBindSimple(t *testing.T) {
+func TestBindCallbacks(t *testing.T) {
 	// t.Parallel()
-	path := "_examples/simple"
+	path := "_examples/callbacks"
 	testPkg(t, pkg{
 		path:   path,
 		lang:   features[path],
 		cmd:    "build",
 		extras: nil,
-		want: []byte(`doc(pkg):
+		want: []byte(`--- Each: int and string arguments
+each: 0 item-0
+each: 1 item-1
+each: 2 item-2
+--- Mixed: bool, float and uint8 arguments
+mixed: True 1.5 200
+mixed: False -2.25 7
+--- Twice: no arguments
+twice: 2
+--- Counter.Visit: a Go struct arrives as a handle
+visit: 1 1
+visit: 2 2
+counter: 2
+--- Describe: an interface{} arrives as a string
+describe: 'a string'
+describe: '1.5s'
+--- Count: a bool result
+count: 4
+--- Sum: an int result
+sum: 30
+--- Widest: a uint result
+widest: 30
+--- Apply: a float result
+apply: 3.0
+--- Counter.Check: a handle argument and a bool result
+check: True
+--- a bound method
+box: [(0, 'item-0'), (1, 'item-1')]
+--- called from another goroutine
+goroutine: 7
+--- an exception in a callback is reported, and Go carries on
+calls: 3 reported: 3
+--- a callback Go keeps and calls after the call it was passed to returned
+kept: exit code 0
+--- a kept callback's result: refused calls answer the zero value
+kept check: exit code 0 zero value if refused: True
+OK
+`),
+	})
+}
+
+// cgoldflagsWant is _examples/cgoldflags/test.py's expected output.
+var cgoldflagsWant = []byte(`answer: 42
+system verify: False
+OK
+`)
+
+// buildCgoLDFlagsLib builds the C library _examples/cgoldflags links in
+// through its #cgo LDFLAGS, as a static archive (compiled as PIC, for
+// the module it ends up in).
+func buildCgoLDFlagsLib(t *testing.T) {
+	t.Helper()
+	dir := filepath.Join("_examples", "cgoldflags", "clib")
+	goenv := func(name string) string {
+		out, err := exec.Command("go", "env", name).Output()
+		if err != nil {
+			t.Fatalf("go env %s: %v", name, err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	run := func(name string, args ...string) {
+		if out, err := exec.Command(name, args...).CombinedOutput(); err != nil {
+			t.Fatalf("%s %s: %v\n%s", name, strings.Join(args, " "), err, out)
+		}
+	}
+	obj := filepath.Join(t.TempDir(), "gopyanswer.o")
+	lib := filepath.Join(dir, "libgopyanswer.a")
+	t.Cleanup(func() { os.Remove(lib) })
+	cc := strings.Fields(goenv("CC"))
+	run(cc[0], append(cc[1:], "-c", "-fPIC", "-o", obj, filepath.Join(dir, "gopyanswer.c"))...)
+	run(goenv("AR"), "rcs", lib, obj)
+}
+
+// TestBindCgoLDFlags checks that the libraries a package's cgo code and
+// the standard library ask for get linked in, by gopy build.
+func TestBindCgoLDFlags(t *testing.T) {
+	buildCgoLDFlagsLib(t)
+	path := "_examples/cgoldflags"
+	testPkg(t, pkg{
+		path: path,
+		lang: features[path],
+		cmd:  "build",
+		want: cgoldflagsWant,
+	})
+}
+
+// TestMakefileCgoLDFlags is TestBindCgoLDFlags with the Makefile gopy gen
+// writes.
+func TestMakefileCgoLDFlags(t *testing.T) {
+	if _, err := exec.LookPath("make"); err != nil {
+		t.Skip("make not found")
+	}
+	buildCgoLDFlagsLib(t)
+	path := "_examples/cgoldflags"
+	testPkg(t, pkg{
+		path: path,
+		lang: features[path],
+		cmd:  "gen",
+		make: true,
+		want: cgoldflagsWant,
+	})
+}
+
+// TestBenchJSON checks that _examples/bench/bench_json.py turns the table
+// run.sh prints into the entries CI stores for github-action-benchmark
+// (customSmallerIsBetter): a time per call for each function, and the peak
+// memory, for each backend.
+func TestBenchJSON(t *testing.T) {
+	pyvm, ok := testBackends["py3"]
+	if !ok {
+		t.Skip("python3 not found")
+	}
+	const table = `building gopy...
+backend       calls        add (s)     concat (s)  peak (KB)
+pybindgen      1000       0.000500       0.001250      10240
+cffi           1000       0.002000       0.004000      20480
+`
+	cmd := exec.Command(pyvm, filepath.Join("_examples", "bench", "bench_json.py"))
+	cmd.Stdin = strings.NewReader(table)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("bench_json.py: %v", err)
+	}
+	type entry struct {
+		Name  string  `json:"name"`
+		Unit  string  `json:"unit"`
+		Value float64 `json:"value"`
+		Extra string  `json:"extra"`
+	}
+	var got []entry
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("bench_json.py printed %q: %v", out, err)
+	}
+	want := []entry{
+		{"pybindgen: Add", "us/call", 0.5, "1000 calls"},
+		{"pybindgen: Concat", "us/call", 1.25, "1000 calls"},
+		{"pybindgen: peak memory", "KB", 10240, ""},
+		{"cffi: Add", "us/call", 2, "1000 calls"},
+		{"cffi: Concat", "us/call", 4, "1000 calls"},
+		{"cffi: peak memory", "KB", 20480, ""},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("bench_json.py =\n%+v\nwant\n%+v", got, want)
+	}
+}
+
+// simpleWant is _examples/simple/test.py's expected output.
+var simpleWant = []byte(`doc(pkg):
 '\nsimple is a simple package.\n\n'
 pkg.Func()...
 fct = pkg.Func...
@@ -411,8 +562,61 @@ pkg.Bool(False)= False
 pkg.Comp64Add((3+4j), (2+5j)) = (5+9j)
 pkg.Comp128Add((3+4j), (2+5j)) = (5+9j)
 OK
-`),
+`)
+
+func TestBindSimple(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/simple"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want:   simpleWant,
 	})
+}
+
+// TestMakefile builds _examples/simple with the Makefile gopy gen writes,
+// rather than with gopy build, under the backend GOPY_BACKEND selects.
+func TestMakefile(t *testing.T) {
+	if _, err := bind.BackendFromEnv(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := exec.LookPath("make"); err != nil {
+		t.Skip("make not found")
+	}
+	path := "_examples/simple"
+	testPkg(t, pkg{
+		path: path,
+		lang: features[path],
+		cmd:  "gen",
+		make: true,
+		want: simpleWant,
+	})
+}
+
+// TestPkg builds _examples/simple as an installable package with gopy pkg,
+// under the backend GOPY_BACKEND selects.
+func TestPkg(t *testing.T) {
+	path := "_examples/simple"
+	testPkg(t, pkg{
+		path: path,
+		lang: features[path],
+		cmd:  "pkg",
+		want: simpleWant,
+	})
+}
+
+// TestExeUnsupportedBackend checks that gopy exe refuses, up front, the
+// backends that can't build an executable.
+func TestExeUnsupportedBackend(t *testing.T) {
+	for _, b := range []bind.Backend{bind.BackendCFFI, bind.BackendPyBind11, bind.BackendNanobind} {
+		t.Setenv(bind.BackendEnvVar, string(b))
+		err := genPkg(bind.ModeExe, NewBuildCfg())
+		if err == nil || !strings.Contains(err.Error(), "does not support gopy exe") {
+			t.Errorf("%s: genPkg(ModeExe) = %v, want a does-not-support error", b, err)
+		}
+	}
 }
 
 func TestBindEmpty(t *testing.T) {
@@ -1083,6 +1287,8 @@ type pkg struct {
 	testdir   string
 	extras    []string
 	want      []byte
+	// make runs the generated Makefile's build target after cmd (gen)
+	make bool
 }
 
 func testPkg(t *testing.T, table pkg) {
@@ -1149,7 +1355,7 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 
 	// fmt.Printf("building in work dir: %s\n", workdir)
 	fpath := "./" + table.path
-	if table.cmd != "build" { // non-build cases end up inside the working dir -- need a global import path
+	if table.cmd != "build" && table.cmd != "gen" { // non-build cases end up inside the working dir -- need a global import path
 		fpath = filepath.Join(curPkgPath, table.path)
 	}
 	args := []string{table.cmd, "-vm=" + pyvm, "-output=" + genPkgDir, "-package-prefix", table.pkgprefix}
@@ -1163,9 +1369,18 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 		t.Fatalf("[%s:%s]: error running gopy-build: %v\n", pyvm, table.path, err)
 	}
 
+	if table.make {
+		fmt.Printf("running make build\n")
+		cmd := exec.Command("make", "build")
+		cmd.Dir = genPkgDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("[%s:%s]: error running make build: %v\n%s", pyvm, table.path, err, out)
+		}
+	}
+
 	// fmt.Printf("copying test.py\n")
 	tstDir := genPkgDir
-	if table.cmd != "build" {
+	if table.cmd != "build" && table.cmd != "gen" {
 		tstDir = filepath.Join(workdir, pkgNm)
 	}
 	if table.testdir != "" {

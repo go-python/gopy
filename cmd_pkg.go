@@ -1,4 +1,4 @@
-// Copyright 2015 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -34,7 +34,7 @@ When including multiple packages, list in order of increasing dependency, and us
 ex:
  $ gopy pkg [options] <go-package-name> [other-go-package...]
  $ gopy pkg github.com/go-python/gopy/_examples/hi
-`,
+` + backendHelp,
 		Flag: *flag.NewFlagSet("gopy-pkg", flag.ExitOnError),
 	}
 
@@ -106,6 +106,14 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	// GenPyPkgSetup chdirs into the output dir; restore the caller's cwd
+	// when we're done, so a run doesn't strand the process there.
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	defer os.Chdir(cwd)
 
 	setupfn := filepath.Join(cfg.OutputDir, "setup.py")
 

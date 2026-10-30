@@ -1,0 +1,119 @@
+# Copyright 2015-present, The go-python Authors.  All rights reserved.
+# Use of this source code is governed by a BSD-style
+# license that can be found in the LICENSE file.
+
+from __future__ import print_function
+
+import io
+import os
+import subprocess
+import sys
+
+import callbacks
+
+print("--- Each: int and string arguments")
+callbacks.Each(3, lambda i, label: print("each:", i, label))
+
+print("--- Mixed: bool, float and uint8 arguments")
+# bool() because the pybindgen backend passes a bool as 1 or 0
+callbacks.Mixed(lambda on, x, u: print("mixed:", bool(on), x, u))
+
+print("--- Twice: no arguments")
+calls = []
+callbacks.Twice(lambda: calls.append(1))
+print("twice:", len(calls))
+
+print("--- Counter.Visit: a Go struct arrives as a handle")
+c = callbacks.Counter()
+
+def visit(handle, n):
+    seen = callbacks.Counter(handle=handle)
+    print("visit:", n, seen.N)
+
+c.Visit(2, visit)
+print("counter:", c.N)
+
+print("--- Describe: an interface{} arrives as a string")
+callbacks.Describe(lambda v: print("describe:", repr(v)))
+
+print("--- Count: a bool result")
+print("count:", callbacks.Count(10, lambda i: i % 3 == 0))
+
+print("--- Sum: an int result")
+print("sum:", callbacks.Sum(5, lambda i: i * i))
+
+print("--- Widest: a uint result")
+print("widest:", callbacks.Widest(4, lambda i: i * 10))
+
+print("--- Apply: a float result")
+print("apply:", callbacks.Apply(1.5, lambda x: x * 2))
+
+print("--- Counter.Check: a handle argument and a bool result")
+print("check:", c.Check(lambda handle, n: callbacks.Counter(handle=handle).N == n))
+
+print("--- a bound method")
+
+class Box(object):
+    def __init__(self):
+        self.items = []
+
+    def add(self, i, label):
+        self.items.append((i, label))
+
+box = Box()
+callbacks.Each(2, box.add)
+print("box:", box.items)
+
+print("--- called from another goroutine")
+callbacks.InGoroutine(lambda i: print("goroutine:", i))
+
+print("--- an exception in a callback is reported, and Go carries on")
+seen = []
+
+def boom(i, label):
+    seen.append(i)
+    raise ValueError("boom %d" % i)
+
+stderr, sys.stderr = sys.stderr, io.StringIO()
+try:
+    callbacks.Each(3, boom)
+    reported = sys.stderr.getvalue()
+finally:
+    sys.stderr = stderr
+print("calls:", len(seen), "reported:", reported.count("ValueError: boom"))
+
+print("--- a callback Go keeps and calls after the call it was passed to returned")
+# Run in a child process: a callback that outlives its call must not crash it
+# (cffi, pybind11 and nanobind refuse the call, cffi with a warning on stderr,
+# which the output compared here mustn't depend on).
+here = os.path.dirname(os.path.abspath(__file__))
+child = subprocess.run(
+    [sys.executable, "-c", "import callbacks\ndef kept(i): pass\ncallbacks.Keep(kept)\ncallbacks.CallKept(1)\n"],
+    cwd=here,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+)
+print("kept: exit code", child.returncode)
+if child.returncode != 0:
+    print(child.stderr.decode(errors="replace"))
+
+print("--- a kept callback's result: refused calls answer the zero value")
+# Don't keep a callback beyond the call it was passed to.  The plain-C
+# backends (cffi, pybind11, nanobind) refuse the call, and Go then gets the
+# zero value of its result: False here, though yes answers True, and Go can't
+# tell the two apart (only cffi warns, on stderr).  pybindgen and capi don't
+# guard it, and call it through a reference they never took: that only works
+# here because yes stays alive in the child.
+refuses = os.environ.get("GOPY_BACKEND", "").strip().lower() in ("cffi", "pybind11", "nanobind")
+child = subprocess.run(
+    [sys.executable, "-c", "import callbacks\ndef yes(i): return True\ncallbacks.KeepCheck(yes)\nprint(callbacks.CallKeptCheck(1))\n"],
+    cwd=here,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+)
+answer = child.stdout.decode().strip()
+print("kept check: exit code", child.returncode, "zero value if refused:", answer == str(not refuses))
+if child.returncode != 0:
+    print(child.stderr.decode(errors="replace"))
+
+print("OK")

@@ -1,4 +1,4 @@
-// Copyright 2019 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -67,6 +67,15 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		return false
 	}
 
+	if !g.shim.funcSupported(g, args, res) {
+		fname := fsym.GoFmt()
+		if isMethod {
+			fname = sym.goname + "." + fsym.GoName()
+		}
+		fmt.Printf("ignoring function not supported by %s=%s: %s: %s\n", BackendEnvVar, g.cfg.Backend, fname, fsym.GoType())
+		return false
+	}
+
 	var (
 		goArgs []string
 		pyArgs []string
@@ -88,10 +97,15 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 		}
 		anm := pySafeArg(arg.Name(), i)
 
-		if ifchandle && arg.sym.goname == "interface{}" {
+		cbGoArg, cbPyArg, isCb := g.shim.callbackParam(g, anm, sarg)
+		switch {
+		case isCb:
+			goArgs = append(goArgs, cbGoArg)
+			pyArgs = append(pyArgs, cbPyArg)
+		case ifchandle && arg.sym.goname == "interface{}":
 			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, CGoHandle))
 			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", PyHandle, anm))
-		} else {
+		default:
 			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, sarg.cgoname))
 			if sarg.cpyname == "PyObject*" {
 				pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s', transfer_ownership=False)", sarg.cpyname, anm))
@@ -196,9 +210,75 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 }
 
 func (g *pyGen) genFunc(o *Func) {
+	if g.shim.genComplexFunc(g, o) {
+		return
+	}
 	if g.genFuncSig(nil, o) {
 		g.genFuncBody(nil, o)
 	}
+}
+
+// genFuncComplexPlainC generates a plain (non-method) function whose every
+// argument and its one return value are complex64/128, which the normal path
+// (genFuncSig/genFuncBody) can't do under a plain-C backend, where a complex
+// value crosses as two floats (see plainCShim.complexParts in plainc.go).  It returns false, writing
+// nothing, if the signature doesn't fit that narrow shape (methods, a mix of
+// complex and other argument types, or an error return): genFuncSig's
+// PyObject* check then skips the function instead of emitting code that
+// fails to compile.
+func (g *pyGen) genFuncComplexPlainC(fsym *Func) bool {
+	sig := fsym.sig
+	if sig == nil || fsym.isVariadic || fsym.err {
+		return false
+	}
+	args := sig.Params()
+	res := sig.Results()
+	if len(res) != 1 || !isComplexSym(current.symtype(res[0].GoType())) {
+		return false
+	}
+	for _, arg := range args {
+		if !isComplexSym(current.symtype(arg.GoType())) {
+			return false
+		}
+	}
+
+	gname := fsym.GoName()
+	if g.cfg.RenameCase {
+		gname = toSnakeCase(gname)
+	}
+	gname, gdoc, err := extractPythonName(gname, fsym.Doc())
+	if err != nil {
+		return false
+	}
+
+	ret := current.symtype(res[0].GoType())
+	var goArgs, pyArgs, callArgs, wpArgs []string
+	for i, arg := range args {
+		anm := pySafeArg(arg.Name(), i)
+		sarg := current.symtype(arg.GoType())
+		goArgs = append(goArgs, g.cgoParam(anm, sarg))
+		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", g.cpyName(sarg), anm))
+		callArgs = append(callArgs, g.cgoToGo(sarg, anm))
+		wpArgs = append(wpArgs, anm)
+	}
+
+	g.gofile.Printf("\n//export %s\n", fsym.ID())
+	g.gofile.Printf("func %s(%s) %s {\n", fsym.ID(), strings.Join(goArgs, ", "), g.cgoResult(ret))
+	g.gofile.Indent()
+	g.gofile.Printf("return %s\n", g.goToCgo(ret, fmt.Sprintf("%s(%s)", fsym.GoFmt(), strings.Join(callArgs, ", "))))
+	g.gofile.Outdent()
+	g.gofile.Printf("}\n\n")
+
+	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [%s])\n", fsym.ID(), g.cpyName(ret), strings.Join(pyArgs, ", "))
+
+	g.pywrap.Printf("def %s(%s):\n", gname, strings.Join(wpArgs, ", "))
+	g.pywrap.Indent()
+	g.pywrap.Printf(`"""%s"""`, gdoc)
+	g.pywrap.Printf("\n")
+	g.pywrap.Printf("return _%s.%s(%s)\n", g.cfg.Name, fsym.ID(), strings.Join(wpArgs, ", "))
+	g.pywrap.Outdent()
+
+	return true
 }
 
 func (g *pyGen) genMethod(s *symbol, o *Func) {
@@ -256,15 +336,12 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	if fsym.hasfun {
 		for i, arg := range args {
 			if arg.sym.isSignature() {
-				g.gofile.Printf("_fun_arg := %s\n", pySafeArg(arg.Name(), i))
+				g.gofile.Print(g.shim.callbackPrologue(pySafeArg(arg.Name(), i)))
 			}
 		}
 	}
 
-	g.gofile.Printf("_saved_thread := C.PyEval_SaveThread()\n")
-	if !rvIsErr && nres != 2 {
-		g.gofile.Printf("defer C.PyEval_RestoreThread(_saved_thread)\n")
-	}
+	g.gofile.Print(g.shim.saveThread(!rvIsErr && nres != 2))
 
 	if isMethod {
 		g.gofile.Printf(
@@ -303,7 +380,7 @@ if __err != nil {
 		case ifchandle && arg.sym.goname == "interface{}":
 			na = fmt.Sprintf(`gopyh.VarFromHandle((gopyh.CGoHandle)(%s), "interface{}")`, anm)
 		case arg.sym.isSignature():
-			na = fmt.Sprintf("%s", arg.sym.py2go)
+			na = g.shim.callbackArg(g, anm, arg.sym)
 		case arg.sym.py2go != "":
 			na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, anm, arg.sym.py2goParenEx)
 		default:
@@ -424,12 +501,12 @@ if __err != nil {
 
 	if rvIsErr || nres == 2 {
 		g.gofile.Printf("\n")
-		g.gofile.Printf("C.PyEval_RestoreThread(_saved_thread)\n")
+		g.gofile.Print(g.shim.restoreThread())
 
 		g.gofile.Printf("if __err != nil {\n")
 		g.gofile.Indent()
 		g.gofile.Printf("estr := C.CString(__err.Error())\n")
-		g.gofile.Printf("C.PyErr_SetString(C.PyExc_RuntimeError, estr)\n")
+		g.gofile.Print(g.shim.setError("RuntimeError", "__err.Error()", "estr"))
 		if rvIsErr {
 			g.gofile.Printf("return estr\n") // NOTE: leaked string
 		} else {

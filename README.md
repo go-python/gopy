@@ -12,14 +12,14 @@ This is an improved version that works with current versions of Go (e.g., 1.15 -
 It also supports python modules having any number of Go packages, and generates a separate .py module file for each package, which link into a single common binding library.  It has been tested extensively on reproducing complex Go code in large libraries -- most stuff "just works".  For example, the [GoGi](https://github.com/goki/gi) GUI library is fully usable from python now (do `make; make install` in the python directory there, and try the `examples/widgets/widgets.py` demo).
 
 New features:
-* Callback methods from Go into Python now work: you can pass a python function to a Go function that has a function argument, and it will call the python function appropriately.
+* Callback methods from Go into Python now work: you can pass a python function to a Go function that has a function argument, and it will call the python function appropriately.  The Go function must only call it before it returns: don't keep it (in a variable, or a goroutine still running) and call it later.  The `cffi`, `pybind11` and `nanobind` backends refuse such a call, which then returns the zero value of its result type (e.g., `false` or `0`, which Go can't tell from a real answer; only `cffi` warns on stderr), and the other backends call a python function that may no longer exist.
 * The first embedded struct field (i.e., Go's version of type inheritance) is used to establish a corresponding class inheritance in the Python `class` wrappers, which then efficiently inherit all the methods, properties, etc.
 
 ## Installation
 
 Gopy now assumes that you are working with modules-based builds, and requires a valid `go.mod` file, and works only with Go versions 1.15 and above.
 
-Currently using [pybindgen](https://pybindgen.readthedocs.io/en/latest/tutorial/) to generate the low-level c-to-python bindings, but support for [cffi](https://cffi.readthedocs.io/en/latest/) should be relatively straightforward for those using PyPy instead of CPython (pybindgen should be significantly faster for CPython apparently).  You also need `goimports` to ensure the correct imports are included.
+By default, gopy uses [pybindgen](https://pybindgen.readthedocs.io/en/latest/tutorial/) to generate the low-level c-to-python bindings.  You also need `goimports` to ensure the correct imports are included.
 
 ```sh
 $ python3 -m pip install pybindgen
@@ -28,6 +28,22 @@ $ go install github.com/go-python/gopy@latest
 ```
 
 (This all assumes you have already installed [Go itself](https://golang.org/doc/install), and added `~/go/bin` to your `PATH`).
+
+### Choosing a backend (experimental)
+
+The `GOPY_BACKEND` environment variable picks a different tool for those bindings, for `gopy gen`, `gopy build` and `gopy pkg`:
+
+| `GOPY_BACKEND` | Needs | |
+|---|---|---|
+| `pybindgen` (default) | `pip install pybindgen` | |
+| `capi` | nothing beyond python itself | writes the C-API bindings directly, without pybindgen |
+| `cffi` | `pip install cffi` | |
+| `pybind11` | `pip install pybind11`, a C++ compiler | |
+| `nanobind` | `pip install nanobind`, a C++ compiler | |
+
+```sh
+$ GOPY_BACKEND=capi gopy build github.com/go-python/gopy/_examples/hi
+```
 
 To [install python modules](https://packaging.python.org/tutorials/packaging-projects/), you will need the python install packages:
 

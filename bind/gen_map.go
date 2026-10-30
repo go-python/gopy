@@ -1,4 +1,4 @@
-// Copyright 2019 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -299,7 +299,7 @@ otherwise parameter is a python list that we copy from
 		}
 		g.gofile.Printf("if !ok {\n")
 		g.gofile.Indent()
-		g.gofile.Printf("C.PyErr_SetString(C.PyExc_KeyError, C.CString(\"key not in map\"))\n")
+		g.gofile.Print(g.shim.setError("KeyError", `"key not in map"`, `C.CString("key not in map")`))
 		g.gofile.Outdent()
 		g.gofile.Printf("}\n")
 		if esym.go2py != "" {

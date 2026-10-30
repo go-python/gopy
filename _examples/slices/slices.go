@@ -1,4 +1,4 @@
-// Copyright 2017 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -32,6 +32,7 @@ type SliceInt32 []int32
 type SliceInt64 []int64
 
 type SliceComplex []complex128
+type SliceComplex64 []complex64
 
 type SliceIface []interface{}
 
@@ -59,6 +60,10 @@ func CmplxSqrt(arr SliceComplex) SliceComplex {
 		res[i] = cmplx.Sqrt(el)
 	}
 	return res
+}
+
+func CmplxArray() [3]complex128 {
+	return [3]complex128{1 + 1i, 2 + 2i, 3 + 3i}
 }
 
 func GetEmptyMatrix(xSize int, ySize int) [][]bool {
