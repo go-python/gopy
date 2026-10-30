@@ -574,6 +574,9 @@ var ClearGoTLS = false
 // mode = gen, build, pkg, exe
 func GenPyBind(mode BuildMode, libext string, lang int, dynamicLink bool, cfg *BindCfg) error {
 	be := cfg.Backend.impl()
+	if be == nil {
+		return fmt.Errorf("gopy: unknown backend %q", cfg.Backend)
+	}
 	gen := &pyGen{
 		mode:        mode,
 		pypkgname:   cfg.Name,

@@ -5,11 +5,18 @@
 package bind
 
 import (
+	"bytes"
 	_ "embed"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -61,11 +68,89 @@ func ExtModuleName(name, libext string, pycfg PyConfig) string {
 	return "_" + name + libext
 }
 
+// CgoLDFlags returns the linker flags that the cgo code in pkgs, and in
+// everything they import, asks for: each package's own #cgo LDFLAGS, and the
+// standard library's //go:cgo_ldflag directives (e.g. the frameworks
+// crypto/x509 needs on macOS), as go list finds them when run in dir with
+// build tags tags.  go build passes these on to the final link itself, but a
+// c-archive leaves that link to the C++ backends (see CXXArgs).
+func CgoLDFlags(dir, tags string, pkgs ...string) ([]string, error) {
+	args := []string{"list", "-deps", "-json=Dir,Standard,GoFiles,CgoLDFLAGS"}
+	if tags != "" {
+		args = append(args, "-tags", tags)
+	}
+	cmd := exec.Command("go", append(args, pkgs...)...)
+	cmd.Dir = dir
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("gopy: go list %s: %v\n%s", strings.Join(pkgs, " "), err, stderr.Bytes())
+	}
+	type listed struct {
+		Dir        string
+		Standard   bool
+		GoFiles    []string
+		CgoLDFLAGS []string
+	}
+	var deps []listed
+	for dec := json.NewDecoder(bytes.NewReader(out)); ; {
+		var p listed
+		if err := dec.Decode(&p); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return nil, fmt.Errorf("gopy: go list %s: %v", strings.Join(pkgs, " "), err)
+		}
+		deps = append(deps, p)
+	}
+	// go list lists each package after those it imports, while a static
+	// link needs each library before those it depends on.
+	var flags []string
+	for i := len(deps) - 1; i >= 0; i-- {
+		p := deps[i]
+		flags = append(flags, p.CgoLDFLAGS...)
+		if !p.Standard {
+			continue // only the standard library may use //go:cgo_ldflag
+		}
+		for _, f := range p.GoFiles {
+			fileFlags, err := cgoLDFlagDirectives(filepath.Join(p.Dir, f))
+			if err != nil {
+				return nil, err
+			}
+			flags = append(flags, fileFlags...)
+		}
+	}
+	return flags, nil
+}
+
+// cgoLDFlagDirectives returns the argument of each //go:cgo_ldflag directive
+// in file.
+func cgoLDFlagDirectives(file string) ([]string, error) {
+	const directive = "//go:cgo_ldflag "
+	src, err := os.ReadFile(file)
+	if err != nil || !bytes.Contains(src, []byte(directive)) {
+		return nil, err
+	}
+	var flags []string
+	for _, line := range strings.Split(string(src), "\n") {
+		arg, ok := strings.CutPrefix(strings.TrimSpace(line), directive)
+		if !ok {
+			continue
+		}
+		flag, err := strconv.Unquote(strings.TrimSpace(arg))
+		if err != nil {
+			return nil, fmt.Errorf("gopy: %s: %s%s: %v", file, directive, arg, err)
+		}
+		flags = append(flags, flag)
+	}
+	return flags, nil
+}
+
 // CXXArgs returns the C++ compiler arguments that compile <name>.cpp and
 // srcs (the C++ library's own sources, if any) with libflags (its include
-// directories and flags of its own), and link them with the archive into
-// modlib.
-func CXXArgs(name, modlib string, pycfg PyConfig, libflags, srcs []string) []string {
+// directories and flags of its own), and link them with the archive and
+// ldflags (the archive's own link flags, see CgoLDFlags) into modlib.
+func CXXArgs(name, modlib string, pycfg PyConfig, libflags, srcs, ldflags []string) []string {
 	archive := CXXArchive(name)
 	// pycfg.CFlags/LdFlags quote each path (for the shell that CGO_CFLAGS/
 	// CGO_LDFLAGS normally go through); these arguments go to the compiler
@@ -124,10 +209,12 @@ func CXXArgs(name, modlib string, pycfg PyConfig, libflags, srcs []string) []str
 	args = append(args, name+".cpp")
 	args = append(args, srcs...)
 	args = append(args, archiveArgs...)
+	args = append(args, ldflags...)
 	args = append(args, unquote(strings.Fields(pycfg.LdFlags))...)
-	// c-archive mode (unlike c-shared) doesn't resolve the Go runtime's own
-	// dependencies on these itself; TODO: verified only on Linux -- unclear
-	// yet whether Windows/macOS need anything of their own added here too.
+	// A c-archive also leaves out the system libraries the Go runtime itself
+	// needs, which the Go linker's own final link would add: these, except
+	// on Windows, where that is only kernel32 and the MinGW runtime, which
+	// g++ links in anyway.  (macOS's frameworks and the like are in ldflags.)
 	if runtime.GOOS != "windows" {
 		args = append(args, "-lpthread", "-ldl", "-lm")
 	}
@@ -207,7 +294,16 @@ func (b cxxBackend) pyBuildPreamble(g *pyGen) string {
 
 func (b cxxBackend) genMakefile(g *pyGen, gencmd string, pycfg PyConfig) {
 	modlib := ExtModuleName(g.cfg.Name, g.libext, pycfg)
-	args := CXXArgs(g.cfg.Name, modlib, pycfg, []string{"$(CXXLIBFLAGS)"}, []string{"$(CXXLIBSRCS)"})
+	var pkgs []string
+	for _, p := range Packages {
+		if p != goPackage {
+			pkgs = append(pkgs, p.pkg.Path())
+		}
+	}
+	// The Makefile's go build has no build tags either.
+	ldflags, err := CgoLDFlags("", "", pkgs...)
+	g.err.Add(err)
+	args := CXXArgs(g.cfg.Name, modlib, pycfg, []string{"$(CXXLIBFLAGS)"}, []string{"$(CXXLIBSRCS)"}, ldflags)
 	for i, a := range args {
 		args[i] = makeShellArg(a)
 	}

@@ -193,10 +193,45 @@ jobs:
         go install golang.org/x/tools/cmd/goimports@v0.29.0
 
     - name: Run benchmark
-      run: bash _examples/bench/run.sh | tee benchmark.txt
+      run: |
+        bash _examples/bench/run.sh | tee benchmark.txt
+        python _examples/bench/bench_json.py < benchmark.txt > benchmark.json
 
     - name: Upload benchmark table
       uses: actions/upload-artifact@v4
       with:
         name: benchmark
-        path: benchmark.txt
+        path: |
+          benchmark.txt
+          benchmark.json
+
+    # The results of earlier runs on master, kept in the Actions cache (no
+    # branch or token needed): every run restores the latest, a pull request
+    # from its base branch's.
+    - name: Restore benchmark history
+      uses: actions/cache/restore@v4
+      with:
+        path: benchmark-history
+        key: benchmark-history-${{ github.run_id }}
+        restore-keys: benchmark-history-
+
+    # Compares with the latest master run in the job summary, warning (but
+    # never failing, since CI runners' timings are noisy) at 2x slower, and
+    # adds this run to the history.
+    - name: Compare with earlier runs
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        name: gopy backends
+        tool: customSmallerIsBetter
+        output-file-path: benchmark.json
+        external-data-json-path: benchmark-history/data.json
+        summary-always: true
+        fail-on-alert: false
+
+    # Only master's runs make up the history.
+    - name: Save benchmark history
+      if: github.event_name == 'push'
+      uses: actions/cache/save@v4
+      with:
+        path: benchmark-history
+        key: benchmark-history-${{ github.run_id }}

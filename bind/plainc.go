@@ -277,7 +277,9 @@ package main
 #include <stdlib.h>
 // pybind11's consumer #includes this same preamble (via the generated
 // header) as C++, where bool/thread_local are keywords, not the C ones below.
-#if !defined(__cplusplus) && (!defined(__STDC_VERSION__) || (__STDC_VERSION__ < 202311L))
+// Nor is bool typedef'd once <stdbool.h> has made it a macro, for C code that
+// #includes the generated header after that.
+#if !defined(__cplusplus) && !defined(bool) && (!defined(__STDC_VERSION__) || (__STDC_VERSION__ < 202311L))
 typedef uint8_t bool;
 #endif
 #if defined(__cplusplus)

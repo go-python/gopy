@@ -44,8 +44,9 @@ func BackendFromEnv() (Backend, error) {
 // Python interpreter into the Go binary via the CPython C API (see
 // goExePreambleC/Go in gen.go), which a plain-C backend's shim avoids.
 func (b Backend) SupportsExe() bool {
-	_, plainC := b.impl().(plainCBackend)
-	return !plainC
+	be := b.impl()
+	_, plainC := be.(plainCBackend)
+	return be != nil && !plainC
 }
 
 // backendImpl is what code generation needs from a backend.  The generators
@@ -73,10 +74,12 @@ var (
 	_ plainCBackend = cxxBackend{}
 )
 
-// impl returns the implementation of b.  An empty Backend is pybindgen, as
-// with an unset GOPY_BACKEND.
+// impl returns the implementation of b, or nil if b is none of backends.  An
+// empty Backend is pybindgen, as with an unset GOPY_BACKEND.
 func (b Backend) impl() backendImpl {
 	switch b {
+	case "", BackendPyBindGen:
+		return pybindgenBackend{}
 	case BackendCAPI:
 		return capiBackend{}
 	case BackendCFFI:
@@ -86,7 +89,7 @@ func (b Backend) impl() backendImpl {
 	case BackendNanobind:
 		return nanobindBackend
 	}
-	return pybindgenBackend{}
+	return nil
 }
 
 // pybindgenBackend is the default backend: build.py drives pybindgen to

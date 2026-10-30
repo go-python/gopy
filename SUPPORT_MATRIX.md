@@ -8,6 +8,7 @@ Feature |py3
 _examples/arrays | yes
 _examples/callbacks | yes
 _examples/cgo | yes
+_examples/cgoldflags | yes
 _examples/consts | yes
 _examples/cstrings | yes
 _examples/empty | yes

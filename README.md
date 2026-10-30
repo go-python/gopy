@@ -12,7 +12,7 @@ This is an improved version that works with current versions of Go (e.g., 1.15 -
 It also supports python modules having any number of Go packages, and generates a separate .py module file for each package, which link into a single common binding library.  It has been tested extensively on reproducing complex Go code in large libraries -- most stuff "just works".  For example, the [GoGi](https://github.com/goki/gi) GUI library is fully usable from python now (do `make; make install` in the python directory there, and try the `examples/widgets/widgets.py` demo).
 
 New features:
-* Callback methods from Go into Python now work: you can pass a python function to a Go function that has a function argument, and it will call the python function appropriately.
+* Callback methods from Go into Python now work: you can pass a python function to a Go function that has a function argument, and it will call the python function appropriately.  The Go function must only call it before it returns: don't keep it (in a variable, or a goroutine still running) and call it later.  The `cffi`, `pybind11` and `nanobind` backends refuse such a call, which then returns the zero value of its result type (e.g., `false` or `0`, which Go can't tell from a real answer; only `cffi` warns on stderr), and the other backends call a python function that may no longer exist.
 * The first embedded struct field (i.e., Go's version of type inheritance) is used to establish a corresponding class inheritance in the Python `class` wrappers, which then efficiently inherit all the methods, properties, etc.
 
 ## Installation

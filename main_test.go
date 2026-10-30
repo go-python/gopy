@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -52,6 +53,7 @@ var (
 		"_examples/variadic":    []string{"py3"},
 		"_examples/gilstring":   []string{"py3"},
 		"_examples/callbacks":   []string{"py3"},
+		"_examples/cgoldflags":  []string{"py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -435,9 +437,117 @@ goroutine: 7
 calls: 3 reported: 3
 --- a callback Go keeps and calls after the call it was passed to returned
 kept: exit code 0
+--- a kept callback's result: refused calls answer the zero value
+kept check: exit code 0 zero value if refused: True
 OK
 `),
 	})
+}
+
+// cgoldflagsWant is _examples/cgoldflags/test.py's expected output.
+var cgoldflagsWant = []byte(`answer: 42
+system verify: False
+OK
+`)
+
+// buildCgoLDFlagsLib builds the C library _examples/cgoldflags links in
+// through its #cgo LDFLAGS, as a static archive (compiled as PIC, for
+// the module it ends up in).
+func buildCgoLDFlagsLib(t *testing.T) {
+	t.Helper()
+	dir := filepath.Join("_examples", "cgoldflags", "clib")
+	goenv := func(name string) string {
+		out, err := exec.Command("go", "env", name).Output()
+		if err != nil {
+			t.Fatalf("go env %s: %v", name, err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	run := func(name string, args ...string) {
+		if out, err := exec.Command(name, args...).CombinedOutput(); err != nil {
+			t.Fatalf("%s %s: %v\n%s", name, strings.Join(args, " "), err, out)
+		}
+	}
+	obj := filepath.Join(t.TempDir(), "gopyanswer.o")
+	lib := filepath.Join(dir, "libgopyanswer.a")
+	t.Cleanup(func() { os.Remove(lib) })
+	cc := strings.Fields(goenv("CC"))
+	run(cc[0], append(cc[1:], "-c", "-fPIC", "-o", obj, filepath.Join(dir, "gopyanswer.c"))...)
+	run(goenv("AR"), "rcs", lib, obj)
+}
+
+// TestBindCgoLDFlags checks that the libraries a package's cgo code and
+// the standard library ask for get linked in, by gopy build.
+func TestBindCgoLDFlags(t *testing.T) {
+	buildCgoLDFlagsLib(t)
+	path := "_examples/cgoldflags"
+	testPkg(t, pkg{
+		path: path,
+		lang: features[path],
+		cmd:  "build",
+		want: cgoldflagsWant,
+	})
+}
+
+// TestMakefileCgoLDFlags is TestBindCgoLDFlags with the Makefile gopy gen
+// writes.
+func TestMakefileCgoLDFlags(t *testing.T) {
+	if _, err := exec.LookPath("make"); err != nil {
+		t.Skip("make not found")
+	}
+	buildCgoLDFlagsLib(t)
+	path := "_examples/cgoldflags"
+	testPkg(t, pkg{
+		path: path,
+		lang: features[path],
+		cmd:  "gen",
+		make: true,
+		want: cgoldflagsWant,
+	})
+}
+
+// TestBenchJSON checks that _examples/bench/bench_json.py turns the table
+// run.sh prints into the entries CI stores for github-action-benchmark
+// (customSmallerIsBetter): a time per call for each function, and the peak
+// memory, for each backend.
+func TestBenchJSON(t *testing.T) {
+	pyvm, ok := testBackends["py3"]
+	if !ok {
+		t.Skip("python3 not found")
+	}
+	const table = `building gopy...
+backend       calls        add (s)     concat (s)  peak (KB)
+pybindgen      1000       0.000500       0.001250      10240
+cffi           1000       0.002000       0.004000      20480
+`
+	cmd := exec.Command(pyvm, filepath.Join("_examples", "bench", "bench_json.py"))
+	cmd.Stdin = strings.NewReader(table)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("bench_json.py: %v", err)
+	}
+	type entry struct {
+		Name  string  `json:"name"`
+		Unit  string  `json:"unit"`
+		Value float64 `json:"value"`
+		Extra string  `json:"extra"`
+	}
+	var got []entry
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("bench_json.py printed %q: %v", out, err)
+	}
+	want := []entry{
+		{"pybindgen: Add", "us/call", 0.5, "1000 calls"},
+		{"pybindgen: Concat", "us/call", 1.25, "1000 calls"},
+		{"pybindgen: peak memory", "KB", 10240, ""},
+		{"cffi: Add", "us/call", 2, "1000 calls"},
+		{"cffi: Concat", "us/call", 4, "1000 calls"},
+		{"cffi: peak memory", "KB", 20480, ""},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("bench_json.py =\n%+v\nwant\n%+v", got, want)
+	}
 }
 
 // simpleWant is _examples/simple/test.py's expected output.

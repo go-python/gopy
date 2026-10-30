@@ -97,4 +97,23 @@ print("kept: exit code", child.returncode)
 if child.returncode != 0:
     print(child.stderr.decode(errors="replace"))
 
+print("--- a kept callback's result: refused calls answer the zero value")
+# Don't keep a callback beyond the call it was passed to.  The plain-C
+# backends (cffi, pybind11, nanobind) refuse the call, and Go then gets the
+# zero value of its result: False here, though yes answers True, and Go can't
+# tell the two apart (only cffi warns, on stderr).  pybindgen and capi don't
+# guard it, and call it through a reference they never took: that only works
+# here because yes stays alive in the child.
+refuses = os.environ.get("GOPY_BACKEND", "").strip().lower() in ("cffi", "pybind11", "nanobind")
+child = subprocess.run(
+    [sys.executable, "-c", "import callbacks\ndef yes(i): return True\ncallbacks.KeepCheck(yes)\nprint(callbacks.CallKeptCheck(1))\n"],
+    cwd=here,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+)
+answer = child.stdout.decode().strip()
+print("kept check: exit code", child.returncode, "zero value if refused:", answer == str(not refuses))
+if child.returncode != 0:
+    print(child.stderr.decode(errors="replace"))
+
 print("OK")

@@ -374,7 +374,11 @@ func buildCXXModule(cfg *BuildCfg, cxxflags, srcs []string) error {
 	if err := runCmd(nil, cfg.VM, "build.py"); err != nil {
 		return err
 	}
-	cxxArgs := bind.CXXArgs(cfg.Name, bind.ExtModuleName(cfg.Name, libExt, pycfg), pycfg, cxxflags, srcs)
+	ldflags, err := bind.CgoLDFlags("", cfg.BuildTags, ".")
+	if err != nil {
+		return err
+	}
+	cxxArgs := bind.CXXArgs(cfg.Name, bind.ExtModuleName(cfg.Name, libExt, pycfg), pycfg, cxxflags, srcs, ldflags)
 	return runCmd(nil, bind.CXX(), cxxArgs...)
 }
 

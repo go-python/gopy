@@ -86,6 +86,24 @@ func TestBackendImpl(t *testing.T) {
 	}
 }
 
+// TestBackendUnknown checks that a Backend none of backends names, which
+// BackendFromEnv never returns but a BindCfg can still be given, is refused
+// rather than taken for pybindgen.
+func TestBackendUnknown(t *testing.T) {
+	for _, b := range []Backend{"bogus", "PyBindGen", "cffi "} {
+		if got := b.impl(); got != nil {
+			t.Errorf("%q.impl() = %s, want nil", b, implName(got))
+		}
+		if b.SupportsExe() {
+			t.Errorf("%q.SupportsExe() = true, want false", b)
+		}
+		err := GenPyBind(ModeGen, ".so", 3, false, &BindCfg{Backend: b})
+		if err == nil || !strings.Contains(err.Error(), fmt.Sprintf("unknown backend %q", b)) {
+			t.Errorf("GenPyBind with backend %q: err = %v, want unknown backend", b, err)
+		}
+	}
+}
+
 // implName names impl in a test failure, without the embedded build.py a
 // cxxBackend's %v would print.
 func implName(impl backendImpl) string {

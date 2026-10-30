@@ -116,3 +116,17 @@ func CallKept(i int) {
 		kept(i)
 	}
 }
+
+var keptCheck func(i int) bool
+
+// KeepCheck stores check, for CallKeptCheck to call after KeepCheck has
+// returned.
+func KeepCheck(check func(i int) bool) {
+	keptCheck = check
+}
+
+// CallKeptCheck reports what the func KeepCheck stored answers for i,
+// outside the call it was passed to.
+func CallKeptCheck(i int) bool {
+	return keptCheck != nil && keptCheck(i)
+}
