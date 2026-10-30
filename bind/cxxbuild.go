@@ -151,6 +151,11 @@ func cgoLDFlagDirectives(file string) ([]string, error) {
 // directories and flags of its own), and link them with the archive and
 // ldflags (the archive's own link flags, see CgoLDFlags) into modlib.
 func CXXArgs(name, modlib string, pycfg PyConfig, libflags, srcs, ldflags []string) []string {
+	return cxxArgs(runtime.GOOS, name, modlib, pycfg, libflags, srcs, ldflags)
+}
+
+// cxxArgs is CXXArgs for the OS goos.
+func cxxArgs(goos, name, modlib string, pycfg PyConfig, libflags, srcs, ldflags []string) []string {
 	archive := CXXArchive(name)
 	// pycfg.CFlags/LdFlags quote each path (for the shell that CGO_CFLAGS/
 	// CGO_LDFLAGS normally go through); these arguments go to the compiler
@@ -176,13 +181,13 @@ func CXXArgs(name, modlib string, pycfg PyConfig, libflags, srcs, ldflags []stri
 	// the archive first and drop it as unused.  GNU ld (Linux, and Windows'
 	// MinGW) and ld64 (macOS) spell that differently.
 	var archiveArgs []string
-	if runtime.GOOS == "darwin" {
+	if goos == "darwin" {
 		archiveArgs = []string{"-Wl,-force_load," + archive}
 	} else {
 		archiveArgs = []string{"-Wl,--whole-archive", archive, "-Wl,--no-whole-archive"}
 	}
 	args := []string{"-std=c++17", "-fPIC", "-shared", "-O2"}
-	switch runtime.GOOS {
+	switch goos {
 	case "darwin":
 		args = append(args, "-Wl,-rpath,@loader_path")
 		if libdir != "" {
@@ -215,7 +220,7 @@ func CXXArgs(name, modlib string, pycfg PyConfig, libflags, srcs, ldflags []stri
 	// needs, which the Go linker's own final link would add: these, except
 	// on Windows, where that is only kernel32 and the MinGW runtime, which
 	// g++ links in anyway.  (macOS's frameworks and the like are in ldflags.)
-	if runtime.GOOS != "windows" {
+	if goos != "windows" {
 		args = append(args, "-lpthread", "-ldl", "-lm")
 	}
 	return append(args, "-o", modlib)

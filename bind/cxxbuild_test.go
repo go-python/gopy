@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -90,7 +91,8 @@ func TestCgoLDFlags(t *testing.T) {
 		pkgs       []string
 		want       []string
 	}{
-		{runtime.GOOS, "", []string{"./p"}, []string{"-L" + filepath.Join(dir, "p", "lib"), "-lfoo"}},
+		// go list expands ${SRCDIR} with forward slashes, on Windows too
+		{runtime.GOOS, "", []string{"./p"}, []string{"-L" + filepath.ToSlash(filepath.Join(dir, "p", "lib")), "-lfoo"}},
 		{runtime.GOOS, "gopytag", []string{"./p"}, []string{"-ltagged"}},
 		{"darwin", "", []string{"crypto/x509"}, []string{"-framework", "CoreFoundation", "-framework", "Security"}},
 		{"darwin", "", []string{"net"}, []string{"-lresolv"}},
@@ -124,12 +126,15 @@ func containsRun(s, run []string) bool {
 }
 
 // TestCXXArgsLinkOrder checks that CXXArgs puts the archive's own link flags
-// after the archive, where the linker still needs what they resolve.
+// after the archive, where the linker still needs what they resolve, on each
+// OS (whose linkers take the archive in different arguments).
 func TestCXXArgsLinkOrder(t *testing.T) {
-	args := CXXArgs("p", "_p.so", PyConfig{}, nil, nil, []string{"-lfoo"})
-	archive := slices.Index(args, CXXArchive("p"))
-	lib := slices.Index(args, "-lfoo")
-	if archive < 0 || lib < archive {
-		t.Errorf("CXXArgs = %q, want -lfoo after %s", args, CXXArchive("p"))
+	for _, goos := range []string{"linux", "darwin", "windows"} {
+		args := cxxArgs(goos, "p", "_p.so", PyConfig{}, nil, nil, []string{"-lfoo"})
+		archive := slices.IndexFunc(args, func(a string) bool { return strings.HasSuffix(a, CXXArchive("p")) })
+		lib := slices.Index(args, "-lfoo")
+		if archive < 0 || lib < archive {
+			t.Errorf("GOOS=%s: CXXArgs = %q, want -lfoo after %s", goos, args, CXXArchive("p"))
+		}
 	}
 }
