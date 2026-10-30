@@ -20,7 +20,6 @@ jobs:
   build:
     name: Build (${{ matrix.platform }}, Go ${{ matrix.go-version }}, Python ${{ matrix.python-version }})
     strategy:
-      fail-fast: false
       matrix:
         # TODO: Consider official support matrix (OS and Go versions) and adjust this matrix accordingly
         go-version: [1.25.x, 1.24.x, 1.23.x, 1.22.x]
@@ -112,8 +111,6 @@ jobs:
   backends:
     name: ${{ matrix.backend }} backend (${{ matrix.platform }}, Python ${{ matrix.python-version }})
     strategy:
-      # a failure in one backend doesn't cancel the others
-      fail-fast: false
       matrix:
         backend: [cffi, pybind11, nanobind, capi]
         platform: [ubuntu-latest, windows-latest, macos-15]
