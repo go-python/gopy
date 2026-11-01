@@ -8,7 +8,6 @@ on:
 
 env:
   TAGS: "-tags=ci"
-  COVERAGE: "-coverpkg=github.com/go-python/gopy/..."
   # Init() in main_test will make sure all backends are available if
   # GOPY_TRAVIS_CI is set
   GOPY_TRAVIS_CI: 1
@@ -27,6 +26,10 @@ jobs:
         platform: [ubuntu-latest, windows-latest, macos-15]
         python-version: ['3.11', '3.12']
     runs-on: ${{ matrix.platform }}
+    env:
+      # Coverage is measured on exactly one matrix leg, so the numbers stay
+      # comparable from commit to commit.
+      COVERAGE_LEG: ${{ matrix.platform == 'ubuntu-latest' && matrix.go-version == '1.25.x' && matrix.python-version == '3.12' }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -72,9 +75,34 @@ jobs:
       run: |
         make
     - name: Test Linux
-      if: matrix.platform == 'ubuntu-latest'
+      if: matrix.platform == 'ubuntu-latest' && env.COVERAGE_LEG != 'true'
       run: |
         make test
+    - name: Test Linux (with coverage)
+      if: env.COVERAGE_LEG == 'true'
+      run: |
+        make cover
+    - name: Coverage summary
+      if: env.COVERAGE_LEG == 'true'
+      run: |
+        {
+          echo "## Test coverage"
+          echo
+          echo "Commit \`${GITHUB_SHA}\`: **$(go tool cover -func=coverage.out | tail -n 1 | awk '{print $NF}')** of statements"
+          echo
+          echo "<details><summary>Per-function coverage</summary>"
+          echo
+          echo '```'
+          go tool cover -func=coverage.out
+          echo '```'
+          echo "</details>"
+        } >> "$GITHUB_STEP_SUMMARY"
+    - name: Upload coverage profile
+      if: env.COVERAGE_LEG == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage
+        path: coverage.out
 
     - name: Build-macOS
       if: startsWith(matrix.platform, 'macos-')
@@ -93,6 +121,13 @@ jobs:
       if: matrix.platform == 'windows-latest'
       run: |
         go test -v ./...
+    # Long-term history/trends. Needs a CODECOV_TOKEN repo secret (or
+    # tokenless uploads enabled for the org on codecov.io); without one this
+    # step only warns, and the step summary + artifact above still work.
     - name: Upload-Coverage
-      if: matrix.platform == 'ubuntu-latest'
-      uses: codecov/codecov-action@v4
+      if: env.COVERAGE_LEG == 'true'
+      uses: codecov/codecov-action@v5
+      with:
+        files: coverage.out
+        token: ${{ secrets.CODECOV_TOKEN }}
+        fail_ci_if_error: false

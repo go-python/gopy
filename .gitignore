@@ -4,3 +4,6 @@
 
 # goreleaser build output
 /dist/
+
+# 'make cover' output
+/coverage.out
