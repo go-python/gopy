@@ -123,6 +123,19 @@ func CgoLDFlags(dir, tags string, pkgs ...string) ([]string, error) {
 	return flags, nil
 }
 
+// makefileLDFlags returns the CgoLDFlags of pkgs as the Makefile's go build
+// will resolve them: from outDir, where it runs (whose go.mod, not the one
+// gopy runs in, picks their versions), and with no build tags.  If outDir
+// can't resolve them yet (e.g. it has no go.mod until the user adds one),
+// it resolves them from the current directory, where gopy found them.
+func makefileLDFlags(outDir string, pkgs ...string) ([]string, error) {
+	flags, err := CgoLDFlags(outDir, "", pkgs...)
+	if err != nil {
+		flags, err = CgoLDFlags("", "", pkgs...)
+	}
+	return flags, err
+}
+
 // cgoLDFlagDirectives returns the argument of each //go:cgo_ldflag directive
 // in file.
 func cgoLDFlagDirectives(file string) ([]string, error) {
@@ -305,8 +318,7 @@ func (b cxxBackend) genMakefile(g *pyGen, gencmd string, pycfg PyConfig) {
 			pkgs = append(pkgs, p.pkg.Path())
 		}
 	}
-	// The Makefile's go build has no build tags either.
-	ldflags, err := CgoLDFlags("", "", pkgs...)
+	ldflags, err := makefileLDFlags(g.cfg.OutputDir, pkgs...)
 	g.err.Add(err)
 	args := CXXArgs(g.cfg.Name, modlib, pycfg, []string{"$(CXXLIBFLAGS)"}, []string{"$(CXXLIBSRCS)"}, ldflags)
 	for i, a := range args {

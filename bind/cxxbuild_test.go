@@ -73,18 +73,11 @@ func TestMakeShellArgRoundTrip(t *testing.T) {
 // directives (only darwin has any, which go list finds on any OS).
 func TestCgoLDFlags(t *testing.T) {
 	dir := t.TempDir()
-	for name, src := range map[string]string{
+	writeFiles(t, dir, map[string]string{
 		"go.mod":      "module m\n\ngo 1.22\n",
 		"p/p.go":      "package p\n\n// #cgo LDFLAGS: -L${SRCDIR}/lib -lfoo\nimport \"C\"\n",
 		"p/tagged.go": "//go:build gopytag\n\npackage p\n\n// #cgo LDFLAGS: -ltagged\nimport \"C\"\n",
-	} {
-		if err := os.MkdirAll(filepath.Join(dir, filepath.Dir(name)), 0755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0644); err != nil {
-			t.Fatal(err)
-		}
-	}
+	})
 	t.Setenv("CGO_ENABLED", "1")
 	for _, tc := range []struct {
 		goos, tags string
@@ -111,6 +104,78 @@ func TestCgoLDFlags(t *testing.T) {
 		}
 		if tc.want == nil && slices.Contains(got, "-framework") {
 			t.Errorf("GOOS=%s CgoLDFlags(%q, %v) = %q, want no frameworks", tc.goos, tc.tags, tc.pkgs, got)
+		}
+	}
+}
+
+// writeFiles writes files, named by slash-separated paths relative to dir.
+func writeFiles(t *testing.T, dir string, files map[string]string) {
+	t.Helper()
+	for name, src := range files {
+		path := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(src), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// TestMakefileLDFlags checks that the Makefile's link flags come from the
+// dependencies its go build will use, which the output directory's go.mod
+// picks, rather than those of the module gopy runs in.  Here they differ:
+// gopy runs in user, whose go.mod picks depA (-lfromA), while out's go.mod
+// picks depB (-lfromB) for the same import path.
+func TestMakefileLDFlags(t *testing.T) {
+	root := t.TempDir()
+	dep := func(lib string) string {
+		return "package dep\n\n// #cgo LDFLAGS: -l" + lib + "\nimport \"C\"\n"
+	}
+	writeFiles(t, root, map[string]string{
+		"depA/go.mod": "module example.com/dep\n\ngo 1.22\n",
+		"depA/dep.go": dep("fromA"),
+		"depB/go.mod": "module example.com/dep\n\ngo 1.22\n",
+		"depB/dep.go": dep("fromB"),
+		"user/go.mod": "module example.com/user\n\ngo 1.22\n\n" +
+			"require example.com/dep v0.0.0\n\n" +
+			"replace example.com/dep => ../depA\n",
+		"user/p/p.go": "package p\n\nimport _ \"example.com/dep\"\n",
+		"out/go.mod": "module out\n\ngo 1.22\n\n" +
+			"require (\n\texample.com/dep v0.0.0\n\texample.com/user v0.0.0\n)\n\n" +
+			"replace example.com/dep => ../depB\n\n" +
+			"replace example.com/user => ../user\n",
+	})
+	if err := os.MkdirAll(filepath.Join(root, "nomod"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CGO_ENABLED", "1")
+	t.Setenv("GOWORK", "off")
+	t.Setenv("GOFLAGS", "")
+
+	// gopy runs in the user's module, as when it's given ./p.
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(filepath.Join(root, "user")); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chdir(cwd) })
+
+	for _, tc := range []struct {
+		outDir, want, notWant string
+	}{
+		{"out", "-lfromB", "-lfromA"},
+		// no go.mod in the output directory yet: fall back to gopy's own
+		{"nomod", "-lfromA", "-lfromB"},
+	} {
+		got, err := makefileLDFlags(filepath.Join(root, tc.outDir), "example.com/user/p")
+		if err != nil {
+			t.Fatalf("makefileLDFlags(%s): %v", tc.outDir, err)
+		}
+		if !slices.Contains(got, tc.want) || slices.Contains(got, tc.notWant) {
+			t.Errorf("makefileLDFlags(%s) = %q, want %s and no %s", tc.outDir, got, tc.want, tc.notWant)
 		}
 	}
 }
