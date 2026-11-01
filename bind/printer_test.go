@@ -12,6 +12,7 @@ import (
 )
 
 func TestPrinter(t *testing.T) {
+	t.Parallel()
 	decl := &printer{
 		buf:        new(bytes.Buffer),
 		indentEach: []byte("\t"),

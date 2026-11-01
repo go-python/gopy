@@ -33,6 +33,7 @@ var makeShellArgTests = []struct {
 }
 
 func TestMakeShellArg(t *testing.T) {
+	t.Parallel()
 	for _, tt := range makeShellArgTests {
 		if got := makeShellArg(tt.arg); got != tt.want {
 			t.Errorf("makeShellArg(%q) = %q, want %q", tt.arg, got, tt.want)
@@ -43,6 +44,7 @@ func TestMakeShellArg(t *testing.T) {
 // TestMakeShellArgRoundTrip checks makeShellArg's actual contract: written
 // into a recipe line, the shell that make runs it with receives arg itself.
 func TestMakeShellArgRoundTrip(t *testing.T) {
+	t.Parallel()
 	if _, err := exec.LookPath("make"); err != nil {
 		t.Skip("make not found")
 	}
@@ -194,6 +196,7 @@ func containsRun(s, run []string) bool {
 // after the archive, where the linker still needs what they resolve, on each
 // OS (whose linkers take the archive in different arguments).
 func TestCXXArgsLinkOrder(t *testing.T) {
+	t.Parallel()
 	for _, goos := range []string{"linux", "darwin", "windows"} {
 		args := cxxArgs(goos, "p", "_p.so", PyConfig{}, nil, nil, []string{"-lfoo"})
 		archive := slices.IndexFunc(args, func(a string) bool { return strings.HasSuffix(a, CXXArchive("p")) })

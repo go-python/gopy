@@ -11,6 +11,7 @@ import (
 )
 
 func TestParseBackend(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		in      string
 		want    Backend
@@ -51,6 +52,7 @@ func TestBackendFromEnv(t *testing.T) {
 }
 
 func TestBackendImpl(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		b      Backend
 		want   backendImpl
@@ -90,6 +92,7 @@ func TestBackendImpl(t *testing.T) {
 // BackendFromEnv never returns but a BindCfg can still be given, is refused
 // rather than taken for pybindgen.
 func TestBackendUnknown(t *testing.T) {
+	t.Parallel()
 	for _, b := range []Backend{"bogus", "PyBindGen", "cffi "} {
 		if got := b.impl(); got != nil {
 			t.Errorf("%q.impl() = %s, want nil", b, implName(got))

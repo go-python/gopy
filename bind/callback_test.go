@@ -14,6 +14,7 @@ import (
 )
 
 func TestCallbackTrampolines(t *testing.T) {
+	t.Parallel()
 	cbs := []*callbackSig{
 		{params: []callbackParam{{ctype: cbInt64}, {ctype: cbBool}}, ret: &callbackResult{ctype: cbDouble}},
 		{},
@@ -34,6 +35,7 @@ func TestCallbackTrampolines(t *testing.T) {
 }
 
 func TestCallbackLit(t *testing.T) {
+	t.Parallel()
 	full := &callbackSig{
 		params: []callbackParam{
 			{name: "i", gotyp: "int", ctype: cbInt64, conv: "C.int64_t(i)"},
@@ -72,6 +74,7 @@ func TestCallbackLit(t *testing.T) {
 }
 
 func TestTrampolineNumbering(t *testing.T) {
+	t.Parallel()
 	g := &pyGen{}
 	intArg := func() *callbackSig { return &callbackSig{params: []callbackParam{{ctype: cbInt64}}} }
 	noArg := &callbackSig{}
@@ -95,6 +98,7 @@ func TestTrampolineNumbering(t *testing.T) {
 }
 
 func TestCbCType(t *testing.T) {
+	t.Parallel()
 	// String is what each plain-C build.py parses, so it must not change.
 	for _, tc := range []struct {
 		t      cbCType
@@ -134,6 +138,7 @@ func TestCbCType(t *testing.T) {
 // callback with two results, or a result that isn't a basic type, never gets
 // this far: package loading drops the function, whatever the backend.)
 func TestPlainCFuncSupported(t *testing.T) {
+	t.Parallel()
 	const src = `package cb
 
 func Ok(f func(i int, s string) bool) {}

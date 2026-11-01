@@ -17,6 +17,7 @@ import (
 // cgo copies into <name>_go.h, as C code that #includes it would: before or
 // after <stdbool.h>, whose bool must not clash with the preamble's own.
 func TestPreamblePlainCStdbool(t *testing.T) {
+	t.Parallel()
 	cc, err := exec.LookPath("cc")
 	if err != nil {
 		t.Skip("cc not found")

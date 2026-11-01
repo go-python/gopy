@@ -14,3 +14,4 @@ __pycache__/
 
 # 'make cover' output
 /coverage.out
+/covdata/

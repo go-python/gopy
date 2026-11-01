@@ -27,11 +27,17 @@ test:
 
 # Same as 'test', but records statement coverage of every gopy package
 # (-coverpkg), since most of bind/ is only exercised via main_test.go.
+# main_test.go runs gopy as a separate process (see TestMain), which
+# -coverprofile can't see, so the test binaries and gopy all write raw
+# coverage data to COVERDIR, merged into COVERPROFILE afterwards.
 COVERPROFILE=coverage.out
+COVERDIR=$(CURDIR)/covdata
 
 cover:
 	@echo "GO111MODULE = $(value GO111MODULE)"
-	$(GOTEST) -v -coverpkg=./... -coverprofile=$(COVERPROFILE) $(DIRS)
+	rm -rf $(COVERDIR) && mkdir -p $(COVERDIR)
+	$(GOTEST) -v -cover -coverpkg=./... $(DIRS) -args -test.gocoverdir=$(COVERDIR)
+	$(GOCMD) tool covdata textfmt -i=$(COVERDIR) -o=$(COVERPROFILE)
 	$(GOCMD) tool cover -func=$(COVERPROFILE) | tail -n 1
 
 clean: 
