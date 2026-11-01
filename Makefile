@@ -21,9 +21,18 @@ build:
 	@echo "GO111MODULE = $(value GO111MODULE)"
 	$(GOBUILD) -v -ldflags "$(LDFLAGS)" $(DIRS)
 
-test: 
+test:
 	@echo "GO111MODULE = $(value GO111MODULE)"
 	$(GOTEST) -v $(DIRS)
+
+# Same as 'test', but records statement coverage of every gopy package
+# (-coverpkg), since most of bind/ is only exercised via main_test.go.
+COVERPROFILE=coverage.out
+
+cover:
+	@echo "GO111MODULE = $(value GO111MODULE)"
+	$(GOTEST) -v -coverpkg=./... -coverprofile=$(COVERPROFILE) $(DIRS)
+	$(GOCMD) tool cover -func=$(COVERPROFILE) | tail -n 1
 
 clean: 
 	@echo "GO111MODULE = $(value GO111MODULE)"

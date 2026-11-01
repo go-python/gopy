@@ -1,0 +1,10 @@
+# Coverage is tracked over time, not enforced: Codecov reports changes on
+# PRs but never fails a check because of them.
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
