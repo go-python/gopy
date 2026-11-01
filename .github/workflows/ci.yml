@@ -39,6 +39,18 @@ jobs:
       # comparable from commit to commit.
       COVERAGE_LEG: ${{ matrix.platform == 'ubuntu-latest' && matrix.go-version == '1.25.x' && matrix.python-version == '3.12' }}
     steps:
+    # Real-time scanning inspects every file the compilers, linkers and pip
+    # write, which slows Windows jobs down.  Turned off first, so checkout and
+    # the Go/Python installs benefit too.  The status is printed before and
+    # after so the effect can be checked in the log.
+    - name: Disable Windows Defender real-time scanning
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled
+        Set-MpPreference -DisableRealtimeMonitoring $true
+        Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -182,6 +194,18 @@ jobs:
       # print the python stack if the process crashes, e.g. at exit
       PYTHONFAULTHANDLER: 1
     steps:
+    # Real-time scanning inspects every file the compilers, linkers and pip
+    # write, which slows Windows jobs down.  Turned off first, so checkout and
+    # the Go/Python installs benefit too.  The status is printed before and
+    # after so the effect can be checked in the log.
+    - name: Disable Windows Defender real-time scanning
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled
+        Set-MpPreference -DisableRealtimeMonitoring $true
+        Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled
+
     - name: Checkout code
       uses: actions/checkout@v4
 
