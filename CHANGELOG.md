@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/go-python/gopy/compare/v0.5.0...v0.5.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* add coverage target and CI coverage summary ([#411](https://github.com/go-python/gopy/issues/411)) ([67e890d](https://github.com/go-python/gopy/commit/67e890dea771048b1c838caaa3389f777add1f22))
+
 ## [0.5.0](https://github.com/go-python/gopy/compare/v0.4.10...v0.5.0) (2026-08-25)
 
 
