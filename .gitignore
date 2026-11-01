@@ -11,3 +11,6 @@ __pycache__/
 
 # built by TestBindCgoLDFlags
 /_examples/cgoldflags/clib/*.a
+
+# 'make cover' output
+/coverage.out
