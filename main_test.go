@@ -650,6 +650,41 @@ func TestPkg(t *testing.T) {
 	})
 }
 
+// TestExe checks that gopy exe builds _examples/simple into an executable,
+// beside the files of an installable package, under the backend
+// GOPY_BACKEND selects (if it supports gopy exe).  It doesn't run the
+// executable: that needs libpython on the loader's search path, which
+// depends on how the interpreter was installed.
+func TestExe(t *testing.T) {
+	t.Parallel()
+	be, err := bind.BackendFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !be.SupportsExe() {
+		t.Skipf("%s=%s does not support gopy exe", bind.BackendEnvVar, be)
+	}
+	vm := testBackends["py3"]
+	if vm == "" {
+		t.Skip("python3 not found")
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := t.TempDir()
+	writeGoMod(t, cwd, out)
+	if err := runGopy([]string{"exe", "-vm=" + vm, "-output=" + out, "github.com/go-python/gopy/_examples/simple"}); err != nil {
+		t.Fatal(err)
+	}
+	exe := filepath.Join(out, "simple", exeName("simple"))
+	for _, f := range []string{filepath.Join(out, "setup.py"), exe} {
+		if _, err := os.Stat(f); err != nil {
+			t.Errorf("gopy exe didn't write %s: %v", f, err)
+		}
+	}
+}
+
 // TestExeUnsupportedBackend checks that gopy exe refuses, up front, the
 // backends that can't build an executable.
 func TestExeUnsupportedBackend(t *testing.T) {

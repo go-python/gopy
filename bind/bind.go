@@ -7,9 +7,7 @@ package bind
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
-	"os"
 )
 
 // BindCfg is a configuration used during binding generation
@@ -54,15 +52,4 @@ func (list *ErrorList) Error() error {
 		io.WriteString(buf, err.Error())
 	}
 	return errors.New(buf.String())
-}
-
-const (
-	doDebug = true
-)
-
-func debugf(format string, args ...interface{}) (int, error) {
-	if doDebug {
-		return fmt.Fprintf(os.Stderr, format, args...)
-	}
-	return 0, nil
 }

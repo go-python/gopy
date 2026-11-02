@@ -175,12 +175,13 @@ func buildCPython(mode bind.BuildMode, cfg *BuildCfg) error {
 
 		err = os.Remove(cfg.Name + "_go" + libExt)
 
-		fmt.Printf("go build -o py%s\n", cfg.Name)
-		cmd = exec.Command("go", "build", "-mod=mod")
+		args = []string{"build", "-mod=mod"}
 		if cfg.BuildTags != "" {
 			args = append(args, "-tags", cfg.BuildTags)
 		}
-		args = append(args, "-o", "py"+cfg.Name)
+		args = append(args, "-o", exeName(cfg.Name))
+		fmt.Printf("go %v\n", strings.Join(args, " "))
+		cmd = exec.Command("go", args...)
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
@@ -380,6 +381,16 @@ func buildCXXModule(cfg *BuildCfg, cxxflags, srcs []string) error {
 	}
 	cxxArgs := bind.CXXArgs(cfg.Name, bind.ExtModuleName(cfg.Name, libExt, pycfg), pycfg, cxxflags, srcs, ldflags)
 	return runCmd(nil, bind.CXX(), cxxArgs...)
+}
+
+// exeName returns the file name of the executable gopy exe builds for the
+// package named name: py<name>, as the Makefile it writes also builds, with
+// Windows' .exe suffix there (go build -o adds none).
+func exeName(name string) string {
+	if runtime.GOOS == "windows" {
+		return "py" + name + ".exe"
+	}
+	return "py" + name
 }
 
 // goBuildArgs returns the go build arguments that build the package in the
