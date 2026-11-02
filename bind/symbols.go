@@ -288,13 +288,6 @@ func (s *symbol) hasHandle() bool {
 	return !s.isBasic() && !s.isSignature()
 }
 
-func (s *symbol) pkgname() string {
-	if s.gopkg == nil {
-		return ""
-	}
-	return s.gopkg.Name()
-}
-
 func (s *symbol) GoType() types.Type {
 	if s.goobj != nil {
 		return s.goobj.Type()
@@ -1186,14 +1179,6 @@ func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t type
 		}
 	}
 	return nil
-}
-
-func (sym *symtab) print() {
-	fmt.Printf("\n\n%s\n", strings.Repeat("=", 80))
-	for _, n := range sym.names() {
-		fmt.Printf("%q (kind=%v)\n", n, sym.syms[n].kind)
-	}
-	fmt.Printf("%s\n", strings.Repeat("=", 80))
 }
 
 func init() {

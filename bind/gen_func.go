@@ -10,28 +10,6 @@ import (
 	"strings"
 )
 
-func (g *pyGen) recurse(gotype types.Type, prefix, name string) {
-	switch t := gotype.(type) {
-	case *types.Basic:
-		// pass
-	case *types.Map:
-		g.recurse(t.Elem(), prefix, "Map_"+t.Key().String()+"_string_elem")
-	case *types.Named:
-		o := t.Obj()
-		if o == nil || o.Pkg() == nil {
-			return
-		}
-		g.recurse(t.Underlying(), prefix, o.Pkg().Name()+"_"+o.Name())
-	case *types.Struct:
-		for i := 0; i < t.NumFields(); i++ {
-			f := t.Field(i)
-			g.recurse(f.Type(), prefix, name+"_"+f.Name()+"_Get")
-		}
-	case *types.Slice:
-		g.recurse(t.Elem(), prefix, "Slice_string_elem")
-	}
-}
-
 // genFuncSig generates just the signature for binding
 // returns false if function is not suitable for python
 // binding (e.g., multiple return values)
