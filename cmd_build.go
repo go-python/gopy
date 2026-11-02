@@ -151,11 +151,17 @@ func buildCPython(mode bind.BuildMode, cfg *BuildCfg) error {
 		cmd := exec.Command(cfg.VM, "build.py")
 		cmd.Run() // will fail, we don't care about errors
 
-		args := []string{"build", "-mod=mod", "-buildmode=c-shared"}
+		// This build only writes buildname.h, the header the second
+		// build.py needs.  A c-archive writes it without linking: the .c
+		// file the first build.py left behind was compiled against the
+		// placeholder header above, so it may call functions (such as the
+		// static _gopy_clear_go_tls) it can't link to yet, which macOS and
+		// Windows refuse in a shared library.
+		args := []string{"build", "-mod=mod", "-buildmode=c-archive"}
 		if cfg.BuildTags != "" {
 			args = append(args, "-tags", cfg.BuildTags)
 		}
-		args = append(args, "-o", buildname+libExt, ".")
+		args = append(args, "-o", buildname+".a", ".")
 
 		fmt.Printf("go %v\n", strings.Join(args, " "))
 		cmd = exec.Command("go", args...)
@@ -173,7 +179,7 @@ func buildCPython(mode bind.BuildMode, cfg *BuildCfg) error {
 			return err
 		}
 
-		err = os.Remove(cfg.Name + "_go" + libExt)
+		err = os.Remove(buildname + ".a")
 
 		args = []string{"build", "-mod=mod"}
 		if cfg.BuildTags != "" {

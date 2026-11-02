@@ -532,13 +532,14 @@ build:
 	printf "#if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 202311L)\ntypedef uint8_t bool;\n#endif\n" > %[1]s_go.h
 	# this will fail but is needed to generate the .c file that then allows go build to work
 	- $(PYTHON) build.py >/dev/null 2>&1
-	# generate %[1]s_go.h from %[1]s.go -- unfortunately no way to build .h only
-	$(GOBUILD) -buildmode=c-shared -o %[1]s_go$(LIBEXT)
+	# generate %[1]s_go.h from %[1]s.go -- unfortunately no way to build .h only;
+	# a c-archive doesn't link, so the stale %[1]s.c can't fail it
+	$(GOBUILD) -buildmode=c-archive -o %[1]s_go.a
 	# use pybindgen to build the %[1]s.c file which are the CPython wrappers to cgo wrappers..
 	# note: pip install pybindgen to get pybindgen if this fails
 	$(PYTHON) build.py
 	# build the executable
-	- rm %[1]s_go$(LIBEXT)
+	- rm %[1]s_go.a
 	$(GOBUILD) -o py%[1]s
 	
 `
