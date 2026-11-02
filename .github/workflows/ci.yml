@@ -191,6 +191,10 @@ jobs:
     env:
       GOPY_BACKEND: ${{ matrix.backend }}
       CXX: ${{ matrix.cxx }}
+      # Each backend also uploads coverage from one leg: much of bind/ (and
+      # cmd_build.go) runs only under a given backend.  Codecov merges these
+      # with the build job's (default-backend) upload for the same commit.
+      COVERAGE_LEG: ${{ matrix.platform == 'ubuntu-latest' && matrix.python-version == '3.12' }}
       # print the python stack if the process crashes, e.g. at exit
       PYTHONFAULTHANDLER: 1
     steps:
@@ -231,7 +235,21 @@ jobs:
       run: go build -v ./...
 
     - name: Test
+      if: env.COVERAGE_LEG != 'true'
       run: go test -v -timeout=${{ matrix.timeout || '10m' }} ./...
+
+    - name: Test (with coverage)
+      if: env.COVERAGE_LEG == 'true'
+      run: make cover
+
+    - name: Upload-Coverage
+      if: env.COVERAGE_LEG == 'true'
+      uses: codecov/codecov-action@v5
+      with:
+        files: coverage.out
+        disable_search: true
+        token: ${{ secrets.CODECOV_TOKEN }}
+        fail_ci_if_error: false
 
   # Compares per-call overhead across backends (see _examples/bench/run.sh):
   # not a pass/fail check, just a table uploaded as a build artifact.  Runs
