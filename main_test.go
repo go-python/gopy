@@ -652,19 +652,13 @@ func TestPkg(t *testing.T) {
 }
 
 // TestExe checks that gopy exe builds _examples/simple into an executable,
-// beside the files of an installable package, under the backend
-// GOPY_BACKEND selects (if it supports gopy exe).  It doesn't run the
-// executable: that needs libpython on the loader's search path, which
-// depends on how the interpreter was installed.
+// beside the files of an installable package, under every GOPY_BACKEND
+// (capi standing in for one that can't embed the interpreter, see
+// backendForMode).  It doesn't run the executable: that needs libpython on
+// the loader's search path, which depends on how the interpreter was
+// installed.
 func TestExe(t *testing.T) {
 	t.Parallel()
-	be, err := bind.BackendFromEnv()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !be.SupportsExe() {
-		t.Skipf("%s=%s does not support gopy exe", bind.BackendEnvVar, be)
-	}
 	vm := testBackends["py3"]
 	if vm == "" {
 		t.Skip("python3 not found")
@@ -686,15 +680,43 @@ func TestExe(t *testing.T) {
 	}
 }
 
-// TestExeUnsupportedBackend checks that gopy exe refuses, up front, the
-// backends that can't build an executable.
-func TestExeUnsupportedBackend(t *testing.T) {
-	for _, b := range []bind.Backend{bind.BackendCFFI, bind.BackendPyBind11, bind.BackendNanobind} {
-		t.Setenv(bind.BackendEnvVar, string(b))
-		err := genPkg(bind.ModeExe, NewBuildCfg())
-		if err == nil || !strings.Contains(err.Error(), "does not support gopy exe") {
-			t.Errorf("%s: genPkg(ModeExe) = %v, want a does-not-support error", b, err)
+// TestBackendForMode checks that gopy exe builds with capi in place of a
+// backend that can't embed the interpreter (cffi, pybind11, nanobind), and
+// that every other mode, and gopy exe with any other backend, keeps the
+// backend GOPY_BACKEND selects.
+func TestBackendForMode(t *testing.T) {
+	for _, tc := range []struct {
+		env     bind.Backend
+		exeWant bind.Backend
+	}{
+		{env: "", exeWant: bind.BackendPyBindGen},
+		{env: bind.BackendPyBindGen, exeWant: bind.BackendPyBindGen},
+		{env: bind.BackendCAPI, exeWant: bind.BackendCAPI},
+		{env: bind.BackendCFFI, exeWant: bind.BackendCAPI},
+		{env: bind.BackendPyBind11, exeWant: bind.BackendCAPI},
+		{env: bind.BackendNanobind, exeWant: bind.BackendCAPI},
+	} {
+		t.Setenv(bind.BackendEnvVar, string(tc.env))
+		want, err := bind.BackendFromEnv()
+		if err != nil {
+			t.Fatal(err)
 		}
+		for _, mode := range []bind.BuildMode{bind.ModeGen, bind.ModeBuild, bind.ModePkg, bind.ModeExe} {
+			if mode == bind.ModeExe {
+				want = tc.exeWant
+			}
+			got, err := backendForMode(mode)
+			if err != nil {
+				t.Errorf("%s=%q, mode %s: %v", bind.BackendEnvVar, tc.env, mode, err)
+			} else if got != want {
+				t.Errorf("%s=%q, mode %s: backend %q, want %q", bind.BackendEnvVar, tc.env, mode, got, want)
+			}
+		}
+	}
+
+	t.Setenv(bind.BackendEnvVar, "bogus")
+	if _, err := backendForMode(bind.ModeExe); err == nil {
+		t.Errorf("%s=bogus, mode exe: no error", bind.BackendEnvVar)
 	}
 }
 

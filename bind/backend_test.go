@@ -74,8 +74,12 @@ func TestBackendImpl(t *testing.T) {
 		if _, plainC := got.(plainCBackend); plainC != tc.plainC {
 			t.Errorf("%q.impl() is a plainCBackend: %v, want %v", tc.b, plainC, tc.plainC)
 		}
-		if got := tc.b.SupportsExe(); got != !tc.plainC {
-			t.Errorf("%q.SupportsExe() = %v, want %v", tc.b, got, !tc.plainC)
+		wantExe := tc.b
+		if tc.plainC {
+			wantExe = BackendCAPI
+		}
+		if got := tc.b.ForExe(); got != wantExe {
+			t.Errorf("%q.ForExe() = %q, want %q", tc.b, got, wantExe)
 		}
 		if cb, ok := got.(cxxBackend); ok && cb.name != tc.b {
 			t.Errorf("%q.impl().name = %q", tc.b, cb.name)
@@ -97,8 +101,9 @@ func TestBackendUnknown(t *testing.T) {
 		if got := b.impl(); got != nil {
 			t.Errorf("%q.impl() = %s, want nil", b, implName(got))
 		}
-		if b.SupportsExe() {
-			t.Errorf("%q.SupportsExe() = true, want false", b)
+		// left for GenPyBind to refuse, not swapped for a working backend
+		if got := b.ForExe(); got != b {
+			t.Errorf("%q.ForExe() = %q, want it unchanged", b, got)
 		}
 		err := GenPyBind(ModeGen, ".so", 3, false, &BindCfg{Backend: b})
 		if err == nil || !strings.Contains(err.Error(), fmt.Sprintf("unknown backend %q", b)) {

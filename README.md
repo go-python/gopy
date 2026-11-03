@@ -45,6 +45,8 @@ The `GOPY_BACKEND` environment variable picks a different tool for those binding
 $ GOPY_BACKEND=capi gopy build github.com/go-python/gopy/_examples/hi
 ```
 
+`gopy exe` builds with `capi` when `GOPY_BACKEND` is `cffi`, `pybind11` or `nanobind`: an executable embeds the interpreter through the C API, which those backends avoid.
+
 To [install python modules](https://packaging.python.org/tutorials/packaging-projects/), you will need the python install packages:
 
 ```sh

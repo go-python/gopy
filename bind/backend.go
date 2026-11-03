@@ -51,13 +51,18 @@ func (b Backend) EnvPrefix() string {
 	return BackendEnvVar + "=" + string(b) + " "
 }
 
-// SupportsExe reports whether gopy exe works with b.  exe mode embeds the
+// ForExe returns the backend gopy exe builds with when b is selected: b
+// itself, or capi in place of a plain-C backend.  exe mode embeds the
 // Python interpreter into the Go binary via the CPython C API (see
-// goExePreambleC/Go in gen.go), which a plain-C backend's shim avoids.
-func (b Backend) SupportsExe() bool {
-	be := b.impl()
-	_, plainC := be.(plainCBackend)
-	return be != nil && !plainC
+// goExePreambleC/Go in gen.go), which a plain-C backend's shim avoids.  An
+// exe links libpython and calls the C API anyway, which is all capi needs,
+// and capi binds every function a plain-C backend does.  An unknown b is
+// returned as is, for GenPyBind to refuse.
+func (b Backend) ForExe() Backend {
+	if _, plainC := b.impl().(plainCBackend); plainC {
+		return BackendCAPI
+	}
+	return b
 }
 
 // backendImpl is what code generation needs from a backend.  The generators
