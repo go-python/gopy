@@ -60,8 +60,8 @@ func TestCallbackLit(t *testing.T) {
 			"C.gopy_cb_0(_cbfp_f)\n}"},
 		{pybind11Backend, full, 3, "fun", "func(i int, s string) bool {\n" +
 			"_cs := C.CString(string(s))\n" +
-			"return bool(C.gopy_cb_3(C.int64_t(fun), C.int64_t(i), _cs) != 0)\n}"},
-		{pybind11Backend, empty, 0, "f", "func() {\nC.gopy_cb_0(C.int64_t(f))\n}"},
+			"return bool(C.gopy_cb_3(C.int64_t(_cbh_fun), C.int64_t(i), _cs) != 0)\n}"},
+		{pybind11Backend, empty, 0, "f", "func() {\nC.gopy_cb_0(C.int64_t(_cbh_f))\n}"},
 	} {
 		got := tc.abi.cbLit(tc.cb, tc.n, tc.anm)
 		if got != tc.want {

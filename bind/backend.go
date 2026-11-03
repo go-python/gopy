@@ -40,6 +40,17 @@ func BackendFromEnv() (Backend, error) {
 	return parseBackend(os.Getenv(BackendEnvVar))
 }
 
+// EnvPrefix returns the environment assignment that selects b, to put ahead
+// of a gopy command in a generated Makefile recipe, so that make's gen target
+// regenerates code for the same backend the rest of that Makefile builds; it
+// is empty for pybindgen, the default.
+func (b Backend) EnvPrefix() string {
+	if b == "" || b == BackendPyBindGen {
+		return ""
+	}
+	return BackendEnvVar + "=" + string(b) + " "
+}
+
 // SupportsExe reports whether gopy exe works with b.  exe mode embeds the
 // Python interpreter into the Go binary via the CPython C API (see
 // goExePreambleC/Go in gen.go), which a plain-C backend's shim avoids.

@@ -211,26 +211,20 @@ func (g *pyGen) genStructMemberGetter(s *Struct, i int, f types.Object) {
 	g.pywrap.Outdent()
 
 	g.gofile.Printf("//export %s\n", cgoFn)
-	g.gofile.Printf("func %s(handle CGoHandle) %s {\n", cgoFn, ret.cgoname)
+	g.gofile.Printf("func %s(handle CGoHandle) %s {\n", cgoFn, g.cgoResult(ret))
 	g.gofile.Indent()
-	g.gofile.Printf("op := ptrFromHandle_%s(handle)\nreturn ", s.ID())
-	if ret.go2py != "" {
-		if ret.hasHandle() && !ret.isPtrOrIface() {
-			g.gofile.Printf("%s(&op.%s)%s", ret.go2py, f.Name(), ret.go2pyParenEx)
-		} else {
-			g.gofile.Printf("%s(op.%s)%s", ret.go2py, f.Name(), ret.go2pyParenEx)
-		}
-	} else {
-		g.gofile.Printf("op.%s", f.Name())
+	val := "op." + f.Name()
+	if ret.go2py != "" && ret.hasHandle() && !ret.isPtrOrIface() {
+		val = "&" + val
 	}
-	g.gofile.Printf("\n")
+	g.gofile.Printf("op := ptrFromHandle_%s(handle)\nreturn %s\n", s.ID(), g.goToCgo(ret, val))
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n\n")
 
 	if ret.cpyname == "char*" {
 		g.pybuild.Printf("add_checked_string_function(mod, '%s', retval('%s'), [param('%s', 'handle')])\n", cgoFn, ret.cpyname, PyHandle)
 	} else {
-		g.pybuild.Printf("mod.add_function('%s', retval('%s'), [param('%s', 'handle')])\n", cgoFn, ret.cpyname, PyHandle)
+		g.pybuild.Printf("mod.add_function('%s', retval('%s'), [param('%s', 'handle')])\n", cgoFn, g.cpyName(ret), PyHandle)
 	}
 }
 
@@ -278,19 +272,14 @@ func (g *pyGen) genStructMemberSetter(s *Struct, i int, f types.Object) {
 	g.pywrap.Outdent()
 
 	g.gofile.Printf("//export %s\n", cgoFn)
-	g.gofile.Printf("func %s(handle CGoHandle, val %s) {\n", cgoFn, ret.cgoname)
+	g.gofile.Printf("func %s(handle CGoHandle, %s) {\n", cgoFn, g.cgoParam("val", ret))
 	g.gofile.Indent()
 	g.gofile.Printf("op := ptrFromHandle_%s(handle)\n", s.ID())
-	if ret.py2go != "" {
-		g.gofile.Printf("op.%s = %s(val)%s", f.Name(), ret.py2go, ret.py2goParenEx)
-	} else {
-		g.gofile.Printf("op.%s = val", f.Name())
-	}
-	g.gofile.Printf("\n")
+	g.gofile.Printf("op.%s = %s\n", f.Name(), g.cgoToGo(ret, "val"))
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n\n")
 
-	g.pybuild.Printf("mod.add_function('%s', None, [param('%s', 'handle'), param('%s', 'val')])\n", cgoFn, PyHandle, ret.cpyname)
+	g.pybuild.Printf("mod.add_function('%s', None, [param('%s', 'handle'), param('%s', 'val')])\n", cgoFn, PyHandle, g.cpyName(ret))
 }
 
 func (g *pyGen) genStructMethods(s *Struct) {

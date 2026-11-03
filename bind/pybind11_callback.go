@@ -32,16 +32,19 @@ import (
 // cbGoParam returns CGoHandle: the callable crosses as its registry handle.
 func (cxxBackend) cbGoParam() string { return "CGoHandle" }
 
-// cbPrologue returns nothing: there is no Go-side setup, since the C++
-// registry itself refuses a call once the wrapping python call unregisters
-// the handle.
-func (cxxBackend) cbPrologue(anm string) string { return "" }
+// cbPrologue keeps the handle as _cbh_<anm>, so that cbLit's closure still
+// sees it when one of the closure's own parameters is also named anm.  No
+// other Go-side setup is needed, since the C++ registry itself refuses a call
+// once the wrapping python call unregisters the handle.
+func (cxxBackend) cbPrologue(anm string) string {
+	return fmt.Sprintf("_cbh_%[1]s := %[1]s\n", anm)
+}
 
-// cbLit returns a closure that calls trampoline n with the handle, which
-// looks up the callable in the registry.
+// cbLit returns a closure that calls trampoline n with the handle
+// _cbh_<anm>, which looks up the callable in the registry.
 func (cxxBackend) cbLit(cb *callbackSig, n int, anm string) string {
 	var decl, pre []string
-	args := []string{"C.int64_t(" + anm + ")"}
+	args := []string{"C.int64_t(_cbh_" + anm + ")"}
 	for _, p := range cb.params {
 		decl = append(decl, p.name+" "+p.gotyp)
 		if p.pre != "" {

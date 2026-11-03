@@ -157,7 +157,7 @@ func GenPyPkgSetup(cfg *BuildCfg, user, version, author, email, desc, url string
 	rf.Close()
 
 	_, pyonly := filepath.Split(cfg.VM)
-	gencmd := bind.CmdStrToMakefile(cfg.Cmd)
+	gencmd := cfg.Backend.EnvPrefix() + bind.CmdStrToMakefile(cfg.Cmd)
 
 	mf, err := os.Create(filepath.Join(cfg.OutputDir, "Makefile"))
 	if err != nil {

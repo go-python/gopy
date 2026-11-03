@@ -56,23 +56,17 @@ func (g *pyGen) genVarGetter(v *Var) {
 	g.pywrap.Printf("\n")
 
 	g.gofile.Printf("//export %s\n", qCgoFn)
-	g.gofile.Printf("func %s() %s {\n", qCgoFn, v.sym.cgoname)
+	g.gofile.Printf("func %s() %s {\n", qCgoFn, g.cgoResult(v.sym))
 	g.gofile.Indent()
-	g.gofile.Printf("return ")
-	if v.sym.go2py != "" {
-		if v.sym.hasHandle() && !v.sym.isPtrOrIface() {
-			g.gofile.Printf("%s(&%s)%s", v.sym.go2py, qVn, v.sym.go2pyParenEx)
-		} else {
-			g.gofile.Printf("%s(%s)%s", v.sym.go2py, qVn, v.sym.go2pyParenEx)
-		}
-	} else {
-		g.gofile.Printf("%s", qVn)
+	val := qVn
+	if v.sym.go2py != "" && v.sym.hasHandle() && !v.sym.isPtrOrIface() {
+		val = "&" + qVn
 	}
-	g.gofile.Printf("\n")
+	g.gofile.Printf("return %s\n", g.goToCgo(v.sym, val))
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n\n")
 
-	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [])\n", qCgoFn, v.sym.cpyname)
+	g.pybuild.Printf("mod.add_function('%s', retval('%s'), [])\n", qCgoFn, g.cpyName(v.sym))
 }
 
 func (g *pyGen) genVarSetter(v *Var) {
@@ -101,18 +95,13 @@ func (g *pyGen) genVarSetter(v *Var) {
 	g.pywrap.Printf("\n")
 
 	g.gofile.Printf("//export %s\n", qCgoFn)
-	g.gofile.Printf("func %s(val %s) {\n", qCgoFn, v.sym.cgoname)
+	g.gofile.Printf("func %s(%s) {\n", qCgoFn, g.cgoParam("val", v.sym))
 	g.gofile.Indent()
-	if v.sym.py2go != "" {
-		g.gofile.Printf("%s = %s(val)%s", qVn, v.sym.py2go, v.sym.py2goParenEx)
-	} else {
-		g.gofile.Printf("%s = val", qVn)
-	}
-	g.gofile.Printf("\n")
+	g.gofile.Printf("%s = %s\n", qVn, g.cgoToGo(v.sym, "val"))
 	g.gofile.Outdent()
 	g.gofile.Printf("}\n\n")
 
-	g.pybuild.Printf("mod.add_function('%s', None, [param('%s', 'val')])\n", qCgoFn, v.sym.cpyname)
+	g.pybuild.Printf("mod.add_function('%s', None, [param('%s', 'val')])\n", qCgoFn, g.cpyName(v.sym))
 }
 
 func (g *pyGen) genConstValue(c *Const) {

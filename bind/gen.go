@@ -830,7 +830,7 @@ func CmdStrToMakefile(cmdstr string) string {
 
 func (g *pyGen) genMakefile() {
 	gencmd := strings.Replace(g.cfg.Cmd, "gopy build", "gopy gen", 1)
-	gencmd = CmdStrToMakefile(gencmd)
+	gencmd = g.cfg.Backend.EnvPrefix() + CmdStrToMakefile(gencmd)
 
 	pycfg, err := GetPythonConfig(g.cfg.VM)
 	if err != nil {
