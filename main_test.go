@@ -600,6 +600,7 @@ fct()...
 pkg.Add(1,2)= 3
 pkg.Bool(True)= True
 pkg.Bool(False)= False
+pkg.Uint8(200)= 200
 pkg.Comp64Add((3+4j), (2+5j)) = (5+9j)
 pkg.Comp128Add((3+4j), (2+5j)) = (5+9j)
 OK

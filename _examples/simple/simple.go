@@ -17,6 +17,11 @@ func Bool(b bool) bool {
 	return b
 }
 
+// Uint8 returns u, which may be past int8's range (128-255).
+func Uint8(u uint8) uint8 {
+	return u
+}
+
 func Comp64Add(i, j complex64) complex64 {
 	return i + j
 }

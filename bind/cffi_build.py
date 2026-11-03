@@ -37,10 +37,10 @@ class Module(object):
     def generate(self):
         here = os.path.dirname(os.path.abspath(__file__))
         with open(os.path.join(here, self.header)) as f:
-            typedefs, cdefs = go_decls(f.read())
+            typedefs, cdefs, cargs = go_decls(f.read())
         out = [MODULE_HEAD.replace("@CDEFS@", repr("\n".join(typedefs + list(cdefs.values()))))]
         for name, ret, params in self.funcs:
-            out.append(wrapper(name, ret, params, name in cdefs))
+            out.append(wrapper(name, ret, params, cargs.get(name)))
         # Slice_byte's converters exchange a raw pointer+length instead of a
         # PyObject* (see gen_slice.go); they are recognized by name here
         # rather than recorded via add_function, since their python bodies
@@ -61,11 +61,13 @@ add_checked_string_function = add_checked_function
 def go_decls(header):
     """Returns the Go typedefs (plus any "struct X { ... };" body -- cgo emits
     one ahead of an export that returns two values, which is how a complex
-    number is returned, see plainCShim.complexParts in plainc.go), and {function name:
-    cdef line} for the functions cgo exports.
+    number is returned, see plainCShim.complexParts in plainc.go), {function name:
+    cdef line} for the functions cgo exports, and {function name: list of the
+    C type names of its parameters, as cffi declares them}.
     """
     typedefs = []
     decls = {}
+    cargs = {}
     ffi = cffi.FFI()
     lines = header.split("\n")
     i = 0
@@ -109,21 +111,32 @@ def go_decls(header):
             i += 1
             continue
         decls[m.group(2)] = decl
+        f = re.match(r"(.*?)\b\w+\((.*)\);$", decl)
+        cargs[m.group(2)] = [a.cname for a in ffi.typeof("%s(*)(%s)" % (f.group(1), f.group(2))).args]
         i += 1
-    return typedefs, decls
+    return typedefs, decls, cargs
 
 
-def wrapper(name, ret, params, exported):
+def wrapper(name, ret, params, cargs):
+    """Returns the python source of the function name, which calls the cgo
+    export of that name; cargs is the C type name of each of the export's
+    parameters (see go_decls), or None if cgo doesn't export it.
+    """
     names = [p[1] for p in params]
     sig = ", ".join(names)
-    if not exported or "PyObject*" in [ret] + [p[0] for p in params]:
+    if cargs is None or "PyObject*" in [ret] + [p[0] for p in params]:
         return (
             "def %s(*args):\n"
             "    raise NotImplementedError('%s is not available with the cffi backend')\n" % (name, name)
         )
     args = []
     setup = []
+    ci = 0  # index in cargs of the C parameter(s) params[i] crosses as
     for i, (ctype, pname) in enumerate(params):
+        if ctype in ("complex64", "complex128"):
+            ci += 2
+        else:
+            ci += 1
         if ctype.startswith("callback:"):
             setup.append(callback_setup(pname, ctype, i + 1))
             args.append("_ffi.cast('void*', _cb_%s)" % pname)
@@ -133,7 +146,9 @@ def wrapper(name, ret, params, exported):
             args.append("%s.real, %s.imag" % (pname, pname))
         elif ctype == "bool":
             args.append("(1 if %s else 0)" % pname)
-        elif ctype == "uint8_t":
+        elif ctype == "uint8_t" and cargs[ci - 1] == "signed char":
+            # byte crosses as a C char, which go_decls declares signed (see
+            # there); uint8 crosses as an unsigned char, taken as is below.
             args.append("_s8(_index(%s))" % pname)
         elif re.match(r"u?int(\d+_t)?$|unsigned int$", ctype):
             args.append("_index(%s)" % pname)

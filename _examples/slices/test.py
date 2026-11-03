@@ -58,6 +58,12 @@ assert list(cmplx64) == [1 + 2j, -0.5 + 8j, 2j]
 cmplx_arr = slices.CmplxArray()
 assert len(cmplx_arr) == 3 and cmplx_arr[2] == 3 + 3j
 
+# uint8 elements past int8's range: construction, assignment and append
+su8_hi = slices.SliceUint8([128, 255])
+su8_hi[0] = 200
+su8_hi.append(255)
+assert list(su8_hi) == [200, 255, 255]
+
 matrix = slices.GetEmptyMatrix(4,4)
 for i in range(4):
     for j in range(4):
