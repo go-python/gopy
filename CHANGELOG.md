@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/go-python/gopy/compare/v0.5.1...v0.5.2) (2026-11-05)
+
+
+### Bug Fixes
+
+* make the generated Makefile build an importable module ([#415](https://github.com/go-python/gopy/issues/415)) ([d81ecee](https://github.com/go-python/gopy/commit/d81ecee23808ff895153276dfeba647af7e83731))
+
 ## [0.5.1](https://github.com/go-python/gopy/compare/v0.5.0...v0.5.1) (2026-11-01)
 
 
