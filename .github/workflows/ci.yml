@@ -14,23 +14,43 @@ env:
   GOTRACEBACK: crash
   GO111MODULE: auto
 
+# A new push to a pull request cancels its previous, now outdated, run.
+# Pushes to master always run to completion: each one adds to the coverage
+# history.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
 
   build:
     name: Build (${{ matrix.platform }}, Go ${{ matrix.go-version }}, Python ${{ matrix.python-version }})
     strategy:
-      fail-fast: false
       matrix:
         # TODO: Consider official support matrix (OS and Go versions) and adjust this matrix accordingly
         go-version: [1.25.x, 1.24.x, 1.23.x, 1.22.x]
         platform: [ubuntu-latest, windows-latest, macos-15]
         python-version: ['3.11', '3.12']
     runs-on: ${{ matrix.platform }}
+    # A hung step fails here instead of at GitHub's 6h default.
+    timeout-minutes: 20
     env:
       # Coverage is measured on exactly one matrix leg, so the numbers stay
       # comparable from commit to commit.
       COVERAGE_LEG: ${{ matrix.platform == 'ubuntu-latest' && matrix.go-version == '1.25.x' && matrix.python-version == '3.12' }}
     steps:
+    # Real-time scanning inspects every file the compilers, linkers and pip
+    # write, which slows Windows jobs down.  Turned off first, so checkout and
+    # the Go/Python installs benefit too.  The status is printed before and
+    # after so the effect can be checked in the log.
+    - name: Disable Windows Defender real-time scanning
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled
+        Set-MpPreference -DisableRealtimeMonitoring $true
+        Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -48,18 +68,16 @@ jobs:
     - name: Install Linux packages
       if: matrix.platform == 'ubuntu-latest'
       run: |
-        sudo apt-get update
-        sudo apt-get install curl libffi-dev python3-cffi python3-pip
         # install pybindgen
         python3 -m pip install --user -U pybindgen
         # install goimports
-        go install golang.org/x/tools/cmd/goimports@latest
+        go install golang.org/x/tools/cmd/goimports@v0.29.0
 
     - name: Install macOS packages
       if: startsWith(matrix.platform, 'macos-')
       run: |
         python3 -m pip install -U pybindgen
-        go install golang.org/x/tools/cmd/goimports@latest
+        go install golang.org/x/tools/cmd/goimports@v0.29.0
 
     - name: Install Windows packages
       if: matrix.platform == 'windows-latest'
@@ -67,7 +85,7 @@ jobs:
         # install pybindgen and psutil (for memory tracking in tests)
         python -m pip install -U pybindgen psutil
         # install goimports
-        go install golang.org/x/tools/cmd/goimports@latest
+        go install golang.org/x/tools/cmd/goimports@v0.29.0
 
 
     - name: Build-Linux
