@@ -447,6 +447,34 @@ func TestPkg(t *testing.T) {
 	})
 }
 
+// TestExe checks that gopy exe builds _examples/simple into an executable,
+// beside the files of an installable package.  It doesn't run the
+// executable: that needs libpython on the loader's search path, which
+// depends on how the interpreter was installed.
+func TestExe(t *testing.T) {
+	// t.Parallel()
+	vm := testBackends["py3"]
+	if vm == "" {
+		t.Skip("python3 not found")
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := t.TempDir()
+	writeGoMod(t, cwd, out)
+	defer bind.ResetPackages()
+	if err := run([]string{"exe", "-vm=" + vm, "-output=" + out, "github.com/go-python/gopy/_examples/simple"}); err != nil {
+		t.Fatal(err)
+	}
+	exe := filepath.Join(out, "simple", exeName("simple"))
+	for _, f := range []string{filepath.Join(out, "setup.py"), exe} {
+		if _, err := os.Stat(f); err != nil {
+			t.Errorf("gopy exe didn't write %s: %v", f, err)
+		}
+	}
+}
+
 func TestBindEmpty(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/empty"
