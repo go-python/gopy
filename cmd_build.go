@@ -88,7 +88,7 @@ func gopyRunCmdBuild(cmdr *commander.Command, args []string) error {
 			cfg.Name = pkg.Name()
 		}
 	}
-	return runBuild("build", cfg)
+	return runBuild(bind.ModeBuild, cfg)
 }
 
 // runBuild calls genPkg and then executes commands to build the resulting files
@@ -134,11 +134,17 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 		cmd = exec.Command(cfg.VM, "build.py")
 		cmd.Run() // will fail, we don't care about errors
 
-		args := []string{"build", "-mod=mod", "-buildmode=c-shared"}
+		// This build only writes buildname.h, the header the second
+		// build.py needs.  A c-archive writes it without linking: the .c
+		// file the first build.py left behind was compiled against the
+		// placeholder header above, so it may call functions (such as the
+		// static _gopy_clear_go_tls) it can't link to yet, which macOS and
+		// Windows refuse in a shared library.
+		args := []string{"build", "-mod=mod", "-buildmode=c-archive"}
 		if cfg.BuildTags != "" {
 			args = append(args, "-tags", cfg.BuildTags)
 		}
-		args = append(args, "-o", buildname+libExt, ".")
+		args = append(args, "-o", buildname+".a", ".")
 
 		fmt.Printf("go %v\n", strings.Join(args, " "))
 		cmd = exec.Command("go", args...)
@@ -156,14 +162,15 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 			return err
 		}
 
-		err = os.Remove(cfg.Name + "_go" + libExt)
+		err = os.Remove(buildname + ".a")
 
-		fmt.Printf("go build -o py%s\n", cfg.Name)
-		cmd = exec.Command("go", "build", "-mod=mod")
+		args = []string{"build", "-mod=mod"}
 		if cfg.BuildTags != "" {
 			args = append(args, "-tags", cfg.BuildTags)
 		}
-		args = append(args, "-o", "py"+cfg.Name)
+		args = append(args, "-o", exeName(cfg.Name))
+		fmt.Printf("go %v\n", strings.Join(args, " "))
+		cmd = exec.Command("go", args...)
 		cmdout, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("cmd had error: %v  output:\n%v\n", err, string(cmdout))
@@ -332,4 +339,14 @@ func runBuild(mode bind.BuildMode, cfg *BuildCfg) error {
 	}
 
 	return err
+}
+
+// exeName returns the file name of the executable gopy exe builds for the
+// package named name: py<name>, as the Makefile it writes also builds, with
+// Windows' .exe suffix there (go build -o adds none).
+func exeName(name string) string {
+	if runtime.GOOS == "windows" {
+		return "py" + name + ".exe"
+	}
+	return "py" + name
 }
