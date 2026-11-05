@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.5.3](https://github.com/go-python/gopy/compare/v0.5.2...v0.5.3) (2026-11-05)
+
+
+### Bug Fixes
+
+* keep the working directory after `gopy pkg` & `gopy exe` ([#416](https://github.com/go-python/gopy/issues/416)) ([af0b230](https://github.com/go-python/gopy/commit/af0b230e7defcae8126674576c7fcdbbfc8d4ce9))
+
+## [0.5.2](https://github.com/go-python/gopy/compare/v0.5.1...v0.5.2) (2026-11-05)
+
+
+### Bug Fixes
+
+* make the generated Makefile build an importable module ([#415](https://github.com/go-python/gopy/issues/415)) ([d81ecee](https://github.com/go-python/gopy/commit/d81ecee23808ff895153276dfeba647af7e83731))
+
+## [0.5.1](https://github.com/go-python/gopy/compare/v0.5.0...v0.5.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* add coverage target and CI coverage summary ([#411](https://github.com/go-python/gopy/issues/411)) ([67e890d](https://github.com/go-python/gopy/commit/67e890dea771048b1c838caaa3389f777add1f22))
+
 ## [0.5.0](https://github.com/go-python/gopy/compare/v0.4.10...v0.5.0) (2026-08-25)
 
 
