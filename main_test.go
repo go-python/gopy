@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -16,8 +17,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-
-	"github.com/go-python/gopy/bind"
 )
 
 var (
@@ -62,6 +61,7 @@ func init() {
 }
 
 func TestGovet(t *testing.T) {
+	t.Parallel()
 	cmd := exec.Command("go", "vet", "./...")
 	buf := new(bytes.Buffer)
 	cmd.Stdout = buf
@@ -73,6 +73,7 @@ func TestGovet(t *testing.T) {
 }
 
 func TestGofmt(t *testing.T) {
+	t.Parallel()
 	exe, err := exec.LookPath("goimports")
 	if err != nil {
 		switch e := err.(type) {
@@ -102,6 +103,7 @@ func TestGofmt(t *testing.T) {
 }
 
 func TestGoPyErrors(t *testing.T) {
+	t.Parallel()
 	pyvm := testBackends["py3"]
 	workdir, err := os.MkdirTemp("", "gopy-")
 	if err != nil {
@@ -130,6 +132,7 @@ ignoring python incompatible function: .func github.com/go-python/gopy/_examples
 }
 
 func TestVersion(t *testing.T) {
+	t.Parallel()
 	cmd := exec.Command("go", "run", ".", "version")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -143,6 +146,7 @@ func TestVersion(t *testing.T) {
 }
 
 func TestVersionLdflags(t *testing.T) {
+	t.Parallel()
 	workdir, err := os.MkdirTemp("", "gopy-version-ldflags-")
 	if err != nil {
 		t.Fatalf("could not create workdir: %v\n", err)
@@ -177,6 +181,7 @@ func TestVersionLdflags(t *testing.T) {
 }
 
 func TestGenHeaderHasVersion(t *testing.T) {
+	t.Parallel()
 	pyvm := testBackends["py3"]
 	workdir, err := os.MkdirTemp("", "gopy-")
 	if err != nil {
@@ -205,7 +210,7 @@ func TestGenHeaderHasVersion(t *testing.T) {
 }
 
 func TestHi(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/hi"
 	testPkg(t, pkg{
 		path:   path,
@@ -346,7 +351,7 @@ OK
 }
 
 func TestBytes(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/gobytes"
 	testPkg(t, pkg{
 		path:   path,
@@ -365,7 +370,7 @@ OK
 }
 
 func TestBindFuncs(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/funcs"
 	testPkg(t, pkg{
 		path:   path,
@@ -407,7 +412,7 @@ OK
 `)
 
 func TestBindSimple(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/simple"
 	testPkg(t, pkg{
 		path:   path,
@@ -421,7 +426,7 @@ func TestBindSimple(t *testing.T) {
 // TestMakefile builds _examples/simple with the Makefile gopy gen writes,
 // rather than with gopy build.
 func TestMakefile(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	if _, err := exec.LookPath("make"); err != nil {
 		t.Skip("make not found")
 	}
@@ -437,7 +442,7 @@ func TestMakefile(t *testing.T) {
 
 // TestPkg builds _examples/simple as an installable package with gopy pkg.
 func TestPkg(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/simple"
 	testPkg(t, pkg{
 		path: path,
@@ -452,7 +457,7 @@ func TestPkg(t *testing.T) {
 // executable: that needs libpython on the loader's search path, which
 // depends on how the interpreter was installed.
 func TestExe(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	vm := testBackends["py3"]
 	if vm == "" {
 		t.Skip("python3 not found")
@@ -463,8 +468,7 @@ func TestExe(t *testing.T) {
 	}
 	out := t.TempDir()
 	writeGoMod(t, cwd, out)
-	defer bind.ResetPackages()
-	if err := run([]string{"exe", "-vm=" + vm, "-output=" + out, "github.com/go-python/gopy/_examples/simple"}); err != nil {
+	if err := runGopy([]string{"exe", "-vm=" + vm, "-output=" + out, "github.com/go-python/gopy/_examples/simple"}); err != nil {
 		t.Fatal(err)
 	}
 	exe := filepath.Join(out, "simple", exeName("simple"))
@@ -476,7 +480,7 @@ func TestExe(t *testing.T) {
 }
 
 func TestBindEmpty(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/empty"
 	testPkg(t, pkg{
 		path:   path,
@@ -491,7 +495,7 @@ OK
 }
 
 func TestBindPointers(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/pointers"
 	testPkg(t, pkg{
 		path:   path,
@@ -507,7 +511,7 @@ OK
 }
 
 func TestBindNamed(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/named"
 	testPkg(t, pkg{
 		path:   path,
@@ -529,7 +533,7 @@ OK
 }
 
 func TestBindStructs(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/structs"
 	testPkg(t, pkg{
 		path:   path,
@@ -559,7 +563,7 @@ OK
 }
 
 func TestBindConsts(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/consts"
 	// NOTE: python2 does not properly output .666 decimals for unknown reasons.
 	testPkg(t, pkg{
@@ -582,7 +586,7 @@ OK
 }
 
 func TestBindVars(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/vars"
 	testPkg(t, pkg{
 		path:   path,
@@ -624,7 +628,7 @@ OK
 }
 
 func TestBindSeqs(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/seqs"
 	testPkg(t, pkg{
 		path:   path,
@@ -652,7 +656,7 @@ OK
 }
 
 func TestBindInterfaces(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/iface"
 	// NOTE: python2 outputs this in a different order, so test fails, but results are the same
 	testPkg(t, pkg{
@@ -682,7 +686,7 @@ OK
 }
 
 func TestBindCgoPackage(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/cgo"
 	testPkg(t, pkg{
 		path:   path,
@@ -698,7 +702,7 @@ OK
 }
 
 func TestPyErrors(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/pyerrors"
 	testPkg(t, pkg{
 		path:   path,
@@ -715,7 +719,7 @@ OK
 }
 
 func TestBuiltinArrays(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/arrays"
 	testPkg(t, pkg{
 		path:   path,
@@ -731,7 +735,7 @@ OK
 }
 
 func TestBuiltinSlices(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/slices"
 	testPkg(t, pkg{
 		path:   path,
@@ -760,7 +764,7 @@ OK
 }
 
 func TestBuiltinMaps(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/maps"
 	testPkg(t, pkg{
 		path:   path,
@@ -785,7 +789,7 @@ OK
 }
 
 func TestBindStrings(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/gostrings"
 	testPkg(t, pkg{
 		path:   path,
@@ -800,7 +804,7 @@ OK
 }
 
 func TestBindRename(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/rename"
 	testPkg(t, pkg{
 		path:   path,
@@ -818,7 +822,7 @@ OK
 }
 
 func TestLot(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/lot"
 	testPkg(t, pkg{
 		path:   path,
@@ -839,7 +843,7 @@ OK
 }
 
 func TestSlicePtr(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/sliceptr"
 	testPkg(t, pkg{
 		path:   path,
@@ -855,7 +859,7 @@ OK
 }
 
 func TestUnicode(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/unicode"
 	testPkg(t, pkg{
 		path:   path,
@@ -870,7 +874,7 @@ OK
 }
 
 func TestPYGC(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/gopygc"
 	testPkg(t, pkg{
 		path:   path,
@@ -902,7 +906,7 @@ OK
 }
 
 func TestCStrings(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/cstrings"
 	testPkg(t, pkg{
 		path:   path,
@@ -924,6 +928,7 @@ OK
 // gopy extensions (gilstring and simple) loaded in the same Python process, with
 // calls interleaved in a loop of 5000 iterations.
 func TestGilString(t *testing.T) {
+	t.Parallel()
 	backends := []string{"py3"}
 	for _, be := range backends {
 		vm, ok := testBackends[be]
@@ -932,6 +937,7 @@ func TestGilString(t *testing.T) {
 			continue
 		}
 		t.Run(be, func(t *testing.T) {
+			t.Parallel()
 			cwd, _ := os.Getwd()
 
 			workdir, err := os.MkdirTemp("", "gopy-")
@@ -939,24 +945,22 @@ func TestGilString(t *testing.T) {
 				t.Fatalf("could not create workdir: %v", err)
 			}
 			defer os.RemoveAll(workdir)
-			defer bind.ResetPackages()
 
 			gilDir := filepath.Join(workdir, "gilstring")
 			if err := os.MkdirAll(gilDir, 0700); err != nil {
 				t.Fatalf("could not create gilstring subdir: %v", err)
 			}
 			writeGoMod(t, cwd, gilDir)
-			if err := run([]string{"build", "-vm=" + vm, "-output=" + gilDir, "./_examples/gilstring"}); err != nil {
+			if err := runGopy([]string{"build", "-vm=" + vm, "-output=" + gilDir, "./_examples/gilstring"}); err != nil {
 				t.Fatalf("error building gilstring: %v", err)
 			}
-			bind.ResetPackages()
 
 			simpleDir := filepath.Join(workdir, "simple")
 			if err := os.MkdirAll(simpleDir, 0700); err != nil {
 				t.Fatalf("could not create simple subdir: %v", err)
 			}
 			writeGoMod(t, cwd, simpleDir)
-			if err := run([]string{"build", "-vm=" + vm, "-output=" + simpleDir, "./_examples/simple"}); err != nil {
+			if err := runGopy([]string{"build", "-vm=" + vm, "-output=" + simpleDir, "./_examples/simple"}); err != nil {
 				t.Fatalf("error building simple: %v", err)
 			}
 
@@ -988,7 +992,7 @@ func TestGilString(t *testing.T) {
 }
 
 func TestPackagePrefix(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/package/mypkg"
 	testPkg(t, pkg{
 		path:      path,
@@ -1005,7 +1009,7 @@ OK
 }
 
 func TestPkgConflict(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/pkgconflict"
 	testPkg(t, pkg{
 		path:   path,
@@ -1023,7 +1027,6 @@ func TestPkgConflict(t *testing.T) {
 // leaving here for now in case someone wants to follow-up and make it work..
 //
 // func TestOsFile(t *testing.T) {
-// 	// t.Parallel()
 // 	path := "_examples/osfile"
 // 	testPkg(t, pkg{
 // 		path:   path,
@@ -1037,7 +1040,7 @@ func TestPkgConflict(t *testing.T) {
 // }
 
 func TestBindVariadic(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	path := "_examples/variadic"
 	testPkg(t, pkg{
 		path:   path,
@@ -1055,6 +1058,7 @@ Type OK
 
 // Generate / verify SUPPORT_MATRIX.md from features map.
 func TestCheckSupportMatrix(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	buf.WriteString("# Support matrix\n")
 	buf.WriteString(`
@@ -1161,7 +1165,7 @@ func testPkg(t *testing.T, table pkg) {
 		switch be {
 		case "py3":
 			t.Run(be, func(t *testing.T) {
-				// t.Parallel()
+				t.Parallel()
 				testPkgBackend(t, vm, table)
 			})
 		default:
@@ -1201,7 +1205,6 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 		}
 	}
 	defer os.RemoveAll(workdir)
-	defer bind.ResetPackages()
 
 	env := make([]string, len(testEnvironment))
 	copy(env, testEnvironment)
@@ -1220,7 +1223,7 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 	}
 	args = append(args, fpath)
 	fmt.Printf("run cmd: %s\n", args)
-	err = run(args)
+	err = runGopy(args)
 	if err != nil {
 		t.Fatalf("[%s:%s]: error running gopy-build: %v\n", pyvm, table.path, err)
 	}
@@ -1304,4 +1307,46 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 		)
 	}
 
+}
+
+// gopyExe is the gopy binary TestMain builds, which the tests run as a
+// separate process, rather than calling run in this one: the generator
+// keeps its state in package variables (bind.Packages, the symbol tables,
+// thePyGen) and gopy build changes the process's working directory, so
+// in-process runs can't overlap.
+var gopyExe string
+
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "gopy-bin-")
+	if err != nil {
+		log.Fatal(err)
+	}
+	gopyExe = filepath.Join(dir, "gopy")
+	if runtime.GOOS == "windows" {
+		gopyExe += ".exe"
+	}
+	build := exec.Command("go", "build", "-o", gopyExe, ".")
+	// Under go test -cover with -test.gocoverdir (see the Makefile's cover
+	// target), gopy writes its own coverage there too, to be merged with
+	// the test binary's.
+	flag.Parse()
+	if f := flag.Lookup("test.gocoverdir"); testing.CoverMode() != "" && f != nil && f.Value.String() != "" {
+		build.Args = []string{"go", "build", "-cover", "-covermode=" + testing.CoverMode(), "-coverpkg=./...", "-o", gopyExe, "."}
+		os.Setenv("GOCOVERDIR", f.Value.String())
+	}
+	if out, err := build.CombinedOutput(); err != nil {
+		log.Fatalf("building gopy: %v\n%s", err, out)
+	}
+	code := m.Run()
+	os.RemoveAll(dir)
+	os.Exit(code)
+}
+
+// runGopy runs gopy with args, in the current directory.
+func runGopy(args []string) error {
+	out, err := exec.Command(gopyExe, args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("gopy %s: %v\n%s", strings.Join(args, " "), err, out)
+	}
+	return nil
 }

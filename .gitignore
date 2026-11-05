@@ -5,5 +5,10 @@
 # goreleaser build output
 /dist/
 
+# python bytecode caches
+__pycache__/
+*.py[co]
+
 # 'make cover' output
 /coverage.out
+/covdata/
