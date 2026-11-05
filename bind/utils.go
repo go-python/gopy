@@ -94,6 +94,16 @@ type PyConfig struct {
 	ExtSuffix      string
 }
 
+// ExtModuleName returns the file name of the extension module _<name>,
+// preferring the interpreter's own suffix (e.g. .cpython-312-x86_64-linux-gnu.so)
+// over libext.
+func ExtModuleName(name, libext string, pycfg PyConfig) string {
+	if pycfg.ExtSuffix != "" {
+		return "_" + name + pycfg.ExtSuffix
+	}
+	return "_" + name + libext
+}
+
 // AllFlags returns CFlags + " " + LdFlags
 func (pc *PyConfig) AllFlags() string {
 	return strings.TrimSpace(pc.CFlags) + " " + strings.TrimSpace(pc.LdFlags)

@@ -392,15 +392,8 @@ OK
 	})
 }
 
-func TestBindSimple(t *testing.T) {
-	// t.Parallel()
-	path := "_examples/simple"
-	testPkg(t, pkg{
-		path:   path,
-		lang:   features[path],
-		cmd:    "build",
-		extras: nil,
-		want: []byte(`doc(pkg):
+// simpleWant is _examples/simple/test.py's expected output.
+var simpleWant = []byte(`doc(pkg):
 '\nsimple is a simple package.\n\n'
 pkg.Func()...
 fct = pkg.Func...
@@ -411,7 +404,34 @@ pkg.Bool(False)= False
 pkg.Comp64Add((3+4j), (2+5j)) = (5+9j)
 pkg.Comp128Add((3+4j), (2+5j)) = (5+9j)
 OK
-`),
+`)
+
+func TestBindSimple(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/simple"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want:   simpleWant,
+	})
+}
+
+// TestMakefile builds _examples/simple with the Makefile gopy gen writes,
+// rather than with gopy build.
+func TestMakefile(t *testing.T) {
+	// t.Parallel()
+	if _, err := exec.LookPath("make"); err != nil {
+		t.Skip("make not found")
+	}
+	path := "_examples/simple"
+	testPkg(t, pkg{
+		path: path,
+		lang: features[path],
+		cmd:  "gen",
+		make: true,
+		want: simpleWant,
 	})
 }
 
@@ -1083,6 +1103,8 @@ type pkg struct {
 	testdir   string
 	extras    []string
 	want      []byte
+	// make runs the generated Makefile's build target after cmd (gen)
+	make bool
 }
 
 func testPkg(t *testing.T, table pkg) {
@@ -1149,7 +1171,7 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 
 	// fmt.Printf("building in work dir: %s\n", workdir)
 	fpath := "./" + table.path
-	if table.cmd != "build" { // non-build cases end up inside the working dir -- need a global import path
+	if table.cmd != "build" && table.cmd != "gen" { // non-build cases end up inside the working dir -- need a global import path
 		fpath = filepath.Join(curPkgPath, table.path)
 	}
 	args := []string{table.cmd, "-vm=" + pyvm, "-output=" + genPkgDir, "-package-prefix", table.pkgprefix}
@@ -1163,9 +1185,18 @@ func testPkgBackend(t *testing.T, pyvm string, table pkg) {
 		t.Fatalf("[%s:%s]: error running gopy-build: %v\n", pyvm, table.path, err)
 	}
 
+	if table.make {
+		fmt.Printf("running make build\n")
+		cmd := exec.Command("make", "build")
+		cmd.Dir = genPkgDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("[%s:%s]: error running make build: %v\n%s", pyvm, table.path, err, out)
+		}
+	}
+
 	// fmt.Printf("copying test.py\n")
 	tstDir := genPkgDir
-	if table.cmd != "build" {
+	if table.cmd != "build" && table.cmd != "gen" {
 		tstDir = filepath.Join(workdir, pkgNm)
 	}
 	if table.testdir != "" {

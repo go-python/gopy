@@ -7,8 +7,5 @@
 
 package main
 
-const (
-	// libExt = ".dylib"  // theoretically should be this but python only recognizes .so
-	libExt       = ".so"
-	extraGccArgs = "-dynamiclib"
-)
+// libExt = ".dylib"  // theoretically should be this but python only recognizes .so
+const libExt = ".so"
