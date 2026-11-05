@@ -1,4 +1,4 @@
-// Copyright 2015 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -21,39 +21,6 @@ type Object interface {
 type Type interface {
 	Object
 	GoType() types.Type
-}
-
-func needWrapType(typ types.Type) bool {
-	switch typ := typ.(type) {
-	case *types.Basic:
-		return false
-	case *types.Struct:
-		return true
-	case *types.Named:
-		switch ut := typ.Underlying().(type) {
-		case *types.Basic:
-			return false
-		default:
-			return needWrapType(ut)
-		}
-	case *types.Array:
-		return true
-	case *types.Map:
-		return true
-	case *types.Slice:
-		return true
-	case *types.Interface:
-		wrap := true
-		if typ.Underlying() == universe.syms["error"].GoType().Underlying() {
-			wrap = false
-		}
-		return wrap
-	case *types.Signature:
-		return true
-	case *types.Pointer:
-		return needWrapType(typ.Elem())
-	}
-	return false
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -336,14 +303,6 @@ func newSignatureFrom(pkg *Package, sig *types.Signature) (*Signature, error) {
 	}, nil
 }
 
-func newSignature(pkg *Package, recv *Var, params, results []*Var) *Signature {
-	return &Signature{
-		ret:  results,
-		args: params,
-		recv: recv,
-	}
-}
-
 func (sig *Signature) Results() []*Var {
 	return sig.ret
 }
@@ -604,10 +563,6 @@ func newVarFrom(p *Package, v *types.Var) (*Var, error) {
 	return newVar(p, v.Type(), v.Name(), v.Name(), p.getDoc("", v))
 }
 
-func getTypeString(t types.Type) string {
-	return types.TypeString(t, func(*types.Package) string { return " " })
-}
-
 func (v *Var) GoType() types.Type {
 	return v.sym.gotyp
 }
@@ -618,12 +573,4 @@ func (v *Var) CType() string {
 
 func (v *Var) CGoType() string {
 	return v.sym.cgoname
-}
-
-func (v *Var) isGoString() bool {
-	switch typ := v.GoType().(type) {
-	case *types.Basic:
-		return typ.Kind() == types.String
-	}
-	return false
 }

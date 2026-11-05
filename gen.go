@@ -1,4 +1,4 @@
-// Copyright 2015 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -58,11 +58,30 @@ func genOutDir(odir string) (string, error) {
 	return odir, nil
 }
 
+// backendForMode returns the backend to generate mode with: the one
+// GOPY_BACKEND selects, except that gopy exe swaps in capi for a backend
+// that can't build an executable (see bind.Backend.ForExe).
+func backendForMode(mode bind.BuildMode) (bind.Backend, error) {
+	be, err := bind.BackendFromEnv()
+	if err != nil {
+		return "", err
+	}
+	if exe := be.ForExe(); mode == bind.ModeExe && exe != be {
+		fmt.Printf("gopy: %s=%s can't build an executable, so gopy exe uses %s=%s\n",
+			bind.BackendEnvVar, be, bind.BackendEnvVar, exe)
+		be = exe
+	}
+	return be, nil
+}
+
 // genPkg generates output for all the current packages that have been parsed,
 // in the given output directory
 // mode = gen, build, pkg, exe
 func genPkg(mode bind.BuildMode, cfg *BuildCfg) error {
 	var err error
+	if cfg.Backend, err = backendForMode(mode); err != nil {
+		return err
+	}
 	cfg.OutputDir, err = genOutDir(cfg.OutputDir)
 	if err != nil {
 		return err

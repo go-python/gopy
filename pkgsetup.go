@@ -1,4 +1,4 @@
-// Copyright 2019 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -157,7 +157,7 @@ func GenPyPkgSetup(cfg *BuildCfg, user, version, author, email, desc, url string
 	rf.Close()
 
 	_, pyonly := filepath.Split(cfg.VM)
-	gencmd := bind.CmdStrToMakefile(cfg.Cmd)
+	gencmd := cfg.Backend.EnvPrefix() + bind.CmdStrToMakefile(cfg.Cmd)
 
 	mf, err := os.Create(filepath.Join(cfg.OutputDir, "Makefile"))
 	if err != nil {

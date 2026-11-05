@@ -1,4 +1,4 @@
-// Copyright 2015 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -54,54 +54,12 @@ func isStringer(obj types.Object) bool {
 	}
 }
 
-func hasError(sig *types.Signature) bool {
-	res := sig.Results()
-	if res == nil || res.Len() <= 0 {
-		return false
-	}
-
-	nerr := 0
-	for i := 0; i < res.Len(); i++ {
-		ret := res.At(i)
-		if isErrorType(ret.Type()) {
-			nerr++
-		}
-	}
-
-	switch {
-	case nerr == 0:
-		return false
-	case nerr == 1:
-		return true
-	default:
-		panic(fmt.Errorf(
-			"gopy: invalid number of comma-errors (%d)",
-			nerr,
-		))
-	}
-}
-
-func isConstructor(sig *types.Signature) bool {
-	//TODO(sbinet)
-	return false
-}
-
 type PyConfig struct {
 	Version        int
 	CFlags         string
 	LdFlags        string
 	LdDynamicFlags string
 	ExtSuffix      string
-}
-
-// ExtModuleName returns the file name of the extension module _<name>,
-// preferring the interpreter's own suffix (e.g. .cpython-312-x86_64-linux-gnu.so)
-// over libext.
-func ExtModuleName(name, libext string, pycfg PyConfig) string {
-	if pycfg.ExtSuffix != "" {
-		return "_" + name + pycfg.ExtSuffix
-	}
-	return "_" + name + libext
 }
 
 // AllFlags returns CFlags + " " + LdFlags
