@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/go-python/gopy/compare/v0.5.2...v0.5.3) (2026-11-05)
+
+
+### Bug Fixes
+
+* keep the working directory after `gopy pkg` & `gopy exe` ([#416](https://github.com/go-python/gopy/issues/416)) ([af0b230](https://github.com/go-python/gopy/commit/af0b230e7defcae8126674576c7fcdbbfc8d4ce9))
+
 ## [0.5.2](https://github.com/go-python/gopy/compare/v0.5.1...v0.5.2) (2026-11-05)
 
 
