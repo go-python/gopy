@@ -435,6 +435,18 @@ func TestMakefile(t *testing.T) {
 	})
 }
 
+// TestPkg builds _examples/simple as an installable package with gopy pkg.
+func TestPkg(t *testing.T) {
+	// t.Parallel()
+	path := "_examples/simple"
+	testPkg(t, pkg{
+		path: path,
+		lang: features[path],
+		cmd:  "pkg",
+		want: simpleWant,
+	})
+}
+
 func TestBindEmpty(t *testing.T) {
 	// t.Parallel()
 	path := "_examples/empty"

@@ -107,6 +107,14 @@ func gopyRunCmdPkg(cmdr *commander.Command, args []string) error {
 		return err
 	}
 
+	// GenPyPkgSetup chdirs into the output dir; restore the caller's cwd
+	// when we're done, so a run doesn't strand the process there.
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	defer os.Chdir(cwd)
+
 	setupfn := filepath.Join(cfg.OutputDir, "setup.py")
 
 	if _, err = os.Stat(setupfn); os.IsNotExist(err) {
