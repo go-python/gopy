@@ -216,6 +216,49 @@ func isIfaceHandle(gdoc string) (bool, string) {
 	return false, gdoc
 }
 
+// needsGILForArgMarshal reports whether converting a Python-side argument of
+// this symbol's type touches a raw *C.PyObject on the Go side (e.g.
+// complex64/complex128 via PyComplex_AsCComplex). Such conversions must run
+// while the GIL is still held, not inline in the wrapped call after
+// C.PyEval_SaveThread has released it -- touching a PyObject without the GIL
+// is undefined behavior. The py2go signature closure (isSignature) is
+// excluded: it is invoked later, from inside the wrapped Go call, and already
+// reacquires the GIL itself via PyGILState_Ensure/Release around its body.
+func needsGILForArgMarshal(sym *symbol) bool {
+	return sym.cgoname == "*C.PyObject" && !sym.isSignature() && sym.py2go != ""
+}
+
+// argCallExpr returns the Go-side expression used to pass a Python-wrapped
+// argument to the wrapped Go call, and whether that expression must be
+// evaluated before the GIL is released (see needsGILForArgMarshal). anm is
+// the argument's Python-side (pySafeArg) name; isVariadicTail marks the
+// trailing "arg" that stands in for a whole variadic slice rather than a
+// single marshalled scalar.
+//
+// This is the single place that decides both questions, in one precedence
+// order: ifchandle/interface{} and isSignature never touch a raw PyObject
+// via this expression (isSignature's closure re-acquires the GIL itself),
+// so they always report needsGIL=false, regardless of the symbol's cgoname.
+// Callers must call this once per argument for the premarshal decision and
+// again (with identical inputs) for the call-argument expression -- because
+// both calls run the same deterministic logic, a "_premarshalN" can never
+// be declared under one precedence and then left unreferenced under
+// another, the way it could when the two decisions were made by separately
+// maintained code.
+func argCallExpr(ifchandle, isVariadicTail bool, anm string, sym *symbol) (expr string, needsGIL bool) {
+	switch {
+	case ifchandle && sym.goname == "interface{}":
+		return fmt.Sprintf(`gopyh.VarFromHandle((gopyh.CGoHandle)(%s), "interface{}")`, anm), false
+	case sym.isSignature():
+		return sym.py2go, false
+	case sym.py2go != "":
+		expr := fmt.Sprintf("%s(%s)%s", sym.py2go, anm, sym.py2goParenEx)
+		return expr, needsGILForArgMarshal(sym) && !isVariadicTail
+	default:
+		return anm, false
+	}
+}
+
 func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	isMethod := (sym != nil)
 	isIface := false
@@ -261,6 +304,25 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 		}
 	}
 
+	// Convert any argument whose marshalling touches a raw *C.PyObject while
+	// the GIL is still held -- before it is released below for the duration
+	// of the wrapped Go call. argCallExpr is also what decides each
+	// argument's call-site expression below, so a premarshalled variable is
+	// declared here if and only if it is also the expression consumed
+	// there.
+	premarshalled := make(map[int]string)
+	for i, arg := range args {
+		anm := pySafeArg(arg.Name(), i)
+		isVariadicTail := fsym.isVariadic && i == len(args)-1
+		expr, needsGIL := argCallExpr(ifchandle, isVariadicTail, anm, arg.sym)
+		if !needsGIL {
+			continue
+		}
+		varnm := fmt.Sprintf("_premarshal%d", i)
+		g.gofile.Printf("%s := %s\n", varnm, expr)
+		premarshalled[i] = varnm
+	}
+
 	g.gofile.Printf("_saved_thread := C.PyEval_SaveThread()\n")
 	if !rvIsErr && nres != 2 {
 		g.gofile.Printf("defer C.PyEval_RestoreThread(_saved_thread)\n")
@@ -297,19 +359,13 @@ if __err != nil {
 		wrapArgs = append(wrapArgs, "self.handle")
 	}
 	for i, arg := range args {
-		na := ""
 		anm := pySafeArg(arg.Name(), i)
-		switch {
-		case ifchandle && arg.sym.goname == "interface{}":
-			na = fmt.Sprintf(`gopyh.VarFromHandle((gopyh.CGoHandle)(%s), "interface{}")`, anm)
-		case arg.sym.isSignature():
-			na = fmt.Sprintf("%s", arg.sym.py2go)
-		case arg.sym.py2go != "":
-			na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, anm, arg.sym.py2goParenEx)
-		default:
-			na = anm
+		isVariadicTail := fsym.isVariadic && i == len(args)-1
+		na, needsGIL := argCallExpr(ifchandle, isVariadicTail, anm, arg.sym)
+		if needsGIL {
+			na = premarshalled[i]
 		}
-		if i == len(args)-1 && fsym.isVariadic {
+		if isVariadicTail {
 			na = na + "..."
 		}
 		callArgs = append(callArgs, na)
