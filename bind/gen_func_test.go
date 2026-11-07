@@ -55,6 +55,13 @@ func TestArgCallExprPrecedenceMatchesPremarshalDecision(t *testing.T) {
 		py2goParenEx: "",
 	}
 
+	// contrived: a *C.PyObject cgoname with no py2go converter must still
+	// fall through to the default case, never be premarshalled.
+	noConvSym := &symbol{
+		goname:  "int64",
+		cgoname: "*C.PyObject",
+	}
+
 	tests := []struct {
 		name         string
 		ifchandle    bool
@@ -93,6 +100,12 @@ func TestArgCallExprPrecedenceMatchesPremarshalDecision(t *testing.T) {
 			name:         "plain string arg is not premarshalled",
 			sym:          plainStringSym,
 			wantExpr:     "C.GoString(x)",
+			wantNeedsGIL: false,
+		},
+		{
+			name:         "arg without a py2go conversion is passed through as-is",
+			sym:          noConvSym,
+			wantExpr:     "x",
 			wantNeedsGIL: false,
 		},
 	}
