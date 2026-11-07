@@ -1241,6 +1241,7 @@ func TestGilString(t *testing.T) {
 // background thread so a mis-timed marshalling window has a chance to
 // surface as corruption rather than passing silently.
 func TestComplexGILStress(t *testing.T) {
+	t.Parallel()
 	backends := []string{"py3"}
 	for _, be := range backends {
 		vm, ok := testBackends[be]
@@ -1249,6 +1250,7 @@ func TestComplexGILStress(t *testing.T) {
 			continue
 		}
 		t.Run(be, func(t *testing.T) {
+			t.Parallel()
 			cwd, _ := os.Getwd()
 
 			workdir, err := os.MkdirTemp("", "gopy-")
@@ -1256,10 +1258,9 @@ func TestComplexGILStress(t *testing.T) {
 				t.Fatalf("could not create workdir: %v", err)
 			}
 			defer os.RemoveAll(workdir)
-			defer bind.ResetPackages()
 
 			writeGoMod(t, cwd, workdir)
-			if err := run([]string{"build", "-vm=" + vm, "-output=" + workdir, "-package-prefix", "", "./_examples/simple"}); err != nil {
+			if err := runGopy([]string{"build", "-vm=" + vm, "-output=" + workdir, "-package-prefix", "", "./_examples/simple"}); err != nil {
 				t.Fatalf("error building simple: %v", err)
 			}
 
