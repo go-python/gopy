@@ -297,12 +297,10 @@ func needsGILForArgMarshal(sym *symbol) bool {
 // order: ifchandle/interface{} and isSignature never touch a raw PyObject
 // via this expression (a callback's wrapper re-acquires the GIL itself, see
 // shimABI.callbackArg), so they always report needsGIL=false, regardless of
-// the symbol's cgoname. Callers must call this once per argument for the
-// premarshal decision and again (with identical inputs) for the
-// call-argument expression -- because both calls run the same deterministic
-// logic, a "_premarshalN" can never be declared under one precedence and
-// then left unreferenced under another, the way it could when the two
-// decisions were made by separately maintained code.
+// the symbol's cgoname. genFuncBody calls it exactly once per argument and
+// uses the returned expression (or the premarshalled variable holding it)
+// at the call site, so a "_premarshalN" can never be declared under one
+// precedence and then left unreferenced under another.
 func (g *pyGen) argCallExpr(ifchandle, isVariadicTail bool, anm string, sym *symbol) (expr string, needsGIL bool) {
 	switch {
 	case ifchandle && sym.goname == "interface{}":
@@ -362,23 +360,23 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 		}
 	}
 
-	// Convert any argument whose marshalling touches a raw *C.PyObject while
-	// the GIL is still held -- before it is released below for the duration
-	// of the wrapped Go call. argCallExpr is also what decides each
-	// argument's call-site expression below, so a premarshalled variable is
-	// declared here if and only if it is also the expression consumed
-	// there.
-	premarshalled := make(map[int]string)
+	// Decide each argument's call-site expression once, up front, and convert
+	// any argument whose marshalling touches a raw *C.PyObject now, while the
+	// GIL is still held -- before saveThread releases it below for the
+	// duration of the wrapped Go call. The call-argument loop further down
+	// consumes argExprs as-is, so a premarshalled variable is declared here if
+	// and only if it is also the expression used at the call site.
+	argExprs := make([]string, len(args))
 	for i, arg := range args {
 		anm := pySafeArg(arg.Name(), i)
 		isVariadicTail := fsym.isVariadic && i == len(args)-1
 		expr, needsGIL := g.argCallExpr(ifchandle, isVariadicTail, anm, arg.sym)
-		if !needsGIL {
-			continue
+		if needsGIL {
+			varnm := fmt.Sprintf("_premarshal%d", i)
+			g.gofile.Printf("%s := %s\n", varnm, expr)
+			expr = varnm
 		}
-		varnm := fmt.Sprintf("_premarshal%d", i)
-		g.gofile.Printf("%s := %s\n", varnm, expr)
-		premarshalled[i] = varnm
+		argExprs[i] = expr
 	}
 
 	g.gofile.Print(g.shim.saveThread(!rvIsErr && nres != 2))
@@ -416,10 +414,7 @@ if __err != nil {
 	for i, arg := range args {
 		anm := pySafeArg(arg.Name(), i)
 		isVariadicTail := fsym.isVariadic && i == len(args)-1
-		na, needsGIL := g.argCallExpr(ifchandle, isVariadicTail, anm, arg.sym)
-		if needsGIL {
-			na = premarshalled[i]
-		}
+		na := argExprs[i]
 		if isVariadicTail {
 			na = na + "..."
 		}

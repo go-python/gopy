@@ -18,10 +18,10 @@ import "testing"
 // "_premarshalN declared and not used" -- a compile error surfacing in the
 // user's generated package, not in gopy.
 //
-// argCallExpr is the fix: both the premarshal pass and the call-argument
-// pass now call this single function with the same inputs, so a
-// premarshalled variable is declared if and only if it is also the
-// expression that gets used. This test exercises that precedence directly,
+// argCallExpr is the fix: genFuncBody calls this single function once per
+// argument and uses its result both for the premarshal decision and at the
+// call site, so a premarshalled variable is declared if and only if it is
+// also the expression that gets used. This test exercises that precedence directly,
 // including a contrived interface{}/*C.PyObject collision that cannot
 // happen with today's type table (interface{}'s cgoname is "*C.char") but
 // is exactly the shape the review warned about.
