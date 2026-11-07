@@ -1,4 +1,4 @@
-// Copyright 2017 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -10,6 +10,7 @@ import (
 )
 
 func TestGetGoVersion(t *testing.T) {
+	t.Parallel()
 	for _, tt := range []struct {
 		info  string
 		major int64
@@ -40,6 +41,7 @@ func TestGetGoVersion(t *testing.T) {
 }
 
 func TestExtractPythonName(t *testing.T) {
+	t.Parallel()
 	for _, tt := range []struct {
 		name     string
 		goDoc    string
@@ -71,6 +73,7 @@ func TestExtractPythonName(t *testing.T) {
 }
 
 func TestPythonConfig(t *testing.T) {
+	t.Parallel()
 	t.Skip()
 
 	for _, tc := range []struct {

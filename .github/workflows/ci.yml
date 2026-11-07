@@ -8,26 +8,49 @@ on:
 
 env:
   TAGS: "-tags=ci"
-  COVERAGE: "-coverpkg=github.com/go-python/gopy/..."
   # Init() in main_test will make sure all backends are available if
   # GOPY_TRAVIS_CI is set
   GOPY_TRAVIS_CI: 1
   GOTRACEBACK: crash
   GO111MODULE: auto
 
+# A new push to a pull request cancels its previous, now outdated, run.
+# Pushes to master always run to completion: each one adds to the coverage
+# and benchmark history.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
 
   build:
     name: Build (${{ matrix.platform }}, Go ${{ matrix.go-version }}, Python ${{ matrix.python-version }})
     strategy:
-      fail-fast: false
       matrix:
         # TODO: Consider official support matrix (OS and Go versions) and adjust this matrix accordingly
         go-version: [1.25.x, 1.24.x, 1.23.x, 1.22.x]
         platform: [ubuntu-latest, windows-latest, macos-15]
         python-version: ['3.11', '3.12']
     runs-on: ${{ matrix.platform }}
+    # A hung step fails here instead of at GitHub's 6h default.
+    timeout-minutes: 20
+    env:
+      # Coverage is measured on exactly one matrix leg, so the numbers stay
+      # comparable from commit to commit.
+      COVERAGE_LEG: ${{ matrix.platform == 'ubuntu-latest' && matrix.go-version == '1.25.x' && matrix.python-version == '3.12' }}
     steps:
+    # Real-time scanning inspects every file the compilers, linkers and pip
+    # write, which slows Windows jobs down.  Turned off first, so checkout and
+    # the Go/Python installs benefit too.  The status is printed before and
+    # after so the effect can be checked in the log.
+    - name: Disable Windows Defender real-time scanning
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled
+        Set-MpPreference -DisableRealtimeMonitoring $true
+        Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -45,18 +68,16 @@ jobs:
     - name: Install Linux packages
       if: matrix.platform == 'ubuntu-latest'
       run: |
-        sudo apt-get update
-        sudo apt-get install curl libffi-dev python3-cffi python3-pip
         # install pybindgen
         python3 -m pip install --user -U pybindgen
         # install goimports
-        go install golang.org/x/tools/cmd/goimports@latest
+        go install golang.org/x/tools/cmd/goimports@v0.29.0
 
     - name: Install macOS packages
       if: startsWith(matrix.platform, 'macos-')
       run: |
         python3 -m pip install -U pybindgen
-        go install golang.org/x/tools/cmd/goimports@latest
+        go install golang.org/x/tools/cmd/goimports@v0.29.0
 
     - name: Install Windows packages
       if: matrix.platform == 'windows-latest'
@@ -64,7 +85,7 @@ jobs:
         # install pybindgen and psutil (for memory tracking in tests)
         python -m pip install -U pybindgen psutil
         # install goimports
-        go install golang.org/x/tools/cmd/goimports@latest
+        go install golang.org/x/tools/cmd/goimports@v0.29.0
 
 
     - name: Build-Linux
@@ -72,9 +93,34 @@ jobs:
       run: |
         make
     - name: Test Linux
-      if: matrix.platform == 'ubuntu-latest'
+      if: matrix.platform == 'ubuntu-latest' && env.COVERAGE_LEG != 'true'
       run: |
         make test
+    - name: Test Linux (with coverage)
+      if: env.COVERAGE_LEG == 'true'
+      run: |
+        make cover
+    - name: Coverage summary
+      if: env.COVERAGE_LEG == 'true'
+      run: |
+        {
+          echo "## Test coverage"
+          echo
+          echo "Commit \`${GITHUB_SHA}\`: **$(go tool cover -func=coverage.out | tail -n 1 | awk '{print $NF}')** of statements"
+          echo
+          echo "<details><summary>Per-function coverage</summary>"
+          echo
+          echo '```'
+          go tool cover -func=coverage.out
+          echo '```'
+          echo "</details>"
+        } >> "$GITHUB_STEP_SUMMARY"
+    - name: Upload coverage profile
+      if: env.COVERAGE_LEG == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage
+        path: coverage.out
 
     - name: Build-macOS
       if: startsWith(matrix.platform, 'macos-')
@@ -93,6 +139,185 @@ jobs:
       if: matrix.platform == 'windows-latest'
       run: |
         go test -v ./...
+    # Long-term history/trends. Needs a CODECOV_TOKEN repo secret (or
+    # tokenless uploads enabled for the org on codecov.io); without one this
+    # step only warns, and the step summary + artifact above still work.
     - name: Upload-Coverage
-      if: matrix.platform == 'ubuntu-latest'
-      uses: codecov/codecov-action@v4
+      if: env.COVERAGE_LEG == 'true'
+      uses: codecov/codecov-action@v5
+      with:
+        files: coverage.out
+        disable_search: true
+        token: ${{ secrets.CODECOV_TOKEN }}
+        fail_ci_if_error: false
+
+  # Builds and tests each opt-in backend (GOPY_BACKEND), beside the main
+  # matrix and on one Go version.  None installs pybindgen: no backend here
+  # may need it.
+  #   cffi:     loads the cgo shim at runtime, with no C compiler step.
+  #   pybind11: compiles a C++ module against the same shim (see plainCShim in
+  #             bind/plainc.go), so needs no extra system packages: a C++
+  #             compiler is already required for CGO_ENABLED=1 everywhere.
+  #   nanobind: as pybind11 (see buildCXXModule in cmd_build.go), and also
+  #             compiles nanobind's own runtime (nb_combined.cpp) into every
+  #             module.
+  #   capi:     builds exactly as the default backend does, except that
+  #             build.py writes the C module itself (see bind/capi_build.py).
+  backends:
+    name: ${{ matrix.backend }} backend (${{ matrix.platform }}, Python ${{ matrix.python-version }})
+    strategy:
+      matrix:
+        backend: [cffi, pybind11, nanobind, capi]
+        platform: [ubuntu-latest, windows-latest, macos-15]
+        python-version: ['3.11', '3.12']
+        include:
+          # CXX defaults to "c++" in buildCXXModule (cmd_build.go), which
+          # isn't a recognized command on windows-latest's MinGW toolchain (the
+          # same one CGO_ENABLED=1 already needs there, so no extra install is
+          # needed).  timeout raises go test's own default (10m): each test
+          # here compiles twice (cgo, then a separate C++ step), and once
+          # measured at ~18.5s/test average on windows-latest, 32 tests alone
+          # used 590s of the default budget.
+          - backend: pybind11
+            cxx: g++
+            timeout: 30m
+          - backend: nanobind
+            cxx: g++
+            timeout: 30m
+    runs-on: ${{ matrix.platform }}
+    # Above the longest go test -timeout (30m), so that go test's own timeout,
+    # with its stack dump, fires first.
+    timeout-minutes: 40
+    env:
+      GOPY_BACKEND: ${{ matrix.backend }}
+      CXX: ${{ matrix.cxx }}
+      # Each backend also uploads coverage from one leg: much of bind/ (and
+      # cmd_build.go) runs only under a given backend.  Codecov merges these
+      # with the build job's (default-backend) upload for the same commit.
+      COVERAGE_LEG: ${{ matrix.platform == 'ubuntu-latest' && matrix.python-version == '3.12' }}
+      # print the python stack if the process crashes, e.g. at exit
+      PYTHONFAULTHANDLER: 1
+    steps:
+    # Real-time scanning inspects every file the compilers, linkers and pip
+    # write, which slows Windows jobs down.  Turned off first, so checkout and
+    # the Go/Python installs benefit too.  The status is printed before and
+    # after so the effect can be checked in the log.
+    - name: Disable Windows Defender real-time scanning
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled
+        Set-MpPreference -DisableRealtimeMonitoring $true
+        Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: pip
+        cache-dependency-path: .github/requirements-${{ matrix.backend }}.txt
+
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.25.x
+        cache: true
+
+    - name: Install packages
+      run: |
+        python -m pip install -r .github/requirements-${{ matrix.backend }}.txt
+        go install golang.org/x/tools/cmd/goimports@v0.29.0
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Test
+      if: env.COVERAGE_LEG != 'true'
+      run: go test -v -timeout=${{ matrix.timeout || '10m' }} ./...
+
+    - name: Test (with coverage)
+      if: env.COVERAGE_LEG == 'true'
+      run: make cover
+
+    - name: Upload-Coverage
+      if: env.COVERAGE_LEG == 'true'
+      uses: codecov/codecov-action@v5
+      with:
+        files: coverage.out
+        disable_search: true
+        token: ${{ secrets.CODECOV_TOKEN }}
+        fail_ci_if_error: false
+
+  # Compares per-call overhead across backends (see _examples/bench/run.sh):
+  # not a pass/fail check, just a table uploaded as a build artifact.  Runs
+  # on ubuntu-latest only -- the comparison is between backends, not OSes.
+  benchmark:
+    name: benchmark backends
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.25.x
+        cache: true
+
+    - name: Install packages
+      run: |
+        python -m pip install pybindgen cffi pybind11 nanobind
+        go install golang.org/x/tools/cmd/goimports@v0.29.0
+
+    - name: Run benchmark
+      run: |
+        bash _examples/bench/run.sh | tee benchmark.txt
+        python _examples/bench/bench_json.py < benchmark.txt > benchmark.json
+
+    - name: Upload benchmark table
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark
+        path: |
+          benchmark.txt
+          benchmark.json
+
+    # The results of earlier runs on master, kept in the Actions cache (no
+    # branch or token needed): every run restores the latest, a pull request
+    # from its base branch's.
+    - name: Restore benchmark history
+      uses: actions/cache/restore@v4
+      with:
+        path: benchmark-history
+        key: benchmark-history-${{ github.run_id }}
+        restore-keys: benchmark-history-
+
+    # Compares with the latest master run in the job summary, warning (but
+    # never failing, since CI runners' timings are noisy) at 2x slower, and
+    # adds this run to the history.
+    - name: Compare with earlier runs
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        name: gopy backends
+        tool: customSmallerIsBetter
+        output-file-path: benchmark.json
+        external-data-json-path: benchmark-history/data.json
+        summary-always: true
+        fail-on-alert: false
+
+    # Only master's runs make up the history.
+    - name: Save benchmark history
+      if: github.event_name == 'push'
+      uses: actions/cache/save@v4
+      with:
+        path: benchmark-history
+        key: benchmark-history-${{ github.run_id }}

@@ -1,4 +1,4 @@
-// Copyright 2015 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -12,6 +12,7 @@ import (
 )
 
 func TestPrinter(t *testing.T) {
+	t.Parallel()
 	decl := &printer{
 		buf:        new(bytes.Buffer),
 		indentEach: []byte("\t"),

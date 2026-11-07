@@ -1,4 +1,4 @@
-// Copyright 2015 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -7,7 +7,6 @@ package bind
 import (
 	"fmt"
 	"go/types"
-	"hash/fnv"
 	"sort"
 	"strings"
 	"sync"
@@ -18,12 +17,6 @@ var (
 	universe      *symtab // universe contains Go global types that are not generated
 	current       *symtab // current contains all symbols from current multi-package gen run
 )
-
-func hash(s string) string {
-	h := fnv.New32a()
-	h.Write([]byte(s))
-	return fmt.Sprintf("0x%d", h.Sum32())
-}
 
 // symkind describes the kinds of symbol
 type symkind int
@@ -272,10 +265,6 @@ func (s *symbol) isMap() bool {
 	return (s.kind & skMap) != 0
 }
 
-func (s *symbol) isPySequence() bool {
-	return s.isArray() || s.isSlice() || s.isMap()
-}
-
 func (s *symbol) isSlice() bool {
 	return (s.kind & skSlice) != 0
 }
@@ -299,45 +288,11 @@ func (s *symbol) hasHandle() bool {
 	return !s.isBasic() && !s.isSignature()
 }
 
-func (s *symbol) hasConverter() bool {
-	return (s.go2py != "" || s.py2go != "")
-}
-
-func (s *symbol) pkgname() string {
-	if s.gopkg == nil {
-		return ""
-	}
-	return s.gopkg.Name()
-}
-
 func (s *symbol) GoType() types.Type {
 	if s.goobj != nil {
 		return s.goobj.Type()
 	}
 	return s.gotyp
-}
-
-func (s *symbol) cgotypename() string {
-	typ := s.gotyp
-	switch typ := typ.(type) {
-	case *types.Basic:
-		n := typ.Name()
-		if strings.HasPrefix(n, "untyped ") {
-			n = string(n[len("untyped "):])
-		}
-		return n
-	case *types.Named:
-		obj := s.goobj
-		switch typ.Underlying().(type) {
-		case *types.Struct:
-			return s.cgoname
-		case *types.Interface:
-			if obj.Name() == "error" {
-				return "error"
-			}
-		}
-	}
-	return s.cgoname
 }
 
 // pyPkgId returns the python package-qualified version of Id
@@ -444,22 +399,6 @@ func (sym *symtab) addImport(pkg *types.Package) string {
 	sym.importNames[unm] = p
 	sym.imports[p] = unm
 	return unm
-}
-
-func (sym *symtab) typeof(n string) *symbol {
-	s := sym.sym(n)
-	switch s.kind {
-	case skVar, skConst:
-		tname := sym.fullTypeString(s.goobj.Type())
-		return sym.sym(tname)
-	case skFunc:
-		//FIXME(sbinet): really?
-		return s
-	case skType:
-		return s
-	default:
-		panic(fmt.Errorf("unhandled symbol kind (%v)", s.kind))
-	}
 }
 
 // fullTypeString returns the fully-qualified type string with entire package import path
@@ -1263,14 +1202,6 @@ func (sym *symtab) addInterfaceType(pkg *types.Package, obj types.Object, t type
 		}
 	}
 	return nil
-}
-
-func (sym *symtab) print() {
-	fmt.Printf("\n\n%s\n", strings.Repeat("=", 80))
-	for _, n := range sym.names() {
-		fmt.Printf("%q (kind=%v)\n", n, sym.syms[n].kind)
-	}
-	fmt.Printf("%s\n", strings.Repeat("=", 80))
 }
 
 func init() {

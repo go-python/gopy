@@ -38,6 +38,7 @@ type BuildCfg struct {
 func NewBuildCfg() *BuildCfg {
 	var cfg BuildCfg
 	cfg.Cmd = argStr()
+	cfg.Version = Version
 	return &cfg
 }
 
@@ -49,6 +50,7 @@ func run(args []string) error {
 			gopyMakeCmdBuild(),
 			gopyMakeCmdPkg(),
 			gopyMakeCmdExe(),
+			gopyMakeCmdVersion(),
 		},
 		Flag: *flag.NewFlagSet("gopy", flag.ExitOnError),
 	}

@@ -1,0 +1,48 @@
+name: GoReleaser Check
+
+# Validates .goreleaser.yaml against a real snapshot build (cross-compile +
+# archive generation, no publish) so config/toolchain regressions surface on
+# the PR instead of after release-please has already cut a tag & GitHub
+# Release. See release-please.yml's `publish` job, which runs the real
+# `goreleaser release --clean` only after that release already exists.
+
+on:
+  pull_request:
+    branches: [ '**' ]
+    paths:
+      - '.goreleaser.yaml'
+      - '.github/workflows/goreleaser-check.yml'
+      - '.github/workflows/release-please.yml'
+      - 'go.mod'
+      - 'go.sum'
+      - 'version.go'
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Validate GoReleaser config
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: check
+
+      - name: Snapshot build (validates cross-compilation & archives)
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --snapshot --clean

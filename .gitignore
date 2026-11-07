@@ -1,3 +1,17 @@
 # IDE files
 .idea/
 *.iml
+
+# goreleaser build output
+/dist/
+
+# python bytecode caches
+__pycache__/
+*.py[co]
+
+# built by TestBindCgoLDFlags
+/_examples/cgoldflags/clib/*.a
+
+# 'make cover' output
+/coverage.out
+/covdata/

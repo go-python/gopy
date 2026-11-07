@@ -1,4 +1,4 @@
-# Copyright 2015 The go-python Authors.  All rights reserved.
+# Copyright 2015-present, The go-python Authors.  All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
@@ -18,6 +18,7 @@ fct()
 print("pkg.Add(1,2)= %s" % (pkg.Add(1,2),))
 print("pkg.Bool(True)= %s" % pkg.Bool(True))
 print("pkg.Bool(False)= %s" % pkg.Bool(False))
+print("pkg.Uint8(200)= %s" % pkg.Uint8(200))
 a = 3+4j
 b = 2+5j
 print("pkg.Comp64Add(%s, %s) = %s" % (a, b, pkg.Comp128Add(a, b)))

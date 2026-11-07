@@ -97,9 +97,10 @@ func TestArgCallExprPrecedenceMatchesPremarshalDecision(t *testing.T) {
 		},
 	}
 
+	g := &pyGen{shim: cpythonShim{}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotExpr, gotNeedsGIL := argCallExpr(tt.ifchandle, tt.isVariadic, "x", tt.sym)
+			gotExpr, gotNeedsGIL := g.argCallExpr(tt.ifchandle, tt.isVariadic, "x", tt.sym)
 			if gotExpr != tt.wantExpr {
 				t.Errorf("argCallExpr() expr = %q, want %q", gotExpr, tt.wantExpr)
 			}

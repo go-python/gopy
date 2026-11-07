@@ -1,4 +1,4 @@
-// Copyright 2015 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -15,6 +15,11 @@ func Add(i, j int) int {
 
 func Bool(b bool) bool {
 	return b
+}
+
+// Uint8 returns u, which may be past int8's range (128-255).
+func Uint8(u uint8) uint8 {
+	return u
 }
 
 func Comp64Add(i, j complex64) complex64 {

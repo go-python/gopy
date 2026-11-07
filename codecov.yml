@@ -1,0 +1,18 @@
+# Coverage is tracked over time, not enforced: Codecov reports changes on
+# PRs but never fails a check because of them.
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+# Go profiles mark a line "partial" when it holds more than one block and
+# only some ran, typically `if err != nil {` whose condition ran but whose
+# body didn't.  The body's own lines already count as misses, and go tool
+# cover counts the condition as covered, so count the line as a hit too.
+parsers:
+  go:
+    partials_as_hits: true

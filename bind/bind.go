@@ -1,4 +1,4 @@
-// Copyright 2015 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -7,9 +7,7 @@ package bind
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
-	"os"
 )
 
 // BindCfg is a configuration used during binding generation
@@ -28,6 +26,11 @@ type BindCfg struct {
 	PkgPrefix string
 	// rename Go exported symbols to python PEP snake_case
 	RenameCase bool
+	// gopy version string embedded in this binary, stamped into generated
+	// file headers so output can be traced back to the release that produced it
+	Version string
+	// tool used to bind the cgo shim to CPython, see BackendFromEnv
+	Backend Backend
 }
 
 // ErrorList is a list of errors
@@ -49,15 +52,4 @@ func (list *ErrorList) Error() error {
 		io.WriteString(buf, err.Error())
 	}
 	return errors.New(buf.String())
-}
-
-const (
-	doDebug = true
-)
-
-func debugf(format string, args ...interface{}) (int, error) {
-	if doDebug {
-		return fmt.Fprintf(os.Stderr, format, args...)
-	}
-	return 0, nil
 }

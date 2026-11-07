@@ -1,4 +1,4 @@
-// Copyright 2015 The go-python Authors.  All rights reserved.
+// Copyright 2015-present, The go-python Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -44,7 +44,7 @@ ex:
 	cmd.Flag.String("output", "", "output directory for root of package")
 	cmd.Flag.String("name", "", "name of output package (otherwise name of first package is used)")
 	cmd.Flag.String("main", "", "code string to run in the go main() function in the cgo library "+
-		"-- defaults to GoPyMainRun() but typically should be overriden")
+		"-- defaults to GoPyMainRun() but typically should be overridden")
 	// cmd.Flag.String("package-prefix", ".", "custom package prefix used when generating import "+
 	// 	"statements for generated package")
 	cmd.Flag.Bool("rename", false, "rename Go symbols to python PEP snake_case")
@@ -110,6 +110,14 @@ func gopyRunCmdExe(cmdr *commander.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	// GenPyPkgSetup chdirs into the output dir; restore the caller's cwd
+	// when we're done, so a run doesn't strand the process there.
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	defer os.Chdir(cwd)
 
 	setupfn := filepath.Join(cfg.OutputDir, "setup.py")
 
