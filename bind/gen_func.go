@@ -74,17 +74,18 @@ func (g *pyGen) genFuncSig(sym *symbol, fsym *Func) bool {
 			return false
 		}
 		anm := pySafeArg(arg.Name(), i)
+		goAnm := goSafeArg(arg.Name(), i, fsym.pkg.Name())
 
-		cbGoArg, cbPyArg, isCb := g.shim.callbackParam(g, anm, sarg)
+		cbGoArg, cbPyArg, isCb := g.shim.callbackParam(g, goAnm, sarg)
 		switch {
 		case isCb:
 			goArgs = append(goArgs, cbGoArg)
 			pyArgs = append(pyArgs, cbPyArg)
 		case ifchandle && arg.sym.goname == "interface{}":
-			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, CGoHandle))
+			goArgs = append(goArgs, fmt.Sprintf("%s %s", goAnm, CGoHandle))
 			pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", PyHandle, anm))
 		default:
-			goArgs = append(goArgs, fmt.Sprintf("%s %s", anm, sarg.cgoname))
+			goArgs = append(goArgs, fmt.Sprintf("%s %s", goAnm, sarg.cgoname))
 			if sarg.cpyname == "PyObject*" {
 				pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s', transfer_ownership=False)", sarg.cpyname, anm))
 			} else {
@@ -233,10 +234,11 @@ func (g *pyGen) genFuncComplexPlainC(fsym *Func) bool {
 	var goArgs, pyArgs, callArgs, wpArgs []string
 	for i, arg := range args {
 		anm := pySafeArg(arg.Name(), i)
+		goAnm := goSafeArg(arg.Name(), i, fsym.pkg.Name())
 		sarg := current.symtype(arg.GoType())
-		goArgs = append(goArgs, g.cgoParam(anm, sarg))
+		goArgs = append(goArgs, g.cgoParam(goAnm, sarg))
 		pyArgs = append(pyArgs, fmt.Sprintf("param('%s', '%s')", g.cpyName(sarg), anm))
-		callArgs = append(callArgs, g.cgoToGo(sarg, anm))
+		callArgs = append(callArgs, g.cgoToGo(sarg, goAnm))
 		wpArgs = append(wpArgs, anm)
 	}
 
@@ -314,7 +316,7 @@ func (g *pyGen) genFuncBody(sym *symbol, fsym *Func) {
 	if fsym.hasfun {
 		for i, arg := range args {
 			if arg.sym.isSignature() {
-				g.gofile.Print(g.shim.callbackPrologue(pySafeArg(arg.Name(), i)))
+				g.gofile.Print(g.shim.callbackPrologue(goSafeArg(arg.Name(), i, fsym.pkg.Name())))
 			}
 		}
 	}
@@ -354,15 +356,16 @@ if __err != nil {
 	for i, arg := range args {
 		na := ""
 		anm := pySafeArg(arg.Name(), i)
+		goAnm := goSafeArg(arg.Name(), i, fsym.pkg.Name())
 		switch {
 		case ifchandle && arg.sym.goname == "interface{}":
-			na = fmt.Sprintf(`gopyh.VarFromHandle((gopyh.CGoHandle)(%s), "interface{}")`, anm)
+			na = fmt.Sprintf(`gopyh.VarFromHandle((gopyh.CGoHandle)(%s), "interface{}")`, goAnm)
 		case arg.sym.isSignature():
-			na = g.shim.callbackArg(g, anm, arg.sym)
+			na = g.shim.callbackArg(g, goAnm, arg.sym)
 		case arg.sym.py2go != "":
-			na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, anm, arg.sym.py2goParenEx)
+			na = fmt.Sprintf("%s(%s)%s", arg.sym.py2go, goAnm, arg.sym.py2goParenEx)
 		default:
-			na = anm
+			na = goAnm
 		}
 		if i == len(args)-1 && fsym.isVariadic {
 			na = na + "..."
