@@ -56,6 +56,7 @@ var (
 		"_examples/gilstring":   []string{"py3"},
 		"_examples/callbacks":   []string{"py3"},
 		"_examples/cgoldflags":  []string{"py3"},
+		"_examples/packet":      []string{"py3"},
 	}
 
 	testEnvironment = os.Environ()
@@ -1293,6 +1294,26 @@ Variadic 1+2+3+4+5 = 15
 Variadic Struct s(1)+s(2)+s(3) = 6
 Variadic InterFace i(1)+i(2)+i(3) = 6
 Type OK
+`),
+	})
+}
+
+func TestPacket(t *testing.T) {
+	t.Parallel()
+	path := "_examples/packet"
+	testPkg(t, pkg{
+		path:   path,
+		lang:   features[path],
+		cmd:    "build",
+		extras: nil,
+		want: []byte(`GoPacketToBytes(3, p) = 3/ping:7
+GoPacketToBytes(shieldID=4, packet=p) = 4/ping:7
+PingID(p) = 7
+Double(21) = 42
+p.Add(3) = 10
+Double(packet=5) = 10
+p.Add(packet=1) = 8
+Apply(4, square) = 16
 `),
 	})
 }
