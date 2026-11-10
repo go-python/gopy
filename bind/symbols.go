@@ -88,6 +88,16 @@ func pySafeArg(anm string, idx int) string {
 	return pySafeName(anm)
 }
 
+// goSafeArg returns the name of an arg in the generated go code: pySafeArg,
+// renamed if it would shadow pkgnm, which that code qualifies calls with.
+func goSafeArg(anm string, idx int, pkgnm string) string {
+	anm = pySafeArg(anm, idx)
+	if anm == pkgnm {
+		return "_" + anm
+	}
+	return anm
+}
+
 // isPyCompatVar checks if var is compatible with python
 func isPyCompatVar(v *symbol) error {
 	if v == nil {

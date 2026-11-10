@@ -23,6 +23,7 @@ _examples/lot | yes
 _examples/maps | yes
 _examples/named | yes
 _examples/osfile | yes
+_examples/packet | yes
 _examples/pkgconflict | yes
 _examples/pointers | yes
 _examples/pyerrors | yes
