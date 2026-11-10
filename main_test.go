@@ -1242,11 +1242,31 @@ func TestGilString(t *testing.T) {
 // (complex*GoToPy) takes the GIL itself and is not what this test covers.
 func TestComplexArgGIL(t *testing.T) {
 	t.Parallel()
+	testExampleScript(t, "TestComplexArgGIL", "_examples/simple", "test_complex_args.py")
+}
+
+// TestCallbackRvalGIL is a regression test for the GIL handling of a Python
+// callback's return value. The generated wrapper (see addSignatureType in
+// bind/symbols.go) must convert that value to Go and release it before
+// PyGILState_Release. The test checks both:
+//   - a float64 callback that returns an int makes PyFloat_AsDouble run
+//     int.__float__, which segfaults if the GIL is already released;
+//   - a callback that keeps returning the same float must not raise that
+//     float's refcount, which it does if the result is never decref'd.
+func TestCallbackRvalGIL(t *testing.T) {
+	t.Parallel()
+	testExampleScript(t, "TestCallbackRvalGIL", "_examples/callbacks", "test_callback_rval.py")
+}
+
+// testExampleScript builds the example package at pkgPath, runs script (a
+// file in that package's directory) against it with every test backend, and
+// expects it to print exactly "OK".
+func testExampleScript(t *testing.T, testName, pkgPath, script string) {
 	backends := []string{"py3"}
 	for _, be := range backends {
 		vm, ok := testBackends[be]
 		if !ok || vm == "" {
-			t.Logf("Skipped testing backend %s for TestComplexArgGIL\n", be)
+			t.Logf("Skipped testing backend %s for %s\n", be, testName)
 			continue
 		}
 		t.Run(be, func(t *testing.T) {
@@ -1260,20 +1280,19 @@ func TestComplexArgGIL(t *testing.T) {
 			defer os.RemoveAll(workdir)
 
 			writeGoMod(t, cwd, workdir)
-			if err := runGopy([]string{"build", "-vm=" + vm, "-output=" + workdir, "-package-prefix", "", "./_examples/simple"}); err != nil {
-				t.Fatalf("error building simple: %v", err)
+			if err := runGopy([]string{"build", "-vm=" + vm, "-output=" + workdir, "-package-prefix", "", "./" + pkgPath}); err != nil {
+				t.Fatalf("error building %s: %v", pkgPath, err)
 			}
 
-			tstDst := filepath.Join(workdir, "test_complex_args.py")
-			if err := copyCmd(filepath.Join(cwd, "_examples/simple/test_complex_args.py"), tstDst); err != nil {
-				t.Fatalf("error copying test_complex_args.py: %v", err)
+			if err := copyCmd(filepath.Join(cwd, pkgPath, script), filepath.Join(workdir, script)); err != nil {
+				t.Fatalf("error copying %s: %v", script, err)
 			}
 
 			env := make([]string, len(testEnvironment))
 			copy(env, testEnvironment)
 			env = append(env, fmt.Sprintf("PYTHONPATH=%s", workdir))
 
-			cmd := exec.Command(vm, "./test_complex_args.py")
+			cmd := exec.Command(vm, "./"+script)
 			cmd.Env = env
 			cmd.Dir = workdir
 			cmd.Stdin = os.Stdin
