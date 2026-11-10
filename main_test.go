@@ -1232,21 +1232,21 @@ func TestGilString(t *testing.T) {
 	}
 }
 
-// TestComplexGILStress is a regression/stress test for the complex64/128
-// GIL-handling fix. Comp64Add/Comp128Add marshal a raw *C.PyObject on both
-// sides of the call (PyComplex_AsCComplex on the argument-read side,
-// PyComplex_FromDoubles on the return side); both must run while the GIL is
-// held, since gopy releases it only around the pure-Go call in between. This
-// repeatedly exercises the round trip under GC/allocation pressure from a
-// background thread so a mis-timed marshalling window has a chance to
-// surface as corruption rather than passing silently.
-func TestComplexGILStress(t *testing.T) {
+// TestComplexArgGIL is a regression test for the complex64/128 GIL-handling
+// fix. A complex argument is converted with PyComplex_AsCComplex, which must
+// run before gopy releases the GIL for the wrapped Go call. Exact `complex`
+// values cannot catch a regression, since converting one is a plain struct
+// read. The test passes floats and ints instead. Converting those runs
+// Python code, so the generated module segfaults if the conversion runs
+// after the GIL is released. The return-side conversion
+// (complex*GoToPy) takes the GIL itself and is not what this test covers.
+func TestComplexArgGIL(t *testing.T) {
 	t.Parallel()
 	backends := []string{"py3"}
 	for _, be := range backends {
 		vm, ok := testBackends[be]
 		if !ok || vm == "" {
-			t.Logf("Skipped testing backend %s for TestComplexGILStress\n", be)
+			t.Logf("Skipped testing backend %s for TestComplexArgGIL\n", be)
 			continue
 		}
 		t.Run(be, func(t *testing.T) {
@@ -1264,16 +1264,16 @@ func TestComplexGILStress(t *testing.T) {
 				t.Fatalf("error building simple: %v", err)
 			}
 
-			tstDst := filepath.Join(workdir, "test_complex_stress.py")
-			if err := copyCmd(filepath.Join(cwd, "_examples/simple/test_complex_stress.py"), tstDst); err != nil {
-				t.Fatalf("error copying test_complex_stress.py: %v", err)
+			tstDst := filepath.Join(workdir, "test_complex_args.py")
+			if err := copyCmd(filepath.Join(cwd, "_examples/simple/test_complex_args.py"), tstDst); err != nil {
+				t.Fatalf("error copying test_complex_args.py: %v", err)
 			}
 
 			env := make([]string, len(testEnvironment))
 			copy(env, testEnvironment)
 			env = append(env, fmt.Sprintf("PYTHONPATH=%s", workdir))
 
-			cmd := exec.Command(vm, "./test_complex_stress.py")
+			cmd := exec.Command(vm, "./test_complex_args.py")
 			cmd.Env = env
 			cmd.Dir = workdir
 			cmd.Stdin = os.Stdin
