@@ -1252,7 +1252,11 @@ func TestComplexArgGIL(t *testing.T) {
 //   - a float64 callback that returns an int makes PyFloat_AsDouble run
 //     int.__float__, which segfaults if the GIL is already released;
 //   - a callback that keeps returning the same float must not raise that
-//     float's refcount, which it does if the result is never decref'd.
+//     float's refcount, which it does if the result is never decref'd; nor
+//     may one with no result raise the refcount of what it returns;
+//   - a result that fails to convert gets reported, not left pending;
+//   - a callback that raises gives Go the zero value, rather than converting
+//     a NULL result (a SystemError, or a segfault for a string).
 func TestCallbackRvalGIL(t *testing.T) {
 	t.Parallel()
 	testExampleScript(t, "TestCallbackRvalGIL", "_examples/callbacks", "test_callback_rval.py")

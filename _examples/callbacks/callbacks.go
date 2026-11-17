@@ -74,6 +74,12 @@ func Apply(x float64, f func(x float64) float64) float64 {
 	return f(x)
 }
 
+// Label returns f(i). The plain-C backends skip it: they can't take a string
+// back from Python.
+func Label(i int, f func(i int) string) string {
+	return f(i)
+}
+
 // Counter counts how many times it has been visited.
 type Counter struct {
 	N int

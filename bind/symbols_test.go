@@ -47,16 +47,20 @@ func TestAddSignatureTypeHoldsGILThroughoutClosure(t *testing.T) {
 	ensureIdx := strings.Index(got, "C.PyGILState_Ensure()")
 	lastTupleIdx := strings.LastIndex(got, "C.PyTuple_")
 	callIdx := strings.Index(got, "C.PyObject_CallObject(")
+	nilIdx := strings.Index(got, "if _fcret == nil {")
 	convIdx := strings.Index(got, "C.PyBytes_AsString(_fcret)")
 	decrefIdx := strings.Index(got, "C.gopy_decref(_fcret)")
+	errIdx := strings.LastIndex(got, "C.gopy_err_handle()")
 	releaseIdx := strings.LastIndex(got, "C.PyGILState_Release(_gstate)")
 
 	for name, idx := range map[string]int{
 		"PyGILState_Ensure":        ensureIdx,
 		"PyTuple_*":                lastTupleIdx,
 		"PyObject_CallObject":      callIdx,
+		"_fcret == nil":            nilIdx,
 		"PyBytes_AsString":         convIdx,
 		"gopy_decref(_fcret)":      decrefIdx,
+		"final gopy_err_handle":    errIdx,
 		"final PyGILState_Release": releaseIdx,
 	} {
 		if idx == -1 {
@@ -66,10 +70,37 @@ func TestAddSignatureTypeHoldsGILThroughoutClosure(t *testing.T) {
 
 	// Everything that touches a PyObject -- building the tuple, invoking
 	// the callback, converting and decref'ing the result -- must occur
-	// strictly between the Ensure and the final Release.
-	if !(ensureIdx < lastTupleIdx && lastTupleIdx < callIdx && callIdx < convIdx &&
-		convIdx < releaseIdx && decrefIdx < releaseIdx) {
+	// strictly between the Ensure and the final Release. The result is
+	// converted only once it is known not to be NULL, and before the decref
+	// that may free what the conversion reads. Errors are reported after
+	// the conversion, which can raise one of its own.
+	if !(ensureIdx < lastTupleIdx && lastTupleIdx < callIdx && callIdx < nilIdx &&
+		nilIdx < convIdx && convIdx < decrefIdx && convIdx < errIdx &&
+		decrefIdx < releaseIdx && errIdx < releaseIdx) {
 		t.Fatalf("generated closure does not hold the GIL across the entire "+
-			"build-tuple/call/convert/decref sequence:\n%s", got)
+			"build-tuple/call/check/convert/decref/report sequence:\n%s", got)
+	}
+}
+
+// TestAddSignatureTypeVoidDecrefsResult checks that a callback with no
+// result still releases the object the Python callable returned.
+func TestAddSignatureTypeVoidDecrefsResult(t *testing.T) {
+	sig := types.NewSignature(nil, nil, nil, false)
+
+	if err := current.addSignatureType(nil, nil, sig, 0, "sigtest_void_id", "sigtest_void"); err != nil {
+		t.Fatalf("addSignatureType returned error: %v", err)
+	}
+
+	sym := current.symtype(sig)
+	if sym == nil {
+		t.Fatalf("addSignatureType did not register a symbol for %s", current.fullTypeString(sig))
+	}
+	got := sym.py2go
+
+	callIdx := strings.Index(got, "_fcret := C.PyObject_CallObject(")
+	decrefIdx := strings.Index(got, "C.gopy_decref(_fcret)")
+	releaseIdx := strings.LastIndex(got, "C.PyGILState_Release(_gstate)")
+	if callIdx == -1 || decrefIdx == -1 || !(callIdx < decrefIdx && decrefIdx < releaseIdx) {
+		t.Fatalf("generated closure does not decref the callable's result before releasing the GIL:\n%s", got)
 	}
 }

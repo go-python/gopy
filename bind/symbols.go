@@ -1003,12 +1003,10 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 	if rets.Len() > 1 {
 		return fmt.Errorf("multiple return values not supported")
 	}
-	retstr := ""
 	var ret *types.Var
 	var rsym *symbol
 
 	if rets.Len() == 1 {
-		retstr = "_fcret := "
 		ret = rets.At(0)
 		rsym = sym.symtype(ret.Type())
 		if rsym == nil {
@@ -1037,52 +1035,58 @@ func (sym *symtab) addSignatureType(pkg *types.Package, obj types.Object, t type
 
 	py2g += "_gstate := C.PyGILState_Ensure()\n"
 
-	// TODO: use strings.Builder
-	if rets.Len() == 0 {
-		py2g += "if C.PyCallable_Check(_fun_arg) == 0 {\n"
-		py2g += "C.PyGILState_Release(_gstate)\n" // Release GIL
-		py2g += "return\n"
-		py2g += "}\n"
-	} else {
+	// zret returns the zero value of the closure's result, if any.
+	zret := "return\n"
+	if rets.Len() == 1 {
 		zstr, err := sym.ZeroToGo(ret.Type(), rsym)
 		if err != nil {
 			return err
 		}
-		py2g += "if C.PyCallable_Check(_fun_arg) == 0 {\n"
-		py2g += "C.PyGILState_Release(_gstate)\n" // Release GIL
-		py2g += fmt.Sprintf("return %s\n", zstr)
-		py2g += "}\n"
+		zret = fmt.Sprintf("return %s\n", zstr)
 	}
+
+	// TODO: use strings.Builder
+	py2g += "if C.PyCallable_Check(_fun_arg) == 0 {\n"
+	py2g += "C.PyGILState_Release(_gstate)\n" // Release GIL
+	py2g += zret
+	py2g += "}\n"
 
 	if nargs > 0 {
 		bstr, err := sym.buildTuple(args, "_fcargs", "_fun_arg")
 		if err != nil {
 			return err
 		}
-		py2g += bstr + retstr
-		py2g += "C.PyObject_CallObject(_fun_arg, _fcargs)\n"
+		py2g += bstr
+		py2g += "_fcret := C.PyObject_CallObject(_fun_arg, _fcargs)\n"
 		py2g += "C.gopy_decref(_fcargs)\n"
 	} else {
 		// TODO: methods not supported for no-args case -- requires self arg..
-		py2g += retstr + "C.PyObject_CallObject(_fun_arg, nil)\n"
+		py2g += "_fcret := C.PyObject_CallObject(_fun_arg, nil)\n"
 	}
-	py2g += "C.gopy_err_handle()\n"
-	// _fcret (if any) is a *C.PyObject -- a new reference returned by
-	// PyObject_CallObject. Converting it to a Go value (pyObjectToGo, e.g.
-	// PyLong_AsLongLong/PyBytes_AsString) and decref'ing it both touch a
-	// raw PyObject and so must happen before PyGILState_Release, not after.
-	// The converted value is stashed in a local so it can still be returned
-	// once the GIL is no longer held.
-	if rets.Len() == 1 {
+	// _fcret is a new reference, or NULL if the callable raised. Converting
+	// it to a Go value (pyObjectToGo, e.g. PyLong_AsLongLong/
+	// PyBytes_AsString) and decref'ing it both touch a raw PyObject, so must
+	// happen before PyGILState_Release. The conversion can raise too, so
+	// errors are reported after it. The converted value is stashed in a local
+	// so it can still be returned once the GIL is no longer held.
+	if rets.Len() == 0 {
+		py2g += "C.gopy_decref(_fcret)\n"
+		py2g += "C.gopy_err_handle()\n"
+		py2g += "C.PyGILState_Release(_gstate)\n"
+	} else {
 		cvt, err := sym.pyObjectToGo(ret.Type(), rsym, "_fcret")
 		if err != nil {
 			return err
 		}
+		py2g += "if _fcret == nil {\n"
+		py2g += "C.gopy_err_handle()\n"
+		py2g += "C.PyGILState_Release(_gstate)\n"
+		py2g += zret
+		py2g += "}\n"
 		py2g += fmt.Sprintf("_fcretgo := %s\n", cvt)
 		py2g += "C.gopy_decref(_fcret)\n"
-	}
-	py2g += "C.PyGILState_Release(_gstate)\n"
-	if rets.Len() == 1 {
+		py2g += "C.gopy_err_handle()\n"
+		py2g += "C.PyGILState_Release(_gstate)\n"
 		py2g += "return _fcretgo"
 	}
 	py2g += "}"
