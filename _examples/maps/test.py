@@ -52,4 +52,9 @@ print('maps.Values from Python dictionary:', maps.Values(maps.Map_int_float64(b)
 del a[1]
 print('deleted 1 from a:', a)
 
+# regression test for issue #360: int values inside a map[string]interface{}
+# must come back as the actual int, not Go's "%!s(int=1)" error string.
+c = maps.StringInterfaceMap()
+print('maps.StringInterfaceMap()["id"]:', c['id'])
+
 print("OK")

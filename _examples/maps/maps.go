@@ -43,3 +43,12 @@ func Values(t map[int]float64) []float64 {
 	sort.Float64s(values)
 	return values
 }
+
+// StringInterfaceMap reproduces issue #360: a map[string]interface{} whose
+// values are non-string types (e.g. int) was rendered using Go's fmt "%s"
+// verb, producing "%!s(int=1)" instead of the actual value "1".
+func StringInterfaceMap() map[string]interface{} {
+	return map[string]interface{}{
+		"id": 1,
+	}
+}
